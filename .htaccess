@@ -1,0 +1,74 @@
+# ═══════════════════════════════════════════════════════
+#  SM Travel — Configuration Hostinger
+# ═══════════════════════════════════════════════════════
+
+# ── Force HTTPS ──────────────────────────────────────────
+RewriteEngine On
+RewriteCond %{HTTPS} off
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# ── Redirection www → sans www (ou inverse, au choix) ────
+# RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+# RewriteRule ^ https://%1%{REQUEST_URI} [L,R=301]
+
+# ── Interdire la navigation dans les dossiers ─────────────
+Options -Indexes
+
+# ── En-têtes de sécurité ──────────────────────────────────
+<IfModule mod_headers.c>
+
+  # Anti-clickjacking
+  Header always set X-Frame-Options "SAMEORIGIN"
+
+  # Empêche le navigateur de deviner le type MIME
+  Header always set X-Content-Type-Options "nosniff"
+
+  # Politique de référent
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+  # Permissions des API navigateur (micro, caméra, géoloc désactivés)
+  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+
+  # Content Security Policy
+  # - Autorise Tailwind CDN, Google Fonts, n8n webhooks
+  # - Bloque tout le reste (iframes, objets, etc.)
+  Header always set Content-Security-Policy "\
+default-src 'self'; \
+script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; \
+style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; \
+font-src 'self' https://fonts.gstatic.com; \
+img-src 'self' data: https://lh3.googleusercontent.com; \
+connect-src 'self' https://antigoneconsulting.app.n8n.cloud https://www.google.com/recaptcha/; \
+media-src 'self'; \
+frame-src https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/; \
+frame-ancestors 'none'; \
+object-src 'none'; \
+base-uri 'self';"
+
+  # Supprime la version du serveur
+  Header unset Server
+  Header always unset X-Powered-By
+
+</IfModule>
+
+# ── Cache navigateur pour les assets statiques ────────────
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/png  "access plus 1 month"
+  ExpiresByType image/jpeg "access plus 1 month"
+  ExpiresByType image/webp "access plus 1 month"
+  ExpiresByType audio/mpeg "access plus 1 month"
+  ExpiresByType text/css   "access plus 1 week"
+  ExpiresByType application/javascript "access plus 1 week"
+</IfModule>
+
+# ── Compression gzip ─────────────────────────────────────
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript text/plain
+</IfModule>
+
+# ── Pages légales (URLs propres via dossiers /index.html) ─
+DirectoryIndex index.html
+
+# ── Page d'erreur personnalisée ──────────────────────────
+ErrorDocument 404 /index.html

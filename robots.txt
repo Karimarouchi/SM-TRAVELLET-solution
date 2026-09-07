@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+Allow: /conditions-generales-de-vente/
+Allow: /politique-annulation-remboursement/
+Allow: /mentions-legales/
+Allow: /politique-confidentialite/
+Allow: /politique-cookies/
+
+Sitemap: https://www.smtravel.fr/sitemap.xml

@@ -1,0 +1,27 @@
+{
+  "name": "sm-travelle",
+  "version": "1.0.0",
+  "description": "��#\u0000 \u0000S\u0000M\u0000-\u0000T\u0000r\u0000a\u0000v\u0000e\u0000l\u0000\r\u0000 \u0000#\u0000 \u0000S\u0000M\u0000-\u0000T\u0000R\u0000A\u0000V\u0000E\u0000L\u0000L\u0000E\u0000\r\u0000 \u0000",
+  "main": "index.js",
+  "scripts": {
+    "build:css": "tailwindcss -i ./tailwind.input.css -o ./tailwind.css --minify",
+    "watch:css": "tailwindcss -i ./tailwind.input.css -o ./tailwind.css --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Karimarouchi/SM-TRAVELLE.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Karimarouchi/SM-TRAVELLE/issues"
+  },
+  "homepage": "https://github.com/Karimarouchi/SM-TRAVELLE#readme",
+  "devDependencies": {
+    "@tailwindcss/container-queries": "^0.1.1",
+    "@tailwindcss/forms": "^0.5.11",
+    "tailwindcss": "^3.4.17"
+  }
+}

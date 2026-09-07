@@ -1,0 +1,402 @@
+/* Pages légales — SM Travel (cohérent avec la charte existante) */
+
+:root {
+  --legal-brand: #6d28d9;
+  --legal-brand-dark: #4c1d95;
+  --legal-dark: #0f172a;
+  --legal-muted: #64748b;
+  --legal-mid: #334155;
+  --legal-border: #e2e8f0;
+  --legal-surface: #f8fafc;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body.legal-body {
+  margin: 0;
+  background: #fff;
+  color: var(--legal-dark);
+  font-family: 'Be Vietnam Pro', sans-serif;
+  overflow-x: hidden;
+  line-height: 1.7;
+}
+
+.legal-site-header {
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #0f172a 100%);
+  border-bottom: 1px solid rgba(167, 139, 250, 0.2);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.legal-site-header__inner {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.legal-site-header__logo {
+  height: 2rem;
+  width: auto;
+  display: block;
+}
+
+.legal-site-header__nav {
+  display: none;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.legal-site-header__nav a {
+  color: rgba(255, 255, 255, 0.82);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.legal-site-header__nav a:hover,
+.legal-site-header__nav a:focus-visible {
+  color: #fff;
+  outline: none;
+}
+
+.legal-site-header__cta {
+  display: inline-flex;
+  align-items: center;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.55rem 1.15rem;
+  border-radius: 999px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.legal-site-header__cta:hover,
+.legal-site-header__cta:focus-visible {
+  background: #fff;
+  color: var(--legal-brand);
+  outline: none;
+}
+
+@media (min-width: 768px) {
+  .legal-site-header__nav {
+    display: flex;
+  }
+}
+
+.legal-main {
+  background:
+    radial-gradient(circle at top right, rgba(109, 40, 217, 0.06), transparent 40%),
+    linear-gradient(180deg, #f8fafc 0%, #ffffff 28%, #ffffff 100%);
+  min-height: 60vh;
+}
+
+.legal-shell {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 4rem;
+}
+
+@media (min-width: 768px) {
+  .legal-shell {
+    padding: 3.5rem 1.5rem 5rem;
+  }
+}
+
+.legal-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--legal-brand);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+  margin-bottom: 1.5rem;
+}
+
+.legal-back:hover,
+.legal-back:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}
+
+.legal-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #ede9fe;
+  color: var(--legal-brand);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  margin-bottom: 1rem;
+}
+
+.legal-shell h1 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  line-height: 1.2;
+  font-weight: 800;
+  color: var(--legal-dark);
+  margin: 0 0 0.75rem;
+}
+
+.legal-updated {
+  color: var(--legal-muted);
+  font-size: 0.95rem;
+  margin: 0 0 2rem;
+}
+
+.legal-toc {
+  background: #fff;
+  border: 1px solid var(--legal-border);
+  border-radius: 1rem;
+  padding: 1.25rem 1.35rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 18px rgba(15, 23, 42, 0.04);
+}
+
+.legal-toc__title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--legal-brand);
+  margin: 0 0 0.75rem;
+}
+
+.legal-toc ol {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.legal-toc a {
+  color: var(--legal-mid);
+  text-decoration: none;
+  font-size: 0.92rem;
+}
+
+.legal-toc a:hover,
+.legal-toc a:focus-visible {
+  color: var(--legal-brand);
+  text-decoration: underline;
+  outline: none;
+}
+
+.legal-content {
+  font-size: 1rem;
+  color: var(--legal-mid);
+}
+
+.legal-content > section,
+.legal-article {
+  background: #fff;
+  border: 1px solid var(--legal-border);
+  border-radius: 1rem;
+  padding: 1.35rem 1.25rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 14px rgba(15, 23, 42, 0.03);
+}
+
+@media (min-width: 768px) {
+  .legal-content > section,
+  .legal-article {
+    padding: 1.6rem 1.6rem;
+  }
+}
+
+.legal-content h2 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--legal-dark);
+  margin: 0 0 0.85rem;
+  line-height: 1.35;
+  scroll-margin-top: 5.5rem;
+}
+
+.legal-content h3 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--legal-dark);
+  margin: 1.25rem 0 0.65rem;
+}
+
+.legal-content p {
+  margin: 0 0 0.85rem;
+}
+
+.legal-content ul,
+.legal-content ol {
+  margin: 0 0 0.95rem;
+  padding-left: 1.2rem;
+}
+
+.legal-content li {
+  margin-bottom: 0.35rem;
+}
+
+.legal-content a {
+  color: var(--legal-brand);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.legal-content a:hover,
+.legal-content a:focus-visible {
+  color: var(--legal-brand-dark);
+  outline: none;
+}
+
+.legal-content strong {
+  color: var(--legal-dark);
+  font-weight: 600;
+}
+
+.legal-contact-card {
+  margin-top: 2rem;
+  background: linear-gradient(160deg, #0f172a 0%, #1e1040 60%, #0f172a 100%);
+  color: #e2e8f0;
+  border-radius: 1.15rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(109, 40, 217, 0.35);
+}
+
+.legal-contact-card__title {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 0.85rem;
+}
+
+.legal-contact-card__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+  font-size: 0.95rem;
+}
+
+.legal-contact-card a {
+  color: #c4b5fd;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.legal-contact-card a:hover,
+.legal-contact-card a:focus-visible {
+  color: #fff;
+  outline: none;
+}
+
+.legal-site-footer {
+  background: #0f172a;
+  color: #fff;
+  padding: 3rem 0 2rem;
+}
+
+.legal-site-footer__inner {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+.legal-site-footer__grid {
+  display: grid;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+@media (min-width: 768px) {
+  .legal-site-footer__grid {
+    grid-template-columns: 1.2fr 1fr 1fr;
+  }
+}
+
+.legal-site-footer__heading {
+  color: #94a3b8;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin: 0 0 0.85rem;
+  font-weight: 600;
+}
+
+.legal-site-footer__text {
+  color: #cbd5e1;
+  font-size: 0.9rem;
+  margin: 0 0 0.55rem;
+  line-height: 1.55;
+}
+
+.legal-site-footer__links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.legal-site-footer a {
+  color: #e2e8f0;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.legal-site-footer a:hover,
+.legal-site-footer a:focus-visible {
+  color: #c4b5fd;
+  outline: none;
+  text-decoration: underline;
+}
+
+.legal-site-footer__bottom {
+  border-top: 1px solid #1e293b;
+  padding-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  color: #64748b;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+@media (min-width: 768px) {
+  .legal-site-footer__bottom {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .legal-shell {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .legal-content {
+    font-size: 0.98rem;
+  }
+}
