@@ -47,7 +47,10 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sm_travel}
       NODE_ENV: production
     ports:
-      - "3001:3001"
+      # 3001 est déjà pris par une autre app sur ce VPS (coussin_frontoffice)
+      # -> port hôte 3002. Le port interne au conteneur reste 3001, inchangé.
+      # Lié à 127.0.0.1 : seul le nginx de l'hôte y accède, pas Internet direct.
+      - "127.0.0.1:3002:3001"
     volumes:
       # Les documents/avatars uploadés et les logs survivent aux
       # redéploiements du conteneur (corrige le risque de perte identifié
@@ -69,7 +72,9 @@ services:
     depends_on:
       - backend
     ports:
-      - "8080:80"
+      # 8080 est déjà pris par une autre app sur ce VPS (coussin_backend)
+      # -> port hôte 8081. Lié à 127.0.0.1 pour la même raison que le backend.
+      - "127.0.0.1:8081:80"
 
 volumes:
   sm_travel_pg:
