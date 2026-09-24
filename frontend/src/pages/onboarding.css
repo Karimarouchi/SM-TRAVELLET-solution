@@ -1,0 +1,62 @@
+.onboarding-root {
+  --ob-brand: #6d28d9;
+  min-height: 100vh;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  overflow-x: hidden;
+  overflow-y: auto;
+  color: #0f172a;
+  font-family: "Be Vietnam Pro", sans-serif;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(167, 139, 250, 0.3), transparent 32%),
+    radial-gradient(circle at 88% 82%, rgba(109, 40, 217, 0.38), transparent 36%),
+    linear-gradient(145deg, #0c1628 0%, #2e1065 42%, #4c1d95 72%, #6d28d9 100%);
+  background-size: 140% 140%;
+  animation: ob-bg-shift 16s ease-in-out infinite;
+}
+
+@keyframes ob-bg-shift {
+  0%, 100% { background-position: 0% 40%; }
+  50% { background-position: 100% 60%; }
+}
+
+.onboarding-root .ob-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(8px);
+  pointer-events: none;
+  opacity: 0.45;
+}
+
+.onboarding-root .ob-orb-1 {
+  width: 240px;
+  height: 240px;
+  background: #a78bfa;
+  top: -50px;
+  right: 8%;
+  animation: ob-float 9s ease-in-out infinite;
+}
+
+.onboarding-root .ob-orb-2 {
+  width: 170px;
+  height: 170px;
+  background: #6d28d9;
+  bottom: 6%;
+  left: 4%;
+  animation: ob-float 11s ease-in-out infinite reverse;
+}
+
+.onboarding-root .ob-orb-3 {
+  width: 96px;
+  height: 96px;
+  background: #c4b5fd;
+  top: 38%;
+  left: 16%;
+  animation: ob-float 7s ease-in-out infinite 1s;
+}
+
+@keyframes ob-float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-24px) scale(1.08); }
+}

@@ -1,0 +1,22 @@
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/tsconfig.tsbuildinfo
+backend/backend.log
+backend/node_modules/
+backend/.env
+backend/.env.production
+.env
+.env.production
+backend/logs/
+backend/data/users.json
+backend/uploads/avatars/*
+!backend/uploads/avatars/.gitkeep
+# Documents étudiants/visa uploadés (données personnelles) et images de
+# programmes : contenu généré à l'exécution, persistant via le volume Docker
+# en prod — ne doit jamais finir dans le dépôt git (a fortiori sur GitHub).
+backend/uploads/documents/*
+!backend/uploads/documents/.gitkeep
+backend/uploads/programmes/*
+!backend/uploads/programmes/.gitkeep
+.DS_Store

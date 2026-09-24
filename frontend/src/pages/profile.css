@@ -1,0 +1,44 @@
+.profile-root {
+  position: relative;
+  min-height: calc(100vh - 96px);
+}
+
+.profile-root .pf-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(10px);
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+.profile-root .pf-blob-1 {
+  width: 280px;
+  height: 280px;
+  background: #c4b5fd;
+  top: -80px;
+  right: -40px;
+  animation: pf-float 10s ease-in-out infinite;
+}
+
+.profile-root .pf-blob-2 {
+  width: 200px;
+  height: 200px;
+  background: #f0abfc;
+  bottom: 8%;
+  left: -60px;
+  animation: pf-float 12s ease-in-out infinite reverse;
+}
+
+.profile-root .pf-blob-3 {
+  width: 120px;
+  height: 120px;
+  background: #67e8f9;
+  top: 42%;
+  right: 12%;
+  animation: pf-float 8s ease-in-out infinite 0.6s;
+}
+
+@keyframes pf-float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-22px) scale(1.08); }
+}

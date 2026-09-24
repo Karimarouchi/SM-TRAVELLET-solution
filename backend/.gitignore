@@ -1,0 +1,11 @@
+data/users.json
+.env
+.env.production
+node_modules/
+*.log
+uploads/avatars/*
+!uploads/avatars/.gitkeep
+uploads/documents/*
+!uploads/documents/.gitkeep
+uploads/programmes/*
+!uploads/programmes/.gitkeep

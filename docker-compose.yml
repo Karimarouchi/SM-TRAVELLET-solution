@@ -1,0 +1,77 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: sm-travel-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Définissez POSTGRES_PASSWORD dans backend/.env}
+      POSTGRES_DB: ${POSTGRES_DB:-sm_travel}
+    ports:
+      # Lié à 127.0.0.1 uniquement : le backend joint postgres via le réseau
+      # Docker interne (nom de service), pas besoin d'exposer 5432 à
+      # Internet. Le binding local reste utile pour un accès en local
+      # (pg_dump manuel, client SQL) sans ouvrir le port sur le VPS.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - sm_travel_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sm_travel"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Services de production, backend + frontend conteneurisés ──
+  # Volontairement dans le profil "production" : `npm run dev:db` (donc
+  # `docker compose up -d` sans option) ne démarre toujours QUE postgres,
+  # comme avant — le workflow de dev (backend/frontend lancés sur l'hôte
+  # avec npm run dev:backend / dev:frontend) n'est pas affecté.
+  #
+  # Pour lancer la stack complète en mode prod :
+  #   docker compose --profile production up -d --build
+  backend:
+    profiles: ["production"]
+    build:
+      context: ./backend
+    container_name: sm-travel-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - backend/.env
+    environment:
+      # À l'intérieur du réseau Docker, Postgres est joignable via le nom du
+      # service ("postgres"), jamais "localhost" — ça écrase la valeur de
+      # backend/.env (prévue pour un backend lancé directement sur l'hôte).
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sm_travel}
+      NODE_ENV: production
+    ports:
+      - "3001:3001"
+    volumes:
+      # Les documents/avatars uploadés et les logs survivent aux
+      # redéploiements du conteneur (corrige le risque de perte identifié
+      # dans l'audit — tant que c'est le même hôte Docker).
+      - sm_travel_uploads:/app/uploads
+      - sm_travel_logs:/app/logs
+
+  frontend:
+    profiles: ["production"]
+    build:
+      context: ./frontend
+      args:
+        # URL publique de l'API backend, à définir dans le .env racine avant
+        # le build (ex: VITE_API_URL=https://api.smtravel.fr) — c'est une
+        # valeur Vite figée à la compilation, pas modifiable après coup.
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3001}
+    container_name: sm-travel-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  sm_travel_pg:
+  sm_travel_uploads:
+  sm_travel_logs:

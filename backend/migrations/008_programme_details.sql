@@ -1,0 +1,1 @@
+ALTER TABLE programmes ADD COLUMN IF NOT EXISTS details JSONB DEFAULT '[]'::jsonb;

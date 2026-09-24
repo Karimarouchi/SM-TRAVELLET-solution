@@ -1972,7 +1972,7 @@
       </a>
 
       <!-- Desktop links -->
-      <div class="hidden md:flex items-center gap-8">
+      <div class="hidden md:flex items-center gap-5 lg:gap-8">
         <a href="#accueil" class="nav-link active">Accueil</a>
         <a href="#programmes" class="nav-link">Programmes</a>
         <a href="#services" class="nav-link">Services</a>
@@ -1982,13 +1982,19 @@
         <a href="#contact" class="nav-link">Offre</a>
       </div>
 
-      <!-- CTA + burger -->
+      <!-- Auth + burger -->
       <div class="flex items-center gap-4">
-        <a id="navCta" href="#contact"
-          class="hidden md:inline-flex items-center gap-2 border-2 border-white/80 text-white hover:bg-white hover:text-brand font-semibold text-sm px-5 py-2.5 rounded-full transition-all">
-          Commencer
-          <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
-        </a>
+        <div id="navAuth" class="hidden md:flex items-center gap-2">
+          <a href="frontend/login.html"
+            class="nav-auth-btn inline-flex items-center gap-2 border-2 border-white/80 text-white hover:bg-white hover:text-brand font-semibold text-sm px-5 py-2.5 rounded-full transition-all">
+            Connexion
+          </a>
+          <a href="frontend/inscription.html"
+            class="nav-auth-btn inline-flex items-center gap-2 border-2 border-white/80 text-white hover:bg-white hover:text-brand font-semibold text-sm px-5 py-2.5 rounded-full transition-all">
+            S'inscrire
+            <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+          </a>
+        </div>
         <button id="burgerBtn" class="md:hidden p-2 rounded-lg" aria-label="Menu">
           <span class="material-symbols-outlined" style="color:#fff;transition:color .4s" id="burgerIcon">menu</span>
         </button>
@@ -2015,7 +2021,10 @@
         class="block text-mid font-medium py-2 hover:text-brand transition-colors">FAQ</a>
       <a href="#contact" onclick="closeMobile()"
         class="block text-mid font-medium py-2 hover:text-brand transition-colors">Offre</a>
-      <a href="#contact" class="mobile-menu-cta">Commencer</a>
+      <div id="mobileAuth">
+        <a href="frontend/login.html" class="mobile-menu-cta">Connexion</a>
+        <a href="frontend/inscription.html" class="mobile-menu-cta">S'inscrire</a>
+      </div>
     </div>
   </nav>
 
@@ -2119,257 +2128,51 @@
 
       </div>
 
-      <!-- Cards grid -->
-      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-
-        <article class="card group reveal delay-1">
-          <div class="h-56 overflow-hidden relative"
-            style="background:linear-gradient(135deg,#0f172a 0%,#4c1d95 52%,#1d4ed8 100%);">
-            <img src="IMAGE/bled/italie.jpg" alt="Italie" class="absolute inset-0 w-full h-full object-cover" / loading="lazy" decoding="async">
-            <div class="absolute inset-0 opacity-25"
-              style="background:radial-gradient(circle at top right,rgba(255,255,255,.28),transparent 42%),radial-gradient(circle at bottom left,rgba(255,255,255,.18),transparent 40%);">
-            </div>
-            <div class="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent"></div>
-            <div class="relative z-10 h-full p-6 flex items-start">
-              <span
-                class="inline-flex items-center rounded-full bg-black/45 text-white text-xs font-semibold px-3 py-1 backdrop-blur-sm">Italia</span>
-            </div>
+      <!-- Toolbar : recherche + filtre niveau -->
+      <div class="flex flex-col sm:flex-row sm:items-center gap-2.5 mb-8">
+        <div class="relative w-full sm:w-52">
+          <span class="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted text-[15px] leading-none">search</span>
+          <input id="programmesSearchInput" type="text" placeholder="Rechercher un pays…" autocomplete="off"
+            class="w-full rounded-full bg-white pl-9 pr-3 py-1.5 text-xs text-dark shadow-[0_2px_18px_rgba(15,23,42,.06)] outline-none ring-1 ring-black/5 transition focus:ring-2 focus:ring-brand/40" />
+        </div>
+        <div class="relative w-full sm:w-44" id="programmesLevelWrap">
+          <button type="button" id="programmesLevelBtn"
+            class="relative flex w-full items-center rounded-full bg-white py-1.5 pl-9 pr-8 text-xs font-semibold text-dark shadow-[0_2px_18px_rgba(15,23,42,.06)] outline-none ring-1 ring-black/5 transition hover:ring-brand/30">
+            <span class="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted text-[15px] leading-none">tune</span>
+            <span id="programmesLevelLabel" class="truncate">Tous les niveaux</span>
+            <span id="programmesLevelChevron" class="material-symbols-outlined pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted text-[16px] leading-none">expand_more</span>
+          </button>
+          <div id="programmesLevelMenu"
+            class="absolute left-0 top-full z-20 mt-2 hidden w-full min-w-[9rem] flex-col gap-0.5 overflow-hidden rounded-2xl bg-white p-1.5 shadow-xl ring-1 ring-black/5">
+            <button type="button" data-value="tous" class="prog-level-option w-full rounded-xl bg-brand-light px-3 py-2 text-left text-xs font-semibold text-brand transition hover:bg-brand-light hover:text-brand">Tous les niveaux</button>
+            <button type="button" data-value="licence" class="prog-level-option w-full rounded-xl px-3 py-2 text-left text-xs font-semibold text-dark transition hover:bg-brand-light hover:text-brand">Licence</button>
+            <button type="button" data-value="master" class="prog-level-option w-full rounded-xl px-3 py-2 text-left text-xs font-semibold text-dark transition hover:bg-brand-light hover:text-brand">Master</button>
           </div>
-          <div class="p-7">
-            <h3 class="font-display font-bold text-xl text-dark mb-3">Programme Italie</h3>
-            <p class="text-muted text-sm leading-relaxed mb-6"><strong>Italia • Licence /
-                Master</strong><br />L’Italie propose une grande diversité de programmes universitaires en Licence et
-              Master,
-              avec des parcours accessibles en italien ou en anglais, dans un cadre académique reconnu en Europe.</p>
-            <button type="button"
-              class="dest-detail-btn inline-flex items-center gap-2 text-brand font-bold text-sm hover:gap-3 transition-all"
-              data-dest="italia">Voir les détails <span
-                class="material-symbols-outlined text-[18px]">open_in_full</span></button>
-          </div>
-        </article>
-
-        <article class="card group reveal delay-2 md:-mt-10">
-          <div class="h-56 overflow-hidden relative"
-            style="background:linear-gradient(135deg,#111827 0%,#0f766e 52%,#1d4ed8 100%);">
-            <img src="IMAGE/bled/Allemagne.jpg" alt="Allemagne" class="absolute inset-0 w-full h-full object-cover" / loading="lazy" decoding="async">
-            <div class="absolute inset-0 opacity-25"
-              style="background:radial-gradient(circle at top right,rgba(255,255,255,.28),transparent 42%),radial-gradient(circle at bottom left,rgba(255,255,255,.16),transparent 40%);">
-            </div>
-            <div class="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent"></div>
-            <div class="relative z-10 h-full p-6 flex items-start">
-              <span
-                class="inline-flex items-center rounded-full bg-black/45 text-white text-xs font-semibold px-3 py-1 backdrop-blur-sm">Allemagne</span>
-            </div>
-          </div>
-          <div class="p-7">
-            <h3 class="font-display font-bold text-xl text-dark mb-3">Programme Allemagne</h3>
-            <p class="text-muted text-sm leading-relaxed mb-6"><strong>Allemagne • Licence /
-                Master</strong><br />Allemagne 🇩🇪 pour un projet académique ambitieux, une orientation sérieuse et une
-              prise en charge professionnelle de votre dossier.</p>
-            <button type="button"
-              class="dest-detail-btn inline-flex items-center gap-2 text-brand font-bold text-sm hover:gap-3 transition-all"
-              data-dest="allemagne">Voir les détails <span
-                class="material-symbols-outlined text-[18px]">open_in_full</span></button>
-          </div>
-        </article>
-
-        <article class="card group reveal delay-3">
-          <div class="h-56 overflow-hidden relative"
-            style="background:linear-gradient(135deg,#312e81 0%,#7c3aed 52%,#2563eb 100%);">
-            <img src="IMAGE/bled/Hongrie.webp" alt="Hongrie" class="absolute inset-0 w-full h-full object-cover" / loading="lazy" decoding="async">
-            <div class="absolute inset-0 opacity-25"
-              style="background:radial-gradient(circle at top right,rgba(255,255,255,.28),transparent 42%),radial-gradient(circle at bottom left,rgba(255,255,255,.16),transparent 40%);">
-            </div>
-            <div class="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent"></div>
-            <div class="relative z-10 h-full p-6 flex items-start">
-              <span
-                class="inline-flex items-center rounded-full bg-black/45 text-white text-xs font-semibold px-3 py-1 backdrop-blur-sm">Hongrie</span>
-            </div>
-          </div>
-          <div class="p-7">
-            <h3 class="font-display font-bold text-xl text-dark mb-3">Programme Hongrie</h3>
-            <p class="text-muted text-sm leading-relaxed mb-6"><strong>Hongrie • English course / Licence /
-                Master</strong><br />La Hongrie propose des programmes enseignés en anglais, avec une procédure claire,
-              un accompagnement personnalisé et des parcours adaptés aux étudiants internationaux.</p>
-            <button type="button"
-              class="dest-detail-btn inline-flex items-center gap-2 text-brand font-bold text-sm hover:gap-3 transition-all"
-              data-dest="hongrie">Voir les détails <span
-                class="material-symbols-outlined text-[18px]">open_in_full</span></button>
-          </div>
-        </article>
-
-      </div>
-
-      <div id="programmesMore" class="programmes-more mt-8">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <article class="card group">
-            <div class="h-56 overflow-hidden relative"
-              style="background:linear-gradient(135deg,#082f49 0%,#0f766e 50%,#16a34a 100%);">
-              <img src="IMAGE/bled/Lithuania.webp" alt="Lituanie" class="absolute inset-0 w-full h-full object-cover" / loading="lazy" decoding="async">
-              <div class="absolute inset-0 opacity-25"
-                style="background:radial-gradient(circle at top right,rgba(255,255,255,.25),transparent 42%),radial-gradient(circle at bottom left,rgba(255,255,255,.14),transparent 40%);">
-              </div>
-              <div class="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent"></div>
-              <div class="relative z-10 h-full p-6 flex items-start">
-                <span
-                  class="inline-flex items-center rounded-full bg-black/45 text-white text-xs font-semibold px-3 py-1 backdrop-blur-sm">Lithuania</span>
-              </div>
-            </div>
-            <div class="p-7">
-              <h3 class="font-display font-bold text-xl text-dark mb-3">Programme Lituanie</h3>
-              <p class="text-muted text-sm leading-relaxed mb-6"><strong>Lithuania • Licence /
-                  Master</strong><br />La Lituanie propose des programmes enseignés en anglais, avec des parcours
-                préparatoires, Licence et Master adaptés aux étudiants internationaux.</p>
-              <button type="button"
-                class="dest-detail-btn inline-flex items-center gap-2 text-brand font-bold text-sm hover:gap-3 transition-all"
-                data-dest="lituanie">Voir les détails <span
-                  class="material-symbols-outlined text-[18px]">open_in_full</span></button>
-            </div>
-          </article>
-
-          <article class="card group">
-            <div class="h-56 overflow-hidden relative"
-              style="background:linear-gradient(135deg,#0f172a 0%,#334155 50%,#7c2d12 100%);">
-              <img src="IMAGE/bled/Poland.jpg" alt="Pologne" class="absolute inset-0 w-full h-full object-cover" / loading="lazy" decoding="async">
-              <div class="absolute inset-0 opacity-25"
-                style="background:radial-gradient(circle at top right,rgba(255,255,255,.23),transparent 42%),radial-gradient(circle at bottom left,rgba(255,255,255,.12),transparent 40%);">
-              </div>
-              <div class="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent"></div>
-              <div class="relative z-10 h-full p-6 flex items-start">
-                <span
-                  class="inline-flex items-center rounded-full bg-black/45 text-white text-xs font-semibold px-3 py-1 backdrop-blur-sm">Poland</span>
-              </div>
-            </div>
-            <div class="p-7">
-              <h3 class="font-display font-bold text-xl text-dark mb-3">Programme Pologne</h3>
-              <p class="text-muted text-sm leading-relaxed mb-6"><strong>Poland • Licence /
-                  Master</strong><br />La Pologne propose des programmes enseignés en anglais, avec un parcours
-                structuré et un accompagnement adapté au niveau et au projet d’études de chaque étudiant.</p>
-              <button type="button"
-                class="dest-detail-btn inline-flex items-center gap-2 text-brand font-bold text-sm hover:gap-3 transition-all"
-                data-dest="pologne">Voir les détails <span
-                  class="material-symbols-outlined text-[18px]">open_in_full</span></button>
-            </div>
-          </article>
-
-          <article class="card card-coming-soon group">
-            <div class="h-56 overflow-hidden relative"
-              style="background:linear-gradient(135deg,#1f2937 0%,#1d4ed8 52%,#7c3aed 100%);">
-              <img src="IMAGE/bled/Slovakia.jpg" alt="Slovaquie" class="coming-soon-img absolute inset-0 w-full h-full object-cover" loading="lazy" decoding="async">
-              <div class="absolute inset-0 coming-soon-overlay"></div>
-              <div class="relative z-10 h-full p-6 flex flex-col justify-between">
-                <span
-                  class="inline-flex items-center self-start rounded-full bg-black/45 text-white text-xs font-semibold px-3 py-1 backdrop-blur-sm">Slovakia</span>
-                <span class="coming-soon-badge self-start">
-                  <span class="material-symbols-outlined text-[14px]">schedule</span>
-                  Prochainement disponible
-                </span>
-              </div>
-            </div>
-            <div class="p-7">
-              <h3 class="font-display font-bold text-xl text-dark mb-3">Programme Slovaquie</h3>
-              <p class="text-muted text-sm leading-relaxed mb-6"><strong>Slovakia • Licence /
-                  Master</strong><br />La Slovaquie proposera bientôt des programmes en Licence et Master, avec une orientation
-                personnalisée selon votre profil, votre niveau et votre projet d’études.</p>
-              <span class="coming-soon-status" aria-disabled="true">
-                <span class="material-symbols-outlined text-[18px]">hourglass_top</span>
-                Bientôt ouvert
-              </span>
-            </div>
-          </article>
-
-          <article class="card card-coming-soon group">
-            <div class="h-56 overflow-hidden relative"
-              style="background:linear-gradient(135deg,#7f1d1d 0%,#b91c1c 48%,#f59e0b 100%);">
-              <img src="IMAGE/bled/Romania.jpg" alt="Roumanie" class="coming-soon-img absolute inset-0 w-full h-full object-cover" loading="lazy" decoding="async">
-              <div class="absolute inset-0 coming-soon-overlay"></div>
-              <div class="relative z-10 h-full p-6 flex flex-col justify-between">
-                <span
-                  class="inline-flex items-center self-start rounded-full bg-black/45 text-white text-xs font-semibold px-3 py-1 backdrop-blur-sm">Romania</span>
-                <span class="coming-soon-badge self-start">
-                  <span class="material-symbols-outlined text-[14px]">schedule</span>
-                  Prochainement disponible
-                </span>
-              </div>
-            </div>
-            <div class="p-7">
-              <h3 class="font-display font-bold text-xl text-dark mb-3">Programme Roumanie</h3>
-              <p class="text-muted text-sm leading-relaxed mb-6"><strong>Romania • Licence /
-                  Master</strong><br />La Roumanie proposera bientôt des programmes en Licence et Master dans un cadre académique
-                structuré, avec plusieurs filières en français, en anglais ou en roumain.</p>
-              <span class="coming-soon-status" aria-disabled="true">
-                <span class="material-symbols-outlined text-[18px]">hourglass_top</span>
-                Bientôt ouvert
-              </span>
-            </div>
-          </article>
-
-          <article class="card card-coming-soon group">
-            <div class="h-56 overflow-hidden relative"
-              style="background:linear-gradient(135deg,#0c4a6e 0%,#0369a1 48%,#0ea5e9 100%);">
-              <img src="IMAGE/bled/Malte.jpg" alt="Malte" class="coming-soon-img absolute inset-0 w-full h-full object-cover" loading="lazy" decoding="async">
-              <div class="absolute inset-0 coming-soon-overlay"></div>
-              <div class="relative z-10 h-full p-6 flex flex-col justify-between">
-                <span
-                  class="inline-flex items-center self-start rounded-full bg-black/45 text-white text-xs font-semibold px-3 py-1 backdrop-blur-sm">Malta</span>
-                <span class="coming-soon-badge self-start">
-                  <span class="material-symbols-outlined text-[14px]">schedule</span>
-                  Prochainement disponible
-                </span>
-              </div>
-            </div>
-            <div class="p-7">
-              <h3 class="font-display font-bold text-xl text-dark mb-3">Programme Malte</h3>
-              <p class="text-muted text-sm leading-relaxed mb-6"><strong>Malta • Licence /
-                  Master</strong><br />Malte proposera bientôt des programmes universitaires en anglais, dans un cadre
-                européen dynamique, adapté aux étudiants internationaux.</p>
-              <span class="coming-soon-status" aria-disabled="true">
-                <span class="material-symbols-outlined text-[18px]">hourglass_top</span>
-                Bientôt ouvert
-              </span>
-            </div>
-          </article>
-
-          <article class="card card-coming-soon group">
-            <div class="h-56 overflow-hidden relative"
-              style="background:linear-gradient(135deg,#14532d 0%,#15803d 48%,#84cc16 100%);">
-              <img src="IMAGE/bled/bulgarie.jpg" alt="Bulgarie" class="coming-soon-img absolute inset-0 w-full h-full object-cover" loading="lazy" decoding="async">
-              <div class="absolute inset-0 coming-soon-overlay"></div>
-              <div class="relative z-10 h-full p-6 flex flex-col justify-between">
-                <span
-                  class="inline-flex items-center self-start rounded-full bg-black/45 text-white text-xs font-semibold px-3 py-1 backdrop-blur-sm">Bulgaria</span>
-                <span class="coming-soon-badge self-start">
-                  <span class="material-symbols-outlined text-[14px]">schedule</span>
-                  Prochainement disponible
-                </span>
-              </div>
-            </div>
-            <div class="p-7">
-              <h3 class="font-display font-bold text-xl text-dark mb-3">Programme Bulgarie</h3>
-              <p class="text-muted text-sm leading-relaxed mb-6"><strong>Bulgaria • Licence /
-                  Master</strong><br />La Bulgarie proposera bientôt des programmes en Licence et Master, avec un
-                accompagnement adapté au profil et au projet d’études de chaque étudiant.</p>
-              <span class="coming-soon-status" aria-disabled="true">
-                <span class="material-symbols-outlined text-[18px]">hourglass_top</span>
-                Bientôt ouvert
-              </span>
-            </div>
-          </article>
         </div>
       </div>
 
-      <!-- CTA -->
-      <div class="text-center mt-14">
+      <!-- Cartes en vedette (toujours visibles) -->
+      <div id="programmesFeaturedGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8"></div>
+
+      <div id="programmesEmpty" class="hidden text-center py-16">
+        <p class="font-display font-bold text-lg text-dark">Aucun programme trouvé</p>
+        <p class="text-muted text-sm mt-2">Essayez un autre pays ou un autre niveau d'études.</p>
+      </div>
+
+      <!-- Grille complète, paginée (révélée au clic) -->
+      <div id="programmesMoreGrid" class="hidden grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 mt-8"></div>
+
+      <!-- CTA : afficher tous les programmes -->
+      <div id="programmesToggleWrap" class="text-center mt-14">
         <button id="programmesToggleBtn" type="button"
           class="inline-flex items-center gap-2 border-2 border-brand text-brand font-bold px-8 py-4 rounded-full hover:bg-brand hover:text-white transition-all">
           Voir tous les programmes disponibles
           <span class="material-symbols-outlined text-[20px]">open_in_new</span>
         </button>
-        <p class="mt-4 text-sm text-muted max-w-3xl mx-auto leading-relaxed">
-          Destinations disponibles : Italia, Allemagne, Hongrie, Lithuania et Poland.
-          Prochainement : Slovakia, Romania, Malta et Bulgaria.
-        </p>
       </div>
+
+      <!-- Pagination -->
+      <div id="programmesPagination" class="hidden flex items-center justify-center gap-2 mt-14"></div>
 
     </div>
   </section>
@@ -2662,108 +2465,8 @@
 
       <!-- Infinite carousel -->
       <div class="testi-track-wrapper">
-        <div class="testi-track">
-
-          <!-- ── Set 1 (original) ── -->
-          <div class="testi-glass-card">
-            <div class="testi-stars">★★★★★</div>
-            <p class="testi-quote">"Une équipe sérieuse et très à l’écoute. Ils m’ont expliqué chaque étape clairement
-              et m’ont aidée à préparer mon dossier sans stress. L’accompagnement était vraiment professionnel."</p>
-            <p class="testi-name">Mariem Ben Salem</p>
-            <p class="testi-role">Licence · Italie</p>
-          </div>
-
-          <div class="testi-glass-card">
-            <div class="testi-stars">★★★★★</div>
-            <p class="testi-quote">"J’avais beaucoup de questions au début, surtout sur le choix du programme et les
-              documents à préparer. SM Travel m’a orienté selon mon profil et m’a suivi jusqu’au dépôt du dossier."</p>
-            <p class="testi-name">Mohamed Amine Trabelsi</p>
-            <p class="testi-role">Master · Hongrie</p>
-          </div>
-
-          <div class="testi-glass-card">
-            <div class="testi-stars">★★★★★</div>
-            <p class="testi-quote">"Ce que j’ai le plus apprécié, c’est la clarté. À chaque fois que j’avais un doute,
-              l’équipe me répondait rapidement. Je me suis sentie accompagnée du début jusqu’à la fin."</p>
-            <p class="testi-name">Nour Khemiri</p>
-            <p class="testi-role">English Preparatory Course · Lituanie</p>
-          </div>
-
-          <div class="testi-glass-card">
-            <div class="testi-stars">★★★★★</div>
-            <p class="testi-quote">"SM Travel m’a aidé à choisir la destination qui correspondait le mieux à mon niveau
-              et à mon projet d’études. Le suivi était organisé, simple et très rassurant."</p>
-            <p class="testi-name">Youssef Gharbi</p>
-            <p class="testi-role">Licence · Pologne</p>
-          </div>
-
-          <div class="testi-glass-card">
-            <div class="testi-stars">★★★★★</div>
-            <p class="testi-quote">"Je cherchais une orientation claire pour continuer mes études à l’étranger. L’équipe
-              m’a proposé des options adaptées à mon dossier et m’a accompagnée avec beaucoup de patience."</p>
-            <p class="testi-name">Cyrine Hammami</p>
-            <p class="testi-role">Master · Roumanie</p>
-          </div>
-
-          <div class="testi-glass-card">
-            <div class="testi-stars">★★★★★</div>
-            <p class="testi-quote">"Très bonne expérience avec SM Travel. Le service est humain, les informations sont
-              claires et le suivi est sérieux. Je recommande surtout pour les étudiants qui ne savent pas par où
-              commencer."</p>
-            <p class="testi-name">Aziz Mansour</p>
-            <p class="testi-role">Licence · Slovaquie</p>
-          </div>
-
-          <!-- ── Set 2 (duplicate for seamless loop) ── -->
-          <div class="testi-glass-card">
-            <div class="testi-stars">★★★★★</div>
-            <p class="testi-quote">"Une équipe sérieuse et très à l’écoute. Ils m’ont expliqué chaque étape clairement
-              et m’ont aidée à préparer mon dossier sans stress. L’accompagnement était vraiment professionnel."</p>
-            <p class="testi-name">Mariem Ben Salem</p>
-            <p class="testi-role">Licence · Italie</p>
-          </div>
-
-          <div class="testi-glass-card">
-            <div class="testi-stars">★★★★★</div>
-            <p class="testi-quote">"J’avais beaucoup de questions au début, surtout sur le choix du programme et les
-              documents à préparer. SM Travel m’a orienté selon mon profil et m’a suivi jusqu’au dépôt du dossier."</p>
-            <p class="testi-name">Mohamed Amine Trabelsi</p>
-            <p class="testi-role">Master · Hongrie</p>
-          </div>
-
-          <div class="testi-glass-card">
-            <div class="testi-stars">★★★★★</div>
-            <p class="testi-quote">"Ce que j’ai le plus apprécié, c’est la clarté. À chaque fois que j’avais un doute,
-              l’équipe me répondait rapidement. Je me suis sentie accompagnée du début jusqu’à la fin."</p>
-            <p class="testi-name">Nour Khemiri</p>
-            <p class="testi-role">English Preparatory Course · Lituanie</p>
-          </div>
-
-          <div class="testi-glass-card">
-            <div class="testi-stars">★★★★★</div>
-            <p class="testi-quote">"SM Travel m’a aidé à choisir la destination qui correspondait le mieux à mon niveau
-              et à mon projet d’études. Le suivi était organisé, simple et très rassurant."</p>
-            <p class="testi-name">Youssef Gharbi</p>
-            <p class="testi-role">Licence · Pologne</p>
-          </div>
-
-          <div class="testi-glass-card">
-            <div class="testi-stars">★★★★★</div>
-            <p class="testi-quote">"Je cherchais une orientation claire pour continuer mes études à l’étranger. L’équipe
-              m’a proposé des options adaptées à mon dossier et m’a accompagnée avec beaucoup de patience."</p>
-            <p class="testi-name">Cyrine Hammami</p>
-            <p class="testi-role">Master · Roumanie</p>
-          </div>
-
-          <div class="testi-glass-card">
-            <div class="testi-stars">★★★★★</div>
-            <p class="testi-quote">"Très bonne expérience avec SM Travel. Le service est humain, les informations sont
-              claires et le suivi est sérieux. Je recommande surtout pour les étudiants qui ne savent pas par où
-              commencer."</p>
-            <p class="testi-name">Aziz Mansour</p>
-            <p class="testi-role">Licence · Slovaquie</p>
-          </div>
-
+        <div class="testi-track" id="testi-track-container">
+          <!-- Les avis seront insérés ici dynamiquement -->
         </div>
       </div>
     </div>
@@ -3711,6 +3414,7 @@
 
 
   <!-- ═══════════════════════════════════════ SCRIPTS ════ -->
+  <script src="frontend/js/auth.js"></script>
   <script>
     /* ── Mobile menu ── */
     const burger = document.getElementById('burgerBtn');
@@ -3721,8 +3425,24 @@
     /* ── Scroll-to-top + navbar transition ── */
     const scrollTopBtn = document.getElementById('scrollTop');
     const navbar = document.getElementById('navbar');
-    const navCta = document.getElementById('navCta');
     const burgerIcon = document.getElementById('burgerIcon');
+    function styleAuthButtons(scrolled) {
+      document.querySelectorAll('.nav-auth-btn').forEach((btn) => {
+        if (scrolled) {
+          btn.style.background = '#6d28d9';
+          btn.style.borderColor = '#6d28d9';
+          btn.style.color = '#fff';
+          btn.onmouseover = () => { btn.style.background = '#4c1d95'; btn.style.borderColor = '#4c1d95'; };
+          btn.onmouseout = () => { btn.style.background = '#6d28d9'; btn.style.borderColor = '#6d28d9'; };
+        } else {
+          btn.style.background = 'transparent';
+          btn.style.borderColor = 'rgba(255,255,255,.8)';
+          btn.style.color = '#fff';
+          btn.onmouseover = () => { btn.style.background = '#fff'; btn.style.color = '#6d28d9'; };
+          btn.onmouseout = () => { btn.style.background = 'transparent'; btn.style.color = '#fff'; };
+        }
+      });
+    }
     function updateNavbar() {
       const scrolled = window.scrollY > 60;
       scrollTopBtn.classList.toggle('visible', window.scrollY > 400);
@@ -3733,11 +3453,7 @@
         navbar.style.borderColor = '#e2e8f0';
         navbar.style.boxShadow = '0 4px 24px rgba(15,23,42,.1)';
         navbar.style.backdropFilter = 'blur(12px)';
-        navCta.style.background = '#6d28d9';
-        navCta.style.borderColor = '#6d28d9';
-        navCta.style.color = '#fff';
-        navCta.onmouseover = () => { navCta.style.background = '#4c1d95'; navCta.style.borderColor = '#4c1d95'; };
-        navCta.onmouseout = () => { navCta.style.background = '#6d28d9'; navCta.style.borderColor = '#6d28d9'; };
+        styleAuthButtons(true);
         if (burgerIcon) burgerIcon.style.color = '#334155';
         if (navLogo) navLogo.src = 'IMAGE/Logo 2 (1).png';
       } else {
@@ -3747,11 +3463,7 @@
         navbar.style.boxShadow = 'none';
         navbar.style.backdropFilter = 'none';
         if (navLogo) navLogo.src = 'IMAGE/Logo blanc.png';
-        navCta.style.background = 'transparent';
-        navCta.style.borderColor = 'rgba(255,255,255,.8)';
-        navCta.style.color = '#fff';
-        navCta.onmouseover = () => { navCta.style.background = '#fff'; navCta.style.color = '#6d28d9'; };
-        navCta.onmouseout = () => { navCta.style.background = 'transparent'; navCta.style.color = '#fff'; };
+        styleAuthButtons(false);
         if (burgerIcon) burgerIcon.style.color = '#fff';
       }
     }
@@ -3892,25 +3604,314 @@
       }
     });
 
-    /* ── Programmes: reveal remaining destinations on demand ── */
+    /* ── Programmes: fetch, recherche, filtre niveau, pagination ── */
+    function resolveImgUrl(url) {
+      if (!url) return 'IMAGE/bled/italie.jpg';
+      if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
+      if (url.startsWith('/uploads/')) return 'http://localhost:3001' + url;
+      return url;
+    }
+
+    function renderCard(p, isFeaturedCard, index) {
+      // Si Prochainement mais qu'il a une date précise, on ne met pas le gros overlay bloquant
+      const hasDate = p.statusLabel && p.statusLabel !== 'Bientôt ouvert' && p.statusLabel !== 'Disponible';
+      const isComingSoon = p.badge.includes('Prochainement') && !hasDate;
+      const img = resolveImgUrl(p.imageUrl);
+      const destCode = (p.country || p.title).toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      let badgeText = p.country;
+      if (p.badge.includes('Prochainement') && p.statusLabel && p.statusLabel !== 'Bientôt ouvert' && p.statusLabel !== 'Disponible') {
+        const d = p.statusLabel.split('-');
+        if (d.length === 3) badgeText += ` • Prévu pour le ${d[2]}/${d[1]}/${d[0]}`;
+        else badgeText += ` • Prévu pour ${p.statusLabel}`;
+      }
+      let badgeHtml = `<span class="inline-flex items-center w-max rounded-full bg-black/45 text-white text-xs font-semibold px-3 py-1 backdrop-blur-sm">${badgeText}</span>`;
+      if (isComingSoon) {
+        badgeHtml = `
+          <span class="inline-flex items-center w-max rounded-full bg-black/45 text-white text-xs font-semibold px-3 py-1 backdrop-blur-sm">${p.country}</span>
+          <span class="coming-soon-badge self-start mt-2">
+            <span class="material-symbols-outlined text-[14px]">schedule</span>
+            ${p.badge}
+          </span>
+        `;
+      }
+
+      let btnOrStatusHtml = `
+        <button type="button" class="dest-detail-btn inline-flex items-center gap-2 text-brand font-bold text-sm hover:gap-3 transition-all" data-dest="${destCode}">
+          Voir les détails <span class="material-symbols-outlined text-[18px]">open_in_full</span>
+        </button>
+      `;
+      if (isComingSoon) {
+        btnOrStatusHtml = `
+          <span class="coming-soon-status" aria-disabled="true">
+            <span class="material-symbols-outlined text-[18px]">hourglass_top</span>
+            ${p.statusLabel || 'Bientôt ouvert'}
+          </span>
+        `;
+      } else if (hasDate) {
+        // Prochainement avec date précise : cliquable mais affiche "Bientôt ouvert"
+        btnOrStatusHtml = `
+          <span class="inline-flex items-center gap-2 text-amber-600 font-bold text-sm cursor-default select-none">
+            <span class="material-symbols-outlined text-[18px]">hourglass_top</span>
+            Bientôt ouvert
+          </span>
+        `;
+      }
+
+
+      const cardClass = isComingSoon ? 'card card-coming-soon group' : 'card group';
+      const revealClass = isFeaturedCard ? `reveal delay-${(index % 3) + 1} ${index === 1 ? 'md:-mt-10' : ''}` : '';
+      const comingSoonImgClass = isComingSoon ? 'coming-soon-img' : '';
+      const comingSoonOverlay = isComingSoon ? '<div class="absolute inset-0 coming-soon-overlay"></div>' : '';
+      const programmeJson = JSON.stringify(p).replace(/'/g, "&#39;");
+
+      return `
+        <article class="${cardClass} ${revealClass}" data-programme-json='${programmeJson}'>
+          <div class="h-56 overflow-hidden relative" style="background:${p.gradientStyle || 'linear-gradient(135deg,#0f172a 0%,#4c1d95 52%,#1d4ed8 100%)'};">
+            <img src="${img}" alt="${p.title}" class="${comingSoonImgClass} absolute inset-0 w-full h-full object-cover" loading="lazy" decoding="async" />
+            <div class="absolute inset-0 opacity-25" style="background:radial-gradient(circle at top right,rgba(255,255,255,.28),transparent 42%),radial-gradient(circle at bottom left,rgba(255,255,255,.18),transparent 40%);"></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent"></div>
+            ${comingSoonOverlay}
+            <div class="relative z-10 h-full p-6 flex flex-col justify-between">
+              ${badgeHtml}
+            </div>
+          </div>
+          <div class="p-7">
+            <h3 class="font-display font-bold text-xl text-dark mb-3">${p.title}</h3>
+            <p class="text-muted text-sm leading-relaxed mb-6"><strong>${p.country} • ${p.degrees}</strong><br />${p.description}</p>
+            ${btnOrStatusHtml}
+          </div>
+        </article>
+      `;
+    }
+
+    // Données de secours si l'API backend est indisponible (identiques au seed de la base)
+    const PROGRAMMES_FALLBACK = [
+      { title: 'Programme Italie', country: 'Italia', degrees: 'Licence / Master', description: 'L’Italie propose une grande diversité de programmes universitaires en Licence et Master, avec des parcours accessibles en italien ou en anglais, dans un cadre académique reconnu en Europe.', imageUrl: 'IMAGE/bled/italie.jpg', badge: 'Disponible', statusLabel: 'Disponible', gradientStyle: 'linear-gradient(135deg,#0f172a 0%,#4c1d95 52%,#1d4ed8 100%)', isFeatured: true },
+      { title: 'Programme Allemagne', country: 'Allemagne', degrees: 'Licence / Master', description: 'Allemagne 🇩🇪 pour un projet académique ambitieux, une orientation sérieuse et une prise en charge professionnelle de votre dossier.', imageUrl: 'IMAGE/bled/Allemagne.jpg', badge: 'Disponible', statusLabel: 'Disponible', gradientStyle: 'linear-gradient(135deg,#111827 0%,#0f766e 52%,#1d4ed8 100%)', isFeatured: true },
+      { title: 'Programme Hongrie', country: 'Hongrie', degrees: 'English course / Licence / Master', description: 'La Hongrie propose des programmes enseignés en anglais, avec une procédure claire, un accompagnement personnalisé et des parcours adaptés aux étudiants internationaux.', imageUrl: 'IMAGE/bled/Hongrie.webp', badge: 'Disponible', statusLabel: 'Disponible', gradientStyle: 'linear-gradient(135deg,#312e81 0%,#7c3aed 52%,#2563eb 100%)', isFeatured: true },
+      { title: 'Programme Lituanie', country: 'Lithuania', degrees: 'Licence / Master', description: 'La Lituanie propose des programmes enseignés en anglais, avec des parcours préparatoires, Licence et Master adaptés aux étudiants internationaux.', imageUrl: 'IMAGE/bled/Lithuania.webp', badge: 'Disponible', statusLabel: 'Disponible', gradientStyle: 'linear-gradient(135deg,#082f49 0%,#0f766e 50%,#16a34a 100%)', isFeatured: false },
+      { title: 'Programme Pologne', country: 'Poland', degrees: 'Licence / Master', description: 'La Pologne propose des programmes enseignés en anglais, avec un parcours structuré et un accompagnement adapté au niveau et au projet d’études de chaque étudiant.', imageUrl: 'IMAGE/bled/Poland.jpg', badge: 'Disponible', statusLabel: 'Disponible', gradientStyle: 'linear-gradient(135deg,#0f172a 0%,#334155 50%,#7c2d12 100%)', isFeatured: false },
+      { title: 'Programme Slovaquie', country: 'Slovakia', degrees: 'Licence / Master', description: 'La Slovaquie proposera bientôt des programmes en Licence et Master, avec une orientation personnalisée selon votre profil, votre niveau et votre projet d’études.', imageUrl: 'IMAGE/bled/Slovakia.jpg', badge: 'Prochainement disponible', statusLabel: 'Bientôt ouvert', gradientStyle: 'linear-gradient(135deg,#1f2937 0%,#1d4ed8 52%,#7c3aed 100%)', isFeatured: false },
+      { title: 'Programme Roumanie', country: 'Romania', degrees: 'Licence / Master', description: 'La Roumanie proposera bientôt des programmes en Licence et Master dans un cadre académique structuré, avec plusieurs filières en français, en anglais ou en roumain.', imageUrl: 'IMAGE/bled/Romania.jpg', badge: 'Prochainement disponible', statusLabel: 'Bientôt ouvert', gradientStyle: 'linear-gradient(135deg,#7f1d1d 0%,#b91c1c 48%,#f59e0b 100%)', isFeatured: false },
+      { title: 'Programme Malte', country: 'Malta', degrees: 'Licence / Master', description: 'Malte proposera bientôt des programmes universitaires en anglais, dans un cadre européen dynamique, adapté aux étudiants internationaux.', imageUrl: 'IMAGE/bled/Malte.jpg', badge: 'Planifié', statusLabel: 'Bientôt ouvert', gradientStyle: 'linear-gradient(135deg,#0c4a6e 0%,#0369a1 48%,#0ea5e9 100%)', isFeatured: false },
+      { title: 'Programme Bulgarie', country: 'Bulgaria', degrees: 'Licence / Master', description: 'La Bulgarie proposera bientôt des programmes en Licence et Master, avec un accompagnement adapté au profil et au projet d’études de chaque étudiant.', imageUrl: 'IMAGE/bled/bulgarie.jpg', badge: 'Prochainement disponible', statusLabel: 'Bientôt ouvert', gradientStyle: 'linear-gradient(135deg,#14532d 0%,#15803d 48%,#84cc16 100%)', isFeatured: false }
+    ];
+
+    const PROGRAMMES_PAGE_SIZE = 6;
+    let programmesAll = PROGRAMMES_FALLBACK;
+    let programmesPage = 1;
+    let programmesSearch = '';
+    let programmesLevel = 'tous';
+
+    const programmesFeaturedGrid = document.getElementById('programmesFeaturedGrid');
+    const programmesMoreGrid = document.getElementById('programmesMoreGrid');
+    const programmesEmpty = document.getElementById('programmesEmpty');
+    const programmesPagination = document.getElementById('programmesPagination');
+    const programmesToggleWrap = document.getElementById('programmesToggleWrap');
     const programmesToggleBtn = document.getElementById('programmesToggleBtn');
-    const programmesMore = document.getElementById('programmesMore');
-    if (programmesToggleBtn && programmesMore) {
-      const hiddenCards = Array.from(programmesMore.querySelectorAll('.card'));
-      programmesToggleBtn.addEventListener('click', () => {
-        if (programmesMore.classList.contains('open')) return;
-        programmesMore.classList.add('open');
-        programmesToggleBtn.disabled = true;
-        programmesToggleBtn.setAttribute('aria-expanded', 'true');
-        programmesToggleBtn.classList.add('opacity-70', 'cursor-default');
-        hiddenCards.forEach((card) => {
-          card.classList.add('visible');
-        });
-        window.setTimeout(() => {
-          programmesMore.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 120);
+    const programmesSearchInput = document.getElementById('programmesSearchInput');
+    const programmesLevelWrap = document.getElementById('programmesLevelWrap');
+    const programmesLevelBtn = document.getElementById('programmesLevelBtn');
+    const programmesLevelMenu = document.getElementById('programmesLevelMenu');
+    const programmesLevelLabel = document.getElementById('programmesLevelLabel');
+    const programmesLevelChevron = document.getElementById('programmesLevelChevron');
+
+    let programmesExpanded = false;
+
+    function getFilteredProgrammes() {
+      return programmesAll.filter((p) => {
+        const matchesSearch = !programmesSearch || (p.country || '').toLowerCase().includes(programmesSearch);
+        const matchesLevel = programmesLevel === 'tous' || (p.degrees || '').toLowerCase().includes(programmesLevel);
+        return matchesSearch && matchesLevel;
       });
     }
+
+    function getFeaturedProgrammes() {
+      const featured = programmesAll.filter((p) => p.isFeatured);
+      return (featured.length ? featured : programmesAll.slice(0, 3)).slice(0, 3);
+    }
+
+    function renderProgrammesPagination(totalPages) {
+      if (!programmesPagination) return;
+      if (totalPages <= 1) {
+        programmesPagination.innerHTML = '';
+        return;
+      }
+      let html = '';
+      html += `<button type="button" data-page="${programmesPage - 1}" ${programmesPage === 1 ? 'disabled' : ''} class="prog-page-btn inline-flex items-center justify-center h-10 w-10 rounded-full border border-slate-200 text-muted transition hover:border-brand hover:text-brand disabled:opacity-40 disabled:cursor-not-allowed"><span class="material-symbols-outlined text-[18px]">chevron_left</span></button>`;
+      for (let n = 1; n <= totalPages; n++) {
+        const active = n === programmesPage;
+        html += `<button type="button" data-page="${n}" class="prog-page-btn inline-flex items-center justify-center h-10 w-10 rounded-full text-sm font-bold border transition ${active ? 'bg-brand border-brand text-white shadow' : 'border-slate-200 text-muted hover:border-brand hover:text-brand'}">${n}</button>`;
+      }
+      html += `<button type="button" data-page="${programmesPage + 1}" ${programmesPage === totalPages ? 'disabled' : ''} class="prog-page-btn inline-flex items-center justify-center h-10 w-10 rounded-full border border-slate-200 text-muted transition hover:border-brand hover:text-brand disabled:opacity-40 disabled:cursor-not-allowed"><span class="material-symbols-outlined text-[18px]">chevron_right</span></button>`;
+      programmesPagination.innerHTML = html;
+
+      programmesPagination.querySelectorAll('.prog-page-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const page = parseInt(btn.dataset.page, 10);
+          if (!page || page < 1 || page > totalPages) return;
+          programmesPage = page;
+          renderProgrammesMore();
+          document.getElementById('programmes').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      });
+    }
+
+    function renderProgrammesFeatured() {
+      if (!programmesFeaturedGrid) return;
+      const featured = getFeaturedProgrammes();
+      programmesFeaturedGrid.innerHTML = featured.map((p, i) => renderCard(p, true, i)).join('');
+    }
+
+    function renderProgrammesMore() {
+      if (!programmesMoreGrid) return;
+      const moreList = getFilteredProgrammes();
+
+      const totalPages = Math.max(1, Math.ceil(moreList.length / PROGRAMMES_PAGE_SIZE));
+      if (programmesPage > totalPages) programmesPage = totalPages;
+      if (programmesPage < 1) programmesPage = 1;
+
+      const pageItems = moreList.slice((programmesPage - 1) * PROGRAMMES_PAGE_SIZE, programmesPage * PROGRAMMES_PAGE_SIZE);
+
+      if (pageItems.length === 0) {
+        programmesMoreGrid.innerHTML = '';
+        if (programmesEmpty) programmesEmpty.classList.remove('hidden');
+      } else {
+        if (programmesEmpty) programmesEmpty.classList.add('hidden');
+        programmesMoreGrid.innerHTML = pageItems.map((p, i) => renderCard(p, false, i)).join('');
+      }
+
+      renderProgrammesPagination(totalPages);
+
+      if (typeof initDestModals === 'function') initDestModals();
+      if (typeof setupReveal === 'function') setupReveal();
+    }
+
+    function expandProgrammes() {
+      if (programmesExpanded) return;
+      programmesExpanded = true;
+      if (programmesToggleWrap) programmesToggleWrap.classList.add('hidden');
+      if (programmesFeaturedGrid) programmesFeaturedGrid.classList.add('hidden');
+      if (programmesMoreGrid) programmesMoreGrid.classList.remove('hidden');
+      if (programmesPagination) programmesPagination.classList.remove('hidden');
+      renderProgrammesMore();
+    }
+
+    function renderProgrammesPage() {
+      if (programmesExpanded) {
+        renderProgrammesMore();
+      } else {
+        renderProgrammesFeatured();
+      }
+
+      if (typeof initDestModals === 'function') initDestModals();
+      if (typeof setupReveal === 'function') setupReveal();
+    }
+
+    if (programmesToggleBtn) {
+      programmesToggleBtn.addEventListener('click', () => {
+        expandProgrammes();
+        const target = document.getElementById('programmesMoreGrid');
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+
+    if (programmesSearchInput) {
+      programmesSearchInput.addEventListener('input', () => {
+        programmesSearch = programmesSearchInput.value.trim().toLowerCase();
+        programmesPage = 1;
+        if (!programmesExpanded) expandProgrammes();
+        else renderProgrammesMore();
+      });
+    }
+    function closeProgrammesLevelMenu() {
+      if (!programmesLevelMenu) return;
+      programmesLevelMenu.classList.add('hidden');
+      if (programmesLevelChevron) programmesLevelChevron.textContent = 'expand_more';
+    }
+
+    if (programmesLevelBtn && programmesLevelMenu) {
+      programmesLevelBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const willOpen = programmesLevelMenu.classList.contains('hidden');
+        programmesLevelMenu.classList.toggle('hidden');
+        if (programmesLevelChevron) programmesLevelChevron.textContent = willOpen ? 'expand_less' : 'expand_more';
+      });
+
+      programmesLevelMenu.querySelectorAll('.prog-level-option').forEach((opt) => {
+        opt.addEventListener('click', () => {
+          programmesLevel = opt.dataset.value;
+          if (programmesLevelLabel) programmesLevelLabel.textContent = opt.textContent;
+          programmesLevelMenu.querySelectorAll('.prog-level-option').forEach((o) => o.classList.remove('bg-brand-light', 'text-brand'));
+          opt.classList.add('bg-brand-light', 'text-brand');
+          closeProgrammesLevelMenu();
+          programmesPage = 1;
+          if (!programmesExpanded) expandProgrammes();
+          else renderProgrammesMore();
+        });
+      });
+
+      document.addEventListener('click', (e) => {
+        if (programmesLevelWrap && !programmesLevelWrap.contains(e.target)) closeProgrammesLevelMenu();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeProgrammesLevelMenu();
+      });
+    }
+
+    async function loadProgrammes() {
+      try {
+        const res = await fetch('http://localhost:3001/api/public/programmes');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            programmesAll = data;
+          }
+        }
+      } catch (e) {
+        console.warn('Programmes dynamiques indisponibles (utilisation des données locales de secours).', e);
+      }
+      renderProgrammesPage();
+    }
+
+    async function loadDynamicAvis() {
+      try {
+        const res = await fetch('http://localhost:3001/api/public/avis');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!Array.isArray(data) || data.length === 0) return;
+
+        const track = document.getElementById('testi-track-container');
+        if (!track) return;
+
+        let cardsHtml = '';
+        data.forEach((avis) => {
+          const starsHtml = Array(5).fill(0).map((_, i) => i < (avis.rating || 5) ? '★' : '☆').join('');
+          cardsHtml += `
+            <div class="testi-glass-card">
+              <div class="testi-stars">${starsHtml}</div>
+              <p class="testi-quote">"${avis.content}"</p>
+              <div style="display:flex; align-items:center; gap:12px; margin-top:auto;">
+                ${avis.author_photo ? `<img src="${avis.author_photo}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;" />` : ''}
+                <div>
+                  <p class="testi-name">${avis.author_name}</p>
+                  <p class="testi-role">${avis.programme || 'Étudiant'}</p>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+
+        // Duplicate the html to allow infinite scrolling effect
+        track.innerHTML = cardsHtml + cardsHtml;
+      } catch (e) {
+        console.warn('Avis dynamiques indisponibles.', e);
+      }
+    }
+
+    loadProgrammes();
+    loadDynamicAvis();
 
     /* ── Animated counters ── */
     function animateCounter(el) {
@@ -5160,9 +5161,8 @@
 
   <script>
     /* ── Destination modal ── */
-    (function () {
-      var destData = {
-        italia: {
+    var destData = {
+      italia: {
           title: 'Programme Italie',
           badge: '🇮🇹 Italie · Licence / Master',
           img: 'IMAGE/bled/italie.jpg',
@@ -5356,9 +5356,10 @@
       var dmCta = document.getElementById('dmCta');
 
       var activeKey = null;
+      var activeDynamicData = null;
 
       function renderProgram(key, tabIdx) {
-        var d = destData[key];
+        var d = activeDynamicData || destData[key];
         if (!d || !d.programs || !d.programs[tabIdx]) return;
         var p = d.programs[tabIdx];
 
@@ -5427,10 +5428,11 @@
         dmDetails.innerHTML = html;
       }
 
-      function openModal(key) {
-        var d = destData[key];
+      function openModal(key, dynamicData) {
+        var d = dynamicData || destData[key];
         if (!d) return;
         activeKey = key;
+        activeDynamicData = dynamicData;
 
         dmImg.src = d.img;
         dmImg.alt = d.title;
@@ -5467,15 +5469,37 @@
         document.body.style.overflow = '';
       }
 
-      document.querySelectorAll('.dest-detail-btn').forEach(function (btn) {
-        btn.addEventListener('click', function () { openModal(btn.dataset.dest); });
+      document.body.addEventListener('click', function (e) {
+        var btn = e.target.closest('.dest-detail-btn');
+        if (btn) {
+          var article = btn.closest('article');
+          var dynamicData = null;
+          if (article && article.dataset.programmeJson) {
+            try {
+              var p = JSON.parse(article.dataset.programmeJson);
+              if (p.details && p.details.length > 0) {
+                dynamicData = {
+                  title: p.title,
+                  badge: p.country + (p.degrees ? ' · ' + p.degrees : ''),
+                  img: p.imageUrl ? (p.imageUrl.startsWith('http') || p.imageUrl.startsWith('data:') ? p.imageUrl : (p.imageUrl.startsWith('/uploads/') ? 'http://localhost:3001' + p.imageUrl : p.imageUrl)) : 'IMAGE/bled/italie.jpg',
+                  programs: p.details
+                };
+              }
+            } catch (err) {
+              console.error('Erreur parsing JSON programme:', err);
+            }
+          }
+          openModal(btn.dataset.dest, dynamicData);
+        }
       });
 
       dmClose.addEventListener('click', closeModal);
       dmCta.addEventListener('click', closeModal);
       modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
-    })();
+      
+      // Stub initDestModals to avoid errors if called elsewhere
+      window.initDestModals = function() {};
   </script>
 
 </body>
