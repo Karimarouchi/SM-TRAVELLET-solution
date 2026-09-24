@@ -11,6 +11,9 @@ ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
 FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
+# Placé sous /app/ pour correspondre au chemin d'URL configuré via
+# base: "/app/" dans vite.config.ts — la racine du domaine sert le site
+# vitrine statique séparément (voir la config nginx de l'hôte).
+COPY --from=build /app/dist /usr/share/nginx/html/app
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80

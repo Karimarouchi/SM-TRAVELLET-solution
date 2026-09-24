@@ -42,7 +42,11 @@ function vitrinePlugin(): Plugin {
   };
 }
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  // En prod, l'app React est servie sous /app/ (la racine du domaine sert le
+  // site vitrine statique, directement par nginx) — en dev, on garde la
+  // racine "/" pour ne rien changer au confort habituel (localhost:5174/).
+  base: command === "build" ? "/app/" : "/",
   plugins: [react(), vitrinePlugin()],
   resolve: {
     alias: {
@@ -55,4 +59,4 @@ export default defineConfig({
       allow: [path.resolve(__dirname, "..")]
     }
   }
-});
+}));
