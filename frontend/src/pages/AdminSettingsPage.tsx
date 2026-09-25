@@ -2,6 +2,7 @@ import { fetchAdminSettings, updateAdminSettings, type AdminSettings, type Stall
 import { cn } from "@/lib/utils";
 import { AlertTriangle, CheckCircle2, KeyRound, Mail, Save, Settings as SettingsIcon, ShieldCheck, Users2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import BackupPanel from "@/components/admin/BackupPanel";
 
 const FREQUENCIES: { id: StalledAlertFrequency; label: string; hint: string }[] = [
   { id: "once", label: "Une seule fois", hint: "Un email au franchissement du seuil, jamais renvoyé ensuite." },
@@ -275,6 +276,11 @@ export default function AdminSettingsPage() {
               )}
             </div>
           </section>
+
+          {/* ── Sauvegarde de secours ────────────────────────────────────── */}
+          <div className="mt-4">
+            <BackupPanel />
+          </div>
         </>
       )}
     </main>
