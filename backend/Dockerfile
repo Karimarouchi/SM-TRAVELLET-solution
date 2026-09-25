@@ -15,7 +15,11 @@ COPY . .
 
 # Créés au démarrage si absents ; montés en volume par docker-compose pour
 # survivre aux redéploiements (voir la note dans docker-compose.yml).
-RUN mkdir -p uploads logs
+RUN mkdir -p uploads logs && chown -R node:node /app
+
+# node:20-alpine fournit déjà un utilisateur non privilégié "node" (uid 1000) —
+# on l'utilise pour ne jamais exécuter l'API en root dans le conteneur.
+USER node
 
 EXPOSE 3001
 

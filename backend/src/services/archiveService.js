@@ -52,7 +52,7 @@ async function runPurge(days = 0) {
     // 3. Supprimer les fichiers physiques du disque.
     for (const doc of documentsToPurge) {
       if (doc.stored_filename) {
-        const filePath = path.join(DOC_DIR, doc.stored_filename);
+        const filePath = path.join(DOC_DIR, path.basename(doc.stored_filename));
         try {
           if (fs.existsSync(filePath)) {
             fs.unlinkSync(filePath);

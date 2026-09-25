@@ -8,7 +8,7 @@ const { Client } = require("pg");
 const env = require("../src/config/env");
 
 async function countRowsByTable(connectionString) {
-  const client = new Client({ connectionString, ssl: connectionString.includes("supabase.co") ? { rejectUnauthorized: false } : false });
+  const client = new Client({ connectionString, ssl: connectionString.includes("supabase.co") ? { rejectUnauthorized: true } : false });
   await client.connect();
   try {
     const { rows: tables } = await client.query(`

@@ -106,7 +106,7 @@ async function uploadDocument(studentUserId, name, fileBase64, originalFilename)
   const ext = isPdf ? "pdf" : (mimeType.split("/")[1] === "jpeg" ? "jpg" : mimeType.split("/")[1]);
   fs.mkdirSync(DOC_DIR, { recursive: true });
   const storedFilename = `doc_${studentUserId.slice(0, 8)}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  fs.writeFileSync(path.join(DOC_DIR, storedFilename), buffer);
+  fs.writeFileSync(path.join(DOC_DIR, path.basename(storedFilename)), buffer);
   const fileUrl = `/uploads/documents/${storedFilename}`;
 
   await studentDocRepo.upsertForRequirementIds(studentUserId, group.map((g) => g.id), {
@@ -266,7 +266,7 @@ async function uploadVisaDocument(studentUserId, requirementId, fileBase64, orig
   const ext = isPdf ? "pdf" : (mimeType.split("/")[1] === "jpeg" ? "jpg" : mimeType.split("/")[1]);
   fs.mkdirSync(DOC_DIR, { recursive: true });
   const storedFilename = `visadoc_${studentUserId.slice(0, 8)}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  fs.writeFileSync(path.join(DOC_DIR, storedFilename), buffer);
+  fs.writeFileSync(path.join(DOC_DIR, path.basename(storedFilename)), buffer);
   const fileUrl = `/uploads/documents/${storedFilename}`;
 
   await studentDocRepo.upsertForRequirementIds(studentUserId, [requirement.id], {
