@@ -69,7 +69,7 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
 
       <a className="as-back" href={VITRINE_URL}>
         <ArrowLeft size={16} />
-        <img src="/images/logo-blanc.png" alt="SM Travel" />
+        <img src={`${import.meta.env.BASE_URL}images/logo-blanc.png`} alt="SM Travel" />
       </a>
 
       <div className={cn("as-container", isSignUp && "as-sign-up-mode")}>

@@ -3605,11 +3605,17 @@
     });
 
     /* ── Programmes: fetch, recherche, filtre niveau, pagination ── */
+    // En local (vitrine servie séparément par lancer-site-local.ps1, sur un
+    // autre port que le backend), l'API reste sur localhost:3001. En
+    // production, le backend est sur le même domaine via /api/ (proxifié par
+    // nginx) — une URL relative suffit, jamais de port codé en dur.
+    const API_ORIGIN = (location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? 'http://localhost:3001' : '';
     function resolveImgUrl(url) {
-      if (!url) return 'IMAGE/bled/italie.jpg';
+      if (!url) return '/IMAGE/bled/italie.jpg';
       if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
-      if (url.startsWith('/uploads/')) return 'http://localhost:3001' + url;
-      return url;
+      if (url.startsWith('/uploads/')) return API_ORIGIN + url;
+      if (url.startsWith('/')) return url;
+      return '/' + url;
     }
 
     function renderCard(p, isFeaturedCard, index) {
@@ -3862,7 +3868,7 @@
 
     async function loadProgrammes() {
       try {
-        const res = await fetch('http://localhost:3001/api/public/programmes');
+        const res = await fetch(API_ORIGIN + '/api/public/programmes');
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data) && data.length > 0) {
@@ -3877,7 +3883,7 @@
 
     async function loadDynamicAvis() {
       try {
-        const res = await fetch('http://localhost:3001/api/public/avis');
+        const res = await fetch(API_ORIGIN + '/api/public/avis');
         if (!res.ok) return;
         const data = await res.json();
         if (!Array.isArray(data) || data.length === 0) return;
@@ -5481,7 +5487,7 @@
                 dynamicData = {
                   title: p.title,
                   badge: p.country + (p.degrees ? ' · ' + p.degrees : ''),
-                  img: p.imageUrl ? (p.imageUrl.startsWith('http') || p.imageUrl.startsWith('data:') ? p.imageUrl : (p.imageUrl.startsWith('/uploads/') ? 'http://localhost:3001' + p.imageUrl : p.imageUrl)) : 'IMAGE/bled/italie.jpg',
+                  img: p.imageUrl ? (p.imageUrl.startsWith('http') || p.imageUrl.startsWith('data:') ? p.imageUrl : (p.imageUrl.startsWith('/uploads/') ? ((location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? 'http://localhost:3001' : '') + p.imageUrl : (p.imageUrl.startsWith('/') ? p.imageUrl : '/' + p.imageUrl))) : '/IMAGE/bled/italie.jpg',
                   programs: p.details
                 };
               }

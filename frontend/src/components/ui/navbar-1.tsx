@@ -105,7 +105,7 @@ const Navbar1 = () => {
             whileHover={{ rotate: 4, scale: 1.04 }}
             transition={{ duration: 0.3 }}
           >
-            <img src="/images/logo-color.png" alt="SM Travel" className="h-8 w-auto" />
+            <img src={`${import.meta.env.BASE_URL}images/logo-color.png`} alt="SM Travel" className="h-8 w-auto" />
           </motion.a>
         </div>
 
