@@ -63,7 +63,7 @@ async function runBackup(triggeredBy) {
   const pgRestore = env.backup.pgRestorePath || "pg_restore";
 
   try {
-    await run(pgDump, ["--format=custom", `--file=${dumpFile}`, env.databaseUrl]);
+    await run(pgDump, ["--format=custom", "--schema=public", `--file=${dumpFile}`, env.databaseUrl]);
     await run(pgRestore, [
       "--clean",
       "--if-exists",
@@ -102,7 +102,7 @@ async function runRestore(triggeredBy) {
   const pgRestore = env.backup.pgRestorePath || "pg_restore";
 
   try {
-    await run(pgDump, ["--format=custom", `--file=${dumpFile}`, env.backup.supabaseDatabaseUrl]);
+    await run(pgDump, ["--format=custom", "--schema=public", `--file=${dumpFile}`, env.backup.supabaseDatabaseUrl]);
     await run(pgRestore, [
       "--clean",
       "--if-exists",

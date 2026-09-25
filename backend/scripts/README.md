@@ -47,7 +47,11 @@ crontab -e
 
 ```bash
 # 1. Récupérer un dump depuis Supabase (la sauvegarde)
-pg_dump --format=custom --file=restore.dump "$SUPABASE_DATABASE_URL"
+# --schema=public est essentiel : sans lui, pg_dump embarque aussi les
+# schémas internes de Supabase (auth, storage, realtime...), qui n'ont
+# rien à voir avec l'app et font échouer la restauration (erreurs
+# "must be owner of...").
+pg_dump --format=custom --schema=public --file=restore.dump "$SUPABASE_DATABASE_URL"
 
 # 2. Vérifier le contenu si besoin (optionnel)
 pg_restore --list restore.dump | less
