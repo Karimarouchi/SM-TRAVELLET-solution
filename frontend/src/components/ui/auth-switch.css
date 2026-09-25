@@ -266,7 +266,7 @@
   transition: 0.35s;
   font-size: 0.86rem;
   letter-spacing: 0.04em;
-  box-shadow: 0 10px 24px rgba(109, 40, 217, 0.32);
+  box-shadow: 0 10px 16px -6px rgba(109, 40, 217, 0.55);
   position: relative;
   overflow: hidden;
 }
@@ -290,7 +290,7 @@
 .auth-switch-root .as-btn:hover {
   background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%);
   transform: translateY(-3px);
-  box-shadow: 0 16px 30px rgba(109, 40, 217, 0.42);
+  box-shadow: 0 18px 22px -8px rgba(109, 40, 217, 0.55);
 }
 
 .auth-switch-root .as-btn:disabled {
