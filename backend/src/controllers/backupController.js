@@ -20,4 +20,20 @@ async function run(req, res) {
   }
 }
 
-module.exports = { status, run };
+async function restoreStatus(req, res) {
+  try {
+    res.json(backupService.getRestoreStatus() || { success: null, at: null });
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
+async function restore(req, res) {
+  try {
+    res.json(await backupService.runRestore(req.auth.sub));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
+module.exports = { status, run, restoreStatus, restore };

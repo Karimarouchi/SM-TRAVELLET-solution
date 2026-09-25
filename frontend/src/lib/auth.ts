@@ -273,6 +273,14 @@ export async function runBackupNow() {
   return request<BackupStatus>("/api/admin/backup/run", { method: "POST" });
 }
 
+export async function fetchRestoreStatus() {
+  return request<BackupStatus>("/api/admin/backup/restore-status");
+}
+
+export async function runRestoreNow() {
+  return request<BackupStatus>("/api/admin/backup/restore", { method: "POST" });
+}
+
 export type ArchivedEntry = {
   id: string;
   studentId: string;

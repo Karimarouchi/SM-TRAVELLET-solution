@@ -121,6 +121,8 @@ app.post("/api/sales/me/codes", requireAuth, requireRoles("SALES"), salesCodeCon
 
 app.get("/api/admin/backup/status", requireAuth, requireRoles("ADMIN"), backupController.status);
 app.post("/api/admin/backup/run", requireAuth, requireRoles("ADMIN"), backupController.run);
+app.get("/api/admin/backup/restore-status", requireAuth, requireRoles("ADMIN"), backupController.restoreStatus);
+app.post("/api/admin/backup/restore", requireAuth, requireRoles("ADMIN"), backupController.restore);
 
 // Commissions Sales/RDV — configuration des taux et registre des gains
 app.get("/api/admin/commission-rules", requireAuth, requireRoles("ADMIN"), commissionController.listRules);

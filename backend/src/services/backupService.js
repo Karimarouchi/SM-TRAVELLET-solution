@@ -10,6 +10,7 @@ const env = require("../config/env");
 const logger = require("../logger");
 
 const STATUS_FILE = path.join(__dirname, "../../logs/last-backup.json");
+const RESTORE_STATUS_FILE = path.join(__dirname, "../../logs/last-restore.json");
 
 function fail(message, status) {
   const error = new Error(message);
@@ -30,14 +31,22 @@ function run(cmd, args) {
   });
 }
 
-function writeStatus(status) {
-  fs.mkdirSync(path.dirname(STATUS_FILE), { recursive: true });
-  fs.writeFileSync(STATUS_FILE, JSON.stringify(status, null, 2));
+function writeStatus(file, status) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(status, null, 2));
+}
+
+function readStatus(file) {
+  if (!fs.existsSync(file)) return null;
+  return JSON.parse(fs.readFileSync(file, "utf8"));
 }
 
 function getStatus() {
-  if (!fs.existsSync(STATUS_FILE)) return null;
-  return JSON.parse(fs.readFileSync(STATUS_FILE, "utf8"));
+  return readStatus(STATUS_FILE);
+}
+
+function getRestoreStatus() {
+  return readStatus(RESTORE_STATUS_FILE);
 }
 
 async function runBackup(triggeredBy) {
@@ -65,13 +74,13 @@ async function runBackup(triggeredBy) {
     ]);
 
     const status = { success: true, at: new Date().toISOString(), triggeredBy: triggeredBy || "cron" };
-    writeStatus(status);
+    writeStatus(STATUS_FILE, status);
     logger.info("Sauvegarde vers Supabase réussie.", { triggeredBy: status.triggeredBy });
     return status;
   } catch (error) {
     const message = error.stderr || error.message;
     const status = { success: false, at: new Date().toISOString(), error: message, triggeredBy: triggeredBy || "cron" };
-    writeStatus(status);
+    writeStatus(STATUS_FILE, status);
     logger.error("Échec de la sauvegarde vers Supabase", { message, triggeredBy: status.triggeredBy });
     throw fail(`Échec de la sauvegarde : ${message}`, 500);
   } finally {
@@ -79,4 +88,43 @@ async function runBackup(triggeredBy) {
   }
 }
 
-module.exports = { runBackup, getStatus };
+// Restauration MANUELLE, en sens inverse : Supabase → prod. Réservée aux cas
+// de sinistre (perte de données en prod) — jamais déclenchée automatiquement,
+// uniquement par un admin qui clique explicitement sur "Restaurer" (avec
+// confirmation côté UI, puisque ça écrase la base de production actuelle).
+async function runRestore(triggeredBy) {
+  if (!env.backup.supabaseDatabaseUrl) {
+    throw fail("SUPABASE_DATABASE_URL n'est pas configuré sur ce serveur.", 409);
+  }
+
+  const dumpFile = path.join(os.tmpdir(), `sm-travel-restore-${Date.now()}.dump`);
+  const pgDump = env.backup.pgDumpPath || "pg_dump";
+  const pgRestore = env.backup.pgRestorePath || "pg_restore";
+
+  try {
+    await run(pgDump, ["--format=custom", `--file=${dumpFile}`, env.backup.supabaseDatabaseUrl]);
+    await run(pgRestore, [
+      "--clean",
+      "--if-exists",
+      "--no-owner",
+      "--no-privileges",
+      `--dbname=${env.databaseUrl}`,
+      dumpFile
+    ]);
+
+    const status = { success: true, at: new Date().toISOString(), triggeredBy: triggeredBy || "admin" };
+    writeStatus(RESTORE_STATUS_FILE, status);
+    logger.info("Restauration depuis Supabase réussie.", { triggeredBy: status.triggeredBy });
+    return status;
+  } catch (error) {
+    const message = error.stderr || error.message;
+    const status = { success: false, at: new Date().toISOString(), error: message, triggeredBy: triggeredBy || "admin" };
+    writeStatus(RESTORE_STATUS_FILE, status);
+    logger.error("Échec de la restauration depuis Supabase", { message, triggeredBy: status.triggeredBy });
+    throw fail(`Échec de la restauration : ${message}`, 500);
+  } finally {
+    fs.rm(dumpFile, { force: true }, () => {});
+  }
+}
+
+module.exports = { runBackup, getStatus, runRestore, getRestoreStatus };
