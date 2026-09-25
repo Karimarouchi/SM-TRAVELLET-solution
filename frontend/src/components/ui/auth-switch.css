@@ -87,6 +87,10 @@
   width: auto;
 }
 
+.auth-switch-root .as-back-dark {
+  color: var(--as-ink);
+}
+
 .auth-switch-root .as-back:hover {
   transform: translateX(-4px);
   opacity: 0.88;
@@ -505,39 +509,6 @@
   transition: 1.8s cubic-bezier(0.22, 1, 0.36, 1);
   border-radius: 50%;
   z-index: 6;
-}
-
-.auth-switch-root .as-social-text {
-  padding: 0.55rem 0;
-  font-size: 0.88rem;
-  color: var(--as-muted);
-}
-
-.auth-switch-root .as-social-media {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-}
-
-.auth-switch-root .as-social-icon {
-  height: 44px;
-  width: 44px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  border: 1px solid #e2e8f0;
-  border-radius: 50%;
-  color: var(--as-brand);
-  transition: 0.3s;
-  cursor: pointer;
-  text-decoration: none;
-  background: #fff;
-}
-
-.auth-switch-root .as-social-icon:hover {
-  border-color: var(--as-brand);
-  transform: translateY(-4px) scale(1.06);
-  box-shadow: 0 10px 20px rgba(109, 40, 217, 0.18);
 }
 
 @media (max-width: 870px) {
