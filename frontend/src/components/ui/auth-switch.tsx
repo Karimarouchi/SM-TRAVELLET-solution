@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { DEMO_ACCOUNT, login, postLoginPath, register } from "@/lib/auth";
 import { useLanguage } from "@/lib/i18n";
 import { DatePickerField } from "@/components/ui/date-picker";
-import { ArrowLeft, CalendarDays as CalendarIcon, KeyRound, Lock, Mail, User } from "lucide-react";
+import { ArrowLeft, CalendarDays as CalendarIcon, DoorClosed, DoorOpen, KeyRound, Lock, Mail, PersonStanding, User, UserX } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { VITRINE_URL } from "@/lib/site";
@@ -107,16 +107,14 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
                 ) : (
                   <span className="as-door-scene" aria-hidden="true">
                     <span className="as-walker">
-                      <span className="as-walker-head" />
-                      <span className="as-walker-body" />
+                      <PersonStanding size={22} strokeWidth={2.25} />
                     </span>
-                    <span className="as-door-frame">
-                      <span className="as-door-leaf" />
+                    <span className="as-door">
+                      {loginAnim === "success" ? <DoorOpen size={24} strokeWidth={2} /> : <DoorClosed size={24} strokeWidth={2} />}
                     </span>
                     {loginAnim === "fail" && (
                       <span className="as-bouncer">
-                        <span className="as-bouncer-head" />
-                        <span className="as-bouncer-body" />
+                        <UserX size={20} strokeWidth={2.25} />
                       </span>
                     )}
                   </span>
