@@ -12,11 +12,12 @@
     linear-gradient(145deg, #0c1628 0%, #2e1065 42%, #4c1d95 72%, #6d28d9 100%);
   background-size: 140% 140%;
   animation: as-bg-shift 16s ease-in-out infinite;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 20px;
+  padding: 0;
   position: relative;
   overflow: hidden;
 }
@@ -94,12 +95,11 @@
 .auth-switch-root .as-container {
   position: relative;
   width: 100%;
-  max-width: 960px;
-  height: 680px;
+  height: 100%;
   background: #fff;
-  border-radius: 28px;
-  box-shadow: 0 30px 80px rgba(76, 29, 149, 0.38);
-  overflow: hidden;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden auto;
   animation: as-card-in 0.8s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -493,8 +493,8 @@
 .auth-switch-root .as-container:before {
   content: "";
   position: absolute;
-  height: 2000px;
-  width: 2000px;
+  height: 220vmax;
+  width: 220vmax;
   top: -10%;
   right: 48%;
   transform: translateY(-50%);
@@ -541,11 +541,6 @@
 }
 
 @media (max-width: 870px) {
-  .auth-switch-root .as-container {
-    min-height: 860px;
-    height: auto;
-  }
-
   .auth-switch-root .as-signin-signup {
     width: 100%;
     top: 95%;
@@ -601,8 +596,8 @@
   }
 
   .auth-switch-root .as-container:before {
-    width: 1500px;
-    height: 1500px;
+    width: 180vmax;
+    height: 180vmax;
     transform: translateX(-50%);
     left: 30%;
     bottom: 68%;
