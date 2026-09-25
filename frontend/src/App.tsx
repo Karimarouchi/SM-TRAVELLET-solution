@@ -20,6 +20,7 @@ import SalesCodesPage from "@/pages/SalesCodesPage";
 import StudentDetailPage from "@/pages/StudentDetailPage";
 import RdvDossiersPage from "@/pages/RdvDossiersPage";
 import MessagesPage from "@/pages/MessagesPage";
+import WhatsAppPage from "@/pages/WhatsAppPage";
 import ArchivePage from "@/pages/ArchivePage";
 
 export default function App() {
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="/conseiller/etudiants/:id" element={<StudentDetailPage />} />
           <Route path="/rdv" element={<RdvDossiersPage />} />
           <Route path="/messages" element={<MessagesPage />} />
+          <Route path="/whatsapp" element={<WhatsAppPage />} />
           <Route path="/archive" element={<ArchivePage />} />
         </Route>
       </Routes>

@@ -514,7 +514,7 @@ export async function openChatWithStudent(studentId: string) {
   }>(`/api/messages/with-student/${studentId}`, { method: "POST" });
 }
 
-async function request<T>(pathname: string, options?: RequestInit): Promise<T> {
+export async function request<T>(pathname: string, options?: RequestInit): Promise<T> {
   const session = getSession();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",

@@ -6,6 +6,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Menu, Settings, X } from "lucide-react";
 import { clearSession, fetchUnreadCount, getSession, logout } from "@/lib/auth";
+import { fetchWhatsAppUnread } from "@/lib/whatsapp";
 import { useLanguage } from "@/lib/i18n";
 import { VITRINE_URL } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,7 @@ type NavLinkItem = { label: string; href?: string; external?: boolean; children?
 
 function linksForRole(role: string | undefined, permissions: string[], t: (fr: string, en: string) => string): NavLinkItem[] {
   const messages: NavLinkItem = { label: t("Messages", "Messages"), href: "/messages" };
+  const whatsapp: NavLinkItem = { label: "WhatsApp", href: "/whatsapp" };
   const visaDocs: NavLinkItem = { label: t("Documents visa", "Visa documents"), href: "/admin/visa-documents" };
   const hasVisaDocsPermission = permissions.includes("MANAGE_VISA_DOCUMENTS");
   if (role === "ADMIN") {
@@ -30,7 +32,8 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
         ]
       },
       { label: t("Archive", "Archive"), href: "/archive" },
-      messages
+      messages,
+      whatsapp
     ];
   }
   if (role === "SALES") {
@@ -39,7 +42,8 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
       { label: t("Codes", "Codes"), href: "/conseiller/codes" },
       { label: t("Archive", "Archive"), href: "/archive" },
       ...(hasVisaDocsPermission ? [visaDocs] : []),
-      messages
+      messages,
+      whatsapp
     ];
   }
   if (role === "RDV") {
@@ -66,6 +70,7 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
 const Navbar1 = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [unread, setUnread] = useState(0);
+  const [waUnread, setWaUnread] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
   const role = getSession()?.user.role;
@@ -79,6 +84,11 @@ const Navbar1 = () => {
       fetchUnreadCount()
         .then((data) => setUnread(data.unread || 0))
         .catch(() => undefined);
+      if (role === "ADMIN" || role === "SALES") {
+        fetchWhatsAppUnread()
+          .then(setWaUnread)
+          .catch(() => undefined);
+      }
     }
     refresh();
     const timer = window.setInterval(refresh, 4000);
@@ -162,6 +172,11 @@ const Navbar1 = () => {
                     {item.href === "/messages" && unread > 0 && (
                       <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[10px] font-bold text-white">
                         {unread}
+                      </span>
+                    )}
+                    {item.href === "/whatsapp" && waUnread > 0 && (
+                      <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] font-bold text-white">
+                        {waUnread}
                       </span>
                     )}
                   </Link>
@@ -269,6 +284,11 @@ const Navbar1 = () => {
                       {item.href === "/messages" && unread > 0 && (
                         <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[10px] font-bold text-white">
                           {unread}
+                        </span>
+                      )}
+                      {item.href === "/whatsapp" && waUnread > 0 && (
+                        <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] font-bold text-white">
+                          {waUnread}
                         </span>
                       )}
                     </Link>
