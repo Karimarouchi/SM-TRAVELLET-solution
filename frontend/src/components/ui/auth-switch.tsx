@@ -78,9 +78,11 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
             <form className="as-sign-in-form" onSubmit={onSignIn} noValidate>
               <p className="as-kicker">{t("Espace client", "Client area")}</p>
               <h2 className="as-title">{t("Connexion", "Log in")}</h2>
-              <p className="as-demo">
-                {t("Compte démo", "Demo account")} : {DEMO_ACCOUNT.email} / {DEMO_ACCOUNT.password}
-              </p>
+              {import.meta.env.DEV && (
+                <p className="as-demo">
+                  {t("Compte démo", "Demo account")} : {DEMO_ACCOUNT.email} / {DEMO_ACCOUNT.password}
+                </p>
+              )}
               <div className="as-input-field">
                 <span className="as-icon"><Mail size={18} /></span>
                 <input name="email" type="email" placeholder="Email" required autoComplete="email" />
