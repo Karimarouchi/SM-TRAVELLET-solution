@@ -1,6 +1,7 @@
 import {
   assignStudent,
   createSalesAccount,
+  deleteSales,
   fetchAssignmentBoard,
   setSalesActive,
   transferSalesWork,
@@ -11,7 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { DragEvent, FormEvent, ReactNode, useEffect, useRef, useState } from "react";
-import { ArrowRightLeft, Ban, Check, ChevronDown, GraduationCap, MapPin, Plus, Unlock, UserRound, Users } from "lucide-react";
+import { ArrowRightLeft, Ban, Check, ChevronDown, GraduationCap, MapPin, Plus, Trash2, Unlock, UserRound, Users } from "lucide-react";
 
 /* ─── Menu déroulant personnalisé (remplace le <select> natif, moche) ──── */
 function SalesPicker({ candidates, value, onChange }: { candidates: BoardSales[]; value: string; onChange: (id: string) => void }) {
@@ -303,6 +304,20 @@ export default function AdminAssignment({ onChanged }: { onChanged?: () => void 
     }
   }
 
+  async function onDeleteSales(item: BoardSales) {
+    const confirmed = window.confirm(
+      `Supprimer définitivement le compte de ${item.prenom} ${item.nom} (${item.email}) ?\n\nCette action est irréversible. À réserver aux comptes créés par erreur et jamais utilisés.`
+    );
+    if (!confirmed) return;
+    setError("");
+    try {
+      await deleteSales(item.id);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Suppression impossible.");
+    }
+  }
+
   async function onCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -387,6 +402,16 @@ export default function AdminAssignment({ onChanged }: { onChanged?: () => void 
                     className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-red-100 hover:text-red-600"
                   >
                     <ArrowRightLeft className="h-3 w-3" />
+                  </button>
+                )}
+                {item.students.length === 0 && (
+                  <button
+                    type="button"
+                    title="Supprimer ce compte (uniquement s'il n'a jamais servi — créé par erreur)"
+                    onClick={() => onDeleteSales(item)}
+                    className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-red-100 hover:text-red-600"
+                  >
+                    <Trash2 className="h-3 w-3" />
                   </button>
                 )}
                 <button

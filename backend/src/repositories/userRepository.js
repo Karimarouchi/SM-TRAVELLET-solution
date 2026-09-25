@@ -97,6 +97,33 @@ async function setActive(id, isActive) {
   return result.rows[0] || null;
 }
 
+// Compte tout ce qui référence ce compte sales (étudiants assignés,
+// candidatures, commissions, conversations) — sert à vérifier qu'un compte
+// est réellement vide (créé par erreur) avant d'autoriser sa suppression
+// définitive. Ne jamais supprimer un compte qui a la moindre donnée liée :
+// utiliser "Transférer + Bloquer" à la place dans ce cas.
+async function countSalesLinkedData(salesId) {
+  const result = await query(
+    `SELECT
+       (SELECT COUNT(*) FROM student_profiles WHERE assigned_sales_id = $1) AS students,
+       (SELECT COUNT(*) FROM university_applications WHERE sales_id = $1) AS applications,
+       (SELECT COUNT(*) FROM commission_earnings WHERE user_id = $1) AS commissions,
+       (SELECT COUNT(*) FROM conversations WHERE sales_id = $1) AS conversations`,
+    [salesId]
+  );
+  const row = result.rows[0];
+  return {
+    students: Number(row.students),
+    applications: Number(row.applications),
+    commissions: Number(row.commissions),
+    conversations: Number(row.conversations)
+  };
+}
+
+async function deleteById(id) {
+  await query("DELETE FROM users WHERE id = $1", [id]);
+}
+
 module.exports = {
   findByEmail,
   findById,
@@ -111,5 +138,7 @@ module.exports = {
   updateAvatar,
   setActive,
   setEmailVerificationCode,
-  markEmailVerified
+  markEmailVerified,
+  countSalesLinkedData,
+  deleteById
 };

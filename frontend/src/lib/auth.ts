@@ -403,6 +403,10 @@ export async function transferSalesWork(salesId: string, toSalesId: string) {
   });
 }
 
+export async function deleteSales(salesId: string) {
+  return request<{ id: string }>(`/api/admin/sales/${salesId}`, { method: "DELETE" });
+}
+
 export async function assignStudent(studentId: string, salesId: string | null) {
   return request<{ studentId: string; assignedSalesId: string | null }>(`/api/students/${studentId}/assign`, {
     method: "PATCH",

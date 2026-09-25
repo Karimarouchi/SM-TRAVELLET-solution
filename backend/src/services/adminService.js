@@ -587,6 +587,27 @@ async function transferAndBlockSales(fromSalesId, toSalesId) {
   return { id: updated.id, isActive: updated.is_active !== false, transferred };
 }
 
+// Suppression DÉFINITIVE, réservée aux comptes créés par erreur et jamais
+// utilisés : refusée dès qu'il existe la moindre donnée liée (étudiant,
+// candidature, commission, conversation), auquel cas il faut passer par
+// "Transférer + Bloquer" pour ne perdre aucun historique réel.
+async function deleteSales(salesId) {
+  const user = await users.findById(salesId);
+  if (!user || user.role !== "SALES") throw fail("Conseiller introuvable.", 404);
+
+  const linked = await users.countSalesLinkedData(salesId);
+  const total = linked.students + linked.applications + linked.commissions + linked.conversations;
+  if (total > 0) {
+    throw fail(
+      "Ce compte a des données associées (étudiants, candidatures, commissions ou conversations) : utilisez \"Transférer + Bloquer\" plutôt que de le supprimer.",
+      409
+    );
+  }
+
+  await users.deleteById(salesId);
+  return { id: salesId };
+}
+
 async function createRdv(body) {
   const prenom = String(body.prenom || "").trim();
   const nom = String(body.nom || "").trim();
@@ -703,4 +724,4 @@ async function setRdvCountries(rdvUserId, countryIds) {
   return { rdvUserId, countryIds: ids };
 }
 
-module.exports = { getBoard, getDashboard, getStudentsOverview, setStudentActive, setAutoAssign, getSettings, updateSettings, createSales, setSalesActive, transferAndBlockSales, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };
+module.exports = { getBoard, getDashboard, getStudentsOverview, setStudentActive, setAutoAssign, getSettings, updateSettings, createSales, setSalesActive, transferAndBlockSales, deleteSales, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };

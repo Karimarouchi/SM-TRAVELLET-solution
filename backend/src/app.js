@@ -141,6 +141,7 @@ app.patch("/api/admin/auto-assign", requireAuth, requireRoles("ADMIN"), adminCon
 app.post("/api/admin/sales", requireAuth, requireRoles("ADMIN"), adminController.createSales);
 app.patch("/api/admin/sales/:id/active", requireAuth, requireRoles("ADMIN"), adminController.setSalesActive);
 app.post("/api/admin/sales/:id/transfer", requireAuth, requireRoles("ADMIN"), adminController.transferSales);
+app.delete("/api/admin/sales/:id", requireAuth, requireRoles("ADMIN"), adminController.deleteSales);
 app.get("/api/admin/users/:id/access", requireAuth, requireRoles("ADMIN"), adminController.getUserAccess);
 app.patch("/api/admin/users/:id/roles", requireAuth, requireRoles("ADMIN"), adminController.setUserRoles);
 app.patch("/api/admin/users/:id/permissions", requireAuth, requireRoles("ADMIN"), adminController.setUserPermissions);

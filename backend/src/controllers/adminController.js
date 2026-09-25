@@ -84,6 +84,14 @@ async function transferSales(req, res) {
   }
 }
 
+async function deleteSales(req, res) {
+  try {
+    res.json(await adminService.deleteSales(req.params.id));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function getUserAccess(req, res) {
   try {
     res.json(await adminService.getUserAccess(req.params.id));
@@ -156,4 +164,4 @@ async function listRdvStudents(req, res) {
   }
 }
 
-module.exports = { dashboard, board, studentsOverview, setStudentActive, autoAssign, getSettings, updateSettings, createSales, setSalesActive, transferSales, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };
+module.exports = { dashboard, board, studentsOverview, setStudentActive, autoAssign, getSettings, updateSettings, createSales, setSalesActive, transferSales, deleteSales, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };
