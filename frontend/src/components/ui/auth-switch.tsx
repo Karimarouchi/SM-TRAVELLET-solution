@@ -99,26 +99,25 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
               {error && !isSignUp && <p className="as-error">{error}</p>}
               <button
                 type="submit"
-                className={cn("as-btn as-solid", loginAnim !== "idle" && `as-anim-${loginAnim}`)}
+                className={cn("as-btn as-solid as-btn-with-scene", loginAnim !== "idle" && `as-anim-${loginAnim}`)}
                 disabled={loading || loginAnim !== "idle"}
               >
-                {loginAnim === "idle" ? (
-                  loading && !isSignUp ? "..." : t("Se connecter", "Log in")
-                ) : (
-                  <span className="as-door-scene" aria-hidden="true">
-                    <span className="as-walker">
-                      <PersonStanding size={22} strokeWidth={2.25} />
-                    </span>
-                    <span className="as-door">
-                      {loginAnim === "success" ? <DoorOpen size={24} strokeWidth={2} /> : <DoorClosed size={24} strokeWidth={2} />}
-                    </span>
-                    {loginAnim === "fail" && (
-                      <span className="as-bouncer">
-                        <UserX size={20} strokeWidth={2.25} />
-                      </span>
-                    )}
+                <span className={cn("as-btn-label", loginAnim !== "idle" && "as-btn-label-hidden")}>
+                  {loading && !isSignUp ? "..." : t("Se connecter", "Log in")}
+                </span>
+                <span className="as-door-scene" aria-hidden="true">
+                  <span className="as-walker">
+                    <PersonStanding size={20} strokeWidth={2.25} />
                   </span>
-                )}
+                  <span className="as-door">
+                    {loginAnim === "success" ? <DoorOpen size={22} strokeWidth={2} /> : <DoorClosed size={22} strokeWidth={2} />}
+                  </span>
+                  {loginAnim === "fail" && (
+                    <span className="as-bouncer">
+                      <UserX size={18} strokeWidth={2.25} />
+                    </span>
+                  )}
+                </span>
               </button>
               <p className="as-social-text">{t("Ou continuer avec", "Or continue with")}</p>
               <div className="as-social-media">

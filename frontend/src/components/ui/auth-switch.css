@@ -296,6 +296,22 @@
 }
 
 /* ── Animation "entrée par la porte" du bouton Se connecter ───────────── */
+/* Bouton élargi rien que pour celui-ci : le bonhomme et la porte doivent
+   rester visibles en permanence aux deux extrémités, texte au centre. */
+.auth-switch-root .as-btn.as-btn-with-scene {
+  width: 214px;
+}
+
+.auth-switch-root .as-btn-label {
+  position: relative;
+  z-index: 1;
+  transition: opacity 0.2s ease;
+}
+
+.auth-switch-root .as-btn-label-hidden {
+  opacity: 0;
+}
+
 .auth-switch-root .as-door-scene {
   position: absolute;
   inset: 0;
@@ -314,21 +330,21 @@
 }
 
 .auth-switch-root .as-door {
-  left: 118px;
+  left: 186px;
   transform: translate(-50%, -50%);
   color: rgba(255, 255, 255, 0.92);
   z-index: 1;
 }
 
 .auth-switch-root .as-walker {
-  left: 18px;
+  left: 24px;
   transform: translate(-50%, -50%);
   color: #fff;
   z-index: 2;
 }
 
 .auth-switch-root .as-bouncer {
-  left: 122px;
+  left: 188px;
   transform: translate(-50%, -50%) scale(0.5);
   color: #1e1b4b;
   opacity: 0;
@@ -336,16 +352,16 @@
 }
 
 @keyframes as-walk-in {
-  0% { left: 18px; opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0deg); }
-  60% { left: 92px; opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0deg); }
-  82% { left: 114px; opacity: 1; transform: translate(-50%, -50%) scale(0.75) rotate(0deg); }
-  100% { left: 130px; opacity: 0; transform: translate(-50%, -50%) scale(0.3) rotate(0deg); }
+  0% { left: 24px; opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+  60% { left: 146px; opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+  82% { left: 174px; opacity: 1; transform: translate(-50%, -50%) scale(0.75) rotate(0deg); }
+  100% { left: 196px; opacity: 0; transform: translate(-50%, -50%) scale(0.3) rotate(0deg); }
 }
 
 @keyframes as-walk-bounce {
-  0% { left: 18px; opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0deg); }
-  50% { left: 96px; opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0deg); }
-  62% { left: 100px; opacity: 1; transform: translate(-50%, -50%) scale(1.05) rotate(18deg); }
+  0% { left: 24px; opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+  50% { left: 156px; opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+  62% { left: 162px; opacity: 1; transform: translate(-50%, -50%) scale(1.05) rotate(18deg); }
   100% { left: -6px; opacity: 0; transform: translate(-50%, -50%) scale(0.7) rotate(-45deg); }
 }
 
