@@ -268,12 +268,68 @@ function TransferModal({
   );
 }
 
+/* ─── Modal : suppression définitive d'un compte sales créé par erreur ──── */
+function DeleteSalesModal({
+  target,
+  onClose,
+  onDone
+}: {
+  target: BoardSales;
+  onClose: () => void;
+  onDone: () => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur.");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-3" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+        <h3 className="flex items-center gap-2 font-display text-lg font-bold text-dark">
+          <Trash2 className="h-5 w-5 text-red-600" /> Supprimer ce compte
+        </h3>
+        <p className="mt-2 text-xs text-muted">
+          Le compte de <span className="font-semibold text-dark">{target.prenom} {target.nom}</span> ({target.email}) va être supprimé définitivement.
+        </p>
+        <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+          Action irréversible — à réserver aux comptes créés par erreur et jamais utilisés.
+        </p>
+
+        {error && <p className="mt-3 text-xs text-red-500">{error}</p>}
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="rounded-lg border border-line px-4 py-2 text-xs font-bold text-muted">Annuler</button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={submit}
+            className="rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-60"
+          >
+            {busy ? "Suppression..." : "Supprimer définitivement"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminAssignment({ onChanged }: { onChanged?: () => void }) {
   const [board, setBoard] = useState<AssignmentBoard | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ prenom: "", nom: "", email: "", password: "", phone: "" });
   const [transferTarget, setTransferTarget] = useState<BoardSales | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<BoardSales | null>(null);
 
   async function load() {
     setError("");
@@ -304,18 +360,10 @@ export default function AdminAssignment({ onChanged }: { onChanged?: () => void 
     }
   }
 
-  async function onDeleteSales(item: BoardSales) {
-    const confirmed = window.confirm(
-      `Supprimer définitivement le compte de ${item.prenom} ${item.nom} (${item.email}) ?\n\nCette action est irréversible. À réserver aux comptes créés par erreur et jamais utilisés.`
-    );
-    if (!confirmed) return;
+  async function onDeleteSales(salesId: string) {
     setError("");
-    try {
-      await deleteSales(item.id);
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Suppression impossible.");
-    }
+    await deleteSales(salesId);
+    await load();
   }
 
   async function onCreate(event: FormEvent<HTMLFormElement>) {
@@ -408,7 +456,7 @@ export default function AdminAssignment({ onChanged }: { onChanged?: () => void 
                   <button
                     type="button"
                     title="Supprimer ce compte (uniquement s'il n'a jamais servi — créé par erreur)"
-                    onClick={() => onDeleteSales(item)}
+                    onClick={() => setDeleteTarget(item)}
                     className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-red-100 hover:text-red-600"
                   >
                     <Trash2 className="h-3 w-3" />
@@ -447,6 +495,17 @@ export default function AdminAssignment({ onChanged }: { onChanged?: () => void 
             await transferSalesWork(transferTarget.id, toSalesId);
             setTransferTarget(null);
             await load();
+          }}
+        />
+      )}
+
+      {deleteTarget && (
+        <DeleteSalesModal
+          target={deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onDone={async () => {
+            await onDeleteSales(deleteTarget.id);
+            setDeleteTarget(null);
           }}
         />
       )}
