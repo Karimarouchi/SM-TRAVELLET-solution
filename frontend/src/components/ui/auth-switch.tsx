@@ -155,10 +155,6 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
               <button type="submit" className="as-btn" disabled={loading}>
                 {loading && isSignUp ? "..." : t("S'inscrire", "Sign up")}
               </button>
-              <p className="as-social-text">{t("Ou continuer avec", "Or continue with")}</p>
-              <div className="as-social-media">
-                <SocialIcons />
-              </div>
             </form>
           </div>
         </div>
