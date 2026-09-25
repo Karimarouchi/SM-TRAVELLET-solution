@@ -35,5 +35,14 @@ module.exports = {
     // production : le PATH de l'image Docker suffit.
     pgDumpPath: process.env.PG_DUMP_PATH || "",
     pgRestorePath: process.env.PG_RESTORE_PATH || ""
+  },
+  // WhatsApp Business Cloud API (voir backend/WHATSAPP.md) — optionnel :
+  // sans ces variables l'app démarre, seules les routes WhatsApp répondent 503.
+  whatsapp: {
+    token: process.env.WHATSAPP_TOKEN || "",
+    appSecret: process.env.WHATSAPP_APP_SECRET || "",
+    verifyToken: process.env.WHATSAPP_VERIFY_TOKEN || "",
+    phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || "",
+    graphVersion: process.env.WHATSAPP_GRAPH_VERSION || "v23.0"
   }
 };

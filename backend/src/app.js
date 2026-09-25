@@ -11,6 +11,7 @@ const salesController = require("./controllers/salesController");
 const adminController = require("./controllers/adminController");
 const messageController = require("./controllers/messageController");
 const whatsappWebhookController = require("./controllers/whatsappWebhookController");
+const whatsappController = require("./controllers/whatsappController");
 const programmeController = require("./controllers/programmeController");
 const avisController = require("./controllers/avisController");
 const countryController = require("./controllers/countryController");
@@ -28,7 +29,14 @@ const { query } = require("../db");
 
 const app = express();
 app.use(cors({ origin: env.corsOrigin }));
-app.use(express.json({ limit: "5mb" }));
+app.use(express.json({
+  limit: "5mb",
+  // Corps brut conservé pour le webhook WhatsApp uniquement : la signature
+  // X-Hub-Signature-256 de Meta se vérifie sur les octets exacts reçus.
+  verify: (req, _res, buf) => {
+    if (req.originalUrl.startsWith("/api/whatsapp/webhook")) req.rawBody = buf;
+  }
+}));
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 app.get("/api/health", async (_req, res) => {
@@ -48,6 +56,13 @@ app.get("/api/public/universities", countryUniversityController.listPublic);
 
 app.get("/api/whatsapp/webhook", whatsappWebhookController.verifyWebhook);
 app.post("/api/whatsapp/webhook", whatsappWebhookController.receiveWebhook);
+
+app.get("/api/whatsapp/conversations", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.listConversations);
+app.get("/api/whatsapp/unread-count", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.unreadCount);
+app.get("/api/whatsapp/conversations/:contactId/messages", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.getMessages);
+app.post("/api/whatsapp/conversations/:contactId/messages", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.sendMessage);
+app.patch("/api/whatsapp/conversations/:contactId/student", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.linkStudent);
+app.patch("/api/whatsapp/conversations/:contactId/owner", requireAuth, requireRoles("ADMIN"), whatsappController.assignOwner);
 
 // Désactivé hors production (tests/dev) pour ne pas bloquer les allers-retours
 // de test ; s'active automatiquement dès que NODE_ENV=production est défini

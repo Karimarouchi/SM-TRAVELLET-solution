@@ -6,6 +6,7 @@ const userRoles = require("../repositories/userRoleRepository");
 const userPermissions = require("../repositories/userPermissionRepository");
 const countryRepo = require("../repositories/countryRepository");
 const universityApplications = require("../repositories/universityApplicationRepository");
+const whatsapp = require("./whatsappService");
 const { hashPassword } = require("../security/password");
 const { formatPgDate } = require("../dto/userDto");
 
@@ -548,6 +549,7 @@ async function createSales(body) {
     role: "SALES"
   });
   await sales.updatePhone(user.id, phone);
+  await whatsapp.distributeOrphans();
   return {
     id: user.id,
     prenom: user.prenom,
@@ -565,6 +567,11 @@ async function setSalesActive(salesId, isActive) {
     throw Object.assign(new Error("Conseiller introuvable."), { status: 404 });
   }
   const updated = await users.setActive(salesId, isActive);
+  if (isActive) {
+    await whatsapp.distributeOrphans();
+  } else {
+    await whatsapp.onSalesDeactivated(salesId);
+  }
   return { id: updated.id, isActive: updated.is_active !== false };
 }
 
@@ -583,6 +590,7 @@ async function transferAndBlockSales(fromSalesId, toSalesId) {
   if (to.is_active === false) throw fail("Le conseiller de destination doit être actif.", 400);
 
   const transferred = await students.reassignAllFromSales(fromSalesId, toSalesId);
+  await whatsapp.onSalesTransferred(fromSalesId, toSalesId);
   const updated = await users.setActive(fromSalesId, false);
   return { id: updated.id, isActive: updated.is_active !== false, transferred };
 }
