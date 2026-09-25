@@ -103,7 +103,7 @@
   background: #fff;
   border-radius: 0;
   box-shadow: none;
-  overflow: hidden auto;
+  overflow: hidden;
   animation: as-card-in 0.8s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
