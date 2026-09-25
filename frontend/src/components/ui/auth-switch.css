@@ -295,6 +295,127 @@
   transform: none;
 }
 
+/* ── Animation "entrée par la porte" du bouton Se connecter ───────────── */
+.auth-switch-root .as-door-scene {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.auth-switch-root .as-door-frame {
+  position: absolute;
+  left: 108px;
+  top: 8px;
+  width: 12px;
+  height: 33px;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  border-left: none;
+  border-radius: 0 4px 4px 0;
+  overflow: hidden;
+}
+
+.auth-switch-root .as-door-leaf {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.9);
+  transform-origin: left center;
+}
+
+.auth-switch-root .as-walker,
+.auth-switch-root .as-bouncer {
+  position: absolute;
+  width: 12px;
+  height: 30px;
+}
+
+.auth-switch-root .as-walker {
+  top: 10px;
+  left: 14px;
+}
+
+.auth-switch-root .as-walker-head,
+.auth-switch-root .as-bouncer-head {
+  position: absolute;
+  top: 0;
+  left: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.auth-switch-root .as-walker-body {
+  position: absolute;
+  top: 9px;
+  left: 4px;
+  width: 4px;
+  height: 16px;
+  border-radius: 2px;
+  background: #fff;
+}
+
+.auth-switch-root .as-bouncer {
+  top: 6px;
+  left: 114px;
+  opacity: 0;
+}
+
+.auth-switch-root .as-bouncer-body {
+  position: absolute;
+  top: 9px;
+  left: 0;
+  width: 12px;
+  height: 20px;
+  border-radius: 3px;
+  background: #1e1b4b;
+}
+
+@keyframes as-walk-in {
+  0% { left: 14px; opacity: 1; transform: scale(1); }
+  55% { left: 96px; opacity: 1; transform: scale(1); }
+  78% { left: 116px; opacity: 1; transform: scale(0.8); }
+  100% { left: 140px; opacity: 0; transform: scale(0.4); }
+}
+
+@keyframes as-walk-bounce {
+  0% { left: 14px; transform: rotate(0deg); opacity: 1; }
+  48% { left: 100px; transform: rotate(0deg); opacity: 1; }
+  58% { left: 104px; transform: rotate(10deg); opacity: 1; }
+  100% { left: 2px; transform: rotate(-30deg); opacity: 0; }
+}
+
+@keyframes as-door-open {
+  0%, 45% { transform: scaleX(1); }
+  100% { transform: scaleX(0.12); }
+}
+
+@keyframes as-door-open-close {
+  0%, 38% { transform: scaleX(1); }
+  55%, 68% { transform: scaleX(0.12); }
+  100% { transform: scaleX(1); }
+}
+
+@keyframes as-bouncer-pop {
+  0%, 50% { opacity: 0; transform: translateX(6px) scale(0.6); }
+  65% { opacity: 1; transform: translateX(0) scale(1); }
+  100% { opacity: 0; transform: translateX(4px) scale(0.85); }
+}
+
+.auth-switch-root .as-anim-success .as-walker { animation: as-walk-in 0.95s ease forwards; }
+.auth-switch-root .as-anim-success .as-door-leaf { animation: as-door-open 0.95s ease forwards; }
+
+.auth-switch-root .as-anim-fail .as-walker { animation: as-walk-bounce 0.95s ease forwards; }
+.auth-switch-root .as-anim-fail .as-door-leaf { animation: as-door-open-close 0.95s ease forwards; }
+.auth-switch-root .as-anim-fail .as-bouncer { animation: as-bouncer-pop 0.95s ease forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-switch-root .as-walker,
+  .auth-switch-root .as-door-leaf,
+  .auth-switch-root .as-bouncer {
+    animation: none !important;
+  }
+}
+
 .auth-switch-root .as-panels-container {
   position: absolute;
   height: 100%;

@@ -21,6 +21,7 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [hasCode, setHasCode] = useState(false);
+  const [loginAnim, setLoginAnim] = useState<"idle" | "success" | "fail">("idle");
 
   async function onSignIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -29,11 +30,15 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
     const form = new FormData(event.currentTarget);
     try {
       const session = await login(String(form.get("email") || ""), String(form.get("password") || ""));
-      navigate(postLoginPath(session));
+      setLoginAnim("success");
+      window.setTimeout(() => navigate(postLoginPath(session)), 950);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("Une erreur est survenue.", "Something went wrong."));
-    } finally {
-      setLoading(false);
+      setLoginAnim("fail");
+      window.setTimeout(() => {
+        setLoginAnim("idle");
+        setLoading(false);
+        setError(err instanceof Error ? err.message : t("Une erreur est survenue.", "Something went wrong."));
+      }, 950);
     }
   }
 
@@ -92,8 +97,30 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
                 <input name="password" type="password" placeholder={t("Mot de passe", "Password")} required autoComplete="current-password" />
               </div>
               {error && !isSignUp && <p className="as-error">{error}</p>}
-              <button type="submit" className="as-btn as-solid" disabled={loading}>
-                {loading && !isSignUp ? "..." : t("Se connecter", "Log in")}
+              <button
+                type="submit"
+                className={cn("as-btn as-solid", loginAnim !== "idle" && `as-anim-${loginAnim}`)}
+                disabled={loading || loginAnim !== "idle"}
+              >
+                {loginAnim === "idle" ? (
+                  loading && !isSignUp ? "..." : t("Se connecter", "Log in")
+                ) : (
+                  <span className="as-door-scene" aria-hidden="true">
+                    <span className="as-walker">
+                      <span className="as-walker-head" />
+                      <span className="as-walker-body" />
+                    </span>
+                    <span className="as-door-frame">
+                      <span className="as-door-leaf" />
+                    </span>
+                    {loginAnim === "fail" && (
+                      <span className="as-bouncer">
+                        <span className="as-bouncer-head" />
+                        <span className="as-bouncer-body" />
+                      </span>
+                    )}
+                  </span>
+                )}
               </button>
               <p className="as-social-text">{t("Ou continuer avec", "Or continue with")}</p>
               <div className="as-social-media">
