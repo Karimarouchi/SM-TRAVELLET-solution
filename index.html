@@ -32,7 +32,7 @@
   }
   </script>
   <!-- Son d'ouverture : bruit décollage avion -->
-  <audio id="intro-sound" preload="auto">
+  <audio id="intro-sound" preload="none">
     <source src="SONG/bruit-decollage-avion_j3LekOTX.mp3" type="audio/mpeg" />
   </audio>
 
@@ -1919,7 +1919,7 @@
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     cursor:pointer;transition:opacity .6s ease;
   ">
-    <img src="IMAGE/Logo blanc.png" alt="SM Travel" style="height:80px;margin-bottom:32px;" / loading="lazy" decoding="async">
+    <img src="IMAGE/Logo blanc.png" alt="SM Travel" style="height:80px;margin-bottom:32px;" fetchpriority="high" decoding="async">
     <p
       style="color:rgba(255,255,255,.75);font-family:sans-serif;font-size:1rem;margin-bottom:28px;letter-spacing:.05em;text-align:center;padding:0 1rem;">
       Agence d'accompagnement aux études à l'étranger
@@ -1970,7 +1970,7 @@
       <!-- Logo -->
       <a href="#accueil" class="flex items-center">
         <img id="navLogo" src="IMAGE/Logo blanc.png" alt="SM Travel" class="h-8 w-auto object-contain"
-          style="transition:opacity .3s ease;" / loading="lazy" decoding="async">
+          style="transition:opacity .3s ease;" fetchpriority="high" decoding="async">
       </a>
 
       <!-- Desktop links -->
@@ -4264,7 +4264,7 @@
   <div id="chat-window" aria-live="polite">
     <!-- En-tête -->
     <div id="chat-header">
-      <div id="chat-header-avatar"><img src="IMAGE/chatbot.jpeg" alt="Avatar" / loading="lazy" decoding="async"></div>
+      <div id="chat-header-avatar"><img src="IMAGE/chatbot.jpeg" alt="Avatar" loading="lazy" decoding="async"></div>
       <div style="flex: 1;">
         <div id="chat-header-name">SMio</div>
         <div id="chat-header-status"><span id="chat-dot"></span>En ligne</div>
@@ -5140,7 +5140,7 @@
   <div id="destModal" role="dialog" aria-modal="true" aria-labelledby="dmTitle">
     <div class="dm-inner">
       <div class="dm-img">
-        <img id="dmImg" src="" alt="" / loading="lazy" decoding="async">
+        <img id="dmImg" src="" alt="" loading="lazy" decoding="async">
         <div class="dm-img-overlay"></div>
         <p class="dm-img-title" id="dmTitle"></p>
         <button class="dm-close" id="dmClose" aria-label="Fermer">
