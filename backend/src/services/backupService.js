@@ -31,6 +31,25 @@ function run(cmd, args) {
   });
 }
 
+// pg_restore refuse de continuer si la moindre commande échoue (code de
+// sortie non nul), même quand l'unique erreur est un simple réglage de
+// session propre à une version plus récente de Postgres que le serveur
+// cible ne reconnaît pas (ex. "transaction_timeout", ajouté en v17) — ça
+// n'affecte aucune donnée réelle, juste ce réglage ignoré. On tolère
+// explicitement ce cas précis plutôt que de faire échouer toute la
+// sauvegarde/restauration pour une ligne cosmétique.
+function isOnlyIgnorableSessionSettingError(stderr) {
+  if (!stderr) return false;
+  const meaningfulLines = stderr
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .filter((line) => !/warning: errors ignored on restore/i.test(line))
+    .filter((line) => !/unrecognized configuration parameter/i.test(line))
+    .filter((line) => !/^command was: set (transaction_timeout|idle_session_timeout)/i.test(line));
+  return meaningfulLines.length === 0;
+}
+
 function writeStatus(file, status) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(status, null, 2));
@@ -64,14 +83,19 @@ async function runBackup(triggeredBy) {
 
   try {
     await run(pgDump, ["--format=custom", "--schema=public", `--file=${dumpFile}`, env.databaseUrl]);
-    await run(pgRestore, [
-      "--clean",
-      "--if-exists",
-      "--no-owner",
-      "--no-privileges",
-      `--dbname=${env.backup.supabaseDatabaseUrl}`,
-      dumpFile
-    ]);
+    try {
+      await run(pgRestore, [
+        "--clean",
+        "--if-exists",
+        "--no-owner",
+        "--no-privileges",
+        `--dbname=${env.backup.supabaseDatabaseUrl}`,
+        dumpFile
+      ]);
+    } catch (restoreError) {
+      if (!isOnlyIgnorableSessionSettingError(restoreError.stderr)) throw restoreError;
+      logger.info("Sauvegarde vers Supabase : réglage de session ignoré sans impact.", { stderr: restoreError.stderr });
+    }
 
     const status = { success: true, at: new Date().toISOString(), triggeredBy: triggeredBy || "cron" };
     writeStatus(STATUS_FILE, status);
@@ -103,14 +127,19 @@ async function runRestore(triggeredBy) {
 
   try {
     await run(pgDump, ["--format=custom", "--schema=public", `--file=${dumpFile}`, env.backup.supabaseDatabaseUrl]);
-    await run(pgRestore, [
-      "--clean",
-      "--if-exists",
-      "--no-owner",
-      "--no-privileges",
-      `--dbname=${env.databaseUrl}`,
-      dumpFile
-    ]);
+    try {
+      await run(pgRestore, [
+        "--clean",
+        "--if-exists",
+        "--no-owner",
+        "--no-privileges",
+        `--dbname=${env.databaseUrl}`,
+        dumpFile
+      ]);
+    } catch (restoreError) {
+      if (!isOnlyIgnorableSessionSettingError(restoreError.stderr)) throw restoreError;
+      logger.info("Restauration depuis Supabase : réglage de session ignoré sans impact.", { stderr: restoreError.stderr });
+    }
 
     const status = { success: true, at: new Date().toISOString(), triggeredBy: triggeredBy || "admin" };
     writeStatus(RESTORE_STATUS_FILE, status);
