@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const env = require("../config/env");
 const logger = require("../logger");
 const repo = require("../repositories/whatsappRepository");
+const notificationService = require("./notificationService");
 
 const MAX_TEXT_LENGTH = 4096;
 const WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -55,24 +56,51 @@ function extractBody(message) {
   }
 }
 
+function contactLabel(conversation) {
+  return fullName(conversation.student_prenom, conversation.student_nom)
+    || conversation.profile_name
+    || `+${conversation.phone}`;
+}
+
 // Attribue un responsable au contact s'il n'en a pas d'actif : le
 // conseiller de l'étudiant lié d'abord, sinon le sales actif le moins
 // chargé en conversations WhatsApp. Aucun sales actif → reste "non
-// attribuée", visible par l'admin.
-async function ensureOwner(contactId) {
+// attribuée", visible par l'admin (qui est prévenu).
+async function ensureOwner(contactId, { isNew = false } = {}) {
   const conversation = await repo.findConversation(contactId);
-  if (conversation.owner_id && (await repo.isActiveSales(conversation.owner_id))) return;
+  const before = conversation.owner_id;
+  let after = before;
 
-  if (conversation.student_id) {
-    const student = await repo.findStudentForLink(conversation.student_id);
-    if (student?.assigned_sales_id && (await repo.isActiveSales(student.assigned_sales_id))) {
-      await repo.setAssignedSales(contactId, student.assigned_sales_id);
-      return;
+  if (!before || !(await repo.isActiveSales(before))) {
+    after = null;
+    if (conversation.student_id) {
+      const student = await repo.findStudentForLink(conversation.student_id);
+      if (student?.assigned_sales_id && (await repo.isActiveSales(student.assigned_sales_id))) {
+        after = student.assigned_sales_id;
+      }
     }
+    if (!after) {
+      const leastLoaded = await repo.findLeastLoadedActiveSales();
+      after = leastLoaded ? leastLoaded.id : null;
+    }
+    await repo.setAssignedSales(contactId, after);
   }
 
-  const leastLoaded = await repo.findLeastLoadedActiveSales();
-  await repo.setAssignedSales(contactId, leastLoaded ? leastLoaded.id : null);
+  if (after && (isNew || after !== before)) {
+    await notificationService.notify(after, {
+      type: "WHATSAPP_ASSIGNED",
+      title: "Nouvelle conversation WhatsApp",
+      body: `${contactLabel(conversation)} vous a été attribué(e) sur WhatsApp.`,
+      link: "/whatsapp"
+    });
+  } else if (!after && (isNew || before)) {
+    await notificationService.notifyAdmins({
+      type: "WHATSAPP_UNASSIGNED",
+      title: "Conversation WhatsApp non attribuée",
+      body: `${contactLabel(conversation)} a écrit mais aucun sales actif n'est disponible.`,
+      link: "/whatsapp"
+    });
+  }
 }
 
 async function handleIncomingMessage(message, profileNames) {
@@ -82,6 +110,7 @@ async function handleIncomingMessage(message, profileNames) {
   if (!phone) return;
 
   const contact = await repo.upsertContact(phone, profileNames[message.from]);
+  const isNew = !contact.last_message_at;
   if (!contact.student_id) {
     const student = await repo.findStudentByPhone(phone);
     if (student) await repo.setStudent(contact.id, student.id);
@@ -100,7 +129,7 @@ async function handleIncomingMessage(message, profileNames) {
   if (!inserted) return;
 
   await repo.touchInbound(contact.id, createdAt);
-  await ensureOwner(contact.id);
+  await ensureOwner(contact.id, { isNew });
 }
 
 async function handleStatus(status) {

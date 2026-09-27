@@ -3,6 +3,7 @@ const salesCodeRepo = require("../repositories/salesCodeRepository");
 const countryRepo = require("../repositories/countryRepository");
 const studentRepo = require("../repositories/studentRepository");
 const commissionService = require("./commissionService");
+const notificationService = require("./notificationService");
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sans caractères ambigus (0/O, 1/I)
 
@@ -107,6 +108,7 @@ async function applyCodeToNewStudent(userId, rawCode) {
     targetLevel: claimed.prefill_target_level,
     phone: claimed.prefill_phone
   });
+  await notificationService.notifyStudentAssigned(claimed.sales_id, userId);
 
   if (claimed.country_id && claimed.sales_id) {
     await commissionService.awardCommission({

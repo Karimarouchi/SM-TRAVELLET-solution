@@ -6,6 +6,7 @@ const { hashPassword, verifyPassword } = require("../security/password");
 const { signToken } = require("../security/jwt");
 const { userDto, studentProfileDto } = require("../dto/userDto");
 const salesCodeService = require("./salesCodeService");
+const notificationService = require("./notificationService");
 const emailService = require("./emailService");
 const userRoles = require("../repositories/userRoleRepository");
 const userPermissions = require("../repositories/userPermissionRepository");
@@ -108,6 +109,12 @@ async function register(body) {
   if (body.salesCode) {
     await salesCodeService.applyCodeToNewStudent(user.id, body.salesCode);
   }
+  await notificationService.notifyAdmins({
+    type: "STUDENT_REGISTERED",
+    title: "Nouvel étudiant inscrit",
+    body: `${user.prenom} ${user.nom} (${user.email}) vient de créer son compte.`,
+    link: `/conseiller/etudiants/${user.id}`
+  });
   try {
     await sendNewVerificationCode(user);
   } catch (err) {

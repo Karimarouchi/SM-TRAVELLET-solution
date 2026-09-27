@@ -6,6 +6,7 @@ const sales = require("../repositories/salesRepository");
 const settings = require("../repositories/settingsRepository");
 const { studentProfileDto, userDto, formatPgDate, lockedFieldsFromRow } = require("../dto/userDto");
 const { canAccessStudent } = require("../security/rbac");
+const notificationService = require("./notificationService");
 
 const AVATAR_DIR = path.join(__dirname, "../../uploads/avatars");
 const MAX_AVATAR_BYTES = 600 * 1024;
@@ -294,6 +295,7 @@ async function saveOnboarding(userId, body) {
     const leastLoaded = await sales.findLeastLoadedActive();
     if (leastLoaded) {
       profile = studentProfileDto(await students.assignSales(userId, leastLoaded.id));
+      await notificationService.notifyStudentAssigned(leastLoaded.id, userId);
     }
   }
   return { profile, onboardingCompleted: true, assignedSalesId: profile.assignedSalesId || null };
@@ -367,8 +369,11 @@ async function assignSales(auth, studentId, salesId) {
     }
     nextSalesId = salesUser.id;
   }
-  await students.ensureProfile(studentId);
+  const previous = await students.ensureProfile(studentId);
   const profile = studentProfileDto(await students.assignSales(studentId, nextSalesId));
+  if (nextSalesId && nextSalesId !== previous.assigned_sales_id) {
+    await notificationService.notifyStudentAssigned(nextSalesId, studentId);
+  }
   return { studentId, assignedSalesId: profile.assignedSalesId };
 }
 

@@ -1,6 +1,7 @@
 const students = require("../repositories/studentRepository");
 const settings = require("../repositories/settingsRepository");
 const emailService = require("../services/emailService");
+const notificationService = require("./notificationService");
 const logger = require("../logger");
 
 const FREQUENCY_MS = {
@@ -37,7 +38,6 @@ async function runCheck() {
     const recipients = new Set();
     if (config.email) recipients.add(config.email);
     if (row.sales_email) recipients.add(row.sales_email);
-    if (!recipients.size) continue;
 
     const studentName = `${row.prenom} ${row.nom}`.trim();
     const salesLabel = row.sales_prenom ? `${row.sales_prenom} ${row.sales_nom}` : "aucun conseiller assigné";
@@ -47,6 +47,12 @@ async function runCheck() {
       `Une candidature universitaire doit être créée pour ce dossier.`;
 
     try {
+      await notificationService.notifyAdmins({
+        type: "STALLED_DOSSIER",
+        title: `Dossier bloqué : ${studentName}`,
+        body: `Sans candidature depuis ${daysStalled} jour${daysStalled > 1 ? "s" : ""} (conseiller : ${salesLabel}).`,
+        link: `/conseiller/etudiants/${row.id}`
+      });
       await Promise.all(
         [...recipients].map((to) => emailService.sendAlertEmail(to, `Dossier bloqué — ${studentName}`, message))
       );

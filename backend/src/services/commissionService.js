@@ -1,9 +1,19 @@
 const commissionRepo = require("../repositories/commissionRepository");
 const countryRepo = require("../repositories/countryRepository");
+const userRepo = require("../repositories/userRepository");
+const notificationService = require("./notificationService");
 const logger = require("../logger");
 
 const ROLES = ["SALES", "RDV"];
 const STAGES = ["CODE_CLAIMED", "DOCUMENTS_VALIDATED", "APPLIED", "ACCEPTED", "VISA_SUBMITTED", "VISA_ACCEPTED"];
+const STAGE_LABELS = {
+  CODE_CLAIMED: "Code conseiller utilisé",
+  DOCUMENTS_VALIDATED: "Documents validés",
+  APPLIED: "Candidature déposée",
+  ACCEPTED: "Acceptation université",
+  VISA_SUBMITTED: "Dossier visa déposé",
+  VISA_ACCEPTED: "Visa obtenu"
+};
 
 function fail(message, status) {
   const error = new Error(message);
@@ -109,6 +119,13 @@ async function awardCommission({ userId, studentId, countryId, role, stage, appl
     });
     if (earning) {
       logger.info("Commission attribuée", { userId, studentId, countryId, role, stage, amount: rule.amount_dinar });
+      const student = await userRepo.findById(studentId);
+      await notificationService.notify(userId, {
+        type: "COMMISSION_EARNED",
+        title: `Commission gagnée : ${Number(rule.amount_dinar)} DT`,
+        body: `${STAGE_LABELS[stage] || stage}${student ? ` — ${student.prenom} ${student.nom}` : ""}.`,
+        link: role === "RDV" ? "/rdv" : "/conseiller"
+      });
     }
   } catch (err) {
     logger.error("Échec de l'attribution d'une commission", { message: err.message, userId, studentId, countryId, role, stage });

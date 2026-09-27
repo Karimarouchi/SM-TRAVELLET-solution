@@ -3,7 +3,8 @@ const path = require("path");
 const studentDocRepo = require("../repositories/studentDocumentRepository");
 const studentRepo = require("../repositories/studentRepository");
 const appRepo = require("../repositories/universityApplicationRepository");
-const messageRepo = require("../repositories/messageRepository");
+const userRepo = require("../repositories/userRepository");
+const notificationService = require("./notificationService");
 const { canAccessStudent, authRoles } = require("../security/rbac");
 const universityApplicationService = require("./universityApplicationService");
 const logger = require("../logger");
@@ -15,6 +16,11 @@ function fail(message, status) {
   const error = new Error(message);
   error.status = status;
   return error;
+}
+
+async function studentName(studentId) {
+  const student = await userRepo.findById(studentId);
+  return student ? `${student.prenom} ${student.nom}` : "Un étudiant";
 }
 
 // Un même nom de document peut correspondre à plusieurs document_requirements
@@ -117,6 +123,15 @@ async function uploadDocument(studentUserId, name, fileBase64, originalFilename)
     fileSize: buffer.length
   });
 
+  if (profile?.assigned_sales_id) {
+    await notificationService.notify(profile.assigned_sales_id, {
+      type: "DOCUMENT_UPLOADED",
+      title: "Document déposé à vérifier",
+      body: `${await studentName(studentUserId)} a déposé « ${trimmedName} ».`,
+      link: `/conseiller/etudiants/${studentUserId}`
+    });
+  }
+
   const checklist = await getChecklist(studentUserId);
   return checklist.find((d) => d.name === trimmedName);
 }
@@ -166,13 +181,19 @@ async function reviewDocument(auth, studentId, name, status, reason) {
     status === "REJECTED" ? trimmedReason : null
   );
 
-  if (profile.assigned_sales_id) {
-    const body = status === "REJECTED"
-      ? `Document « ${trimmedName} » refusé : ${trimmedReason}. Merci de le redéposer dans votre espace Documents.`
-      : `Document « ${trimmedName} » validé ✓`;
-    const conversation = await messageRepo.createPair(studentId, profile.assigned_sales_id);
-    await messageRepo.insertMessage(conversation.id, null, body);
-  }
+  await notificationService.notify(studentId, status === "REJECTED"
+    ? {
+        type: "DOCUMENT_REJECTED",
+        title: `Document refusé : ${trimmedName}`,
+        body: `${trimmedReason}. Merci de le redéposer dans votre espace Documents.`,
+        link: "/documents"
+      }
+    : {
+        type: "DOCUMENT_VALIDATED",
+        title: `Document validé : ${trimmedName}`,
+        body: "Votre document a été vérifié et accepté.",
+        link: "/documents"
+      });
 
   if (status === "VALIDATED") {
     // Ne bloque jamais la validation du document si le calcul READY_TO_APPLY
@@ -277,6 +298,15 @@ async function uploadVisaDocument(studentUserId, requirementId, fileBase64, orig
     fileSize: buffer.length
   });
 
+  if (application.assigned_rdv_id) {
+    await notificationService.notify(application.assigned_rdv_id, {
+      type: "VISA_DOCUMENT_UPLOADED",
+      title: "Document visa déposé à vérifier",
+      body: `${await studentName(studentUserId)} a déposé « ${requirement.name} » (${application.country_name || "visa"}).`,
+      link: "/rdv"
+    });
+  }
+
   const checklist = await getVisaChecklist(application.country_id, studentUserId);
   return checklist.find((d) => d.requirementId === requirement.id);
 }
@@ -313,13 +343,19 @@ async function reviewVisaDocument(auth, applicationId, requirementId, status, re
     status === "REJECTED" ? trimmedReason : null
   );
 
-  if (application.assigned_rdv_id) {
-    const body = status === "REJECTED"
-      ? `Document visa « ${requirement.name} » refusé : ${trimmedReason}. Merci de le redéposer dans votre espace Documents visa.`
-      : `Document visa « ${requirement.name} » validé ✓`;
-    const conversation = await messageRepo.createPair(application.student_id, application.assigned_rdv_id);
-    await messageRepo.insertMessage(conversation.id, null, body);
-  }
+  await notificationService.notify(application.student_id, status === "REJECTED"
+    ? {
+        type: "VISA_DOCUMENT_REJECTED",
+        title: `Document visa refusé : ${requirement.name}`,
+        body: `${trimmedReason}. Merci de le redéposer dans votre espace Documents visa.`,
+        link: "/documents?tab=visa"
+      }
+    : {
+        type: "VISA_DOCUMENT_VALIDATED",
+        title: `Document visa validé : ${requirement.name}`,
+        body: "Votre document visa a été vérifié et accepté.",
+        link: "/documents?tab=visa"
+      });
 
   const checklist = await getVisaChecklist(application.country_id, application.student_id);
   return checklist.find((d) => d.requirementId === requirement.id);

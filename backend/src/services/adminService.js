@@ -7,6 +7,7 @@ const userPermissions = require("../repositories/userPermissionRepository");
 const countryRepo = require("../repositories/countryRepository");
 const universityApplications = require("../repositories/universityApplicationRepository");
 const whatsapp = require("./whatsappService");
+const notificationService = require("./notificationService");
 const { hashPassword } = require("../security/password");
 const { formatPgDate } = require("../dto/userDto");
 
@@ -591,6 +592,14 @@ async function transferAndBlockSales(fromSalesId, toSalesId) {
 
   const transferred = await students.reassignAllFromSales(fromSalesId, toSalesId);
   await whatsapp.onSalesTransferred(fromSalesId, toSalesId);
+  if (transferred > 0) {
+    await notificationService.notify(toSalesId, {
+      type: "STUDENT_ASSIGNED",
+      title: `${transferred} étudiant${transferred > 1 ? "s" : ""} transféré${transferred > 1 ? "s" : ""}`,
+      body: `Les étudiants de ${from.prenom} ${from.nom} vous ont été transférés.`,
+      link: "/conseiller"
+    });
+  }
   const updated = await users.setActive(fromSalesId, false);
   return { id: updated.id, isActive: updated.is_active !== false, transferred };
 }
@@ -607,7 +616,7 @@ async function deleteSales(salesId) {
   const total = linked.students + linked.applications + linked.commissions + linked.conversations;
   if (total > 0) {
     throw fail(
-      "Ce compte a des données associées (étudiants, candidatures, commissions ou conversations) : utilisez \"Transférer + Bloquer\" plutôt que de le supprimer.",
+      "Ce compte a des données associées (étudiants, candidatures, commissions ou conversations WhatsApp) : utilisez \"Transférer + Bloquer\" plutôt que de le supprimer.",
       409
     );
   }

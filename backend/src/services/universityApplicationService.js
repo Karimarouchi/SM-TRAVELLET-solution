@@ -5,7 +5,7 @@ const studentDocRepo = require("../repositories/studentDocumentRepository");
 const studentRepo = require("../repositories/studentRepository");
 const userRepo = require("../repositories/userRepository");
 const userRoleRepo = require("../repositories/userRoleRepository");
-const messageRepo = require("../repositories/messageRepository");
+const notificationService = require("./notificationService");
 const emailService = require("./emailService");
 const commissionService = require("./commissionService");
 const logger = require("../logger");
@@ -220,11 +220,29 @@ async function markApplied(auth, applicationId, payload) {
   return dto({ ...updated, country_name: (await countryRepo.findById(updated.country_id))?.name });
 }
 
-async function notifyStudent(application, body) {
-  const profile = await studentRepo.ensureProfile(application.student_id);
-  if (!profile.assigned_sales_id) return;
-  const conversation = await messageRepo.createPair(application.student_id, profile.assigned_sales_id);
-  await messageRepo.insertMessage(conversation.id, null, body);
+// Notification à l'étudiant : la première phrase du texte sert de titre,
+// la suite de détail.
+async function notifyStudent(application, text) {
+  const match = String(text).match(/^(.+?[.!?])\s+(.*)$/s);
+  await notificationService.notify(application.student_id, {
+    type: "APPLICATION_UPDATE",
+    title: match ? match[1] : text,
+    body: match ? match[2] : "",
+    link: "/espace"
+  });
+}
+
+async function notifyAdminsOfVisaDecision(application, accepted, reason) {
+  const student = await userRepo.findById(application.student_id);
+  const country = await countryRepo.findById(application.country_id);
+  const who = student ? `${student.prenom} ${student.nom}` : "Un étudiant";
+  const visa = country?.name ? `Visa ${country.name}` : "Visa";
+  await notificationService.notifyAdmins({
+    type: accepted ? "VISA_ACCEPTED" : "VISA_REJECTED",
+    title: accepted ? `Visa obtenu : ${who}` : `Visa refusé : ${who}`,
+    body: accepted ? `${visa} accepté, dossier complet.` : `${visa} refusé. Motif : ${reason}`,
+    link: `/conseiller/etudiants/${application.student_id}`
+  });
 }
 
 // §7 — Entretien demandé / planifié / modifié.
@@ -555,6 +573,7 @@ async function markVisaAccepted(auth, applicationId, payload) {
   });
   await recordHistory(applicationId, application.student_id, "VISA_SUBMITTED", "VISA_ACCEPTED", auth.sub, comment || "Visa accepté.");
   await notifyStudent(updated, "Félicitations, votre visa a été accepté ! Votre dossier est désormais complet.", auth.sub);
+  await notifyAdminsOfVisaDecision(application, true);
   await studentRepo.setDossierStage(application.student_id, "COMPLETED");
 
   if (application.assigned_rdv_id) {
@@ -592,6 +611,7 @@ async function markVisaRejected(auth, applicationId, reason) {
   });
   await recordHistory(applicationId, application.student_id, "VISA_SUBMITTED", "VISA_REJECTED", auth.sub, trimmed);
   await notifyStudent(updated, `Votre visa a été refusé. Motif : ${trimmed}. Une nouvelle candidature peut être ouverte si vous le souhaitez.`, auth.sub);
+  await notifyAdminsOfVisaDecision(application, false, trimmed);
   return dto({ ...updated, country_name: (await countryRepo.findById(updated.country_id))?.name, university_name: (await universityRepo.findById(updated.university_id))?.name });
 }
 

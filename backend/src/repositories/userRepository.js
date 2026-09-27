@@ -108,8 +108,7 @@ async function countSalesLinkedData(salesId) {
        (SELECT COUNT(*) FROM student_profiles WHERE assigned_sales_id = $1) AS students,
        (SELECT COUNT(*) FROM university_applications WHERE sales_id = $1) AS applications,
        (SELECT COUNT(*) FROM commission_earnings WHERE user_id = $1) AS commissions,
-       (SELECT COUNT(*) FROM conversations WHERE sales_id = $1)
-         + (SELECT COUNT(*) FROM whatsapp_contacts WHERE assigned_sales_id = $1)
+       (SELECT COUNT(*) FROM whatsapp_contacts WHERE assigned_sales_id = $1)
          + (SELECT COUNT(*) FROM whatsapp_messages WHERE sent_by = $1) AS conversations`,
     [salesId]
   );

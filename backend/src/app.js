@@ -9,7 +9,7 @@ const authController = require("./controllers/authController");
 const studentController = require("./controllers/studentController");
 const salesController = require("./controllers/salesController");
 const adminController = require("./controllers/adminController");
-const messageController = require("./controllers/messageController");
+const notificationController = require("./controllers/notificationController");
 const whatsappWebhookController = require("./controllers/whatsappWebhookController");
 const whatsappController = require("./controllers/whatsappController");
 const programmeController = require("./controllers/programmeController");
@@ -208,11 +208,10 @@ app.put("/api/admin/avis/:id", requireAuth, requirePermission("MANAGE_AVIS"), av
 app.patch("/api/admin/avis/:id/status", requireAuth, requirePermission("MANAGE_AVIS"), avisController.updateAvisStatus);
 app.delete("/api/admin/avis/:id", requireAuth, requirePermission("MANAGE_AVIS"), avisController.deleteAvis);
 
-app.get("/api/messages/conversations", requireAuth, messageController.list);
-app.get("/api/messages/unread-count", requireAuth, messageController.unread);
-app.get("/api/messages/conversations/:id", requireAuth, messageController.getOne);
-app.post("/api/messages/conversations/:id/messages", requireAuth, messageController.send);
-app.post("/api/messages/with-student/:studentId", requireAuth, messageController.openWithStudent);
+app.get("/api/notifications", requireAuth, notificationController.list);
+app.get("/api/notifications/unread-count", requireAuth, notificationController.unreadCount);
+app.post("/api/notifications/read-all", requireAuth, notificationController.markAllRead);
+app.patch("/api/notifications/:id/read", requireAuth, notificationController.markRead);
 
 app.use((_req, res) => {
   res.status(404).json({ error: "Route introuvable." });
