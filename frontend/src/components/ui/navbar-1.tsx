@@ -15,7 +15,6 @@ type NavLinkItem = { label: string; href?: string; external?: boolean; children?
 
 function linksForRole(role: string | undefined, permissions: string[], t: (fr: string, en: string) => string): NavLinkItem[] {
   const messages: NavLinkItem = { label: t("Messages", "Messages"), href: "/messages" };
-  const whatsapp: NavLinkItem = { label: "WhatsApp", href: "/whatsapp" };
   const visaDocs: NavLinkItem = { label: t("Documents visa", "Visa documents"), href: "/admin/visa-documents" };
   const hasVisaDocsPermission = permissions.includes("MANAGE_VISA_DOCUMENTS");
   if (role === "ADMIN") {
@@ -32,8 +31,7 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
         ]
       },
       { label: t("Archive", "Archive"), href: "/archive" },
-      messages,
-      whatsapp
+      messages
     ];
   }
   if (role === "SALES") {
@@ -42,8 +40,7 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
       { label: t("Codes", "Codes"), href: "/conseiller/codes" },
       { label: t("Archive", "Archive"), href: "/archive" },
       ...(hasVisaDocsPermission ? [visaDocs] : []),
-      messages,
-      whatsapp
+      messages
     ];
   }
   if (role === "RDV") {
@@ -174,7 +171,7 @@ const Navbar1 = () => {
                         {unread}
                       </span>
                     )}
-                    {item.href === "/whatsapp" && waUnread > 0 && (
+                    {item.href === "/messages" && waUnread > 0 && (
                       <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] font-bold text-white">
                         {waUnread}
                       </span>
@@ -286,7 +283,7 @@ const Navbar1 = () => {
                           {unread}
                         </span>
                       )}
-                      {item.href === "/whatsapp" && waUnread > 0 && (
+                      {item.href === "/messages" && waUnread > 0 && (
                         <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] font-bold text-white">
                           {waUnread}
                         </span>

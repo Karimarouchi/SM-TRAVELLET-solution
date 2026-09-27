@@ -218,7 +218,9 @@ function AssignOwnerModal({
   );
 }
 
-export default function WhatsAppPage() {
+// Boîte de réception WhatsApp, affichée comme onglet dans la page Messages
+// (remplit toute la hauteur de la carte qui la contient).
+export default function WhatsAppInbox() {
   const me = getSession()?.user;
   const isAdmin = me?.role === "ADMIN";
 
@@ -380,11 +382,7 @@ export default function WhatsAppPage() {
   if (!me) return null;
 
   return (
-    <main className="px-3 pb-5 md:px-6">
-      <div
-        className="mx-auto max-w-6xl overflow-hidden rounded-[28px] border border-line bg-white shadow-[0_20px_60px_rgba(109,40,217,.12)]"
-        style={{ height: "calc(100dvh - 8rem)" }}
-      >
+    <>
         <div className="flex h-full min-h-0 md:grid md:grid-cols-[340px_1fr]">
           {/* ── Liste des conversations ─────────────────────────────────── */}
           <aside className={cn("h-full w-full min-h-0 flex-col border-line bg-slate-50/70 md:flex md:w-auto md:border-r", mobileChat ? "hidden" : "flex")}>
@@ -628,12 +626,11 @@ export default function WhatsAppPage() {
             )}
           </section>
         </div>
-      </div>
 
       {linkOpen && <LinkStudentModal onClose={() => setLinkOpen(false)} onPick={(studentId) => onLink(studentId)} />}
       {assignOpen && active && (
         <AssignOwnerModal currentOwnerId={active.ownerId} onClose={() => setAssignOpen(false)} onPick={onAssign} />
       )}
-    </main>
+    </>
   );
 }
