@@ -9,8 +9,9 @@ import {
 } from "@/lib/auth";
 import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, ClipboardCopy, Globe2, Plus, Sparkles, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { fetchWhatsAppConversations, formatWhatsAppPhone, type WhatsAppConversation } from "@/lib/whatsapp";
+import { AlertTriangle, CheckCircle2, ClipboardCopy, Globe2, MessageCircle, Plus, Search, Sparkles, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 type FormData = {
   countryId: string;
@@ -20,6 +21,111 @@ type FormData = {
 };
 
 const EMPTY_FORM: FormData = { countryId: "", prefillCurrentStudyLevel: "", prefillTargetLevel: "", prefillPhone: "" };
+
+function contactName(contact: WhatsAppConversation) {
+  return contact.studentName || contact.profileName || formatWhatsAppPhone(contact.phone);
+}
+
+/* ─── Recherche d'un contact WhatsApp (nom ou numéro) ──────────────────── */
+function WhatsAppContactPicker({
+  selected,
+  onSelect
+}: {
+  selected: WhatsAppConversation | null;
+  onSelect: (contact: WhatsAppConversation | null) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<WhatsAppConversation[]>([]);
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const timer = window.setTimeout(() => {
+      fetchWhatsAppConversations(query)
+        .then((list) => setResults(list.slice(0, 8)))
+        .catch(() => setResults([]));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [query, open]);
+
+  useEffect(() => {
+    function onClickOutside(event: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  if (selected) {
+    return (
+      <div>
+        <div className="flex items-center gap-3 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">
+            <MessageCircle className="h-4 w-4" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-bold text-dark">{contactName(selected)}</span>
+            <span className="block text-[11px] text-muted">{formatWhatsAppPhone(selected.phone)}</span>
+          </span>
+          <button type="button" onClick={() => onSelect(null)} title="Retirer" className="rounded-full p-1.5 text-muted transition hover:bg-white hover:text-red-600">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        {selected.windowOpen ? (
+          <p className="mt-1.5 text-[11px] text-emerald-700">Le code sera envoyé automatiquement dans cette conversation WhatsApp.</p>
+        ) : (
+          <p className="mt-1.5 flex items-start gap-1 text-[11px] text-amber-700">
+            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+            Dernier message de ce contact il y a plus de 24 h : WhatsApp bloquera l'envoi. Le code sera créé, transmettez-le autrement ou attendez qu'il vous réécrive.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div ref={rootRef} className="relative">
+      <label className="flex items-center gap-2 rounded-xl border border-line bg-slate-50 px-3 py-2.5 focus-within:border-emerald-500 focus-within:bg-white">
+        <Search className="h-4 w-4 text-muted" />
+        <input
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          placeholder="Nom ou numéro du contact WhatsApp"
+          className="w-full bg-transparent text-sm outline-none"
+        />
+      </label>
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-30 mt-1.5 max-h-72 overflow-y-auto rounded-xl border border-line bg-white p-1.5 shadow-xl">
+          {results.map((contact) => (
+            <button
+              key={contact.id}
+              type="button"
+              onClick={() => {
+                onSelect(contact);
+                setOpen(false);
+                setQuery("");
+              }}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-emerald-50"
+            >
+              <MessageCircle className="h-4 w-4 shrink-0 text-emerald-600" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold text-dark">{contactName(contact)}</span>
+                <span className="block text-[11px] text-muted">{formatWhatsAppPhone(contact.phone)}</span>
+              </span>
+              {!contact.windowOpen && <span className="shrink-0 text-[10px] font-semibold text-amber-600">+24 h</span>}
+            </button>
+          ))}
+          {!results.length && <p className="px-3 py-4 text-center text-xs text-muted">Aucune de vos conversations WhatsApp ne correspond.</p>}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const STUDY_LEVELS = ["Baccalauréat", "Licence", "Master", "Doctorat", "Autre"];
 const TARGET_LEVELS = ["Licence", "Master", "Doctorat", "Prépa / Foundation", "Autre"];
@@ -32,7 +138,9 @@ export default function SalesCodesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [warning, setWarning] = useState("");
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
+  const [contact, setContact] = useState<WhatsAppConversation | null>(null);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -59,17 +167,28 @@ export default function SalesCodesPage() {
     }
     setSaving(true);
     setError("");
+    setWarning("");
     try {
       const created = await createSalesCode({
         countryId: form.countryId,
         prefillCurrentStudyLevel: form.prefillCurrentStudyLevel || undefined,
         prefillTargetLevel: form.prefillTargetLevel || undefined,
-        prefillPhone: form.prefillPhone || undefined
+        prefillPhone: form.prefillPhone || undefined,
+        whatsappContactId: contact?.id
       });
       setCodes((prev) => [created, ...prev]);
       setForm(EMPTY_FORM);
-      setSuccess(t(`Code ${created.code} généré ✓`, `Code ${created.code} generated ✓`));
-      setTimeout(() => setSuccess(""), 5000);
+      setContact(null);
+      if (created.whatsappContactId && created.whatsappSent === false) {
+        setWarning(`Code ${created.code} généré, mais non envoyé sur WhatsApp : ${created.whatsappError || "erreur inconnue"}`);
+      } else {
+        setSuccess(
+          created.whatsappSent
+            ? `Code ${created.code} généré et envoyé sur WhatsApp à ${created.whatsappContactLabel} ✓`
+            : t(`Code ${created.code} généré ✓`, `Code ${created.code} generated ✓`)
+        );
+        setTimeout(() => setSuccess(""), 6000);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : t("Erreur lors de la génération du code.", "Error while generating the code."));
     } finally {
@@ -110,6 +229,13 @@ export default function SalesCodesPage() {
           <CheckCircle2 className="h-4 w-4 shrink-0" /> {success}
         </div>
       )}
+      {warning && (
+        <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span className="flex-1">{warning}</span>
+          <button type="button" onClick={() => setWarning("")} className="text-amber-700 hover:text-amber-900"><X className="h-4 w-4" /></button>
+        </div>
+      )}
 
       {/* Formulaire de création */}
       <section className="mt-6 rounded-[24px] border border-line bg-white p-6 shadow-sm">
@@ -117,6 +243,20 @@ export default function SalesCodesPage() {
           <Sparkles className="h-5 w-5 text-brand" /> {t("Générer un nouveau code", "Generate a new code")}
         </h2>
         <form onSubmit={handleSubmit} className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted">
+              <MessageCircle className="h-3 w-3 text-emerald-600" /> Envoyer à un contact WhatsApp (optionnel)
+            </label>
+            <WhatsAppContactPicker
+              selected={contact}
+              onSelect={(picked) => {
+                setContact(picked);
+                if (picked && !form.prefillPhone) {
+                  setForm((prev) => ({ ...prev, prefillPhone: formatWhatsAppPhone(picked.phone) }));
+                }
+              }}
+            />
+          </div>
           <div>
             <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-muted">
               {t("Pays de destination", "Destination country")} <span className="text-red-500">*</span>
@@ -205,6 +345,11 @@ export default function SalesCodesPage() {
                   {(c.prefillCurrentStudyLevel || c.prefillTargetLevel || c.prefillPhone) && (
                     <p className="mt-1 text-[11px] text-muted">
                       {[c.prefillCurrentStudyLevel, c.prefillTargetLevel, c.prefillPhone].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
+                  {c.whatsappContactLabel && (
+                    <p className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                      <MessageCircle className="h-3 w-3" /> WhatsApp : {c.whatsappContactLabel}
                     </p>
                   )}
                 </article>

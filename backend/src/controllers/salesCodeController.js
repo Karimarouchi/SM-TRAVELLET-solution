@@ -11,7 +11,7 @@ async function list(req, res) {
 
 async function create(req, res) {
   try {
-    const code = await salesCodeService.createCode(req.auth.sub, req.body);
+    const code = await salesCodeService.createCode(req.auth, req.body || {});
     res.status(201).json(code);
   } catch (error) {
     res.status(error.status || 400).json({ error: error.message || "Requête invalide." });

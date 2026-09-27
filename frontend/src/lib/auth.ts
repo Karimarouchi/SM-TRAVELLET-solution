@@ -434,6 +434,10 @@ export type SalesCode = {
   prefillCurrentStudyLevel: string | null;
   prefillTargetLevel: string | null;
   prefillPhone: string | null;
+  whatsappContactId: string | null;
+  whatsappContactLabel: string | null;
+  whatsappSent?: boolean;
+  whatsappError?: string;
   used: boolean;
   usedByStudentId: string | null;
   usedByName: string | null;
@@ -448,6 +452,7 @@ export type SalesCodePayload = {
   prefillTargetLevel?: string;
   prefillPhone?: string;
   expiresAt?: string;
+  whatsappContactId?: string;
 };
 
 export async function fetchMySalesCodes(): Promise<SalesCode[]> {

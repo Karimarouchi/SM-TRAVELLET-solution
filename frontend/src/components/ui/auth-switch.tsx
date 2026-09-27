@@ -4,7 +4,7 @@ import { useLanguage } from "@/lib/i18n";
 import { DatePickerField } from "@/components/ui/date-picker";
 import { ArrowLeft, CalendarDays as CalendarIcon, DoorClosed, DoorOpen, KeyRound, Lock, Mail, PersonStanding, User, UserX } from "lucide-react";
 import { FormEvent, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { VITRINE_URL } from "@/lib/site";
 import "./auth-switch.css";
 
@@ -20,7 +20,10 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
   const [isSignUp, setIsSignUp] = useState(defaultMode === "register");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [hasCode, setHasCode] = useState(false);
+  // Lien reçu par WhatsApp (/register?code=SM-XXXXXX) : code déjà rempli.
+  const [searchParams] = useSearchParams();
+  const presetCode = (searchParams.get("code") || "").trim().toUpperCase();
+  const [hasCode, setHasCode] = useState(Boolean(presetCode));
   const [loginAnim, setLoginAnim] = useState<"idle" | "success" | "fail">("idle");
 
   async function onSignIn(event: FormEvent<HTMLFormElement>) {
@@ -167,6 +170,7 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
                   <input
                     name="salesCode"
                     type="text"
+                    defaultValue={presetCode}
                     placeholder={t("Code (ex: SM-X7K29P)", "Code (e.g. SM-X7K29P)")}
                     autoComplete="off"
                     style={{ textTransform: "uppercase" }}

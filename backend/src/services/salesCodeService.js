@@ -4,6 +4,8 @@ const countryRepo = require("../repositories/countryRepository");
 const studentRepo = require("../repositories/studentRepository");
 const commissionService = require("./commissionService");
 const notificationService = require("./notificationService");
+const whatsappService = require("./whatsappService");
+const env = require("../config/env");
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sans caractères ambigus (0/O, 1/I)
 
@@ -30,6 +32,10 @@ function codeDto(row) {
     prefillCurrentStudyLevel: row.prefill_current_study_level,
     prefillTargetLevel: row.prefill_target_level,
     prefillPhone: row.prefill_phone,
+    whatsappContactId: row.whatsapp_contact_id || null,
+    whatsappContactLabel: row.whatsapp_contact_id
+      ? row.whatsapp_profile_name || (row.whatsapp_phone ? `+${row.whatsapp_phone}` : "WhatsApp")
+      : null,
     used: row.used,
     usedByStudentId: row.used_by_student_id,
     usedByName: row.used_by_prenom ? `${row.used_by_prenom} ${row.used_by_nom || ""}`.trim() : null,
@@ -44,8 +50,25 @@ async function listForSales(salesId) {
   return rows.map(codeDto);
 }
 
-async function createCode(salesId, payload) {
+function codeMessage(code, contactName) {
+  const link = `${env.appPublicUrl}/app/#/register?code=${encodeURIComponent(code)}`;
+  return [
+    `Bonjour${contactName ? ` ${contactName}` : ""},`,
+    `Voici votre code SM Travel : ${code}`,
+    `Créez votre compte ici, le code est déjà rempli : ${link}`,
+    "Ce code vous relie directement à votre conseiller."
+  ].join("\n");
+}
+
+async function createCode(auth, payload) {
+  const salesId = auth.sub;
   if (!payload.countryId) throw fail("Le pays est obligatoire pour générer un code.", 400);
+
+  // Contact WhatsApp choisi : uniquement parmi les conversations du sales.
+  let contact = null;
+  if (payload.whatsappContactId) {
+    contact = await whatsappService.getAccessibleConversation(auth, payload.whatsappContactId);
+  }
   const country = await countryRepo.findById(payload.countryId);
   if (!country) throw fail("Pays introuvable.", 404);
   if (!country.active) throw fail("Ce pays est désactivé.", 400);
@@ -66,10 +89,28 @@ async function createCode(salesId, payload) {
       countryId: country.id,
       prefillCurrentStudyLevel: payload.prefillCurrentStudyLevel ? String(payload.prefillCurrentStudyLevel).trim() : null,
       prefillTargetLevel: payload.prefillTargetLevel ? String(payload.prefillTargetLevel).trim() : null,
-      prefillPhone: payload.prefillPhone ? String(payload.prefillPhone).trim() : null,
-      expiresAt
+      prefillPhone: payload.prefillPhone ? String(payload.prefillPhone).trim() : contact ? `+${contact.phone}` : null,
+      expiresAt,
+      whatsappContactId: contact?.id
     });
-    return codeDto({ ...row, country_name: country.name });
+    const dto = codeDto({
+      ...row,
+      country_name: country.name,
+      whatsapp_phone: contact?.phone,
+      whatsapp_profile_name: contact?.profile_name
+    });
+    if (!contact) return dto;
+
+    // Envoi automatique du code dans la conversation WhatsApp. Le code reste
+    // créé même si l'envoi échoue (fenêtre de 24 h fermée, WhatsApp non
+    // configuré...) : le sales en est informé et peut le transmettre autrement.
+    const contactName = contact.student_prenom || contact.profile_name || "";
+    try {
+      await whatsappService.sendText(auth, contact.id, codeMessage(row.code, contactName));
+      return { ...dto, whatsappSent: true };
+    } catch (error) {
+      return { ...dto, whatsappSent: false, whatsappError: error.message };
+    }
   }
   throw fail("Impossible de générer un code unique, réessayez.", 500);
 }
@@ -109,6 +150,9 @@ async function applyCodeToNewStudent(userId, rawCode) {
     phone: claimed.prefill_phone
   });
   await notificationService.notifyStudentAssigned(claimed.sales_id, userId);
+  if (claimed.whatsapp_contact_id) {
+    await whatsappService.attachStudentFromCode(claimed.whatsapp_contact_id, userId);
+  }
 
   if (claimed.country_id && claimed.sales_id) {
     await commissionService.awardCommission({

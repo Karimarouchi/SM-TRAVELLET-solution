@@ -13,6 +13,9 @@ module.exports = {
   jwtSecret: required("JWT_SECRET"),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
   corsOrigin: process.env.CORS_ORIGIN || "*",
+  // Adresse publique du site, pour les liens envoyés aux étudiants (ex. lien
+  // d'inscription avec code pré-rempli envoyé par WhatsApp).
+  appPublicUrl: (process.env.APP_PUBLIC_URL || "https://sm.antigoneinterne.agency").replace(/\/+$/, ""),
   smtp: {
     host: process.env.SMTP_HOST || "smtp.gmail.com",
     port: Number(process.env.SMTP_PORT) || 465,

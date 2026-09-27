@@ -7,10 +7,12 @@ async function findByCode(code) {
 
 async function findBySales(salesId) {
   const result = await query(
-    `SELECT sc.*, c.name AS country_name, u.prenom AS used_by_prenom, u.nom AS used_by_nom
+    `SELECT sc.*, c.name AS country_name, u.prenom AS used_by_prenom, u.nom AS used_by_nom,
+            wc.phone AS whatsapp_phone, wc.profile_name AS whatsapp_profile_name
      FROM sales_codes sc
      LEFT JOIN countries c ON c.id = sc.country_id
      LEFT JOIN users u ON u.id = sc.used_by_student_id
+     LEFT JOIN whatsapp_contacts wc ON wc.id = sc.whatsapp_contact_id
      WHERE sc.sales_id = $1
      ORDER BY sc.created_at DESC`,
     [salesId]
@@ -18,12 +20,12 @@ async function findBySales(salesId) {
   return result.rows;
 }
 
-async function create({ code, salesId, countryId, prefillCurrentStudyLevel, prefillTargetLevel, prefillPhone, expiresAt }) {
+async function create({ code, salesId, countryId, prefillCurrentStudyLevel, prefillTargetLevel, prefillPhone, expiresAt, whatsappContactId }) {
   const result = await query(
-    `INSERT INTO sales_codes (code, sales_id, country_id, prefill_current_study_level, prefill_target_level, prefill_phone, expires_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+    `INSERT INTO sales_codes (code, sales_id, country_id, prefill_current_study_level, prefill_target_level, prefill_phone, expires_at, whatsapp_contact_id, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
      RETURNING *`,
-    [code, salesId, countryId, prefillCurrentStudyLevel, prefillTargetLevel, prefillPhone, expiresAt]
+    [code, salesId, countryId, prefillCurrentStudyLevel, prefillTargetLevel, prefillPhone, expiresAt, whatsappContactId || null]
   );
   return result.rows[0];
 }

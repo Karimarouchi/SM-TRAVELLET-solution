@@ -347,6 +347,21 @@ async function unreadCount(auth) {
   return repo.unreadCount({ userId: auth.sub, ownerId: isAdmin(auth) ? null : auth.sub });
 }
 
+// Un étudiant s'inscrit avec un code envoyé sur WhatsApp : sa conversation
+// est liée à son compte et suit son conseiller. Ne fait jamais échouer
+// l'inscription.
+async function attachStudentFromCode(contactId, studentId) {
+  try {
+    await repo.setStudent(contactId, studentId);
+    const student = await repo.findStudentForLink(studentId);
+    if (student?.assigned_sales_id && (await repo.isActiveSales(student.assigned_sales_id))) {
+      await repo.setAssignedSales(contactId, student.assigned_sales_id);
+    }
+  } catch (error) {
+    logger.error("WhatsApp : échec de la liaison contact ↔ étudiant après inscription", { message: error.message, contactId });
+  }
+}
+
 // ── Cycle de vie des sales ──────────────────────────────────────────────
 
 async function onSalesTransferred(fromSalesId, toSalesId) {
@@ -374,6 +389,8 @@ async function distributeOrphans() {
 
 module.exports = {
   normalizePhone,
+  getAccessibleConversation,
+  attachStudentFromCode,
   isValidSignature,
   processWebhook,
   listConversations,

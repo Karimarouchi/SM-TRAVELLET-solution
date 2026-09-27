@@ -38,7 +38,6 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
         label: t("Vitrine", "Website"),
         children: [
           { label: t("Programmes", "Programs"), href: "/admin/programmes" },
-          { label: t("Documents visa", "Visa documents"), href: "/admin/visa-documents" },
           { label: t("Avis & Témoignages", "Reviews & Testimonials"), href: "/admin/avis" }
         ]
       },
