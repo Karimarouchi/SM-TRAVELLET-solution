@@ -12,6 +12,24 @@ export function dialCountry(iso: string): DialCountry {
   return DIAL_COUNTRIES.find((c) => c.iso === iso) || DIAL_COUNTRIES[0];
 }
 
+const DIALS_LONGEST_FIRST = [...DIAL_COUNTRIES].sort((a, b) => b.dial.length - a.dial.length);
+
+// L'utilisateur tape lui-même l'indicatif (+33 6..., 0033 6...) : le pays
+// est détecté et l'indicatif retiré du numéro. Pour un indicatif partagé
+// (+1, +7), le pays déjà choisi est conservé s'il correspond.
+function applyTypedDial(raw: string, current: PhoneValue): PhoneValue {
+  const cleaned = raw.replace(/[^\d\s+]/g, "");
+  const compact = cleaned.replace(/\s/g, "").replace(/^00/, "+");
+  if (!compact.startsWith("+")) return { ...current, number: cleaned.slice(0, 18) };
+
+  const currentCountry = dialCountry(current.iso);
+  const match = compact.startsWith(currentCountry.dial)
+    ? currentCountry
+    : DIALS_LONGEST_FIRST.find((c) => compact.startsWith(c.dial));
+  if (!match) return { ...current, number: compact.slice(0, 18) };
+  return { iso: match.iso, number: compact.slice(match.dial.length).slice(0, 18) };
+}
+
 // Numéro international : indicatif + numéro national sans le 0 initial
 // (ex. France 06 12 34 56 78 → +33612345678).
 export function toInternational(value: PhoneValue) {
@@ -51,16 +69,22 @@ export function PhoneField({
       const target = event.target as Node;
       if (!panelRef.current?.contains(target) && !buttonRef.current?.contains(target)) setOpen(false);
     }
-    function onClose() {
+    function onResize() {
+      setOpen(false);
+    }
+    // La liste est positionnée par rapport au bouton : on la ferme si la
+    // page défile, mais jamais quand on fait défiler la liste elle-même.
+    function onScroll(event: Event) {
+      if (panelRef.current?.contains(event.target as Node)) return;
       setOpen(false);
     }
     document.addEventListener("mousedown", onClickOutside);
-    window.addEventListener("resize", onClose);
-    window.addEventListener("scroll", onClose, true);
+    window.addEventListener("resize", onResize);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
       document.removeEventListener("mousedown", onClickOutside);
-      window.removeEventListener("resize", onClose);
-      window.removeEventListener("scroll", onClose, true);
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, [open]);
 
@@ -94,7 +118,7 @@ export function PhoneField({
           autoComplete="tel-national"
           placeholder={placeholder}
           value={value.number}
-          onChange={(e) => onChange({ ...value, number: e.target.value.replace(/[^\d\s]/g, "").slice(0, 18) })}
+          onChange={(e) => onChange(applyTypedDial(e.target.value, value))}
           required
         />
       </div>
