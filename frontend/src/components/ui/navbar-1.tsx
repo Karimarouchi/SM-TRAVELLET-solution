@@ -109,11 +109,11 @@ const Navbar1 = () => {
 
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-[9999] flex justify-center px-4 pt-4">
-      <div className="pointer-events-auto relative flex w-full max-w-5xl items-center justify-between rounded-full border border-white/70 bg-white/85 px-6 py-3 shadow-[0_12px_40px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+      <div className="pointer-events-auto relative flex w-full max-w-6xl items-center justify-between gap-6 rounded-full border border-white/70 bg-white/85 px-6 py-3 shadow-[0_12px_40px_rgba(15,23,42,0.12)] backdrop-blur-xl">
         <div className="flex items-center">
           <motion.a
             href={VITRINE_URL}
-            className="mr-2 flex items-center"
+            className="flex shrink-0 items-center"
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
             whileHover={{ rotate: 4, scale: 1.04 }}
@@ -123,7 +123,7 @@ const Navbar1 = () => {
           </motion.a>
         </div>
 
-        <nav className="hidden items-center space-x-8 md:flex">
+        <nav className="hidden min-w-0 items-center gap-6 lg:flex xl:gap-7">
           {links.map((item) => {
             const active = !item.external && item.href && location.pathname === item.href;
             const isChildActive = item.children?.some(child => currentPath === child.href);
@@ -184,9 +184,9 @@ const Navbar1 = () => {
           })}
         </nav>
 
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3">
         <NotificationBell />
-        <div className="hidden items-center gap-3 md:flex">
+        <div className="hidden items-center gap-3 lg:flex">
           {role === "ADMIN" && (
             <Link
               to="/admin/settings"
@@ -225,7 +225,7 @@ const Navbar1 = () => {
           </motion.div>
         </div>
 
-        <motion.button className="flex items-center md:hidden" onClick={toggleMenu} whileTap={{ scale: 0.9 }}>
+        <motion.button className="flex items-center lg:hidden" onClick={toggleMenu} whileTap={{ scale: 0.9 }}>
           <Menu className="h-6 w-6 text-gray-900" />
         </motion.button>
         </div>
@@ -234,7 +234,7 @@ const Navbar1 = () => {
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            className="fixed inset-0 z-[10000] bg-white px-6 pt-24 md:hidden"
+            className="fixed inset-0 z-[10000] bg-white px-6 pt-24 lg:hidden"
             initial={{ opacity: 0, x: "100%" }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: "100%" }}
