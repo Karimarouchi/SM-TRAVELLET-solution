@@ -13,8 +13,31 @@ import { cn } from "@/lib/utils";
 
 type NavLinkItem = { label: string; href?: string; external?: boolean; children?: { label: string; href: string }[] };
 
+const WHATSAPP_HREF = "/messages?canal=whatsapp";
+
+function CountBadge({ count, tone }: { count: number; tone: "brand" | "whatsapp" }) {
+  if (count <= 0) return null;
+  return (
+    <span
+      className={cn(
+        "inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold text-white",
+        tone === "whatsapp" ? "bg-emerald-500" : "bg-brand"
+      )}
+    >
+      {count}
+    </span>
+  );
+}
+
 function linksForRole(role: string | undefined, permissions: string[], t: (fr: string, en: string) => string): NavLinkItem[] {
   const messages: NavLinkItem = { label: t("Messages", "Messages"), href: "/messages" };
+  const messagesWithWhatsApp: NavLinkItem = {
+    label: t("Messages", "Messages"),
+    children: [
+      { label: t("Messagerie interne", "Internal messages"), href: "/messages" },
+      { label: "WhatsApp", href: WHATSAPP_HREF }
+    ]
+  };
   const visaDocs: NavLinkItem = { label: t("Documents visa", "Visa documents"), href: "/admin/visa-documents" };
   const hasVisaDocsPermission = permissions.includes("MANAGE_VISA_DOCUMENTS");
   if (role === "ADMIN") {
@@ -31,7 +54,7 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
         ]
       },
       { label: t("Archive", "Archive"), href: "/archive" },
-      messages
+      messagesWithWhatsApp
     ];
   }
   if (role === "SALES") {
@@ -40,7 +63,7 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
       { label: t("Codes", "Codes"), href: "/conseiller/codes" },
       { label: t("Archive", "Archive"), href: "/archive" },
       ...(hasVisaDocsPermission ? [visaDocs] : []),
-      messages
+      messagesWithWhatsApp
     ];
   }
   if (role === "RDV") {
@@ -74,6 +97,8 @@ const Navbar1 = () => {
   const permissions = getSession()?.user.permissions || [];
   const { lang, setLang, t } = useLanguage();
   const links = linksForRole(role, permissions, t);
+  const currentPath = location.pathname + location.search;
+  const childCount = (href: string) => (href === WHATSAPP_HREF ? waUnread : href === "/messages" ? unread : 0);
 
   React.useEffect(() => {
     if (role === "STUDENT") return;
@@ -119,16 +144,18 @@ const Navbar1 = () => {
         <nav className="hidden items-center space-x-8 md:flex">
           {links.map((item) => {
             const active = !item.external && item.href && location.pathname === item.href;
-            const isChildActive = item.children?.some(child => location.pathname === child.href);
+            const isChildActive = item.children?.some(child => currentPath === child.href);
             const className = `text-sm font-medium transition-colors ${
               active || isChildActive ? "text-brand" : "text-gray-900 hover:text-brand"
             }`;
-            
+
             if (item.children) {
+              const total = item.children.reduce((sum, child) => sum + childCount(child.href), 0);
               return (
                 <div key={item.label} className="relative group">
                   <button className={`${className} inline-flex items-center gap-1 py-2`}>
                     {item.label}
+                    <CountBadge count={total} tone={waUnread > 0 && unread === 0 ? "whatsapp" : "brand"} />
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
                   </button>
                   <div className="absolute left-1/2 top-full hidden w-56 -translate-x-1/2 pt-2 group-hover:flex">
@@ -138,11 +165,12 @@ const Navbar1 = () => {
                           key={child.label}
                           to={child.href}
                           className={cn(
-                            "rounded-xl px-4 py-2.5 text-sm font-semibold transition hover:bg-brand/10 hover:text-brand",
-                            location.pathname === child.href ? "bg-brand/5 text-brand" : "text-gray-700"
+                            "flex items-center justify-between gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition hover:bg-brand/10 hover:text-brand",
+                            currentPath === child.href ? "bg-brand/5 text-brand" : "text-gray-700"
                           )}
                         >
                           {child.label}
+                          <CountBadge count={childCount(child.href)} tone={child.href === WHATSAPP_HREF ? "whatsapp" : "brand"} />
                         </Link>
                       ))}
                     </div>
@@ -166,16 +194,7 @@ const Navbar1 = () => {
                 ) : (
                   <Link to={item.href!} className={`${className} inline-flex items-center gap-2 py-2`}>
                     {item.label}
-                    {item.href === "/messages" && unread > 0 && (
-                      <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[10px] font-bold text-white">
-                        {unread}
-                      </span>
-                    )}
-                    {item.href === "/messages" && waUnread > 0 && (
-                      <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] font-bold text-white">
-                        {waUnread}
-                      </span>
-                    )}
+                    <CountBadge count={childCount(item.href!)} tone="brand" />
                   </Link>
                 )}
               </motion.div>
@@ -265,8 +284,9 @@ const Navbar1 = () => {
                       <span className="text-base font-bold text-brand uppercase tracking-wider text-sm">{item.label}</span>
                       <div className="flex flex-col pl-4 space-y-4 border-l-2 border-line">
                         {item.children.map(child => (
-                          <Link key={child.label} to={child.href} className="text-base font-medium text-gray-700" onClick={toggleMenu}>
+                          <Link key={child.label} to={child.href} className="inline-flex items-center gap-2 text-base font-medium text-gray-700" onClick={toggleMenu}>
                             {child.label}
+                            <CountBadge count={childCount(child.href)} tone={child.href === WHATSAPP_HREF ? "whatsapp" : "brand"} />
                           </Link>
                         ))}
                       </div>
@@ -278,16 +298,7 @@ const Navbar1 = () => {
                   ) : (
                     <Link to={item.href!} className="inline-flex items-center gap-2 text-base font-medium text-gray-900" onClick={toggleMenu}>
                       {item.label}
-                      {item.href === "/messages" && unread > 0 && (
-                        <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[10px] font-bold text-white">
-                          {unread}
-                        </span>
-                      )}
-                      {item.href === "/messages" && waUnread > 0 && (
-                        <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] font-bold text-white">
-                          {waUnread}
-                        </span>
-                      )}
+                      <CountBadge count={childCount(item.href!)} tone="brand" />
                     </Link>
                   )}
                 </motion.div>
