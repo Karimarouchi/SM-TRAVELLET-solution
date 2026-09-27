@@ -3,11 +3,9 @@ import {
   fetchStudentApplicationHistory,
   fetchStudentDetail,
   fetchStudentDocuments,
-  openChatWithStudent,
   reviewStudentDocument,
   type ApplicationHistoryEntry,
   type AuthUser,
-  type ChatMessage,
   type StudentDocumentChecklistItem,
   type StudentProfile,
   type UniversityApplication
@@ -25,7 +23,6 @@ import {
   History,
   LayoutGrid,
   Mail,
-  MessageSquare,
   ThumbsDown,
   ThumbsUp,
   UserRound,
@@ -61,7 +58,6 @@ export default function StudentDetailPage() {
   const [documents, setDocuments] = useState<StudentDocumentChecklistItem[]>([]);
   const [applications, setApplications] = useState<UniversityApplication[]>([]);
   const [history, setHistory] = useState<ApplicationHistoryEntry[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<"overview" | "history">("overview");
@@ -84,8 +80,6 @@ export default function StudentDetailPage() {
       })
       .catch((err) => setError(err instanceof Error ? err.message : t("Impossible de charger le dossier.", "Unable to load this file.")))
       .finally(() => setLoading(false));
-    // Discussion étudiant ↔ conseiller, incluse dans l'historique complet.
-    openChatWithStudent(id).then((data) => setMessages(data.messages)).catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -213,25 +207,17 @@ export default function StudentDetailPage() {
           </section>
         </>
       ) : (
-        <FullHistoryTimeline history={history} messages={messages} />
+        <FullHistoryTimeline history={history} />
       )}
     </main>
   );
 }
 
-type TimelineEntry =
-  | { type: "history"; at: string; data: ApplicationHistoryEntry }
-  | { type: "message"; at: string; data: ChatMessage };
-
-// Chronologie unique fusionnant l'audit du dossier (documents, candidature,
-// visa, transferts) et les messages échangés — tout, réellement tout, pour
-// que l'Admin/Sales voie d'un coup d'œil ce qui s'est passé sur ce dossier.
-function FullHistoryTimeline({ history, messages }: { history: ApplicationHistoryEntry[]; messages: ChatMessage[] }) {
+// Chronologie de l'audit du dossier (documents, candidature, visa,
+// transferts) pour que l'Admin/Sales voie d'un coup d'œil ce qui s'est passé.
+function FullHistoryTimeline({ history }: { history: ApplicationHistoryEntry[] }) {
   const { t } = useLanguage();
-  const entries: TimelineEntry[] = [
-    ...history.map((h) => ({ type: "history" as const, at: h.changed_at, data: h })),
-    ...messages.map((m) => ({ type: "message" as const, at: m.createdAt, data: m }))
-  ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+  const entries = [...history].sort((a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime());
 
   const fmt = (value: string) =>
     new Date(value).toLocaleString("fr-FR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -247,33 +233,21 @@ function FullHistoryTimeline({ history, messages }: { history: ApplicationHistor
             {t("Aucun événement pour l'instant.", "No event yet.")}
           </p>
         ) : (
-          entries.map((entry) =>
-            entry.type === "history" ? (
-              <div key={`h-${entry.data.id}`} className="rounded-xl border border-line bg-white px-4 py-2.5 text-xs">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <p className="flex items-center gap-1.5 font-semibold text-dark">
-                    <History className="h-3.5 w-3.5 shrink-0 text-brand" />
-                    {entry.data.old_status ? `${entry.data.old_status} → ${entry.data.new_status}` : entry.data.new_status}
-                  </p>
-                  <p className="shrink-0 text-muted">{fmt(entry.at)}</p>
-                </div>
-                {entry.data.comment && <p className="mt-1 text-mid">{entry.data.comment}</p>}
-                <p className="mt-1 text-[11px] text-muted">
-                  {t("Par", "By")} {entry.data.changed_by_prenom ? `${entry.data.changed_by_prenom} ${entry.data.changed_by_nom}` : t("le système", "the system")}
+          entries.map((entry) => (
+            <div key={entry.id} className="rounded-xl border border-line bg-white px-4 py-2.5 text-xs">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <p className="flex items-center gap-1.5 font-semibold text-dark">
+                  <History className="h-3.5 w-3.5 shrink-0 text-brand" />
+                  {entry.old_status ? `${entry.old_status} → ${entry.new_status}` : entry.new_status}
                 </p>
+                <p className="shrink-0 text-muted">{fmt(entry.changed_at)}</p>
               </div>
-            ) : (
-              <div key={`m-${entry.data.id}`} className="rounded-xl border border-violet-100 bg-violet-50/60 px-4 py-2.5 text-xs">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <p className="flex items-center gap-1.5 font-semibold text-violet-800">
-                    <MessageSquare className="h-3.5 w-3.5 shrink-0" /> {entry.data.senderName}
-                  </p>
-                  <p className="shrink-0 text-muted">{fmt(entry.at)}</p>
-                </div>
-                <p className="mt-1 text-mid">{entry.data.body}</p>
-              </div>
-            )
-          )
+              {entry.comment && <p className="mt-1 text-mid">{entry.comment}</p>}
+              <p className="mt-1 text-[11px] text-muted">
+                {t("Par", "By")} {entry.changed_by_prenom ? `${entry.changed_by_prenom} ${entry.changed_by_nom}` : t("le système", "the system")}
+              </p>
+            </div>
+          ))
         )}
       </div>
     </section>

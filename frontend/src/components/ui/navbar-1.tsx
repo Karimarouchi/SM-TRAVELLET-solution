@@ -5,39 +5,28 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Menu, Settings, X } from "lucide-react";
-import { clearSession, fetchUnreadCount, getSession, logout } from "@/lib/auth";
+import { clearSession, getSession, logout } from "@/lib/auth";
 import { fetchWhatsAppUnread } from "@/lib/whatsapp";
 import { useLanguage } from "@/lib/i18n";
 import { VITRINE_URL } from "@/lib/site";
 import { cn } from "@/lib/utils";
+import NotificationBell from "@/components/NotificationBell";
 
 type NavLinkItem = { label: string; href?: string; external?: boolean; children?: { label: string; href: string }[] };
 
-const WHATSAPP_HREF = "/messages?canal=whatsapp";
+const WHATSAPP_HREF = "/whatsapp";
 
-function CountBadge({ count, tone }: { count: number; tone: "brand" | "whatsapp" }) {
+function CountBadge({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
-    <span
-      className={cn(
-        "inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold text-white",
-        tone === "whatsapp" ? "bg-emerald-500" : "bg-brand"
-      )}
-    >
+    <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] font-bold text-white">
       {count}
     </span>
   );
 }
 
 function linksForRole(role: string | undefined, permissions: string[], t: (fr: string, en: string) => string): NavLinkItem[] {
-  const messages: NavLinkItem = { label: t("Messages", "Messages"), href: "/messages" };
-  const messagesWithWhatsApp: NavLinkItem = {
-    label: t("Messages", "Messages"),
-    children: [
-      { label: t("Messagerie interne", "Internal messages"), href: "/messages" },
-      { label: "WhatsApp", href: WHATSAPP_HREF }
-    ]
-  };
+  const whatsapp: NavLinkItem = { label: "WhatsApp", href: WHATSAPP_HREF };
   const visaDocs: NavLinkItem = { label: t("Documents visa", "Visa documents"), href: "/admin/visa-documents" };
   const hasVisaDocsPermission = permissions.includes("MANAGE_VISA_DOCUMENTS");
   if (role === "ADMIN") {
@@ -54,7 +43,7 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
         ]
       },
       { label: t("Archive", "Archive"), href: "/archive" },
-      messagesWithWhatsApp
+      whatsapp
     ];
   }
   if (role === "SALES") {
@@ -63,7 +52,7 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
       { label: t("Codes", "Codes"), href: "/conseiller/codes" },
       { label: t("Archive", "Archive"), href: "/archive" },
       ...(hasVisaDocsPermission ? [visaDocs] : []),
-      messagesWithWhatsApp
+      whatsapp
     ];
   }
   if (role === "RDV") {
@@ -75,8 +64,7 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
     return [
       { label: t("Mes dossiers visa", "My visa files"), href: "/rdv" },
       { label: t("Archive", "Archive"), href: "/archive" },
-      visaDocs,
-      messages
+      visaDocs
     ];
   }
   return [
@@ -89,7 +77,6 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
 
 const Navbar1 = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [unread, setUnread] = useState(0);
   const [waUnread, setWaUnread] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
@@ -98,22 +85,17 @@ const Navbar1 = () => {
   const { lang, setLang, t } = useLanguage();
   const links = linksForRole(role, permissions, t);
   const currentPath = location.pathname + location.search;
-  const childCount = (href: string) => (href === WHATSAPP_HREF ? waUnread : href === "/messages" ? unread : 0);
+  const childCount = (href: string) => (href === WHATSAPP_HREF ? waUnread : 0);
 
   React.useEffect(() => {
-    if (role === "STUDENT") return;
+    if (role !== "ADMIN" && role !== "SALES") return;
     function refresh() {
-      fetchUnreadCount()
-        .then((data) => setUnread(data.unread || 0))
+      fetchWhatsAppUnread()
+        .then(setWaUnread)
         .catch(() => undefined);
-      if (role === "ADMIN" || role === "SALES") {
-        fetchWhatsAppUnread()
-          .then(setWaUnread)
-          .catch(() => undefined);
-      }
     }
     refresh();
-    const timer = window.setInterval(refresh, 4000);
+    const timer = window.setInterval(refresh, 10000);
     return () => window.clearInterval(timer);
   }, [location.pathname, role]);
 
@@ -155,7 +137,7 @@ const Navbar1 = () => {
                 <div key={item.label} className="relative group">
                   <button className={`${className} inline-flex items-center gap-1 py-2`}>
                     {item.label}
-                    <CountBadge count={total} tone={waUnread > 0 && unread === 0 ? "whatsapp" : "brand"} />
+                    <CountBadge count={total} />
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:rotate-180"><path d="m6 9 6 6 6-6"/></svg>
                   </button>
                   <div className="absolute left-1/2 top-full hidden w-56 -translate-x-1/2 pt-2 group-hover:flex">
@@ -170,7 +152,7 @@ const Navbar1 = () => {
                           )}
                         >
                           {child.label}
-                          <CountBadge count={childCount(child.href)} tone={child.href === WHATSAPP_HREF ? "whatsapp" : "brand"} />
+                          <CountBadge count={childCount(child.href)} />
                         </Link>
                       ))}
                     </div>
@@ -194,7 +176,7 @@ const Navbar1 = () => {
                 ) : (
                   <Link to={item.href!} className={`${className} inline-flex items-center gap-2 py-2`}>
                     {item.label}
-                    <CountBadge count={childCount(item.href!)} tone="brand" />
+                    <CountBadge count={childCount(item.href!)} />
                   </Link>
                 )}
               </motion.div>
@@ -202,6 +184,8 @@ const Navbar1 = () => {
           })}
         </nav>
 
+        <div className="flex items-center gap-3">
+        <NotificationBell />
         <div className="hidden items-center gap-3 md:flex">
           {role === "ADMIN" && (
             <Link
@@ -244,6 +228,7 @@ const Navbar1 = () => {
         <motion.button className="flex items-center md:hidden" onClick={toggleMenu} whileTap={{ scale: 0.9 }}>
           <Menu className="h-6 w-6 text-gray-900" />
         </motion.button>
+        </div>
       </div>
 
       <AnimatePresence>
@@ -286,7 +271,7 @@ const Navbar1 = () => {
                         {item.children.map(child => (
                           <Link key={child.label} to={child.href} className="inline-flex items-center gap-2 text-base font-medium text-gray-700" onClick={toggleMenu}>
                             {child.label}
-                            <CountBadge count={childCount(child.href)} tone={child.href === WHATSAPP_HREF ? "whatsapp" : "brand"} />
+                            <CountBadge count={childCount(child.href)} />
                           </Link>
                         ))}
                       </div>
@@ -298,7 +283,7 @@ const Navbar1 = () => {
                   ) : (
                     <Link to={item.href!} className="inline-flex items-center gap-2 text-base font-medium text-gray-900" onClick={toggleMenu}>
                       {item.label}
-                      <CountBadge count={childCount(item.href!)} tone="brand" />
+                      <CountBadge count={childCount(item.href!)} />
                     </Link>
                   )}
                 </motion.div>

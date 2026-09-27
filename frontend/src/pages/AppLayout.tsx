@@ -1,5 +1,4 @@
 import { Navbar1 } from "@/components/ui/navbar-1";
-import { StudentAdvisorChat } from "@/components/ui/student-advisor-chat";
 import { getSession } from "@/lib/auth";
 import { useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -30,19 +29,20 @@ export default function AppLayout() {
     // sans permission supplémentaire à accorder.
     const hasVisaDocsAccess = Boolean(session.user.permissions?.includes("MANAGE_VISA_DOCUMENTS")) || role === "RDV";
     const onVisaDocsPage = path.startsWith("/admin/visa-documents");
-    if (role === "ADMIN" && !path.startsWith("/admin") && path !== "/messages" && path !== "/archive" && !path.startsWith("/conseiller/etudiants")) {
+    const shared = path === "/notifications" || path === "/archive";
+    if (role === "ADMIN" && !path.startsWith("/admin") && !shared && path !== "/whatsapp" && !path.startsWith("/conseiller/etudiants")) {
       navigate("/admin", { replace: true });
       return;
     }
-    if (role === "SALES" && !path.startsWith("/conseiller") && path !== "/messages" && path !== "/archive" && !(hasVisaDocsAccess && onVisaDocsPage)) {
+    if (role === "SALES" && !path.startsWith("/conseiller") && !shared && path !== "/whatsapp" && !(hasVisaDocsAccess && onVisaDocsPage)) {
       navigate("/conseiller", { replace: true });
       return;
     }
-    if (role === "RDV" && !path.startsWith("/rdv") && path !== "/messages" && path !== "/archive" && !(hasVisaDocsAccess && onVisaDocsPage)) {
+    if (role === "RDV" && !path.startsWith("/rdv") && !shared && !(hasVisaDocsAccess && onVisaDocsPage)) {
       navigate("/rdv", { replace: true });
       return;
     }
-    if (role === "STUDENT" && (path.startsWith("/admin") || path.startsWith("/conseiller") || path.startsWith("/rdv"))) {
+    if (role === "STUDENT" && (path.startsWith("/admin") || path.startsWith("/conseiller") || path.startsWith("/rdv") || path === "/whatsapp")) {
       navigate("/espace", { replace: true });
     }
   }, [navigate, location.pathname]);
@@ -66,8 +66,6 @@ export default function AppLayout() {
       <div className="min-h-screen pt-24 bg-surface text-dark">
         <Outlet />
       </div>
-
-      {session.user.role === "STUDENT" && <StudentAdvisorChat />}
     </>
   );
 }

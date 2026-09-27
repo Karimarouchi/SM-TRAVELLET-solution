@@ -461,59 +461,6 @@ export async function createSalesCode(payload: SalesCodePayload): Promise<SalesC
   });
 }
 
-export type ChatConversation = {
-  id: string;
-  studentId: string;
-  salesId: string;
-  studentName: string;
-  salesName: string;
-  studentAvatarUrl?: string;
-  salesAvatarUrl?: string;
-  lastBody: string;
-  lastAt: string;
-  unread: number;
-};
-
-export type ChatMessage = {
-  id: string;
-  conversationId: string;
-  senderId?: string;
-  senderName?: string;
-  senderRole?: UserRole;
-  senderAvatarUrl?: string;
-  body: string;
-  createdAt: string;
-};
-
-export async function fetchConversations() {
-  return request<{ conversations: ChatConversation[] }>("/api/messages/conversations");
-}
-
-export async function fetchUnreadCount() {
-  return request<{ unread: number }>("/api/messages/unread-count");
-}
-
-export async function fetchConversation(id: string) {
-  return request<{
-    conversation: ChatConversation & { canSend: boolean };
-    messages: ChatMessage[];
-  }>(`/api/messages/conversations/${id}`);
-}
-
-export async function sendChatMessage(conversationId: string, body: string) {
-  return request<ChatMessage>(`/api/messages/conversations/${conversationId}/messages`, {
-    method: "POST",
-    body: JSON.stringify({ body })
-  });
-}
-
-export async function openChatWithStudent(studentId: string) {
-  return request<{
-    conversation: ChatConversation & { canSend: boolean };
-    messages: ChatMessage[];
-  }>(`/api/messages/with-student/${studentId}`, { method: "POST" });
-}
-
 export async function request<T>(pathname: string, options?: RequestInit): Promise<T> {
   const session = getSession();
   const headers: Record<string, string> = {

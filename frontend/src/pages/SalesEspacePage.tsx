@@ -53,16 +53,16 @@ export default function SalesEspacePage() {
       <MyCommissionsCard />
 
       <Link
-        to="/messages"
-        className="mt-6 flex items-center justify-between rounded-[20px] border border-brand/20 bg-white px-6 py-5 transition hover:-translate-y-0.5 hover:shadow-lg"
+        to="/whatsapp"
+        className="mt-6 flex items-center justify-between rounded-[20px] border border-emerald-200 bg-white px-6 py-5 transition hover:-translate-y-0.5 hover:shadow-lg"
       >
         <span>
-          <span className="block font-display text-lg font-bold">{t("Messagerie", "Messages")}</span>
+          <span className="block font-display text-lg font-bold">WhatsApp</span>
           <span className="mt-1 block text-sm text-muted">
-            {t("Vos étudiants à gauche, la discussion Messenger à droite.", "Your students on the left, the chat on the right.")}
+            {t("Les conversations WhatsApp de vos étudiants et prospects, avec réponse directe.", "WhatsApp conversations with your students and prospects, reply directly.")}
           </span>
         </span>
-        <span className="rounded-full bg-brand px-4 py-2 text-xs font-bold text-white">{t("Ouvrir", "Open")}</span>
+        <span className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-bold text-white">{t("Ouvrir", "Open")}</span>
       </Link>
 
       {/* Recherche + bascule d'affichage */}
@@ -143,12 +143,6 @@ export default function SalesEspacePage() {
                       >
                         <UserRound className="h-3 w-3" /> {t("Profil", "Profile")}
                       </Link>
-                      <Link
-                        to={`/messages?student=${student.id}`}
-                        className="inline-flex items-center rounded-lg bg-slate-100 px-2.5 py-1.5 text-[11px] font-bold text-dark transition hover:bg-slate-200"
-                      >
-                        {t("Écrire", "Message")}
-                      </Link>
                     </div>
                   </td>
                 </tr>
@@ -175,12 +169,6 @@ export default function SalesEspacePage() {
                   className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-4 py-2 text-xs font-bold text-brand hover:bg-brand hover:text-white transition"
                 >
                   <UserRound className="h-3.5 w-3.5" /> {t("Voir le profil", "View profile")}
-                </Link>
-                <Link
-                  to={`/messages?student=${student.id}`}
-                  className="inline-flex rounded-full bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand-dark"
-                >
-                  {t("Écrire", "Message")}
                 </Link>
               </div>
             </article>

@@ -1,8 +1,9 @@
 # WhatsApp Business dans SM Travel
 
 Les étudiants écrivent au numéro WhatsApp de l'agence (**+216 57 031 130**).
-Leurs messages arrivent dans l'application (menu **Messages** → onglet
-**WhatsApp**), où les sales y répondent directement.
+Leurs messages arrivent dans l'application (menu **WhatsApp**), où les sales
+y répondent directement. Chaque sales est aussi prévenu par une notification
+(cloche) quand une nouvelle conversation lui est attribuée.
 
 ## Qui voit quoi
 

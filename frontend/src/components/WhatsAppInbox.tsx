@@ -218,8 +218,8 @@ function AssignOwnerModal({
   );
 }
 
-// Boîte de réception WhatsApp, affichée comme onglet dans la page Messages
-// (remplit toute la hauteur de la carte qui la contient).
+// Boîte de réception WhatsApp (remplit toute la hauteur de la carte qui la
+// contient, voir pages/WhatsAppPage).
 export default function WhatsAppInbox() {
   const me = getSession()?.user;
   const isAdmin = me?.role === "ADMIN";

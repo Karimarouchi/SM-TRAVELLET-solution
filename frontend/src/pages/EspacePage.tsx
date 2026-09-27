@@ -1,5 +1,4 @@
 import DocumentsSummaryCard from "@/components/DocumentsSummaryCard";
-import { openAdvisorChat } from "@/lib/advisor-chat";
 import {
   completeApplicationInterview,
   fetchMe,
@@ -330,19 +329,20 @@ export default function EspacePage() {
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <button
-          type="button"
-          onClick={openAdvisorChat}
-          className="rounded-[20px] border border-brand/20 bg-white p-6 text-left shadow-[0_10px_28px_rgba(109,40,217,.08)] transition hover:-translate-y-1 hover:shadow-lg"
+        <a
+          href="https://wa.me/21657031130"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-[20px] border border-emerald-200 bg-white p-6 text-left shadow-[0_10px_28px_rgba(16,185,129,.10)] transition hover:-translate-y-1 hover:shadow-lg"
         >
-          <MessageSquare className="mb-3 h-8 w-8 text-brand" />
-          <h2 className="font-display text-xl font-bold">{t("Messages", "Messages")}</h2>
+          <MessageSquare className="mb-3 h-8 w-8 text-emerald-600" />
+          <h2 className="font-display text-xl font-bold">{t("WhatsApp", "WhatsApp")}</h2>
           <p className="mt-2 text-sm text-muted">
             {hasAdvisor
-              ? t(`Ouvrir le chat avec ${salesName || "votre conseiller"}.`, `Open chat with ${salesName || "your advisor"}.`)
-              : t("Ouvrir le chat avec le conseiller chargé de votre dossier.", "Open chat with the advisor handling your file.")}
+              ? t(`Écrivez-nous sur WhatsApp : ${salesName || "votre conseiller"} vous répond.`, `Message us on WhatsApp: ${salesName || "your advisor"} will reply.`)
+              : t("Écrivez-nous sur WhatsApp au +216 57 031 130.", "Message us on WhatsApp at +216 57 031 130.")}
           </p>
-        </button>
+        </a>
         <Link to="/profil" className="rounded-[20px] border border-line bg-white p-6 transition hover:-translate-y-1 hover:shadow-lg">
           <UserRound className="mb-3 h-8 w-8 text-brand" />
           <h2 className="font-display text-xl font-bold">{t("Profil", "Profile")}</h2>
