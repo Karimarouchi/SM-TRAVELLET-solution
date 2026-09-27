@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { DEMO_ACCOUNT, login, postLoginPath, register } from "@/lib/auth";
 import { useLanguage } from "@/lib/i18n";
 import { DatePickerField } from "@/components/ui/date-picker";
+import { EMPTY_PHONE, PhoneField, toInternational, type PhoneValue } from "@/components/ui/phone-field";
 import { ArrowLeft, CalendarDays as CalendarIcon, DoorClosed, DoorOpen, KeyRound, Lock, Mail, PersonStanding, User, UserX } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -24,6 +25,7 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
   const [searchParams] = useSearchParams();
   const presetCode = (searchParams.get("code") || "").trim().toUpperCase();
   const [hasCode, setHasCode] = useState(Boolean(presetCode));
+  const [phone, setPhone] = useState<PhoneValue>(EMPTY_PHONE);
   const [loginAnim, setLoginAnim] = useState<"idle" | "success" | "fail">("idle");
 
   async function onSignIn(event: FormEvent<HTMLFormElement>) {
@@ -48,6 +50,11 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
   async function onSignUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    const internationalPhone = toInternational(phone);
+    if (!/^\+\d{8,15}$/.test(internationalPhone)) {
+      setError(t("Numéro de téléphone invalide.", "Invalid phone number."));
+      return;
+    }
     setLoading(true);
     const form = new FormData(event.currentTarget);
     try {
@@ -57,6 +64,7 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
         nom: String(form.get("nom") || ""),
         email: String(form.get("email") || ""),
         dateNaissance: String(form.get("dateNaissance") || ""),
+        phone: internationalPhone,
         password: String(form.get("password") || ""),
         passwordConfirm: String(form.get("passwordConfirm") || ""),
         salesCode: salesCode || undefined
@@ -130,18 +138,21 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
             <form className="as-sign-up-form" onSubmit={onSignUp} noValidate>
               <p className="as-kicker">{t("Espace client", "Client area")}</p>
               <h2 className="as-title">{t("Inscription", "Sign up")}</h2>
-              <div className="as-input-field">
-                <span className="as-icon"><User size={18} /></span>
-                <input name="prenom" type="text" placeholder={t("Prénom", "First name")} required autoComplete="given-name" />
-              </div>
-              <div className="as-input-field">
-                <span className="as-icon"><User size={18} /></span>
-                <input name="nom" type="text" placeholder={t("Nom", "Last name")} required autoComplete="family-name" />
+              <div className="as-row-2">
+                <div className="as-input-field">
+                  <span className="as-icon"><User size={18} /></span>
+                  <input name="prenom" type="text" placeholder={t("Prénom", "First name")} required autoComplete="given-name" />
+                </div>
+                <div className="as-input-field">
+                  <span className="as-icon"><User size={18} /></span>
+                  <input name="nom" type="text" placeholder={t("Nom", "Last name")} required autoComplete="family-name" />
+                </div>
               </div>
               <div className="as-input-field">
                 <span className="as-icon"><Mail size={18} /></span>
                 <input name="email" type="email" placeholder="Email" required autoComplete="email" />
               </div>
+              <PhoneField value={phone} onChange={setPhone} placeholder={t("Téléphone (WhatsApp)", "Phone (WhatsApp)")} />
               <div className="as-input-field">
                 <span className="as-icon"><CalendarIcon size={18} /></span>
                 <DatePickerField name="dateNaissance" required bare />

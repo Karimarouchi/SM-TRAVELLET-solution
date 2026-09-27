@@ -362,6 +362,17 @@ async function attachStudentFromCode(contactId, studentId) {
   }
 }
 
+// À l'inscription : si ce numéro a déjà une conversation WhatsApp non liée,
+// elle est rattachée tout de suite au nouveau compte.
+async function linkStudentByPhone(studentId, rawPhone) {
+  try {
+    const contact = await repo.findContactByPhone(normalizePhone(rawPhone));
+    if (contact && !contact.student_id) await attachStudentFromCode(contact.id, studentId);
+  } catch (error) {
+    logger.error("WhatsApp : échec de la liaison par numéro à l'inscription", { message: error.message });
+  }
+}
+
 // ── Cycle de vie des sales ──────────────────────────────────────────────
 
 async function onSalesTransferred(fromSalesId, toSalesId) {
@@ -391,6 +402,7 @@ module.exports = {
   normalizePhone,
   getAccessibleConversation,
   attachStudentFromCode,
+  linkStudentByPhone,
   isValidSignature,
   processWebhook,
   listConversations,

@@ -71,6 +71,7 @@ export type RegisterPayload = {
   prenom: string;
   email: string;
   dateNaissance: string;
+  phone: string;
   password: string;
   passwordConfirm: string;
   salesCode?: string;

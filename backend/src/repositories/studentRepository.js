@@ -106,7 +106,7 @@ async function applyActivationCode(userId, { activationCodeId, assignedSalesId, 
          preferred_countries = $4,
          current_study_level = COALESCE(NULLIF($5, ''), current_study_level),
          target_level = COALESCE(NULLIF($6, ''), target_level),
-         phone = COALESCE(NULLIF($7, ''), phone),
+         phone = COALESCE(NULLIF(phone, ''), NULLIF($7, '')),
          updated_at = NOW()
      WHERE user_id = $1
      RETURNING *`,
@@ -237,9 +237,14 @@ async function markStalledAlertSent(userId) {
   );
 }
 
+async function setPhone(userId, phone) {
+  await query("UPDATE student_profiles SET phone = $2, updated_at = NOW() WHERE user_id = $1", [userId, phone]);
+}
+
 module.exports = {
   ensureProfile,
   findByUserId,
+  setPhone,
   applyActivationCode,
   setDossierStage,
   updateOnboarding,

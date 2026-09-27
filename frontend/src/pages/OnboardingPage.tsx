@@ -122,26 +122,11 @@ const EMPTY: FormState = {
   availableDocuments: ""
 };
 
-function digitsOf(value: string) {
-  return value.replace(/\D/g, "");
-}
-
-function sanitizePhone(value: string) {
-  return value.replace(/[^\d+\s().-]/g, "").slice(0, 20);
-}
-
 function validateField(key: FieldKey, form: FormState): string {
   const value = form[key];
   const text = typeof value === "string" ? value.trim() : "";
 
   switch (key) {
-    case "phone": {
-      if (!text) return "Le téléphone est obligatoire.";
-      const digits = digitsOf(text);
-      if (digits.length < 8) return "Le numéro doit contenir au moins 8 chiffres.";
-      if (digits.length > 15) return "Le numéro ne peut pas dépasser 15 chiffres.";
-      return "";
-    }
     case "nationality":
       return text ? "" : "La nationalité est obligatoire.";
     case "residenceCountry":
@@ -242,7 +227,7 @@ function validateField(key: FieldKey, form: FormState): string {
 }
 
 const STEP_FIELDS: FieldKey[][] = [
-  ["phone", "nationality", "residenceCountry", "city"],
+  ["nationality", "residenceCountry", "city"],
   ["currentStudyLevel", "lastDiploma", "studyField", "currentInstitution", "diplomaYear"],
   ["preferredCountries", "preferredCity", "targetLevel", "targetField", "targetIntake", "targetUniversity"],
   ["annualBudget", "fundingMode", "languageLevelFrench", "languageLevelEnglish", "hasLanguageTest", "languageTestLangs", "languageTestFrench", "languageTestEnglish", "languageTestFrenchOther", "languageTestEnglishOther", "hasPassport", "visaAlreadyRequested", "availableDocuments"]
@@ -557,22 +542,6 @@ export default function OnboardingPage() {
             >
               {step === 0 && (
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Téléphone" required error={errors.phone}>
-                    {lockedFields.has("phone") ? (
-                      <LockedValue value={form.phone} />
-                    ) : (
-                      <input
-                        className={fieldInputClass(Boolean(errors.phone))}
-                        type="tel"
-                        inputMode="tel"
-                        autoComplete="tel"
-                        maxLength={20}
-                        value={form.phone}
-                        onChange={(e) => set("phone", sanitizePhone(e.target.value))}
-                        placeholder="56 819 899"
-                      />
-                    )}
-                  </Field>
                   <Field label="Nationalité" required error={errors.nationality}>
                     <FancySelect invalid={Boolean(errors.nationality)} value={form.nationality} onChange={(value) => set("nationality", value)} options={COUNTRIES} />
                   </Field>

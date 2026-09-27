@@ -30,6 +30,11 @@ async function upsertContact(phone, profileName) {
   return result.rows[0];
 }
 
+async function findContactByPhone(phone) {
+  const result = await query("SELECT * FROM whatsapp_contacts WHERE phone = $1", [phone]);
+  return result.rows[0] || null;
+}
+
 async function findConversation(contactId) {
   const result = await query(`${CONVERSATIONS_CTE} SELECT * FROM conv WHERE id = $1`, [contactId]);
   return result.rows[0] || null;
@@ -254,6 +259,7 @@ async function listOrphanContactIds() {
 
 module.exports = {
   upsertContact,
+  findContactByPhone,
   findConversation,
   findStudentByPhone,
   findStudentForLink,

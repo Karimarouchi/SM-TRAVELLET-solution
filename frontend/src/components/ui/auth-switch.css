@@ -192,6 +192,59 @@
   transition: 0.3s;
 }
 
+/* Prénom + Nom sur une même ligne : le formulaire d'inscription reste sur un
+   seul écran malgré le champ téléphone. */
+.auth-switch-root .as-row-2 {
+  display: flex;
+  gap: 8px;
+  max-width: 380px;
+  width: 100%;
+}
+
+.auth-switch-root .as-row-2 .as-input-field {
+  grid-template-columns: 24% 76%;
+}
+
+/* Téléphone : indicatif pays (liste déroulante) + numéro. */
+.auth-switch-root .as-phone-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding-right: 0.6rem;
+}
+
+.auth-switch-root .as-dial-btn {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 9px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--as-ink);
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.auth-switch-root .as-dial-btn:hover {
+  border-color: var(--as-brand);
+  color: var(--as-brand);
+}
+
+.auth-switch-root .as-dial-iso {
+  font-size: 0.7rem;
+  color: var(--as-muted);
+}
+
+.auth-switch-root .as-phone-inner input {
+  min-width: 0;
+}
+
 .auth-switch-root .as-input-field:focus-within {
   background-color: #fff;
   border-color: var(--as-brand);

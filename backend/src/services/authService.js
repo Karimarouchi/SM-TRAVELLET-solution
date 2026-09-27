@@ -7,6 +7,7 @@ const { signToken } = require("../security/jwt");
 const { userDto, studentProfileDto } = require("../dto/userDto");
 const salesCodeService = require("./salesCodeService");
 const notificationService = require("./notificationService");
+const whatsappService = require("./whatsappService");
 const emailService = require("./emailService");
 const userRoles = require("../repositories/userRoleRepository");
 const userPermissions = require("../repositories/userPermissionRepository");
@@ -56,7 +57,10 @@ function validateRegister(body) {
   if (!isAdultEnough(dateNaissance)) return "Vous devez avoir au moins 16 ans.";
   if (password.length < 8) return "Le mot de passe doit contenir au moins 8 caractères.";
   if (password !== passwordConfirm) return "Les mots de passe ne correspondent pas.";
-  return { nom, prenom, email, dateNaissance, password };
+  // Format international : "+" suivi de l'indicatif pays et du numéro.
+  const phone = String(body.phone || "").replace(/[\s.-]/g, "");
+  if (!/^\+\d{8,15}$/.test(phone)) return "Numéro de téléphone invalide (indicatif pays + numéro).";
+  return { nom, prenom, email, dateNaissance, password, phone };
 }
 
 async function buildSession(user) {
@@ -102,13 +106,18 @@ async function register(body) {
   await salesCodeService.assertCodeUsable(body.salesCode);
 
   const { salt, hash } = hashPassword(parsed.password);
-  const user = await users.createUser({ ...parsed, salt, hash, role: "STUDENT", emailVerified: false });
+  const { phone, ...account } = parsed;
+  const user = await users.createUser({ ...account, salt, hash, role: "STUDENT", emailVerified: false });
   await students.ensureProfile(user.id);
+  await students.setPhone(user.id, phone);
   // Un code Sales est optionnel : s'il est absent, le mécanisme d'attribution
   // existant (manuel/auto par charge) continue de s'appliquer normalement.
   if (body.salesCode) {
     await salesCodeService.applyCodeToNewStudent(user.id, body.salesCode);
   }
+  // Ce numéro a déjà écrit au WhatsApp de l'agence : la conversation est
+  // liée tout de suite au nouveau compte.
+  await whatsappService.linkStudentByPhone(user.id, phone);
   await notificationService.notifyAdmins({
     type: "STUDENT_REGISTERED",
     title: "Nouvel étudiant inscrit",

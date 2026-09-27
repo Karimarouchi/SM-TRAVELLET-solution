@@ -59,7 +59,6 @@ function validateOnboarding(body) {
     : String(body.preferredCountries || "").split(",").map((item) => item.trim()).filter(Boolean);
 
   const errors = [
-    required(body.phone, "Le téléphone"),
     required(body.nationality, "La nationalité"),
     required(body.residenceCountry, "Le pays de résidence"),
     required(body.city, "La ville"),
@@ -86,8 +85,10 @@ function validateOnboarding(body) {
     throw error;
   }
 
+  // Le téléphone est saisi à l'inscription : l'onboarding ne le demande plus,
+  // il n'est validé ici que s'il est fourni.
   const phoneDigits = String(body.phone || "").replace(/\D/g, "");
-  if (phoneDigits.length < 8 || phoneDigits.length > 15) {
+  if (body.phone && (phoneDigits.length < 8 || phoneDigits.length > 15)) {
     const error = new Error("Le numéro de téléphone doit contenir entre 8 et 15 chiffres.");
     error.status = 400;
     throw error;
@@ -173,7 +174,7 @@ function validateOnboarding(body) {
   }
 
   return {
-    phone: String(body.phone).trim(),
+    phone: body.phone ? String(body.phone).trim() : "",
     nationality: String(body.nationality).trim(),
     residenceCountry: String(body.residenceCountry).trim(),
     city: String(body.city).trim(),
@@ -288,7 +289,7 @@ async function saveOnboarding(userId, body) {
   if (locked.includes("preferredCountries")) fields.preferredCountries = existingRow.preferred_countries || [];
   if (locked.includes("currentStudyLevel")) fields.currentStudyLevel = existingRow.current_study_level || "";
   if (locked.includes("targetLevel")) fields.targetLevel = existingRow.target_level || "";
-  if (locked.includes("phone")) fields.phone = existingRow.phone || "";
+  if (locked.includes("phone") || !fields.phone) fields.phone = existingRow.phone || "";
 
   let profile = studentProfileDto(await students.updateOnboarding(userId, fields));
   if (!profile.assignedSalesId && (await settings.isAutoAssignEnabled())) {
