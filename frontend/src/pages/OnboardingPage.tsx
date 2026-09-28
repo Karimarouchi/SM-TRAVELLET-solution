@@ -254,8 +254,10 @@ function Field({
   children: ReactNode;
 }) {
   return (
-    <div className="block text-left">
-      <span className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-mid">
+    // min-w-0 : un champ ne doit jamais élargir la colonne de la grille (sinon
+    // tous les champs débordent de la carte sur téléphone).
+    <div className="block min-w-0 text-left">
+      <span className="mb-1.5 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-mid">
         {label}
         {required ? (
           <span className="rounded-full bg-brand-light px-2 py-0.5 text-[10px] font-bold text-brand">Obligatoire</span>
@@ -271,10 +273,13 @@ function Field({
 
 function LockedValue({ value }: { value: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-xl border border-line bg-slate-100 px-3 py-2.5 text-sm text-dark">
+    <div className="flex min-w-0 items-center gap-2 rounded-xl border border-line bg-slate-100 px-3 py-2.5 text-sm text-dark">
       <Lock className="h-3.5 w-3.5 shrink-0 text-muted" />
-      <span className="flex-1">{value || "—"}</span>
-      <span className="text-[10px] font-semibold text-muted">Renseigné par votre conseiller</span>
+      <span className="min-w-0 flex-1 truncate" title={value}>{value || "—"}</span>
+      <span className="shrink-0 whitespace-nowrap text-[10px] font-semibold text-muted">
+        <span className="sm:hidden">Par le conseiller</span>
+        <span className="hidden sm:inline">Renseigné par votre conseiller</span>
+      </span>
     </div>
   );
 }
