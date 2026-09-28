@@ -564,11 +564,24 @@
   z-index: 6;
 }
 
+/* ── Téléphone / tablette (même design que sur ordinateur : cercle violet
+   qui glisse). Mesuré sur 10 téléphones courants, zone visible du navigateur
+   (iPhone SE → iPhone 17 Pro Max, Galaxy S24, Pixel 8...). ──────────────── */
 @media (max-width: 870px) {
+  .auth-switch-root .as-back {
+    top: calc(env(safe-area-inset-top, 0px) + 16px);
+    left: 18px;
+  }
+
+  .auth-switch-root .as-back img {
+    height: 26px;
+  }
+
+  /* Connexion : formulaire centré dans la zone blanche (sous le cercle). */
   .auth-switch-root .as-signin-signup {
     width: 100%;
-    top: 95%;
-    transform: translate(-50%, -100%);
+    top: 66%;
+    transform: translate(-50%, -50%);
     transition: 1s 0.8s ease-in-out;
   }
 
@@ -577,46 +590,98 @@
     left: 50%;
   }
 
+  /* Inscription : sous le logo, et défile dans sa zone si le téléphone est
+     trop petit, au lieu de passer sous le panneau violet. */
+  .auth-switch-root .as-container.as-sign-up-mode .as-signin-signup {
+    top: calc(env(safe-area-inset-top, 0px) + 58px);
+    transform: translate(-50%, 0);
+    max-height: calc(82% - env(safe-area-inset-top, 0px) - 66px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: 8px;
+  }
+
+  .auth-switch-root .as-container.as-sign-up-mode .as-kicker {
+    display: none;
+  }
+
+  .auth-switch-root .as-title {
+    font-size: 1.7rem;
+    margin-bottom: 6px;
+  }
+
+  .auth-switch-root .as-input-field {
+    height: 46px;
+    margin: 4px 0;
+  }
+
+  /* 16 px minimum : en dessous, l'iPhone zoome sur le champ au toucher. */
+  .auth-switch-root .as-input-field input {
+    font-size: 16px;
+  }
+
+  .auth-switch-root .as-btn {
+    margin: 10px 0 4px;
+  }
+
   .auth-switch-root .as-panels-container {
     grid-template-columns: 1fr;
-    grid-template-rows: 1fr 2fr 1fr;
+    grid-template-rows: 32% 50% 18%;
   }
 
   .auth-switch-root .as-panel {
     flex-direction: row;
-    justify-content: space-around;
+    justify-content: center;
     align-items: center;
-    padding: 2.5rem 8%;
     grid-column: 1 / 2;
   }
 
-  .auth-switch-root .as-right-panel {
-    grid-row: 3 / 4;
-  }
-
+  /* « Nouveau ici ? » : sous le logo, jamais par-dessus. */
   .auth-switch-root .as-left-panel {
     grid-row: 1 / 2;
+    padding: calc(env(safe-area-inset-top, 0px) + 52px) 8% 1.4rem;
+  }
+
+  /* « Déjà membre ? CONNEXION » sur une seule ligne, en bas. */
+  .auth-switch-root .as-right-panel {
+    grid-row: 3 / 4;
+    align-items: flex-end;
+    padding: 0 6% calc(env(safe-area-inset-bottom, 0px) + 1.1rem);
+  }
+
+  .auth-switch-root .as-right-panel .as-content {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .auth-switch-root .as-right-panel h3 {
+    margin: 0;
+  }
+
+  .auth-switch-root .as-right-panel p {
+    display: none;
   }
 
   .auth-switch-root .as-panel .as-content {
-    padding-right: 15%;
+    padding: 0;
     transition: transform 0.9s ease-in-out;
     transition-delay: 0.8s;
   }
 
   .auth-switch-root .as-panel h3 {
-    font-size: 1.2rem;
+    font-size: 1.25rem;
   }
 
   .auth-switch-root .as-panel p {
-    font-size: 0.7rem;
-    padding: 0.5rem 0;
+    font-size: 0.75rem;
+    padding: 0.35rem 0 0.7rem;
   }
 
   .auth-switch-root .as-btn.as-transparent {
-    width: 110px;
-    height: 35px;
-    font-size: 0.7rem;
+    width: 120px;
+    height: 36px;
+    font-size: 0.72rem;
   }
 
   .auth-switch-root .as-container:before {
@@ -632,7 +697,7 @@
 
   .auth-switch-root .as-container.as-sign-up-mode:before {
     transform: translate(-50%, 100%);
-    bottom: 32%;
+    bottom: 18%;
     right: initial;
   }
 
@@ -647,19 +712,21 @@
   .auth-switch-root .as-right-panel .as-content {
     transform: translateY(300px);
   }
-
-  .auth-switch-root .as-container.as-sign-up-mode .as-signin-signup {
-    top: 5%;
-    transform: translate(-50%, 0);
-  }
 }
 
 @media (max-width: 570px) {
   .auth-switch-root form {
-    padding: 0 1.5rem;
+    padding: 0 1.25rem;
+  }
+}
+
+/* Petits écrans (iPhone SE…) : le texte d'accroche laisse la place. */
+@media (max-width: 870px) and (max-height: 640px) {
+  .auth-switch-root .as-left-panel p {
+    display: none;
   }
 
-  .auth-switch-root .as-panel .as-content {
-    padding: 0.5rem 1rem;
+  .auth-switch-root .as-left-panel h3 {
+    margin-bottom: 8px;
   }
 }
