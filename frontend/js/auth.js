@@ -8,7 +8,9 @@
     home: inFrontend ? '../index.html' : 'index.html',
     login: inFrontend ? 'login.html' : 'frontend/login.html',
     register: inFrontend ? 'inscription.html' : 'frontend/inscription.html',
-    espace: inFrontend ? 'espace.html' : 'frontend/espace.html'
+    // "Mon espace" de la vitrine : l'application React (/app/). Elle renvoie
+    // chaque rôle vers son propre espace, ou vers la connexion si besoin.
+    espace: inFrontend ? 'espace.html' : '/app/#/espace'
   };
 
   const DEMO_USER = {
