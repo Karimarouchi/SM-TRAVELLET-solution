@@ -59,6 +59,13 @@ function binary(configuredPath, fallback) {
   return fallback;
 }
 
+// psql est installé avec pg_dump (même dossier en local Windows, dans le
+// PATH de l'image Docker).
+function psqlBinary(pgDump) {
+  if (!path.isAbsolute(pgDump)) return "psql";
+  return path.join(path.dirname(pgDump), path.extname(pgDump) === ".exe" ? "psql.exe" : "psql");
+}
+
 function writeStatus(file, status) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(status, null, 2));
@@ -92,10 +99,20 @@ async function runBackup(triggeredBy) {
 
   try {
     await run(pgDump, ["--format=custom", "--schema=public", `--file=${dumpFile}`, env.databaseUrl]);
+
+    // La copie Supabase est entièrement vidée puis réécrite : elle reste le
+    // reflet exact de la prod, même quand une table a été supprimée en prod
+    // (sinon l'ancienne table, restée côté Supabase, bloque toute la copie).
+    // Fait seulement APRÈS un export réussi, pour ne jamais vider la copie
+    // si la prod n'a pas pu être lue.
+    await run(psqlBinary(pgDump), [
+      env.backup.supabaseDatabaseUrl,
+      "-v", "ON_ERROR_STOP=1",
+      "-c", "DROP SCHEMA IF EXISTS public CASCADE;"
+    ]);
+
     try {
       await run(pgRestore, [
-        "--clean",
-        "--if-exists",
         "--no-owner",
         "--no-privileges",
         `--dbname=${env.backup.supabaseDatabaseUrl}`,
