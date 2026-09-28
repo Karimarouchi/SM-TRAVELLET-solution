@@ -84,7 +84,9 @@ export default function NotificationBell() {
   }
 
   return (
-    <div ref={rootRef} className="relative">
+    // Sur téléphone, pas de "relative" ici : le panneau se cale sur toute la
+    // largeur de la barre de navigation au lieu de déborder à gauche de la cloche.
+    <div ref={rootRef} className="sm:relative">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
@@ -110,36 +112,36 @@ export default function NotificationBell() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             transition={{ duration: 0.16 }}
-            className="absolute right-0 top-full mt-3 w-[min(92vw,380px)] overflow-hidden rounded-2xl border border-line bg-white shadow-[0_20px_50px_rgba(15,23,42,0.18)]"
+            className="absolute inset-x-0 top-full z-50 mt-3 overflow-hidden rounded-3xl border border-line bg-white shadow-[0_20px_50px_rgba(15,23,42,0.18)] sm:inset-x-auto sm:right-0 sm:w-[380px] sm:rounded-2xl"
           >
-            <div className="flex items-center justify-between border-b border-line px-4 py-3">
-              <p className="font-display text-sm font-bold text-dark">
+            <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+              <p className="shrink-0 font-display text-base font-bold text-dark sm:text-sm">
                 Notifications {unread > 0 && <span className="ml-1 text-brand">({unread})</span>}
               </p>
               {unread > 0 && (
-                <button type="button" onClick={onReadAll} className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline">
-                  <CheckCheck className="h-3.5 w-3.5" /> Tout marquer comme lu
+                <button type="button" onClick={onReadAll} className="inline-flex items-center gap-1 rounded-full bg-brand/10 px-3 py-1.5 text-xs font-semibold text-brand transition hover:bg-brand hover:text-white sm:bg-transparent sm:px-0 sm:py-0 sm:text-[11px] sm:hover:bg-transparent sm:hover:text-brand sm:hover:underline">
+                  <CheckCheck className="h-3.5 w-3.5" /> <span className="sm:hidden">Tout lire</span><span className="hidden sm:inline">Tout marquer comme lu</span>
                 </button>
               )}
             </div>
 
-            <div className="max-h-[60vh] overflow-y-auto">
+            <div className="max-h-[65dvh] overflow-y-auto overscroll-contain sm:max-h-[60vh]">
               {items.map((item) => (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => onOpenItem(item)}
                   className={cn(
-                    "flex w-full items-start gap-3 border-b border-line/60 px-4 py-3 text-left transition hover:bg-slate-50",
+                    "flex w-full items-start gap-3 border-b border-line/60 px-4 py-3.5 text-left transition hover:bg-slate-50",
                     !item.read && "bg-brand/[0.04]"
                   )}
                 >
                   <NotificationIcon type={item.type} />
                   <span className="min-w-0 flex-1">
-                    <span className={cn("block text-[13px] leading-snug", item.read ? "font-medium text-mid" : "font-bold text-dark")}>
+                    <span className={cn("block text-sm leading-snug sm:text-[13px]", item.read ? "font-medium text-mid" : "font-bold text-dark")}>
                       {item.title}
                     </span>
-                    {item.body && <span className="mt-0.5 line-clamp-2 block text-xs text-muted">{item.body}</span>}
+                    {item.body && <span className="mt-1 line-clamp-3 block break-words text-[13px] leading-snug text-muted sm:line-clamp-2 sm:text-xs">{item.body}</span>}
                     <span className="mt-1 block text-[11px] text-muted">{notificationTime(item.createdAt)}</span>
                   </span>
                   {!item.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand" />}
@@ -157,7 +159,7 @@ export default function NotificationBell() {
               {loading && !items.length && <p className="px-4 py-8 text-center text-xs text-muted">Chargement...</p>}
             </div>
 
-            <Link to="/notifications" className="block border-t border-line px-4 py-2.5 text-center text-xs font-bold text-brand transition hover:bg-brand/5">
+            <Link to="/notifications" className="block border-t border-line px-4 py-3 text-center text-sm font-bold text-brand transition hover:bg-brand/5 sm:py-2.5 sm:text-xs">
               Voir toutes les notifications
             </Link>
           </motion.div>
