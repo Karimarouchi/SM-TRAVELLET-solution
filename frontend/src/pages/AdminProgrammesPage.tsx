@@ -23,8 +23,6 @@ import {
   Globe,
   GraduationCap,
   GripVertical,
-  LayoutGrid,
-  List,
   Pencil,
   Plane,
   Plus,
@@ -47,10 +45,8 @@ export default function AdminProgrammesPage() {
   const [success, setSuccess] = useState("");
   const [search, setSearch] = useState("");
   const [filterBadge, setFilterBadge] = useState("");
-  const [viewMode, setViewMode] = useState<"cards" | "table">("table");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 6;
-  const TABLE_SIZE = 7;
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -231,12 +227,12 @@ export default function AdminProgrammesPage() {
           </div>
 
           {/* Tab switch: Programmes / Documents */}
-          <div className="relative mt-5 inline-flex items-center gap-1 rounded-xl bg-white/10 p-1 backdrop-blur">
+          <div className="relative mt-5 grid grid-cols-2 gap-1 rounded-xl bg-white/10 p-1 backdrop-blur sm:inline-flex sm:items-center">
             <button
               type="button"
               onClick={() => setActiveTab("programmes")}
               className={cn(
-                "flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition",
+                "flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition sm:px-4",
                 activeTab === "programmes" ? "bg-white text-brand shadow" : "text-white/80 hover:text-white"
               )}
             >
@@ -246,7 +242,7 @@ export default function AdminProgrammesPage() {
               type="button"
               onClick={() => setActiveTab("documents")}
               className={cn(
-                "flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition",
+                "flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition sm:px-4",
                 activeTab === "documents" ? "bg-white text-brand shadow" : "text-white/80 hover:text-white"
               )}
             >
@@ -256,7 +252,7 @@ export default function AdminProgrammesPage() {
               type="button"
               onClick={() => setActiveTab("universities")}
               className={cn(
-                "flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition",
+                "flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition sm:px-4",
                 activeTab === "universities" ? "bg-white text-brand shadow" : "text-white/80 hover:text-white"
               )}
             >
@@ -266,7 +262,7 @@ export default function AdminProgrammesPage() {
               type="button"
               onClick={() => setActiveTab("visa")}
               className={cn(
-                "flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition",
+                "flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition sm:px-4",
                 activeTab === "visa" ? "bg-white text-brand shadow" : "text-white/80 hover:text-white"
               )}
             >
@@ -346,31 +342,9 @@ export default function AdminProgrammesPage() {
           </div>
         </div>
 
-        {/* View toggle + count */}
+        {/* Nombre de programmes affichés */}
         <div className="mt-4 flex items-center justify-between">
           <p className="text-xs text-muted font-medium">{filteredProgrammes.length} programme{filteredProgrammes.length !== 1 ? "s" : ""} affiché{filteredProgrammes.length !== 1 ? "s" : ""}</p>
-          <div className="flex items-center gap-1 rounded-xl border border-line bg-white p-1 shadow-sm">
-            <button
-              type="button"
-              onClick={() => { setViewMode("cards"); setPage(1); }}
-              className={cn(
-                "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition",
-                viewMode === "cards" ? "bg-brand text-white shadow" : "text-muted hover:text-dark"
-              )}
-            >
-              <LayoutGrid className="h-3.5 w-3.5" /> Cartes
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("table")}
-              className={cn(
-                "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition",
-                viewMode === "table" ? "bg-brand text-white shadow" : "text-muted hover:text-dark"
-              )}
-            >
-              <List className="h-3.5 w-3.5" /> Tableau
-            </button>
-          </div>
         </div>
 
         {/* Programme List */}
@@ -385,7 +359,7 @@ export default function AdminProgrammesPage() {
             <p className="mt-4 font-display text-lg font-bold text-dark">Aucun programme trouvé</p>
             <p className="text-sm text-muted">Ajoutez votre premier programme ou modifiez vos filtres.</p>
           </div>
-        ) : viewMode === "cards" ? (
+        ) : (
           (() => {
             const totalPages = Math.ceil(filteredProgrammes.length / PAGE_SIZE);
             const paged = filteredProgrammes.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -549,153 +523,6 @@ export default function AdminProgrammesPage() {
                     <span className="ml-2 text-xs text-muted">Page {page} / {totalPages}</span>
                   </div>
                 )}
-              </>
-            );
-          })()
-        ) : (
-          /* ── TABLE VIEW ── */
-          (() => {
-            const totalTablePages = Math.ceil(filteredProgrammes.length / TABLE_SIZE);
-            const pagedTable = filteredProgrammes.slice((page - 1) * TABLE_SIZE, page * TABLE_SIZE);
-            return (
-              <>
-                <div className="mt-5 overflow-x-auto rounded-2xl border border-line bg-white shadow-sm">
-                  <table className="w-full min-w-[560px] text-sm">
-                    <thead>
-                      <tr className="border-b border-line bg-slate-50">
-                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted w-8">#</th>
-                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">Programme</th>
-                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">Pays</th>
-                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted hidden md:table-cell">Niveaux</th>
-                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted hidden lg:table-cell">Détails</th>
-                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">Statut</th>
-                        <th className="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-muted">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-line/60">
-                      {pagedTable.map((p) => (
-                        <tr key={p.id} className="group transition hover:bg-brand/5">
-                          <td className="px-4 py-3 text-xs text-muted font-mono">{p.displayOrder}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className="h-10 w-14 flex-shrink-0 overflow-hidden rounded-lg"
-                                style={{ background: p.gradientStyle }}
-                              >
-                                <img
-                                  src={p.imageUrl ? mediaUrl(p.imageUrl) : ""}
-                                  alt={p.title}
-                                  className="h-full w-full object-cover"
-                                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                                />
-                              </div>
-                              <div>
-                                <p className="font-bold text-dark text-xs leading-tight">{p.title}</p>
-                                {p.isFeatured && (
-                                  <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-600">
-                                    <Star className="h-2.5 w-2.5 fill-amber-500 text-amber-500" /> Vedette
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
-                              {p.country}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 hidden md:table-cell">
-                            <p className="text-[11px] text-muted max-w-[160px] truncate">{p.degrees}</p>
-                          </td>
-                          <td className="px-4 py-3 hidden lg:table-cell">
-                            {Array.isArray(p.details) && p.details.length > 0 ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-semibold text-brand">
-                                {p.details.length} niveau{p.details.length > 1 ? "x" : ""}
-                              </span>
-                            ) : (
-                              <span className="text-[11px] text-muted/50">—</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={cn(
-                              "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold",
-                              badgeStyles[p.badge] || "bg-slate-100 text-slate-600 border-slate-200"
-                            )}>
-                              {p.badge}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEdit(p)}
-                                className="inline-flex items-center gap-1 rounded-lg bg-brand/10 px-2.5 py-1.5 text-[11px] font-bold text-brand transition hover:bg-brand hover:text-white"
-                              >
-                                <Pencil className="h-3 w-3" /> Modifier
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDelete(p.id, p.title)}
-                                className="inline-flex items-center justify-center rounded-lg bg-red-50 p-1.5 text-red-500 transition hover:bg-red-500 hover:text-white"
-                                title="Supprimer"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-
-                  {/* Table footer: add button + pagination */}
-                  <div className="flex items-center justify-between border-t border-line/60 bg-slate-50 px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={handleOpenCreate}
-                      className="inline-flex items-center gap-2 rounded-xl border border-dashed border-brand/40 bg-white px-4 py-2 text-xs font-bold text-brand transition hover:bg-brand hover:text-white hover:border-brand"
-                    >
-                      <Plus className="h-3.5 w-3.5" /> Ajouter un programme
-                    </button>
-
-                    {totalTablePages > 1 && (
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setPage((p) => Math.max(1, p - 1))}
-                          disabled={page === 1}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg border border-line bg-white text-muted transition hover:border-brand hover:text-brand disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          <ChevronLeft className="h-3.5 w-3.5" />
-                        </button>
-                        {Array.from({ length: totalTablePages }, (_, i) => i + 1).map((n) => (
-                          <button
-                            key={n}
-                            type="button"
-                            onClick={() => setPage(n)}
-                            className={cn(
-                              "flex h-7 w-7 items-center justify-center rounded-lg border text-xs font-bold transition",
-                              n === page
-                                ? "border-brand bg-brand text-white shadow"
-                                : "border-line bg-white text-muted hover:border-brand hover:text-brand"
-                            )}
-                          >
-                            {n}
-                          </button>
-                        ))}
-                        <button
-                          type="button"
-                          onClick={() => setPage((p) => Math.min(totalTablePages, p + 1))}
-                          disabled={page === totalTablePages}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg border border-line bg-white text-muted transition hover:border-brand hover:text-brand disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          <ChevronRight className="h-3.5 w-3.5" />
-                        </button>
-                        <span className="ml-1 text-xs text-muted">Page {page} / {totalTablePages}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
               </>
             );
           })()
