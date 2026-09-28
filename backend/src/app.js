@@ -25,6 +25,7 @@ const commissionController = require("./controllers/commissionController");
 const archiveController = require("./controllers/archiveController");
 const archiveService = require("./services/archiveService");
 const stalledAlertService = require("./services/stalledAlertService");
+const backupService = require("./services/backupService");
 const { query } = require("../db");
 
 const app = express();
@@ -250,5 +251,14 @@ setInterval(() => {
 setTimeout(() => {
   stalledAlertService.runCheck().catch((error) => logger.error("Échec de la vérification des dossiers bloqués", { message: error.message }));
 }, 90 * 1000);
+
+// Sauvegarde automatique vers Supabase (production uniquement) : vérifiée
+// toutes les 30 min, lancée dès que la dernière date de plus de 12 h
+// (1 h après un échec). Admins prévenus par notification + email si échec.
+function scheduledBackup() {
+  backupService.runScheduledBackup().catch((error) => logger.error("Échec de la sauvegarde planifiée", { message: error.message }));
+}
+setInterval(scheduledBackup, 30 * 60 * 1000);
+setTimeout(scheduledBackup, 2 * 60 * 1000);
 
 module.exports = app;

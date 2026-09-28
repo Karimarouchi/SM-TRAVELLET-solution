@@ -27,18 +27,24 @@ PG_RESTORE_PATH=C:\Program Files\PostgreSQL\16\bin\pg_restore.exe
 
 Ne rien mettre ici en production : l'image Docker du backend a déjà `pg_dump`/`pg_restore` dans son PATH.
 
-## 3. Tâches planifiées (crontab du serveur de production)
+## 3. Sauvegarde automatique (aucune crontab à installer)
+
+Le backend planifie lui-même la sauvegarde, **en production uniquement**
+(`NODE_ENV=production`, déjà le cas dans `docker-compose.yml`) : toutes les
+30 minutes il vérifie la date de la dernière sauvegarde (`logs/last-backup.json`,
+conservé entre les redéploiements) et en lance une si elle date de plus de
+12 h — ou 1 h après un échec.
+
+En cas d'échec, les admins reçoivent une notification (cloche) et, si
+`BACKUP_ALERT_EMAIL` est défini, un email — au plus une alerte toutes les 12 h.
+
+En local (développement), rien ne se lance automatiquement : une base de test
+ne doit jamais écraser la vraie sauvegarde. Les scripts restent utilisables à
+la main :
 
 ```bash
-crontab -e
-```
-
-```cron
-# Sauvegarde vers Supabase, toutes les 12h
-0 */12 * * * cd /chemin/vers/le/projet && node backend/scripts/backup-to-supabase.js >> backend/logs/backup-cron.log 2>&1
-
-# Vérification + alerte, tous les jours à minuit
-0 0 * * * cd /chemin/vers/le/projet && node backend/scripts/verify-backup-alert.js >> backend/logs/backup-cron.log 2>&1
+docker exec sm-travel-backend node scripts/backup-to-supabase.js
+docker exec sm-travel-backend node scripts/verify-backup-alert.js
 ```
 
 ## 4. Restauration manuelle (en cas de perte de données réelle)
@@ -62,7 +68,7 @@ pg_restore --clean --if-exists --no-owner --no-privileges --dbname="$DATABASE_UR
 
 ## 5. Déclenchement manuel depuis l'interface admin
 
-En plus de la tâche planifiée toutes les 12h, un bouton **"Lancer maintenant"** est disponible dans le Dashboard admin (`/admin`), avec le statut de la dernière sauvegarde affiché juste à côté. Utile pour forcer une sauvegarde immédiate avant une opération sensible, ou pour vérifier que tout fonctionne sans attendre le prochain cycle.
+En plus de la sauvegarde automatique toutes les 12h, un bouton **"Lancer maintenant"** est disponible dans Paramètres (`/admin/settings`), avec le statut de la dernière sauvegarde affiché juste à côté. Utile pour forcer une sauvegarde immédiate avant une opération sensible, ou pour vérifier que tout fonctionne sans attendre le prochain cycle.
 
 ## 6. Fichiers
 

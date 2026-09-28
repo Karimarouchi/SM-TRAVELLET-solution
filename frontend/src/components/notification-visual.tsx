@@ -28,7 +28,8 @@ const VISUALS: Record<string, { icon: LucideIcon; tone: string }> = {
   COMMISSION_EARNED: { icon: Coins, tone: "bg-amber-100 text-amber-600" },
   VISA_ACCEPTED: { icon: PlaneTakeoff, tone: "bg-emerald-100 text-emerald-600" },
   VISA_REJECTED: { icon: XCircle, tone: "bg-red-100 text-red-600" },
-  STALLED_DOSSIER: { icon: AlertTriangle, tone: "bg-amber-100 text-amber-600" }
+  STALLED_DOSSIER: { icon: AlertTriangle, tone: "bg-amber-100 text-amber-600" },
+  BACKUP_FAILED: { icon: AlertTriangle, tone: "bg-red-100 text-red-600" }
 };
 
 export function NotificationIcon({ type, className }: { type: string; className?: string }) {

@@ -156,4 +156,48 @@ async function runRestore(triggeredBy) {
   }
 }
 
-module.exports = { runBackup, getStatus, runRestore, getRestoreStatus };
+// ── Sauvegarde automatique (planifiée par le backend lui-même) ──────────
+// Plus besoin de crontab sur le serveur : app.js appelle cette vérification
+// toutes les 30 min. Uniquement en production — sinon une base locale de
+// test écraserait la vraie sauvegarde Supabase.
+const BACKUP_EVERY_MS = 12 * 60 * 60 * 1000;
+const RETRY_AFTER_FAILURE_MS = 60 * 60 * 1000;
+const ALERT_EVERY_MS = 12 * 60 * 60 * 1000;
+let lastAlertAt = 0;
+
+async function alertBackupFailure(message) {
+  if (Date.now() - lastAlertAt < ALERT_EVERY_MS) return;
+  lastAlertAt = Date.now();
+  // Chargés ici pour éviter une dépendance circulaire au démarrage.
+  const notificationService = require("./notificationService");
+  const emailService = require("./emailService");
+  await notificationService.notifyAdmins({
+    type: "BACKUP_FAILED",
+    title: "La sauvegarde automatique a échoué",
+    body: String(message).slice(0, 300),
+    link: "/admin/settings"
+  });
+  if (env.backup.alertEmail) {
+    await emailService
+      .sendAlertEmail(env.backup.alertEmail, "La sauvegarde Supabase a échoué", String(message))
+      .catch((error) => logger.error("Échec de l'email d'alerte de sauvegarde", { message: error.message }));
+  }
+}
+
+async function runScheduledBackup() {
+  if (process.env.NODE_ENV !== "production" || !env.backup.supabaseDatabaseUrl) return;
+
+  const status = getStatus();
+  const age = status?.at ? Date.now() - new Date(status.at).getTime() : Infinity;
+  const due = status?.success === false ? age >= RETRY_AFTER_FAILURE_MS : age >= BACKUP_EVERY_MS;
+  if (!due) return;
+
+  try {
+    await runBackup("auto");
+    lastAlertAt = 0;
+  } catch (error) {
+    await alertBackupFailure(error.message);
+  }
+}
+
+module.exports = { runBackup, getStatus, runRestore, getRestoreStatus, runScheduledBackup };
