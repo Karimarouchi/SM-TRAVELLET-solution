@@ -98,7 +98,25 @@ const Navbar1 = () => {
     return () => window.clearInterval(timer);
   }, [location.pathname, role]);
 
-  const toggleMenu = () => setIsOpen(!isOpen);
+  const toggleMenu = () => setIsOpen((open) => !open);
+
+  // Menu mobile : fermé à chaque changement de page, et la page derrière ne
+  // défile pas tant qu'il est ouvert.
+  React.useEffect(() => {
+    setIsOpen(false);
+  }, [location.pathname]);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [isOpen]);
+
+  const mobileLinkClass = (href: string) =>
+    cn("inline-flex items-center gap-2 text-base font-medium", currentPath === href || location.pathname === href ? "text-brand" : "text-gray-900");
 
   async function handleLogout() {
     await logout();
@@ -224,7 +242,7 @@ const Navbar1 = () => {
           </motion.div>
         </div>
 
-        <motion.button className="flex items-center lg:hidden" onClick={toggleMenu} whileTap={{ scale: 0.9 }}>
+        <motion.button type="button" aria-label={t("Ouvrir le menu", "Open menu")} className="flex items-center lg:hidden" onClick={toggleMenu} whileTap={{ scale: 0.9 }}>
           <Menu className="h-6 w-6 text-gray-900" />
         </motion.button>
         </div>
@@ -233,13 +251,15 @@ const Navbar1 = () => {
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            className="fixed inset-0 z-[10000] bg-white px-6 pt-24 lg:hidden"
+            className="pointer-events-auto fixed inset-0 z-[10000] overflow-y-auto bg-white px-6 pb-10 pt-24 lg:hidden"
             initial={{ opacity: 0, x: "100%" }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
           >
             <motion.button
+              type="button"
+              aria-label={t("Fermer le menu", "Close menu")}
               className="absolute right-6 top-6 p-2"
               onClick={toggleMenu}
               whileTap={{ scale: 0.9 }}
@@ -251,7 +271,7 @@ const Navbar1 = () => {
             </motion.button>
             <div className="flex flex-col space-y-6">
               {role === "ADMIN" && (
-                <Link to="/admin/settings" className="inline-flex items-center gap-2 text-base font-medium text-gray-900" onClick={toggleMenu}>
+                <Link to="/admin/settings" className={mobileLinkClass("/admin/settings")} onClick={toggleMenu}>
                   <Settings className="h-4 w-4" /> {t("Paramètres", "Settings")}
                 </Link>
               )}
@@ -268,7 +288,7 @@ const Navbar1 = () => {
                       <span className="text-base font-bold text-brand uppercase tracking-wider text-sm">{item.label}</span>
                       <div className="flex flex-col pl-4 space-y-4 border-l-2 border-line">
                         {item.children.map(child => (
-                          <Link key={child.label} to={child.href} className="inline-flex items-center gap-2 text-base font-medium text-gray-700" onClick={toggleMenu}>
+                          <Link key={child.label} to={child.href} className={mobileLinkClass(child.href)} onClick={toggleMenu}>
                             {child.label}
                             <CountBadge count={childCount(child.href)} />
                           </Link>
@@ -280,7 +300,7 @@ const Navbar1 = () => {
                       {item.label}
                     </a>
                   ) : (
-                    <Link to={item.href!} className="inline-flex items-center gap-2 text-base font-medium text-gray-900" onClick={toggleMenu}>
+                    <Link to={item.href!} className={mobileLinkClass(item.href!)} onClick={toggleMenu}>
                       {item.label}
                       <CountBadge count={childCount(item.href!)} />
                     </Link>
