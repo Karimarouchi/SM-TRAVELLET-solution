@@ -152,16 +152,16 @@ function CommissionsStats({ earnings }: { earnings: CommissionEarning[] }) {
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
       {stats.map((stat) => (
-        <div key={stat.key} className="rounded-[20px] border border-line bg-white p-5">
+        <div key={stat.key} className="min-w-0 rounded-[20px] border border-line bg-white p-4 sm:p-5">
           <div className={cn("flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br text-white", stat.color)}>
             <stat.icon className="h-4 w-4" />
           </div>
           <p className={cn("mt-3 font-display font-extrabold text-dark", stat.isText ? "text-2xl" : "text-2xl")}>
             {stat.value}
           </p>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">{stat.label}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted sm:text-xs">{stat.label}</p>
           <p className="mt-1 text-[11px] text-brand">{stat.hint}</p>
         </div>
       ))}
@@ -287,8 +287,8 @@ export default function CommissionsPanel() {
       ) : !filteredEarnings.length ? (
         <p className="mt-3 rounded-2xl border border-dashed border-line bg-white p-6 text-sm text-muted">Aucune commission ne correspond à cette recherche.</p>
       ) : (
-        <div className="mt-3 overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
-          <table className="w-full text-sm">
+        <div className="mt-3 overflow-x-auto rounded-2xl border border-line bg-white shadow-sm">
+          <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="border-b border-line bg-slate-50 text-left text-[11px] font-bold uppercase tracking-wider text-muted">
                 <th className="px-4 py-2.5">Bénéficiaire</th>

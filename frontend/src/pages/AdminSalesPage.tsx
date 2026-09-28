@@ -21,8 +21,9 @@ import {
 } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import { Coins, GraduationCap, LayoutGrid, List, Mail, MapPinOff, Phone, Plus, ShieldCheck, Trophy, UserCog, Users, Users2, X } from "lucide-react";
+import { Coins, GraduationCap, LayoutGrid, List, Mail, MapPinOff, Phone, Plus, ShieldCheck, Trophy, UserCog, Users, Users2, X, ArrowRightLeft } from "lucide-react";
 import { DragEvent, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import AdminAssignment from "@/pages/AdminAssignment";
 import CommissionsPanel from "@/components/admin/CommissionsPanel";
 
@@ -226,16 +227,16 @@ function SalesStats({ sales }: { sales: BoardSales[] }) {
   ];
 
   return (
-    <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
       {stats.map((stat) => (
-        <div key={stat.key} className="rounded-[20px] border border-line bg-white p-5">
+        <div key={stat.key} className="min-w-0 rounded-[20px] border border-line bg-white p-4 sm:p-5">
           <div className={cn("flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br text-white", stat.color)}>
             <stat.icon className="h-4 w-4" />
           </div>
           <p className={cn("mt-3 font-display font-extrabold text-dark", stat.isText ? "truncate text-lg" : "text-2xl")}>
             {stat.value}
           </p>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">{stat.label}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted sm:text-xs">{stat.label}</p>
           <p className="mt-1 text-[11px] text-brand">{stat.hint}</p>
         </div>
       ))}
@@ -287,17 +288,17 @@ function SalesTab({ board, onOpenAccess, onChanged }: { board: AssignmentBoard |
           {sales.map((item) => {
             const completedCount = item.students.filter((s) => s.onboardingCompleted).length;
             return (
-              <article key={item.id} className={cn("rounded-[20px] border bg-white p-5", item.isActive ? "border-line" : "border-dashed border-slate-300 opacity-80")}>
+              <article key={item.id} className={cn("min-w-0 rounded-[20px] border bg-white p-4 sm:p-5", item.isActive ? "border-line" : "border-dashed border-slate-300 opacity-80")}>
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-display text-base font-bold">{item.prenom} {item.nom}</h3>
+                  <div className="min-w-0">
+                    <h3 className="truncate font-display text-base font-bold">{item.prenom} {item.nom}</h3>
                     <p className="text-xs text-muted">{item.jobTitle || "Conseiller"}</p>
                   </div>
                   <span className={cn("rounded-full px-2.5 py-1 text-[10px] font-bold uppercase", item.isActive ? "bg-brand-light text-brand" : "bg-slate-100 text-muted")}>
                     {item.isActive ? "Actif" : "Inactif"}
                   </span>
                 </div>
-                <p className="mt-3 flex items-center gap-2 text-xs text-mid"><Mail className="h-3.5 w-3.5 text-brand" /> {item.email}</p>
+                <p className="mt-3 flex items-center gap-2 text-xs text-mid"><Mail className="h-3.5 w-3.5 shrink-0 text-brand" /> <span className="min-w-0 truncate">{item.email}</span></p>
                 <p className="mt-1.5 flex items-center gap-2 text-xs text-mid"><Phone className="h-3.5 w-3.5 text-brand" /> {item.phone || "Non renseigné"}</p>
                 <p className="mt-1.5 flex items-center gap-2 text-xs text-mid"><Users className="h-3.5 w-3.5 text-brand" /> {item.students.length} étudiant{item.students.length > 1 ? "s" : ""} · {completedCount} complet{completedCount > 1 ? "s" : ""}</p>
                 <button
@@ -312,8 +313,8 @@ function SalesTab({ board, onOpenAccess, onChanged }: { board: AssignmentBoard |
           })}
         </div>
       ) : (
-        <div className="mt-4 overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
-          <table className="w-full text-sm">
+        <div className="mt-4 overflow-x-auto rounded-2xl border border-line bg-white shadow-sm">
+          <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="border-b border-line bg-slate-50">
                 <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">Conseiller</th>
@@ -368,7 +369,7 @@ function SalesTab({ board, onOpenAccess, onChanged }: { board: AssignmentBoard |
    le tableau d'affectation des Conseillers ─────────────────────────── */
 type DraggableVisaCard = { id: string; studentName: string; countryName: string; universityName: string; status?: string };
 
-function RdvStudentCard({ card }: { card: DraggableVisaCard }) {
+function RdvStudentCard({ card, onMove }: { card: DraggableVisaCard; onMove: () => void }) {
   const meta = card.status ? (RDV_STATUS_META[card.status] || { label: card.status, color: "bg-slate-100 text-slate-500 border-slate-200" }) : null;
 
   function onDragStart(event: DragEvent<HTMLElement>) {
@@ -396,6 +397,14 @@ function RdvStudentCard({ card }: { card: DraggableVisaCard }) {
           {meta.label}
         </span>
       )}
+      {/* Alternative tactile au glisser-déposer (téléphone/tablette). */}
+      <button
+        type="button"
+        onClick={onMove}
+        className={cn("mt-2.5 inline-flex items-center gap-1 rounded-full bg-brand/10 px-2.5 py-0.5 text-[10px] font-bold text-brand transition hover:bg-brand hover:text-white lg:hidden", meta && "ml-2")}
+      >
+        <ArrowRightLeft className="h-3 w-3" /> Attribuer
+      </button>
     </article>
   );
 }
@@ -408,7 +417,8 @@ function RdvDropColumn({
   inactive,
   droppable,
   headerExtra,
-  onDropCard
+  onDropCard,
+  onMoveCard
 }: {
   title: string;
   cards: DraggableVisaCard[];
@@ -418,6 +428,7 @@ function RdvDropColumn({
   droppable: boolean;
   headerExtra?: React.ReactNode;
   onDropCard: (applicationId: string, rdvUserId: string) => void;
+  onMoveCard: (card: DraggableVisaCard, fromId: string | null) => void;
 }) {
   const [over, setOver] = useState(false);
 
@@ -435,7 +446,7 @@ function RdvDropColumn({
       onDragLeave={() => setOver(false)}
       onDrop={handleDrop}
       className={cn(
-        "flex min-h-[320px] w-full min-w-[280px] max-w-[380px] flex-1 basis-[300px] flex-col rounded-[24px] border p-4 shadow-sm transition-all duration-200",
+        "flex min-h-[180px] w-full min-w-[260px] sm:min-h-[320px] max-w-[380px] flex-1 basis-[300px] flex-col rounded-[24px] border p-4 shadow-sm transition-all duration-200",
         inactive ? "border-dashed border-slate-300 bg-slate-50 opacity-80" : "border-line bg-white",
         over && "scale-[1.015] border-brand bg-brand-light/40 shadow-xl ring-2 ring-brand/30"
       )}
@@ -460,7 +471,7 @@ function RdvDropColumn({
       </div>
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto pr-0.5">
         {cards.map((card) => (
-          <RdvStudentCard key={card.id} card={card} />
+          <RdvStudentCard key={card.id} card={card} onMove={() => onMoveCard(card, dropId)} />
         ))}
         {!cards.length && (
           <p className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-line px-3 py-8 text-center text-xs text-muted">
@@ -483,6 +494,7 @@ function RdvAssignmentBoard({
 }) {
   const [unassigned, setUnassigned] = useState<UnassignedVisaApplication[]>([]);
   const [error, setError] = useState("");
+  const [moveTarget, setMoveTarget] = useState<{ card: DraggableVisaCard; fromId: string | null } | null>(null);
 
   const loadUnassigned = () => {
     fetchUnassignedVisaApplications().then(setUnassigned).catch(() => setUnassigned([]));
@@ -504,7 +516,10 @@ function RdvAssignmentBoard({
   return (
     <div className="mt-8">
       <h2 className="font-display text-2xl font-extrabold">Attribution des dossiers visa</h2>
-      <p className="text-sm text-muted">Glissez les dossiers acceptés vers un Responsable Visa.</p>
+      <p className="text-sm text-muted">
+        <span className="hidden lg:inline">Glissez les dossiers acceptés vers un Responsable Visa.</span>
+        <span className="lg:hidden">Touchez « Attribuer » sur un dossier pour choisir son Responsable Visa.</span>
+      </p>
 
       {error && <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
@@ -516,6 +531,7 @@ function RdvAssignmentBoard({
           droppable={false}
           cards={unassigned.map((a) => ({ id: a.id, studentName: a.studentName, countryName: a.countryName, universityName: a.universityName }))}
           onDropCard={onDropCard}
+          onMoveCard={(card, fromId) => setMoveTarget({ card, fromId })}
         />
         {rdvUsers.map((rdv) => (
           <RdvDropColumn
@@ -526,9 +542,49 @@ function RdvAssignmentBoard({
             droppable={rdv.isActive}
             cards={(studentsByRdv[rdv.id] || []).map((s) => ({ id: s.id, studentName: s.studentName, countryName: s.countryName, universityName: s.universityName, status: s.status }))}
             onDropCard={onDropCard}
+            onMoveCard={(card, fromId) => setMoveTarget({ card, fromId })}
           />
         ))}
       </div>
+
+      {moveTarget && createPortal(
+        <div className="fixed inset-0 z-[10001] flex items-end justify-center bg-dark/50 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setMoveTarget(null)}>
+          <div
+            className="max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-t-[28px] bg-white p-5 pb-[calc(env(safe-area-inset-bottom,0px)+20px)] shadow-2xl sm:rounded-[28px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-display text-lg font-bold text-dark">Attribuer le dossier de {moveTarget.card.studentName}</h3>
+            <p className="mt-1 text-xs text-muted">{moveTarget.card.universityName} · {moveTarget.card.countryName}</p>
+            <div className="mt-4 space-y-2">
+              {rdvUsers.filter((r) => r.isActive && r.id !== moveTarget.fromId).map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={async () => {
+                    const target = moveTarget;
+                    setMoveTarget(null);
+                    await onDropCard(target.card.id, r.id);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-2xl border border-line px-3 py-2.5 text-left transition hover:border-brand hover:bg-brand-light/40"
+                >
+                  <UserAvatar name={`${r.prenom} ${r.nom}`} size="sm" className="h-8 w-8 text-[10px]" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-dark">{r.prenom} {r.nom}</span>
+                    <span className="block text-[11px] text-muted">{(studentsByRdv[r.id] || []).length} dossier{(studentsByRdv[r.id] || []).length > 1 ? "s" : ""}</span>
+                  </span>
+                </button>
+              ))}
+              {!rdvUsers.some((r) => r.isActive && r.id !== moveTarget.fromId) && (
+                <p className="text-sm text-muted">Aucun autre Responsable Visa actif.</p>
+              )}
+            </div>
+            <button type="button" onClick={() => setMoveTarget(null)} className="mt-4 w-full rounded-full border border-line py-2.5 text-sm font-bold text-mid">
+              Annuler
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
@@ -590,16 +646,16 @@ function RdvStats({
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
       {stats.map((stat) => (
-        <div key={stat.key} className="rounded-[20px] border border-line bg-white p-5">
+        <div key={stat.key} className="min-w-0 rounded-[20px] border border-line bg-white p-4 sm:p-5">
           <div className={cn("flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br text-white", stat.color)}>
             <stat.icon className="h-4 w-4" />
           </div>
           <p className={cn("mt-3 font-display font-extrabold text-dark", stat.isText ? "truncate text-lg" : "text-2xl")}>
             {stat.value}
           </p>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">{stat.label}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted sm:text-xs">{stat.label}</p>
           <p className="mt-1 truncate text-[11px] text-brand" title={stat.hint}>{stat.hint}</p>
         </div>
       ))}
@@ -675,8 +731,8 @@ function RdvTab({ onNewRdv, onOpenAccess }: { onNewRdv: () => void; onOpenAccess
           Aucun Responsable Dossier Visa pour l'instant. Créez un compte dédié, ou accordez le rôle RDV à un conseiller existant depuis l'onglet Conseillers.
         </p>
       ) : viewMode === "table" ? (
-        <div className="mt-4 overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
-          <table className="w-full text-sm">
+        <div className="mt-4 overflow-x-auto rounded-2xl border border-line bg-white shadow-sm">
+          <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="border-b border-line bg-slate-50">
                 <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">Responsable</th>
@@ -731,9 +787,9 @@ function RdvTab({ onNewRdv, onOpenAccess }: { onNewRdv: () => void; onOpenAccess
             const rdvStudents = studentsByRdv[rdv.id] || [];
             const inProgress = rdvStudents.filter((s) => s.status !== "CLOSED").length;
             return (
-              <article key={rdv.id} className={cn("rounded-[20px] border bg-white p-5", rdv.isActive ? "border-line" : "border-dashed border-slate-300 opacity-80")}>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-2.5">
+              <article key={rdv.id} className={cn("min-w-0 rounded-[20px] border bg-white p-4 sm:p-5", rdv.isActive ? "border-line" : "border-dashed border-slate-300 opacity-80")}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex min-w-0 max-w-full items-center gap-2.5">
                     <UserAvatar name={`${rdv.prenom} ${rdv.nom}`} size="lg" />
                     <div className="min-w-0">
                       <h3 className="truncate font-display text-base font-bold text-dark">{rdv.prenom} {rdv.nom}</h3>
@@ -822,26 +878,26 @@ export default function AdminSalesPage() {
   ];
 
   return (
-    <main className="mx-auto max-w-[1400px] px-6 pb-16">
-      <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-8 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)]">
+    <main className="mx-auto max-w-[1400px] px-4 sm:px-6 pb-16">
+      <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-6 sm:p-8 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)]">
         <p className="text-sm text-white/80">Espace administrateur</p>
         <h1 className="mt-1 font-display text-3xl font-extrabold">Équipe</h1>
         <p className="mt-3 max-w-2xl text-sm text-white/85">
           Conseillers, responsables dossier visa, rôles, permissions et répartition des étudiants.
         </p>
 
-        <div className="relative mt-6 inline-flex items-center gap-1 rounded-xl bg-white/10 p-1 backdrop-blur">
+        <div className="relative mt-6 grid grid-cols-3 gap-1 rounded-xl bg-white/10 p-1 backdrop-blur sm:inline-flex sm:items-center">
           {TABS.map((t) => (
             <button
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
               className={cn(
-                "flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition",
+                "flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 text-center text-[11px] font-bold leading-tight transition sm:flex-row sm:gap-1.5 sm:px-4 sm:text-xs",
                 tab === t.id ? "bg-white text-brand shadow" : "text-white/80 hover:text-white"
               )}
             >
-              <t.icon className="h-3.5 w-3.5" /> {t.label}
+              <t.icon className="h-3.5 w-3.5 shrink-0" /> {t.label}
             </button>
           ))}
         </div>

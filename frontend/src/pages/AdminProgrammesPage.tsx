@@ -559,8 +559,8 @@ export default function AdminProgrammesPage() {
             const pagedTable = filteredProgrammes.slice((page - 1) * TABLE_SIZE, page * TABLE_SIZE);
             return (
               <>
-                <div className="mt-5 overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
-                  <table className="w-full text-sm">
+                <div className="mt-5 overflow-x-auto rounded-2xl border border-line bg-white shadow-sm">
+                  <table className="w-full min-w-[560px] text-sm">
                     <thead>
                       <tr className="border-b border-line bg-slate-50">
                         <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted w-8">#</th>

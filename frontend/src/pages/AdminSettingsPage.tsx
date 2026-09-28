@@ -91,9 +91,9 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-6 pb-16">
+    <main className="mx-auto max-w-4xl px-4 sm:px-6 pb-16">
       {/* ── Hero banner ─────────────────────────────────────────────────── */}
-      <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-8 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)]">
+      <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-6 sm:p-8 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)]">
         <p className="text-sm text-white/80">Espace administrateur</p>
         <h1 className="mt-1 flex items-center gap-2 font-display text-3xl font-extrabold">
           <SettingsIcon className="h-7 w-7" /> Paramètres

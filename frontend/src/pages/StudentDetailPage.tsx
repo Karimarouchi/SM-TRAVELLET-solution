@@ -43,9 +43,9 @@ function statusMeta(t: (fr: string, en: string) => string): Record<StudentDocume
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div>
+    <div className="min-w-0">
       <p className="text-[10px] font-bold uppercase tracking-wider text-muted">{label}</p>
-      <p className="mt-0.5 text-sm font-semibold text-dark">{value || "—"}</p>
+      <p className="mt-0.5 break-words text-sm font-semibold text-dark">{value || "—"}</p>
     </div>
   );
 }
@@ -94,7 +94,7 @@ export default function StudentDetailPage() {
 
   if (loading) {
     return (
-      <main className="mx-auto max-w-4xl px-6 pb-16 pt-10 text-center">
+      <main className="mx-auto max-w-4xl px-4 sm:px-6 pb-16 pt-10 text-center">
         <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-line border-t-brand" />
       </main>
     );
@@ -102,14 +102,14 @@ export default function StudentDetailPage() {
 
   if (error || !user || !profile) {
     return (
-      <main className="mx-auto max-w-4xl px-6 pb-16 pt-10">
+      <main className="mx-auto max-w-4xl px-4 sm:px-6 pb-16 pt-10">
         <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{error || t("Dossier introuvable.", "File not found.")}</p>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-6 pb-16">
+    <main className="mx-auto max-w-4xl px-4 sm:px-6 pb-16">
       <button
         type="button"
         onClick={() => navigate(-1)}
@@ -118,7 +118,7 @@ export default function StudentDetailPage() {
         <ArrowLeft className="h-3.5 w-3.5" /> {t("Retour", "Back")}
       </button>
 
-      <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-8 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)]">
+      <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-6 sm:p-8 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)]">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/15 text-xl font-bold">
@@ -163,7 +163,7 @@ export default function StudentDetailPage() {
             <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark">
               <UserRound className="h-5 w-5 text-brand" /> {t("Profil", "Profile")}
             </h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
               <InfoRow label={t("Téléphone", "Phone")} value={profile.phone} />
               <InfoRow label={t("Nationalité", "Nationality")} value={profile.nationality} />
               <InfoRow label={t("Pays de résidence", "Country of residence")} value={profile.residenceCountry} />

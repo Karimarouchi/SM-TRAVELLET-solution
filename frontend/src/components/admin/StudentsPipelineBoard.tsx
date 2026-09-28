@@ -226,7 +226,7 @@ function PipelineColumn({
   const visible = expanded || hidden <= 0 ? students : students.slice(0, BUBBLES_PER_COLUMN);
 
   return (
-    <div className="w-[220px] shrink-0 rounded-[20px] border border-line bg-slate-50 p-3">
+    <div className="w-[220px] shrink-0 snap-start rounded-[20px] border border-line bg-slate-50 p-3">
       <div className="mb-3 flex items-center justify-between px-1">
         <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-dark">
           <span className={cn("h-2 w-2 shrink-0 rounded-full", meta.dot)} /> {meta.label}
@@ -290,7 +290,7 @@ export default function StudentsPipelineBoard({
 
   return (
     <PipelinePopoverProvider>
-      <div className="flex gap-4 overflow-x-auto pb-4">
+      <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 sm:snap-none">
         {(Object.keys(STAGE_META) as PipelineStageKey[]).map((key) => (
           <PipelineColumn key={key} stageKey={key} students={grouped.get(key) || []} />
         ))}

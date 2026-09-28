@@ -226,7 +226,7 @@ export default function AdminAvisPage() {
       </header>
 
       {/* ── Main Content ── */}
-      <main className="mx-auto max-w-6xl px-6 py-8 md:px-12">
+      <main className="mx-auto max-w-6xl px-4 sm:px-6 py-8 md:px-12">
         {error && (
           <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-600 flex items-center justify-between">
             {error}
@@ -283,8 +283,8 @@ export default function AdminAvisPage() {
             <p className="text-sm text-muted">Il n'y a pas d'avis correspondant à cet onglet.</p>
           </div>
         ) : (
-          <div className="mt-5 overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
-            <table className="w-full text-sm">
+          <div className="mt-5 overflow-x-auto rounded-2xl border border-line bg-white shadow-sm">
+            <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="border-b border-line bg-slate-50">
                   <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">Auteur</th>

@@ -111,16 +111,16 @@ function PerformanceList({
   onViewAll: () => void;
 }) {
   return (
-    <section className="rounded-[24px] border border-line bg-white p-6">
-      <div className="flex items-center justify-between">
-        <div>
+    <section className="rounded-[24px] border border-line bg-white p-4 sm:p-6">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
           <h2 className="font-display text-xl font-bold text-dark">{title}</h2>
           <p className="mt-0.5 text-xs text-muted">{subtitle}</p>
         </div>
         <button
           type="button"
           onClick={onViewAll}
-          className="rounded-xl bg-brand-light px-3 py-1.5 text-[11px] font-bold text-brand transition hover:bg-brand hover:text-white"
+          className="shrink-0 rounded-xl bg-brand-light px-3 py-1.5 text-[11px] font-bold text-brand transition hover:bg-brand hover:text-white"
         >
           Voir tout →
         </button>
@@ -190,7 +190,11 @@ function PerformanceList({
               {/* Load bar */}
               <div className="mt-3">
                 <div className="mb-1 flex items-center justify-between">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">Charge</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">
+                    Charge
+                    {/* Téléphone : les compteurs, masqués à droite faute de place, passent ici. */}
+                    <span className="normal-case tracking-normal sm:hidden"> · {item.students} {studentsLabel} · {item.completed} {completedLabel}</span>
+                  </span>
                   <span className="text-[11px] font-bold text-dark">{item.share}%</span>
                 </div>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
@@ -269,10 +273,10 @@ export default function AdminPage() {
     : [];
 
   return (
-    <main className="mx-auto max-w-[1400px] px-6 pb-16">
+    <main className="mx-auto max-w-[1400px] px-4 sm:px-6 pb-16">
 
       {/* ── Hero banner ─────────────────────────────────────────────────── */}
-      <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-8 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)]">
+      <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-6 sm:p-8 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)]">
         <p className="text-sm text-white/80">Espace administrateur</p>
         <h1 className="mt-1 font-display text-3xl font-extrabold">Dashboard</h1>
         <p className="mt-2 max-w-2xl text-sm text-white/85">

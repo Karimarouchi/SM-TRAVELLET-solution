@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { DragEvent, FormEvent, ReactNode, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ArrowRightLeft, Ban, Check, ChevronDown, GraduationCap, MapPin, Plus, Trash2, Unlock, UserRound, Users } from "lucide-react";
 
 /* ─── Menu déroulant personnalisé (remplace le <select> natif, moche) ──── */
@@ -70,7 +71,7 @@ function SalesPicker({ candidates, value, onChange }: { candidates: BoardSales[]
   );
 }
 
-function StudentCard({ student }: { student: BoardStudent }) {
+function StudentCard({ student, onMove }: { student: BoardStudent; onMove: () => void }) {
   function onDragStart(event: DragEvent<HTMLElement>) {
     event.dataTransfer.setData("text/plain", student.id);
     event.dataTransfer.effectAllowed = "move";
@@ -105,6 +106,15 @@ function StudentCard({ student }: { student: BoardStudent }) {
       >
         {student.onboardingCompleted ? "Dossier complet" : "En cours"}
       </span>
+      {/* Le glisser-déposer ne marche pas au doigt : sur téléphone/tablette, ce
+          bouton ouvre la liste des destinations. */}
+      <button
+        type="button"
+        onClick={onMove}
+        className="mt-2.5 ml-2 inline-flex items-center gap-1 rounded-full bg-brand/10 px-2.5 py-0.5 text-[10px] font-bold text-brand transition hover:bg-brand hover:text-white lg:hidden"
+      >
+        <ArrowRightLeft className="h-3 w-3" /> Déplacer
+      </button>
     </article>
   );
 }
@@ -119,7 +129,8 @@ function DropColumn({
   loadPercent,
   headerExtra,
   students,
-  onDropStudent
+  onDropStudent,
+  onMoveStudent
 }: {
   title: string;
   count: number;
@@ -131,6 +142,7 @@ function DropColumn({
   headerExtra?: ReactNode;
   students: BoardStudent[];
   onDropStudent: (studentId: string, salesId: string | null) => void;
+  onMoveStudent: (student: BoardStudent, fromId: string) => void;
 }) {
   const [over, setOver] = useState(false);
 
@@ -150,7 +162,7 @@ function DropColumn({
       onDragLeave={() => setOver(false)}
       onDrop={handleDrop}
       className={cn(
-        "flex min-h-[380px] w-full min-w-[280px] max-w-[380px] flex-1 basis-[300px] flex-col rounded-[24px] border p-4 shadow-sm transition-all duration-200",
+        "flex min-h-[200px] w-full min-w-[260px] max-w-[380px] sm:min-h-[380px] flex-1 basis-[300px] flex-col rounded-[24px] border p-4 shadow-sm transition-all duration-200",
         inactive ? "border-dashed border-slate-300 bg-slate-50 opacity-80" : "border-line bg-white",
         over && "scale-[1.015] border-brand bg-brand-light/40 shadow-xl ring-2 ring-brand/30"
       )}
@@ -189,7 +201,7 @@ function DropColumn({
 
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto pr-0.5">
         {students.map((student) => (
-          <StudentCard key={student.id} student={student} />
+          <StudentCard key={student.id} student={student} onMove={() => onMoveStudent(student, dropId)} />
         ))}
         {!students.length && (
           <p className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-line px-3 py-8 text-center text-xs text-muted">
@@ -198,6 +210,79 @@ function DropColumn({
         )}
       </div>
     </section>
+  );
+}
+
+/* ─── Modal : déplacer un étudiant (alternative tactile au glisser-déposer) ─ */
+function MoveStudentModal({
+  student,
+  fromId,
+  sales,
+  onClose,
+  onMove
+}: {
+  student: BoardStudent;
+  fromId: string;
+  sales: BoardSales[];
+  onClose: () => void;
+  onMove: (salesId: string | null) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const destinations = [
+    { id: "unassigned", label: "Non affectés", sub: "Retirer le conseiller" },
+    ...sales
+      .filter((s) => s.isActive)
+      .map((s) => ({ id: s.id, label: `${s.prenom} ${s.nom}`, sub: `${s.students.length} étudiant${s.students.length > 1 ? "s" : ""}` }))
+  ].filter((d) => d.id !== fromId);
+
+  async function choose(id: string) {
+    setBusy(true);
+    try {
+      await onMove(id === "unassigned" ? null : id);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Rendu au niveau du <body> pour passer aussi au-dessus de la barre de navigation.
+  return createPortal(
+    <div className="fixed inset-0 z-[10001] flex items-end justify-center bg-dark/50 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
+      <div
+        className="max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-t-[28px] bg-white p-5 pb-[calc(env(safe-area-inset-bottom,0px)+20px)] shadow-2xl sm:rounded-[28px]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="font-display text-lg font-bold text-dark">Déplacer {student.prenom} {student.nom}</h3>
+        <p className="mt-1 text-xs text-muted">Choisissez le nouveau conseiller.</p>
+        <div className="mt-4 space-y-2">
+          {destinations.map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              disabled={busy}
+              onClick={() => choose(d.id)}
+              className="flex w-full items-center gap-3 rounded-2xl border border-line px-3 py-2.5 text-left transition hover:border-brand hover:bg-brand-light/40 disabled:opacity-50"
+            >
+              {d.id === "unassigned" ? (
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                  <Users className="h-4 w-4" />
+                </span>
+              ) : (
+                <UserAvatar name={d.label} size="sm" className="h-8 w-8 text-[10px]" />
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold text-dark">{d.label}</span>
+                <span className="block text-[11px] text-muted">{d.sub}</span>
+              </span>
+            </button>
+          ))}
+          {!destinations.length && <p className="text-sm text-muted">Aucun autre conseiller actif.</p>}
+        </div>
+        <button type="button" onClick={onClose} className="mt-4 w-full rounded-full border border-line py-2.5 text-sm font-bold text-mid">
+          Annuler
+        </button>
+      </div>
+    </div>,
+    document.body
   );
 }
 
@@ -330,6 +415,7 @@ export default function AdminAssignment({ onChanged }: { onChanged?: () => void 
   const [form, setForm] = useState({ prenom: "", nom: "", email: "", password: "", phone: "" });
   const [transferTarget, setTransferTarget] = useState<BoardSales | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BoardSales | null>(null);
+  const [moveTarget, setMoveTarget] = useState<{ student: BoardStudent; fromId: string } | null>(null);
 
   async function load() {
     setError("");
@@ -389,7 +475,10 @@ export default function AdminAssignment({ onChanged }: { onChanged?: () => void 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-display text-2xl font-extrabold">Affectation</h2>
-          <p className="text-sm text-muted">Glissez les cartes étudiants vers un conseiller.</p>
+          <p className="text-sm text-muted">
+            <span className="hidden lg:inline">Glissez les cartes étudiants vers un conseiller.</span>
+            <span className="lg:hidden">Touchez « Déplacer » sur une carte pour changer son conseiller.</span>
+          </p>
         </div>
         <span className={cn(
           "rounded-full px-4 py-2 text-xs font-bold",
@@ -399,7 +488,7 @@ export default function AdminAssignment({ onChanged }: { onChanged?: () => void 
         </span>
       </div>
 
-      <form onSubmit={onCreate} className="rounded-[24px] border border-line bg-white p-6">
+      <form onSubmit={onCreate} className="rounded-[24px] border border-line bg-white p-4 sm:p-6">
         <div className="mb-4 flex items-center gap-2">
           <Plus className="h-5 w-5 text-brand" />
           <h3 className="font-display text-lg font-bold">Créer un compte conseiller</h3>
@@ -428,6 +517,7 @@ export default function AdminAssignment({ onChanged }: { onChanged?: () => void 
           loadPercent={((board?.unassigned.length || 0) / maxLoad) * 100}
           students={board?.unassigned || []}
           onDropStudent={onDropStudent}
+          onMoveStudent={(student, fromId) => setMoveTarget({ student, fromId })}
         />
         {sales.map((item) => (
           <DropColumn
@@ -440,6 +530,7 @@ export default function AdminAssignment({ onChanged }: { onChanged?: () => void 
             loadPercent={(item.students.length / maxLoad) * 100}
             students={item.students}
             onDropStudent={onDropStudent}
+            onMoveStudent={(student, fromId) => setMoveTarget({ student, fromId })}
             headerExtra={
               <div className="flex items-center gap-1.5">
                 {item.isActive && item.students.length > 0 && (
@@ -495,6 +586,19 @@ export default function AdminAssignment({ onChanged }: { onChanged?: () => void 
             await transferSalesWork(transferTarget.id, toSalesId);
             setTransferTarget(null);
             await load();
+          }}
+        />
+      )}
+
+      {moveTarget && (
+        <MoveStudentModal
+          student={moveTarget.student}
+          fromId={moveTarget.fromId}
+          sales={sales}
+          onClose={() => setMoveTarget(null)}
+          onMove={async (salesId) => {
+            await onDropStudent(moveTarget.student.id, salesId);
+            setMoveTarget(null);
           }}
         />
       )}

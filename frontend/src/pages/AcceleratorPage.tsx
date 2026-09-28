@@ -33,8 +33,8 @@ export default function AcceleratorPage() {
   ];
 
   return (
-    <main className="mx-auto max-w-5xl px-6 pb-16">
-      <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-8 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)]">
+    <main className="mx-auto max-w-5xl px-4 sm:px-6 pb-16">
+      <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-6 sm:p-8 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)]">
         <div className="flex items-center gap-3">
           <Rocket className="h-8 w-8" />
           <div>

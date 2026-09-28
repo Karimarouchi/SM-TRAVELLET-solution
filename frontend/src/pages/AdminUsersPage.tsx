@@ -15,8 +15,51 @@ function StudentsTable({
   busyId: string | null;
   onToggleBlock: (student: StudentOverview) => void;
 }) {
+  const blockButton = (student: StudentOverview) => (
+    <button
+      type="button"
+      disabled={busyId === student.id}
+      onClick={() => onToggleBlock(student)}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition disabled:opacity-50",
+        student.isActive ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+      )}
+    >
+      {student.isActive ? <><Ban className="h-3.5 w-3.5" /> Bloquer</> : <><Unlock className="h-3.5 w-3.5" /> Débloquer</>}
+    </button>
+  );
+
   return (
-    <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
+    <>
+    {/* Téléphone : une carte par étudiant, toutes les infos et l'action visibles. */}
+    <div className="space-y-3 sm:hidden">
+      {students.map((student) => (
+        <div key={student.id} className="rounded-2xl border border-line bg-white p-4 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-dark">{student.prenom} {student.nom}</p>
+              <p className="truncate text-xs text-muted">{student.email}</p>
+            </div>
+            {!student.isActive && (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700">
+                <Ban className="h-3 w-3" /> Bloqué
+              </span>
+            )}
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <StageBadge stage={student.stage} />
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3">
+            <p className="min-w-0 truncate text-xs text-mid">
+              <span className="text-muted">Conseiller : </span>{student.assignedSalesName || "—"}
+            </p>
+            {blockButton(student)}
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <div className="hidden overflow-hidden rounded-2xl border border-line bg-white shadow-sm sm:block">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-line bg-slate-50">
@@ -47,24 +90,13 @@ function StudentsTable({
                   </span>
                 )}
               </td>
-              <td className="px-4 py-3 text-right">
-                <button
-                  type="button"
-                  disabled={busyId === student.id}
-                  onClick={() => onToggleBlock(student)}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition disabled:opacity-50",
-                    student.isActive ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                  )}
-                >
-                  {student.isActive ? <><Ban className="h-3.5 w-3.5" /> Bloquer</> : <><Unlock className="h-3.5 w-3.5" /> Débloquer</>}
-                </button>
-              </td>
+              <td className="px-4 py-3 text-right">{blockButton(student)}</td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
+    </>
   );
 }
 
@@ -109,9 +141,9 @@ export default function AdminUsersPage() {
   const blockedCount = students.filter((s) => !s.isActive).length;
 
   return (
-    <main className="mx-auto max-w-[1400px] px-6 pb-16">
+    <main className="mx-auto max-w-[1400px] px-4 sm:px-6 pb-16">
       {/* ── Hero banner ─────────────────────────────────────────────────── */}
-      <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-8 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)]">
+      <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-6 sm:p-8 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-sm text-white/80">Espace administrateur</p>

@@ -39,8 +39,8 @@ export default function SalesEspacePage() {
   if (!session?.user) return null;
 
   return (
-    <main className="mx-auto max-w-5xl px-6 pb-16">
-      <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-8 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)]">
+    <main className="mx-auto max-w-5xl px-4 sm:px-6 pb-16">
+      <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-6 sm:p-8 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)]">
         <p className="text-sm text-white/80">{t("Espace conseiller", "Advisor area")}</p>
         <h1 className="mt-1 font-display text-3xl font-extrabold">{t("Bonjour", "Hello")}, {session.user.prenom}</h1>
         <p className="mt-3 text-sm text-white/85">
