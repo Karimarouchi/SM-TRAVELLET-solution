@@ -21,7 +21,10 @@ function normalize(options: Array<string | FancyOption>): FancyOption[] {
   );
 }
 
-type MenuBox = { top: number; left: number; width: number; maxHeight: number };
+// Vers le bas : ancré par "top". Vers le haut : ancré par "bottom", collé au
+// champ quelle que soit la hauteur réelle de la liste (sinon, avec peu
+// d'options, la liste flottait loin au-dessus du champ).
+type MenuBox = { top?: number; bottom?: number; left: number; width: number; maxHeight: number; upward: boolean };
 
 export function FancySelect({
   value,
@@ -48,10 +51,11 @@ export function FancySelect({
     const preferBelow = spaceBelow >= 180 || spaceBelow >= spaceAbove;
     const maxHeight = Math.min(320, Math.max(160, preferBelow ? spaceBelow : spaceAbove));
     setBox({
-      top: preferBelow ? rect.bottom + 8 : rect.top - 8 - maxHeight,
+      ...(preferBelow ? { top: rect.bottom + 8 } : { bottom: window.innerHeight - rect.top + 8 }),
       left: rect.left,
       width: rect.width,
-      maxHeight
+      maxHeight,
+      upward: !preferBelow
     });
   }
 
@@ -120,17 +124,19 @@ export function FancySelect({
               ref={listRef}
               id={`${id}-list`}
               role="listbox"
-              initial={{ opacity: 0, y: -8, scale: 0.98 }}
+              initial={{ opacity: 0, y: box.upward ? 8 : -8, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -6, scale: 0.98 }}
+              exit={{ opacity: 0, y: box.upward ? 6 : -6, scale: 0.98 }}
               transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
               style={{
                 position: "fixed",
                 top: box.top,
+                bottom: box.bottom,
                 left: box.left,
                 width: box.width,
                 maxHeight: box.maxHeight,
-                zIndex: 9999
+                // Au-dessus de la barre de navigation (z 9999).
+                zIndex: 10002
               }}
               className="overflow-auto rounded-2xl border border-violet-100 bg-white p-1.5 shadow-[0_18px_40px_rgba(76,29,149,0.18)]"
             >
