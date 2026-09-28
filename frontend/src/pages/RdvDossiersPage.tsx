@@ -11,6 +11,7 @@ import {
   type RdvMyApplication,
   type VisaDocumentChecklistItem
 } from "@/lib/auth";
+import { openProtectedFile } from "@/lib/auth";
 import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, Calendar, CheckCircle2, Clock, FileText, GraduationCap, Landmark, Send, ThumbsDown, ThumbsUp, Video, XCircle } from "lucide-react";
@@ -42,7 +43,6 @@ function VisaDocumentReviewRow({
   const [error, setError] = useState("");
   const meta = docStatusMeta(t)[doc.status];
   const StatusIcon = meta.icon;
-  const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3001";
   const canReview = doc.status === "SUBMITTED" || doc.status === "REJECTED";
 
   const handleValidate = async () => {
@@ -82,9 +82,13 @@ function VisaDocumentReviewRow({
               {doc.required && <span className="ml-1 text-red-500">*</span>}
             </p>
             {doc.fileUrl && (
-              <a href={`${apiUrl}${doc.fileUrl}`} target="_blank" rel="noreferrer" className="mt-0.5 inline-block text-[11px] text-brand underline">
+              <button
+                type="button"
+                onClick={() => openProtectedFile(doc.fileUrl!).catch((err) => setError(err instanceof Error ? err.message : t("Impossible d'ouvrir ce document.", "Unable to open this document.")))}
+                className="mt-0.5 inline-block text-left text-[11px] text-brand underline"
+              >
                 {doc.originalFilename || t("Voir le fichier", "View file")}
-              </a>
+              </button>
             )}
           </div>
         </div>

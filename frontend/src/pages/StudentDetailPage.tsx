@@ -10,6 +10,7 @@ import {
   type StudentProfile,
   type UniversityApplication
 } from "@/lib/auth";
+import { openProtectedFile } from "@/lib/auth";
 import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import ApplicationTimeline from "@/components/admin/ApplicationTimeline";
@@ -270,8 +271,6 @@ function DocumentReviewRow({
   const [error, setError] = useState("");
   const meta = statusMeta(t)[doc.status];
   const StatusIcon = meta.icon;
-  const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3001";
-
   const handleValidate = async () => {
     setBusy(true);
     setError("");
@@ -318,9 +317,13 @@ function DocumentReviewRow({
               ))}
             </div>
             {doc.fileUrl && (
-              <a href={`${apiUrl}${doc.fileUrl}`} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-brand underline">
+              <button
+                type="button"
+                onClick={() => openProtectedFile(doc.fileUrl!).catch((err) => setError(err instanceof Error ? err.message : t("Impossible d'ouvrir ce document.", "Unable to open this document.")))}
+                className="mt-1 inline-block text-left text-xs text-brand underline"
+              >
                 {doc.originalFilename || t("Voir le fichier", "View file")}
-              </a>
+              </button>
             )}
           </div>
         </div>

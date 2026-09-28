@@ -37,6 +37,9 @@ app.use(express.json({
     if (req.originalUrl.startsWith("/api/whatsapp/webhook")) req.rawBody = buf;
   }
 }));
+// Documents des étudiants (passeports, diplômes...) : jamais en accès libre,
+// uniquement via /api/documents/files/:filename, qui vérifie les droits.
+app.use("/uploads/documents", (_req, res) => res.status(404).json({ error: "Introuvable." }));
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 app.get("/api/health", async (_req, res) => {
@@ -95,6 +98,7 @@ app.get("/api/students", requireAuth, requireRoles("SALES", "ADMIN"), studentCon
 app.get("/api/students/:id", requireAuth, requireRoles("SALES", "ADMIN"), studentController.detail);
 app.patch("/api/students/:id/assign", requireAuth, requireRoles("ADMIN"), studentController.assign);
 app.post("/api/students/avis", requireAuth, requireRoles("STUDENT"), avisController.createStudentAvis);
+app.get("/api/documents/files/:filename", requireAuth, studentDocumentController.file);
 app.get("/api/students/me/documents", requireAuth, requireRoles("STUDENT"), studentDocumentController.list);
 app.post("/api/students/me/documents", requireAuth, requireRoles("STUDENT"), studentDocumentController.upload);
 app.get("/api/students/:id/documents", requireAuth, requireRoles("SALES", "ADMIN"), studentDocumentController.listForStudent);

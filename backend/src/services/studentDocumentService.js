@@ -44,6 +44,31 @@ function intersectAcceptedFileTypes(group) {
   return "IMAGE_PDF";
 }
 
+// Les fichiers déposés ne sont plus servis en accès libre (/uploads) : le
+// lien passe par une route qui vérifie qui consulte le document.
+function protectedFileUrl(row) {
+  if (!row || !row.file_url) return null;
+  const filename = path.basename(row.stored_filename || row.file_url);
+  return `/api/documents/files/${encodeURIComponent(filename)}`;
+}
+
+async function getDocumentFile(auth, rawFilename) {
+  const filename = path.basename(String(rawFilename || ""));
+  if (!/^[\w.-]+$/.test(filename)) throw fail("Document introuvable.", 404);
+
+  const file = await studentDocRepo.findFileForAccess(filename, auth.sub);
+  if (!file) throw fail("Document introuvable.", 404);
+
+  const allowed =
+    canAccessStudent(auth, file.student_id, file.assigned_sales_id) ||
+    (authRoles(auth).includes("RDV") && file.rdv_assigned);
+  if (!allowed) throw fail("Vous n'avez pas accès à ce document.", 403);
+
+  const absolutePath = path.join(DOC_DIR, filename);
+  if (!fs.existsSync(absolutePath)) throw fail("Le fichier n'existe plus sur le serveur.", 404);
+  return { absolutePath, mimeType: file.mime_type, originalFilename: file.original_filename || filename };
+}
+
 function mergedDto(name, group, studentDocsByReqId) {
   const representative = group.map((g) => studentDocsByReqId.get(g.id)).find(Boolean) || null;
   return {
@@ -53,7 +78,7 @@ function mergedDto(name, group, studentDocsByReqId) {
     acceptedFileTypes: intersectAcceptedFileTypes(group),
     countries: group.map((g) => g.country_name),
     status: representative ? representative.status : "PENDING",
-    fileUrl: representative ? representative.file_url : null,
+    fileUrl: protectedFileUrl(representative),
     originalFilename: representative ? representative.original_filename : null,
     rejectionReason: representative ? representative.rejection_reason : null,
     submittedAt: representative ? representative.submitted_at : null,
@@ -222,7 +247,7 @@ function visaDto(requirement, studentDoc) {
     required: requirement.required,
     acceptedFileTypes: requirement.accepted_file_types,
     status: studentDoc ? studentDoc.status : "PENDING",
-    fileUrl: studentDoc ? studentDoc.file_url : null,
+    fileUrl: protectedFileUrl(studentDoc),
     originalFilename: studentDoc ? studentDoc.original_filename : null,
     rejectionReason: studentDoc ? studentDoc.rejection_reason : null,
     submittedAt: studentDoc ? studentDoc.submitted_at : null,
@@ -362,6 +387,7 @@ async function reviewVisaDocument(auth, applicationId, requirementId, status, re
 }
 
 module.exports = {
+  getDocumentFile,
   getChecklist,
   getChecklistFor,
   uploadDocument,

@@ -1,5 +1,21 @@
 const studentDocumentService = require("../services/studentDocumentService");
 
+// Consultation d'un document déposé, réservée aux personnes autorisées.
+async function file(req, res) {
+  try {
+    const found = await studentDocumentService.getDocumentFile(req.auth, req.params.filename);
+    res.set({
+      "Content-Type": found.mimeType || "application/octet-stream",
+      "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(found.originalFilename)}`,
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff"
+    });
+    res.sendFile(found.absolutePath);
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message || "Erreur serveur." });
+  }
+}
+
 async function list(req, res) {
   try {
     const checklist = await studentDocumentService.getChecklist(req.auth.sub);
@@ -77,6 +93,7 @@ async function reviewVisa(req, res) {
 }
 
 module.exports = {
+  file,
   list,
   upload,
   listForStudent,

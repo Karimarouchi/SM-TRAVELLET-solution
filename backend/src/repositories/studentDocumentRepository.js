@@ -100,7 +100,27 @@ async function findRequiredActiveVisaStatusesForCountry(countryId, studentId) {
   return result.rows;
 }
 
+// Fichier déposé + ce qu'il faut pour décider qui peut le consulter :
+// l'étudiant, son conseiller, et si le RDV demandeur suit un de ses dossiers.
+async function findFileForAccess(storedFilename, userId) {
+  const result = await query(
+    `SELECT sd.student_id, sd.stored_filename, sd.mime_type, sd.original_filename,
+            sp.assigned_sales_id,
+            EXISTS (
+              SELECT 1 FROM university_applications ua
+              WHERE ua.student_id = sd.student_id AND ua.assigned_rdv_id = $2
+            ) AS rdv_assigned
+     FROM student_documents sd
+     LEFT JOIN student_profiles sp ON sp.user_id = sd.student_id
+     WHERE sd.stored_filename = $1
+     LIMIT 1`,
+    [storedFilename, userId]
+  );
+  return result.rows[0] || null;
+}
+
 module.exports = {
+  findFileForAccess,
   findActiveRequirementsByCountryNames,
   findRequiredActiveStatusesForCountry,
   findStudentDocumentsByRequirementIds,

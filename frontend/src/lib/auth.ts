@@ -467,6 +467,31 @@ export async function createSalesCode(payload: SalesCodePayload): Promise<SalesC
   });
 }
 
+// Ouvre un document protégé (passeport, diplôme...) dans un nouvel onglet :
+// le fichier est récupéré avec la session de l'utilisateur, jamais via un
+// lien public. L'onglet est ouvert tout de suite (au clic) pour ne pas être
+// bloqué par le navigateur, puis rempli une fois le fichier reçu.
+export async function openProtectedFile(pathname: string) {
+  const tab = window.open("", "_blank");
+  try {
+    const session = getSession();
+    const response = await fetch(`${API_URL}${pathname}`, {
+      headers: session?.token ? { Authorization: `Bearer ${session.token}` } : {}
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || "Impossible d'ouvrir ce document.");
+    }
+    const url = URL.createObjectURL(await response.blob());
+    if (tab) tab.location.href = url;
+    else window.location.href = url;
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (error) {
+    tab?.close();
+    throw error;
+  }
+}
+
 export async function request<T>(pathname: string, options?: RequestInit): Promise<T> {
   const session = getSession();
   const headers: Record<string, string> = {
