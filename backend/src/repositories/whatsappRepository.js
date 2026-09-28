@@ -52,9 +52,9 @@ async function findStudentByPhone(phone) {
        AND sp.phone IS NOT NULL
        AND (
          CASE
-           WHEN length(regexp_replace(regexp_replace(sp.phone, '\\D', '', 'g'), '^00', '')) = 8
-             THEN '216' || regexp_replace(regexp_replace(sp.phone, '\\D', '', 'g'), '^00', '')
-           ELSE regexp_replace(regexp_replace(sp.phone, '\\D', '', 'g'), '^00', '')
+           WHEN length(regexp_replace(regexp_replace(sp.phone, '[^0-9]', '', 'g'), '^00', '')) = 8
+             THEN '216' || regexp_replace(regexp_replace(sp.phone, '[^0-9]', '', 'g'), '^00', '')
+           ELSE regexp_replace(regexp_replace(sp.phone, '[^0-9]', '', 'g'), '^00', '')
          END
        ) = $1
      ORDER BY u.created_at DESC

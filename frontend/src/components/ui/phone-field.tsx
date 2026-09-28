@@ -37,14 +37,33 @@ export function toInternational(value: PhoneValue) {
   return digits ? `${dialCountry(value.iso).dial}${digits}` : "";
 }
 
+// Numéro déjà enregistré (+21655480282, ou ancien format "55480282") →
+// pays + numéro national, pour l'afficher dans le champ.
+export function parsePhone(stored: string | null | undefined): PhoneValue {
+  const raw = String(stored || "").trim();
+  if (!raw) return EMPTY_PHONE;
+  const compact = raw.replace(/[^\d+]/g, "").replace(/^00/, "+");
+  if (!compact.startsWith("+")) return { iso: DEFAULT_DIAL_ISO, number: compact };
+  const match = DIALS_LONGEST_FIRST.find((c) => compact.startsWith(c.dial));
+  return match ? { iso: match.iso, number: compact.slice(match.dial.length) } : { iso: DEFAULT_DIAL_ISO, number: compact };
+}
+
+export function isValidInternational(phone: string) {
+  return /^\+\d{8,15}$/.test(phone);
+}
+
 export function PhoneField({
   value,
   onChange,
-  placeholder
+  placeholder,
+  variant = "auth",
+  invalid = false
 }: {
   value: PhoneValue;
   onChange: (value: PhoneValue) => void;
   placeholder: string;
+  variant?: "auth" | "form";
+  invalid?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -95,33 +114,62 @@ export function PhoneField({
       )
     : DIAL_COUNTRIES;
 
+  const toggle = () => {
+    setQuery("");
+    setOpen((v) => !v);
+  };
+  const numberInput = (className?: string) => (
+    <input
+      type="tel"
+      inputMode="tel"
+      autoComplete="tel-national"
+      placeholder={placeholder}
+      value={value.number}
+      onChange={(e) => onChange(applyTypedDial(e.target.value, value))}
+      required
+      className={className}
+    />
+  );
+
   return (
-    <div className="as-input-field">
-      <span className="as-icon"><Phone size={18} /></span>
-      <div className="as-phone-inner">
-        <button
-          ref={buttonRef}
-          type="button"
-          className="as-dial-btn"
-          onClick={() => {
-            setQuery("");
-            setOpen((v) => !v);
-          }}
-          aria-label="Choisir l'indicatif du pays"
-        >
-          <span className="as-dial-iso">{selected.iso}</span> {selected.dial}
-          <ChevronDown size={14} />
-        </button>
-        <input
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel-national"
-          placeholder={placeholder}
-          value={value.number}
-          onChange={(e) => onChange(applyTypedDial(e.target.value, value))}
-          required
-        />
-      </div>
+    <div
+      className={
+        variant === "auth"
+          ? "as-input-field"
+          : cn(
+              "flex w-full items-center gap-2 rounded-xl border bg-white px-2 py-1.5 transition-all",
+              invalid
+                ? "border-red-400 focus-within:border-red-500 focus-within:shadow-[0_0_0_4px_rgba(239,68,68,0.12)]"
+                : "border-line focus-within:border-brand focus-within:shadow-[0_0_0_4px_rgba(109,40,217,0.12)]"
+            )
+      }
+    >
+      {variant === "auth" ? (
+        <>
+          <span className="as-icon"><Phone size={18} /></span>
+          <div className="as-phone-inner">
+            <button ref={buttonRef} type="button" className="as-dial-btn" onClick={toggle} aria-label="Choisir l'indicatif du pays">
+              <span className="as-dial-iso">{selected.iso}</span> {selected.dial}
+              <ChevronDown size={14} />
+            </button>
+            {numberInput()}
+          </div>
+        </>
+      ) : (
+        <>
+          <button
+            ref={buttonRef}
+            type="button"
+            onClick={toggle}
+            aria-label="Choisir l'indicatif du pays"
+            className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-line bg-slate-50 px-2 py-1 text-sm font-bold text-dark transition hover:border-brand hover:text-brand"
+          >
+            <span className="text-[10px] text-muted">{selected.iso}</span> {selected.dial}
+            <ChevronDown className="h-3.5 w-3.5" />
+          </button>
+          {numberInput("min-w-0 flex-1 bg-transparent py-1 text-sm outline-none placeholder:text-slate-400")}
+        </>
+      )}
 
       {open &&
         createPortal(

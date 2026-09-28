@@ -1,5 +1,6 @@
 import { FancySelect } from "@/components/ui/fancy-select";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { PhoneField, isValidInternational, parsePhone, toInternational, type PhoneValue } from "@/components/ui/phone-field";
 import { fetchMe, fetchPublicCountries, fetchPublicUniversities, getSession, mediaUrl, saveOnboarding, updateIdentity, uploadAvatar, type AuthUser, type Country, type PublicUniversity } from "@/lib/auth";
 import {
   COUNTRIES,
@@ -14,7 +15,6 @@ import {
   YES_NO,
   formToPayload,
   profileToForm,
-  sanitizePhone,
   validateIdentity,
   validateSection,
   type FieldErrors,
@@ -132,6 +132,7 @@ export default function ProfilePage() {
   const initial = getSession();
   const [user, setUser] = useState(initial?.user || null);
   const [form, setForm] = useState<ProfileForm>(() => profileToForm(initial?.profile || null));
+  const [phone, setPhone] = useState<PhoneValue>(() => parsePhone(initial?.profile?.phone));
   const [prenom, setPrenom] = useState(initial?.user.prenom || "");
   const [nom, setNom] = useState(initial?.user.nom || "");
   const [dateNaissance, setDateNaissance] = useState(initial?.user.dateNaissance || "");
@@ -168,6 +169,7 @@ export default function ProfilePage() {
         setNom(session.user.nom);
         setDateNaissance(session.user.dateNaissance);
         setForm(profileToForm(session.profile || null));
+        setPhone(parsePhone(session.profile?.phone));
       })
       .catch(() => undefined);
   }, []);
@@ -237,7 +239,12 @@ export default function ProfilePage() {
       return;
     }
 
-    const nextErrors = validateSection(section, form);
+    // Téléphone saisi avec son indicatif pays, envoyé au format international.
+    const toSave = section === "identity" ? { ...form, phone: toInternational(phone) } : form;
+    const nextErrors = validateSection(section, toSave);
+    if (section === "identity" && !isValidInternational(toSave.phone)) {
+      nextErrors.phone = "Numéro invalide : choisis l'indicatif du pays puis saisis le numéro.";
+    }
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors);
       setError("Corrige les champs en rouge, puis réessaie.");
@@ -246,8 +253,9 @@ export default function ProfilePage() {
     setErrors({});
     setSaving(true);
     try {
-      const data = await saveOnboarding(formToPayload(form));
+      const data = await saveOnboarding(formToPayload(toSave));
       setForm(profileToForm(data.profile));
+      setPhone(parsePhone(data.profile?.phone));
       setMessage("C’est enregistré ✨");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Impossible d’enregistrer.");
@@ -388,8 +396,17 @@ export default function ProfilePage() {
 
                         {section.id === "identity" && (
                           <div className="grid gap-3 sm:grid-cols-2">
-                            <Field label="Téléphone" required error={errors.phone}>
-                              <input className={fieldInputClass(Boolean(errors.phone))} type="tel" maxLength={20} value={form.phone} onChange={(e) => setField("phone", sanitizePhone(e.target.value))} />
+                            <Field label="Téléphone (WhatsApp)" required error={errors.phone}>
+                              <PhoneField
+                                variant="form"
+                                value={phone}
+                                invalid={Boolean(errors.phone)}
+                                placeholder="Numéro"
+                                onChange={(next) => {
+                                  setPhone(next);
+                                  setErrors((current) => ({ ...current, phone: undefined }));
+                                }}
+                              />
                             </Field>
                             <Field label="Nationalité" required error={errors.nationality}>
                               <FancySelect invalid={Boolean(errors.nationality)} value={form.nationality} onChange={(value) => setField("nationality", value)} options={COUNTRIES} />

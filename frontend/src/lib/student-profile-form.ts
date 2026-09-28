@@ -139,9 +139,6 @@ function digitsOf(value: string) {
   return value.replace(/\D/g, "");
 }
 
-export function sanitizePhone(value: string) {
-  return value.replace(/[^\d+\s().-]/g, "").slice(0, 20);
-}
 
 export function validateIdentity(prenom: string, nom: string, dateNaissance: string) {
   const errors: { prenom?: string; nom?: string; dateNaissance?: string } = {};

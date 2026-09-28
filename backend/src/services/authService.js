@@ -101,6 +101,11 @@ async function register(body) {
     error.status = 409;
     throw error;
   }
+  if (await students.findStudentIdByPhone(whatsappService.normalizePhone(parsed.phone))) {
+    const error = new Error("Ce numéro de téléphone est déjà utilisé par un autre compte.");
+    error.status = 409;
+    throw error;
+  }
   // Validé AVANT la création du compte : un code invalide ne doit jamais
   // faire échouer l'inscription après coup (compte déjà créé).
   await salesCodeService.assertCodeUsable(body.salesCode);

@@ -237,6 +237,30 @@ async function markStalledAlertSent(userId) {
   );
 }
 
+// Numéro normalisé comme ceux de WhatsApp (chiffres seuls, sans "00", 216
+// ajouté aux numéros tunisiens à 8 chiffres) : "+216 55 480 282",
+// "0021655480282" et "55480282" sont reconnus comme le même numéro.
+async function findStudentIdByPhone(normalizedPhone, excludeUserId = null) {
+  const result = await query(
+    `SELECT sp.user_id
+     FROM student_profiles sp
+     JOIN users u ON u.id = sp.user_id
+     WHERE u.role = 'STUDENT'
+       AND sp.phone IS NOT NULL AND sp.phone <> ''
+       AND ($2::uuid IS NULL OR sp.user_id <> $2)
+       AND (
+         CASE
+           WHEN length(regexp_replace(regexp_replace(sp.phone, '[^0-9]', '', 'g'), '^00', '')) = 8
+             THEN '216' || regexp_replace(regexp_replace(sp.phone, '[^0-9]', '', 'g'), '^00', '')
+           ELSE regexp_replace(regexp_replace(sp.phone, '[^0-9]', '', 'g'), '^00', '')
+         END
+       ) = $1
+     LIMIT 1`,
+    [normalizedPhone, excludeUserId]
+  );
+  return result.rows[0]?.user_id || null;
+}
+
 async function setPhone(userId, phone) {
   await query("UPDATE student_profiles SET phone = $2, updated_at = NOW() WHERE user_id = $1", [userId, phone]);
 }
@@ -245,6 +269,7 @@ module.exports = {
   ensureProfile,
   findByUserId,
   setPhone,
+  findStudentIdByPhone,
   applyActivationCode,
   setDossierStage,
   updateOnboarding,

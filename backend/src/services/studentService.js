@@ -7,6 +7,8 @@ const settings = require("../repositories/settingsRepository");
 const { studentProfileDto, userDto, formatPgDate, lockedFieldsFromRow } = require("../dto/userDto");
 const { canAccessStudent } = require("../security/rbac");
 const notificationService = require("./notificationService");
+const whatsappService = require("./whatsappService");
+const { normalizePhone } = whatsappService;
 
 const AVATAR_DIR = path.join(__dirname, "../../uploads/avatars");
 const MAX_AVATAR_BYTES = 600 * 1024;
@@ -291,6 +293,15 @@ async function saveOnboarding(userId, body) {
   if (locked.includes("targetLevel")) fields.targetLevel = existingRow.target_level || "";
   if (locked.includes("phone") || !fields.phone) fields.phone = existingRow.phone || "";
 
+  // Un numéro n'appartient qu'à un seul étudiant. Vérifié seulement quand il
+  // change : un doublon ancien déjà en base ne bloque pas les autres champs.
+  const phoneChanged = normalizePhone(fields.phone) !== normalizePhone(existingRow.phone);
+  if (phoneChanged && fields.phone && (await students.findStudentIdByPhone(normalizePhone(fields.phone), userId))) {
+    const error = new Error("Ce numéro de téléphone est déjà utilisé par un autre compte.");
+    error.status = 409;
+    throw error;
+  }
+
   let profile = studentProfileDto(await students.updateOnboarding(userId, fields));
   if (!profile.assignedSalesId && (await settings.isAutoAssignEnabled())) {
     const leastLoaded = await sales.findLeastLoadedActive();
@@ -299,6 +310,7 @@ async function saveOnboarding(userId, body) {
       await notificationService.notifyStudentAssigned(leastLoaded.id, userId);
     }
   }
+  if (phoneChanged) await whatsappService.linkStudentByPhone(userId, fields.phone);
   return { profile, onboardingCompleted: true, assignedSalesId: profile.assignedSalesId || null };
 }
 
