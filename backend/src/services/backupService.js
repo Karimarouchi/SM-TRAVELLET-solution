@@ -50,6 +50,15 @@ function isOnlyIgnorableSessionSettingError(stderr) {
   return meaningfulLines.length === 0;
 }
 
+// Chemin configuré (PG_DUMP_PATH...) seulement s'il existe vraiment : un
+// chemin Windows recopié par erreur dans le .env du serveur Linux ne doit
+// pas casser la sauvegarde — on retombe alors sur l'outil du système.
+function binary(configuredPath, fallback) {
+  if (configuredPath && fs.existsSync(configuredPath)) return configuredPath;
+  if (configuredPath) logger.warn(`Outil introuvable : ${configuredPath} — utilisation de ${fallback}.`);
+  return fallback;
+}
+
 function writeStatus(file, status) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(status, null, 2));
@@ -78,8 +87,8 @@ async function runBackup(triggeredBy) {
   // dans le PATH. En local (notamment Windows), ils ne le sont pas toujours :
   // PG_DUMP_PATH / PG_RESTORE_PATH permettent de pointer vers le binaire
   // exact sans avoir à modifier le PATH système.
-  const pgDump = env.backup.pgDumpPath || "pg_dump";
-  const pgRestore = env.backup.pgRestorePath || "pg_restore";
+  const pgDump = binary(env.backup.pgDumpPath, "pg_dump");
+  const pgRestore = binary(env.backup.pgRestorePath, "pg_restore");
 
   try {
     await run(pgDump, ["--format=custom", "--schema=public", `--file=${dumpFile}`, env.databaseUrl]);
@@ -122,8 +131,8 @@ async function runRestore(triggeredBy) {
   }
 
   const dumpFile = path.join(os.tmpdir(), `sm-travel-restore-${Date.now()}.dump`);
-  const pgDump = env.backup.pgDumpPath || "pg_dump";
-  const pgRestore = env.backup.pgRestorePath || "pg_restore";
+  const pgDump = binary(env.backup.pgDumpPath, "pg_dump");
+  const pgRestore = binary(env.backup.pgRestorePath, "pg_restore");
 
   try {
     await run(pgDump, ["--format=custom", "--schema=public", `--file=${dumpFile}`, env.backup.supabaseDatabaseUrl]);
