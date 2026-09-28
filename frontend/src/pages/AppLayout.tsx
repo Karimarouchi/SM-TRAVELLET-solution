@@ -50,22 +50,21 @@ export default function AppLayout() {
   const session = getSession();
   if (!session?.user) return null;
 
+  // Couches : fond de page → halos décoratifs → contenu. Le contenu passe
+  // au-dessus des halos (z-10), sinon ils voilent cartes et textes.
   return (
-    <>
-      {/* Decorative background glows — fixed to viewport, behind everything */}
+    <div className="relative min-h-screen bg-surface">
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <span className="absolute -right-16 -top-24 h-80 w-80 rounded-full bg-violet-300/70 blur-3xl" />
         <span className="absolute -left-20 top-40 h-64 w-64 rounded-full bg-fuchsia-300/50 blur-3xl" />
         <span className="absolute bottom-10 right-[12%] h-40 w-40 rounded-full bg-cyan-200/60 blur-3xl" />
       </div>
 
-      {/* Navbar — fixed to viewport, always on top */}
       <Navbar1 />
 
-      {/* Page content */}
-      <div className="min-h-screen pt-24 bg-surface text-dark">
+      <div className="relative z-10 min-h-screen pt-24 text-dark">
         <Outlet />
       </div>
-    </>
+    </div>
   );
 }

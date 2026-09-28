@@ -70,14 +70,14 @@ function StatusTicks({ message }: { message: WhatsAppMessage }) {
   if (message.status === "failed") {
     return (
       <span title={message.error || "Échec de l'envoi"}>
-        <AlertCircle className="h-3.5 w-3.5 text-red-200" />
+        <AlertCircle className="h-3.5 w-3.5 text-red-500" />
       </span>
     );
   }
-  if (message.status === "read") return <CheckCheck className="h-3.5 w-3.5 text-sky-200" />;
-  if (message.status === "delivered") return <CheckCheck className="h-3.5 w-3.5 text-white/75" />;
-  if (message.status === "sent") return <Check className="h-3.5 w-3.5 text-white/75" />;
-  return <Clock className="h-3 w-3 text-white/75" />;
+  if (message.status === "read") return <CheckCheck className="h-4 w-4 text-[#53bdeb]" />;
+  if (message.status === "delivered") return <CheckCheck className="h-4 w-4 text-[#8696a0]" />;
+  if (message.status === "sent") return <Check className="h-4 w-4 text-[#8696a0]" />;
+  return <Clock className="h-3 w-3 text-[#8696a0]" />;
 }
 
 /* ─── Modale : lier la conversation à un étudiant ─────────────────────── */
@@ -386,7 +386,7 @@ export default function WhatsAppInbox() {
         <div className="flex h-full min-h-0 md:grid md:grid-cols-[340px_1fr]">
           {/* ── Liste des conversations ─────────────────────────────────── */}
           <aside className={cn("h-full w-full min-h-0 flex-col border-line bg-slate-50/70 md:flex md:w-auto md:border-r", mobileChat ? "hidden" : "flex")}>
-            <div className="bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-500 px-4 pb-4 pt-5">
+            <div className="bg-[#008069] px-4 pb-3 pt-4 md:pb-4 md:pt-5">
               <h1 className="flex items-center gap-2 font-display text-xl font-extrabold text-white">
                 <MessageCircle className="h-5 w-5" /> WhatsApp
               </h1>
@@ -467,56 +467,65 @@ export default function WhatsAppInbox() {
           <section className={cn("min-h-0 min-w-0 flex-1 flex-col bg-white md:flex", mobileChat ? "flex" : "hidden")}>
             {active ? (
               <>
-                <div className="flex items-center gap-3 border-b border-line px-4 py-3">
+                {/* En-tête : barre verte façon appli WhatsApp sur téléphone,
+                    barre claire façon WhatsApp Web sur ordinateur. */}
+                <div className="flex items-center gap-2 bg-[#008069] px-1.5 py-2 text-white md:gap-3 md:border-b md:border-line md:bg-[#f0f2f5] md:px-4 md:py-2.5 md:text-dark">
                   <button
                     type="button"
-                    className="rounded-full p-2 text-muted transition hover:bg-emerald-50 hover:text-emerald-700 md:hidden"
+                    aria-label="Retour aux conversations"
+                    className="rounded-full p-2 text-white transition hover:bg-white/15 md:hidden"
                     onClick={() => setMobileChat(false)}
                   >
                     <ArrowLeft className="h-5 w-5" />
                   </button>
                   <UserAvatar name={displayName(active)} size="lg" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-display text-sm font-bold text-dark">{displayName(active)}</p>
-                    <p className="truncate text-xs text-muted">
+                    <p className="truncate font-display text-[15px] font-bold md:text-sm">{displayName(active)}</p>
+                    <p className="truncate text-xs text-white/80 md:text-muted">
                       {formatWhatsAppPhone(active.phone)}
                       {active.studentName && active.profileName && active.profileName !== active.studentName && ` · « ${active.profileName} »`}
                     </p>
                   </div>
-                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                  <div className="flex shrink-0 items-center gap-0.5 md:gap-1.5">
                     {active.studentId ? (
                       <>
                         <Link
                           to={`/conseiller/etudiants/${active.studentId}`}
-                          className="inline-flex items-center gap-1 rounded-full bg-brand-light px-3 py-1.5 text-[11px] font-bold text-brand transition hover:bg-brand hover:text-white"
+                          title="Fiche étudiant"
+                          className="inline-flex items-center gap-1 rounded-full p-2 text-white transition hover:bg-white/15 md:bg-brand-light md:px-3 md:py-1.5 md:text-[11px] md:font-bold md:text-brand md:hover:bg-brand md:hover:text-white"
                         >
-                          <ExternalLink className="h-3 w-3" /> Fiche étudiant
+                          <ExternalLink className="h-[18px] w-[18px] md:h-3 md:w-3" />
+                          <span className="hidden md:inline">Fiche étudiant</span>
                         </Link>
                         <button
                           type="button"
                           title="Délier cet étudiant"
                           onClick={() => onLink(null).catch((err) => setError(err instanceof Error ? err.message : "Erreur."))}
-                          className="rounded-full p-1.5 text-muted transition hover:bg-red-50 hover:text-red-600"
+                          className="rounded-full p-2 text-white transition hover:bg-white/15 md:p-1.5 md:text-muted md:hover:bg-red-50 md:hover:text-red-600"
                         >
-                          <Link2Off className="h-4 w-4" />
+                          <Link2Off className="h-[18px] w-[18px] md:h-4 md:w-4" />
                         </button>
                       </>
                     ) : (
                       <button
                         type="button"
+                        title="Lier à un étudiant"
                         onClick={() => setLinkOpen(true)}
-                        className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-700 transition hover:bg-emerald-600 hover:text-white"
+                        className="inline-flex items-center gap-1 rounded-full p-2 text-white transition hover:bg-white/15 md:bg-emerald-50 md:px-3 md:py-1.5 md:text-[11px] md:font-bold md:text-emerald-700 md:hover:bg-emerald-600 md:hover:text-white"
                       >
-                        <Link2 className="h-3 w-3" /> Lier à un étudiant
+                        <Link2 className="h-[18px] w-[18px] md:h-3 md:w-3" />
+                        <span className="hidden md:inline">Lier à un étudiant</span>
                       </button>
                     )}
                     {isAdmin && (
                       <button
                         type="button"
+                        title={`Responsable : ${active.ownerName || "non attribuée"}`}
                         onClick={() => setAssignOpen(true)}
-                        className="inline-flex items-center gap-1 rounded-full border border-line px-3 py-1.5 text-[11px] font-bold text-mid transition hover:border-brand hover:text-brand"
+                        className="inline-flex items-center gap-1 rounded-full p-2 text-white transition hover:bg-white/15 md:border md:border-line md:bg-white md:px-3 md:py-1.5 md:text-[11px] md:font-bold md:text-mid md:hover:border-brand md:hover:text-brand"
                       >
-                        <UserCog className="h-3 w-3" /> {active.ownerName || "Non attribuée"}
+                        <UserCog className="h-[18px] w-[18px] md:h-3 md:w-3" />
+                        <span className="hidden md:inline">{active.ownerName || "Non attribuée"}</span>
                       </button>
                     )}
                   </div>
@@ -550,26 +559,26 @@ export default function WhatsAppInbox() {
                         <div className={cn("flex", mine ? "justify-end" : "justify-start")}>
                           <div
                             className={cn(
-                              "max-w-[78%] px-3 py-1.5 text-sm leading-5 shadow-sm",
-                              mine ? "rounded-[14px] rounded-tr-sm bg-emerald-600 text-white" : "rounded-[14px] rounded-tl-sm bg-white text-dark"
+                              "max-w-[82%] px-2.5 py-1.5 text-[14.5px] leading-5 text-[#111b21] shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] md:max-w-[70%]",
+                              mine ? "rounded-lg rounded-tr-none bg-[#d9fdd3]" : "rounded-lg rounded-tl-none bg-white"
                             )}
                           >
                             {mine && item.senderName && (
-                              <p className="mb-0.5 text-[10px] font-semibold text-white/70">{item.senderName}</p>
+                              <p className="mb-0.5 text-[11px] font-semibold text-[#008069]">{item.senderName}</p>
                             )}
                             {isMedia ? (
-                              <p className={cn("flex items-start gap-1.5 italic", mine ? "text-white/90" : "text-muted")}>
+                              <p className="flex items-start gap-1.5 italic text-[#667781]">
                                 <FileWarning className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {item.body}
                               </p>
                             ) : (
                               <p className="whitespace-pre-wrap break-words">{item.body}</p>
                             )}
-                            <p className={cn("mt-0.5 flex items-center justify-end gap-1 text-[10px]", mine ? "text-white/75" : "text-muted")}>
+                            <p className="-mb-0.5 mt-0.5 flex items-center justify-end gap-1 text-[11px] text-[#667781]">
                               {clock(item.createdAt)}
                               {mine && <StatusTicks message={item} />}
                             </p>
                             {mine && item.status === "failed" && item.error && (
-                              <p className="mt-1 text-[10px] font-semibold text-red-100">Non délivré : {item.error}</p>
+                              <p className="mt-1 text-[11px] font-semibold text-red-600">Non délivré : {item.error}</p>
                             )}
                           </div>
                         </div>
@@ -579,14 +588,20 @@ export default function WhatsAppInbox() {
                 </div>
 
                 {!active.windowOpen && (
-                  <div className="border-t border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800">
-                    <span className="font-bold">Fenêtre de 24 h fermée.</span> WhatsApp n'autorise une réponse libre que dans les 24 h qui suivent le
-                    dernier message de l'étudiant : il doit vous réécrire, ou un modèle de message approuvé par Meta est nécessaire.
+                  <div className="flex items-start gap-2 bg-[#fff8e1] px-4 py-2 text-[12px] leading-snug text-amber-900">
+                    <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>
+                      <span className="font-bold">Fenêtre de 24 h fermée.</span> L'étudiant doit vous réécrire pour que vous puissiez répondre
+                      <span className="hidden md:inline"> (ou un modèle de message approuvé par Meta est nécessaire)</span>.
+                    </span>
                   </div>
                 )}
-                {error && <p className="px-4 pt-2 text-xs text-red-500">{error}</p>}
+                {error && <p className="bg-[#f0f2f5] px-4 pt-2 text-xs text-red-500">{error}</p>}
 
-                <div className="flex items-end gap-2 border-t border-line px-3 py-3">
+                <div
+                  className="flex items-end gap-2 bg-[#f0f2f5] px-2 pt-2 md:px-3"
+                  style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
+                >
                   <div className="relative flex-1">
                     <textarea
                       value={text}
@@ -594,8 +609,8 @@ export default function WhatsAppInbox() {
                       onKeyDown={onKeyDown}
                       disabled={!active.windowOpen || sending}
                       rows={Math.min(5, Math.max(1, text.split("\n").length))}
-                      placeholder={active.windowOpen ? "Écrire un message (Entrée pour envoyer, Maj+Entrée pour aller à la ligne)" : "Réponse impossible : fenêtre de 24 h fermée"}
-                      className="block w-full resize-none rounded-2xl border border-line bg-slate-50 px-4 py-2.5 text-sm text-dark outline-none transition placeholder:text-muted focus:border-emerald-500 focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                      placeholder={active.windowOpen ? "Message" : "Réponse impossible pour l'instant"}
+                      className="block w-full resize-none rounded-3xl border-0 bg-white px-4 py-2.5 text-[15px] text-[#111b21] shadow-sm outline-none placeholder:text-[#8696a0] disabled:cursor-not-allowed disabled:opacity-70"
                     />
                     {text.length > MAX_LENGTH - 200 && (
                       <span className="absolute bottom-1 right-3 text-[10px] text-muted">{text.length}/{MAX_LENGTH}</span>
@@ -604,10 +619,11 @@ export default function WhatsAppInbox() {
                   <button
                     type="button"
                     onClick={onSend}
+                    aria-label="Envoyer"
                     disabled={!active.windowOpen || sending || !text.trim()}
-                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-md transition hover:bg-emerald-700 disabled:opacity-35"
+                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#00a884] text-white shadow-md transition hover:bg-[#008f6f] disabled:opacity-40"
                   >
-                    <Send className="h-4 w-4" />
+                    <Send className="h-[18px] w-[18px]" />
                   </button>
                 </div>
               </>

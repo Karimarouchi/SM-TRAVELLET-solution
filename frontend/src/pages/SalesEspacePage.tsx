@@ -54,20 +54,20 @@ export default function SalesEspacePage() {
 
       <Link
         to="/whatsapp"
-        className="mt-6 flex items-center justify-between rounded-[20px] border border-emerald-200 bg-white px-6 py-5 transition hover:-translate-y-0.5 hover:shadow-lg"
+        className="mt-6 flex items-center justify-between gap-4 rounded-[20px] border border-emerald-200 bg-white px-5 py-4 transition hover:-translate-y-0.5 hover:shadow-lg sm:px-6 sm:py-5"
       >
-        <span>
+        <span className="min-w-0">
           <span className="block font-display text-lg font-bold">WhatsApp</span>
           <span className="mt-1 block text-sm text-muted">
             {t("Les conversations WhatsApp de vos étudiants et prospects, avec réponse directe.", "WhatsApp conversations with your students and prospects, reply directly.")}
           </span>
         </span>
-        <span className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-bold text-white">{t("Ouvrir", "Open")}</span>
+        <span className="shrink-0 rounded-full bg-emerald-600 px-4 py-2 text-xs font-bold text-white">{t("Ouvrir", "Open")}</span>
       </Link>
 
       {/* Recherche + bascule d'affichage */}
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="relative w-full max-w-xs sm:w-64">
+        <div className="relative w-full sm:w-64 sm:max-w-xs">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
           <input
             type="text"

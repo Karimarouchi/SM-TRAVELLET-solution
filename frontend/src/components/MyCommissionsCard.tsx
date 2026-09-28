@@ -32,19 +32,19 @@ export default function MyCommissionsCard() {
   return (
     <section className="mt-6 rounded-[20px] border border-brand/20 bg-white p-5 shadow-sm">
       <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between gap-3">
-        <span className="flex items-center gap-2">
+        <span className="flex min-w-0 items-center gap-2">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
             <Coins className="h-5 w-5" />
           </span>
-          <span className="text-left">
-            <span className="block font-display text-lg font-bold text-dark">{t("Mes commissions", "My commissions")}</span>
+          <span className="min-w-0 text-left">
+            <span className="block truncate font-display text-base font-bold text-dark sm:text-lg">{t("Mes commissions", "My commissions")}</span>
             <span className="block text-xs text-muted">
               {earnings.length} {t(`gain${earnings.length !== 1 ? "s" : ""} enregistré${earnings.length !== 1 ? "s" : ""}`, `earning${earnings.length !== 1 ? "s" : ""} recorded`)}
             </span>
           </span>
         </span>
-        <span className="flex items-center gap-2">
-          <span className="font-display text-xl font-extrabold text-brand">{total.toFixed(2)} DT</span>
+        <span className="flex shrink-0 items-center gap-2">
+          <span className="whitespace-nowrap font-display text-lg font-extrabold text-brand sm:text-xl">{total.toFixed(2)} DT</span>
           {open ? <ChevronUp className="h-4 w-4 text-muted" /> : <ChevronDown className="h-4 w-4 text-muted" />}
         </span>
       </button>
