@@ -12,6 +12,7 @@ export type WhatsAppConversation = {
   ownerName: string | null;
   lastMessageAt: string | null;
   lastBody: string;
+  lastHidden: boolean;
   lastDirection: "in" | "out" | null;
   lastStatus: WhatsAppStatus | null;
   unread: number;
@@ -24,6 +25,8 @@ export type WhatsAppMessage = {
   direction: "in" | "out";
   type: string;
   body: string;
+  hidden: boolean;
+  hiddenByName: string | null;
   status: WhatsAppStatus;
   error: string | null;
   senderName: string | null;
@@ -46,6 +49,12 @@ export async function sendWhatsAppMessage(contactId: string, text: string) {
     method: "POST",
     body: JSON.stringify({ text })
   });
+}
+
+// Masque le message dans l'application seulement : l'API de Meta ne permet pas
+// de le supprimer, l'étudiant le voit toujours sur son téléphone.
+export async function hideWhatsAppMessage(contactId: string, messageId: string) {
+  return request<{ hidden: boolean }>(`/api/whatsapp/conversations/${contactId}/messages/${messageId}/hide`, { method: "POST" });
 }
 
 export async function linkWhatsAppStudent(contactId: string, studentId: string | null) {

@@ -188,7 +188,9 @@ function mapConversation(row) {
     ownerId: row.owner_id,
     ownerName: fullName(row.owner_prenom, row.owner_nom),
     lastMessageAt: row.last_message_at ? new Date(row.last_message_at).toISOString() : null,
-    lastBody: row.last_body || "",
+    // Un message masqué ne ressort jamais, pas même dans l'aperçu de la liste.
+    lastBody: row.last_hidden ? "" : row.last_body || "",
+    lastHidden: Boolean(row.last_hidden),
     lastDirection: row.last_direction || null,
     lastStatus: row.last_status || null,
     unread: row.unread || 0,
@@ -197,11 +199,14 @@ function mapConversation(row) {
 }
 
 function mapMessage(row) {
+  const hidden = Boolean(row.hidden_at);
   return {
     id: row.id,
     direction: row.direction,
     type: row.type,
-    body: row.body || "",
+    body: hidden ? "" : row.body || "",
+    hidden,
+    hiddenByName: hidden ? fullName(row.hidden_prenom, row.hidden_nom) : null,
     status: row.status,
     error: row.error,
     senderName: fullName(row.sender_prenom, row.sender_nom),
@@ -233,6 +238,18 @@ async function getMessages(auth, contactId, { before, limit }) {
   const rows = await repo.listMessages(contactId, { before: beforeDate, limit: pageSize });
   if (!beforeDate) await repo.markRead(contactId, auth.sub);
   return { messages: rows.map(mapMessage), hasMore: rows.length === pageSize };
+}
+
+// Meta ne permet pas de supprimer un message envoyé : on le masque seulement
+// dans l'application. L'étudiant le voit toujours sur son téléphone.
+async function hideMessage(auth, contactId, messageId) {
+  await getAccessibleConversation(auth, contactId);
+  if (!/^[0-9a-f-]{36}$/i.test(String(messageId))) throw fail("Message introuvable.", 404);
+  const message = await repo.findMessage(contactId, messageId);
+  if (!message) throw fail("Message introuvable.", 404);
+  if (message.direction !== "out") throw fail("Seuls les messages envoyés depuis l'application peuvent être masqués.", 400);
+  if (!message.hidden_at) await repo.hideMessage(messageId, auth.sub);
+  return { hidden: true };
 }
 
 function metaErrorToHttp(metaError) {
@@ -408,6 +425,7 @@ module.exports = {
   listConversations,
   getMessages,
   sendText,
+  hideMessage,
   linkStudent,
   assignOwner,
   unreadCount,

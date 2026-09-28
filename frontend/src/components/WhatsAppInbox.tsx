@@ -4,6 +4,7 @@ import {
   fetchWhatsAppConversations,
   fetchWhatsAppMessages,
   formatWhatsAppPhone,
+  hideWhatsAppMessage,
   linkWhatsAppStudent,
   sendWhatsAppMessage,
   type WhatsAppConversation,
@@ -18,6 +19,7 @@ import {
   CheckCheck,
   Clock,
   ExternalLink,
+  EyeOff,
   FileWarning,
   Link2,
   Link2Off,
@@ -28,6 +30,7 @@ import {
   X
 } from "lucide-react";
 import { KeyboardEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 
 const MAX_LENGTH = 4096;
@@ -81,6 +84,59 @@ function StatusTicks({ message }: { message: WhatsAppMessage }) {
 }
 
 /* ─── Modale : lier la conversation à un étudiant ─────────────────────── */
+/* ─── Confirmation : masquer un message (dans l'application seulement) ─── */
+function HideMessageModal({ message, onClose, onConfirm }: { message: WhatsAppMessage; onClose: () => void; onConfirm: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function confirm() {
+    setBusy(true);
+    setError("");
+    try {
+      await onConfirm();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Impossible de masquer ce message.");
+      setBusy(false);
+    }
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-[10001] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center sm:p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-md rounded-t-[28px] bg-white p-5 pb-[calc(env(safe-area-inset-bottom,0px)+20px)] shadow-2xl sm:rounded-[28px]">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+            <EyeOff className="h-5 w-5" />
+          </span>
+          <h3 className="font-display text-lg font-bold text-dark">Masquer ce message ?</h3>
+        </div>
+        <p className="mt-3 line-clamp-3 rounded-xl bg-[#d9fdd3] px-3 py-2 text-sm text-[#111b21]">{message.body}</p>
+        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[13px] leading-snug text-amber-900">
+          <p className="font-bold">L'étudiant le verra toujours sur son WhatsApp.</p>
+          <p className="mt-1">
+            WhatsApp ne permet pas de supprimer un message envoyé depuis l'application. Il sera seulement masqué ici, pour les
+            conseillers et l'admin. Pour corriger une erreur, envoyez plutôt un nouveau message à l'étudiant.
+          </p>
+        </div>
+        {error && <p className="mt-3 text-xs font-semibold text-red-600">{error}</p>}
+        <div className="mt-4 flex gap-2">
+          <button type="button" onClick={onClose} className="flex-1 rounded-full border border-line py-2.5 text-sm font-bold text-mid">
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={confirm}
+            disabled={busy}
+            className="flex-1 rounded-full bg-amber-500 py-2.5 text-sm font-bold text-white transition hover:bg-amber-600 disabled:opacity-60"
+          >
+            {busy ? "..." : "Masquer ici"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 function LinkStudentModal({ onClose, onPick }: { onClose: () => void; onPick: (studentId: string) => Promise<void> }) {
   const [search, setSearch] = useState("");
   const [students, setStudents] = useState<BoardStudent[]>([]);
@@ -238,6 +294,7 @@ export default function WhatsAppInbox() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [linkOpen, setLinkOpen] = useState(false);
+  const [hideTarget, setHideTarget] = useState<WhatsAppMessage | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -353,6 +410,14 @@ export default function WhatsAppInbox() {
     }
   }
 
+  async function onHide(message: WhatsAppMessage) {
+    if (!activeId) return;
+    await hideWhatsAppMessage(activeId, message.id);
+    setThread((previous) => previous.map((m) => (m.id === message.id ? { ...m, hidden: true, body: "", hiddenByName: `${me?.prenom || ""} ${me?.nom || ""}`.trim() } : m)));
+    setHideTarget(null);
+    loadList();
+  }
+
   async function onLink(studentId: string | null) {
     if (!activeId) return;
     await linkWhatsAppStudent(activeId, studentId);
@@ -439,7 +504,11 @@ export default function WhatsAppInbox() {
                     </span>
                     <span className="mt-0.5 flex items-center gap-2">
                       <span className={cn("block flex-1 truncate text-xs", item.unread ? "font-semibold text-dark" : "text-muted")}>
-                        {item.lastDirection === "out" && "Vous : "}{item.lastBody}
+                        {item.lastHidden ? (
+                          <span className="inline-flex items-center gap-1 italic"><EyeOff className="h-3 w-3" /> Message masqué</span>
+                        ) : (
+                          <>{item.lastDirection === "out" && "Vous : "}{item.lastBody}</>
+                        )}
                       </span>
                       {item.unread > 0 && (
                         <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] font-bold text-white">
@@ -556,7 +625,30 @@ export default function WhatsAppInbox() {
                             <span className="rounded-lg bg-white/90 px-3 py-1 text-[11px] font-medium text-muted shadow-sm">{dayLabel(item.createdAt)}</span>
                           </p>
                         )}
-                        <div className={cn("flex", mine ? "justify-end" : "justify-start")}>
+                        <div className={cn("group flex items-center gap-1", mine ? "justify-end" : "justify-start")}>
+                          {/* Masquer : visible au survol sur ordinateur, toujours sur écran tactile. */}
+                          {mine && !item.hidden && (
+                            <button
+                              type="button"
+                              title="Masquer ce message ici"
+                              aria-label="Masquer ce message ici"
+                              onClick={() => setHideTarget(item)}
+                              className="shrink-0 rounded-full p-1.5 text-[#667781] opacity-0 transition hover:bg-white/80 hover:text-amber-600 focus:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-60"
+                            >
+                              <EyeOff className="h-4 w-4" />
+                            </button>
+                          )}
+                          {item.hidden ? (
+                            <div className="max-w-[82%] rounded-lg rounded-tr-none border border-dashed border-[#8696a0]/60 bg-white/60 px-2.5 py-1.5 text-[13px] leading-5 text-[#667781] md:max-w-[70%]">
+                              <p className="flex items-center gap-1.5 italic">
+                                <EyeOff className="h-3.5 w-3.5 shrink-0" /> Message masqué ici
+                              </p>
+                              <p className="text-[11px]">
+                                Toujours visible chez l'étudiant{item.hiddenByName ? ` · masqué par ${item.hiddenByName}` : ""}
+                              </p>
+                              <p className="-mb-0.5 mt-0.5 text-right text-[11px]">{clock(item.createdAt)}</p>
+                            </div>
+                          ) : (
                           <div
                             className={cn(
                               "max-w-[82%] px-2.5 py-1.5 text-[14.5px] leading-5 text-[#111b21] shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] md:max-w-[70%]",
@@ -581,6 +673,7 @@ export default function WhatsAppInbox() {
                               <p className="mt-1 text-[11px] font-semibold text-red-600">Non délivré : {item.error}</p>
                             )}
                           </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -644,6 +737,7 @@ export default function WhatsAppInbox() {
         </div>
 
       {linkOpen && <LinkStudentModal onClose={() => setLinkOpen(false)} onPick={(studentId) => onLink(studentId)} />}
+      {hideTarget && <HideMessageModal message={hideTarget} onClose={() => setHideTarget(null)} onConfirm={() => onHide(hideTarget)} />}
       {assignOpen && active && (
         <AssignOwnerModal currentOwnerId={active.ownerId} onClose={() => setAssignOpen(false)} onPick={onAssign} />
       )}

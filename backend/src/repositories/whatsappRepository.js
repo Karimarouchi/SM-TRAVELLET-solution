@@ -164,6 +164,7 @@ async function listConversations({ userId, ownerId, search, contactId = null }) 
             c.owner_id, ou.prenom AS owner_prenom, ou.nom AS owner_nom,
             c.last_inbound_at, c.last_message_at,
             lm.body AS last_body, lm.direction AS last_direction, lm.status AS last_status,
+            lm.hidden_at IS NOT NULL AS last_hidden,
             (SELECT COUNT(*)::int FROM whatsapp_messages m
              WHERE m.contact_id = c.id AND m.direction = 'in'
                AND m.created_at > COALESCE(r.last_read_at, 'epoch'::timestamptz)) AS unread
@@ -171,7 +172,7 @@ async function listConversations({ userId, ownerId, search, contactId = null }) 
      LEFT JOIN users ou ON ou.id = c.owner_id
      LEFT JOIN whatsapp_reads r ON r.contact_id = c.id AND r.user_id = $1
      LEFT JOIN LATERAL (
-       SELECT body, direction, status FROM whatsapp_messages
+       SELECT body, direction, status, hidden_at FROM whatsapp_messages
        WHERE contact_id = c.id ORDER BY created_at DESC LIMIT 1
      ) lm ON TRUE
      WHERE ($2::uuid IS NULL OR c.owner_id = $2)
@@ -192,15 +193,32 @@ async function listConversations({ userId, ownerId, search, contactId = null }) 
 async function listMessages(contactId, { before, limit }) {
   const result = await query(
     `SELECT m.id, m.direction, m.type, m.body, m.status, m.error, m.created_at,
-            u.prenom AS sender_prenom, u.nom AS sender_nom
+            u.prenom AS sender_prenom, u.nom AS sender_nom,
+            m.hidden_at, h.prenom AS hidden_prenom, h.nom AS hidden_nom
      FROM whatsapp_messages m
      LEFT JOIN users u ON u.id = m.sent_by
+     LEFT JOIN users h ON h.id = m.hidden_by
      WHERE m.contact_id = $1 AND ($2::timestamptz IS NULL OR m.created_at < $2)
      ORDER BY m.created_at DESC
      LIMIT $3`,
     [contactId, before, limit]
   );
   return result.rows.reverse();
+}
+
+async function findMessage(contactId, messageId) {
+  const result = await query(
+    "SELECT id, direction, hidden_at FROM whatsapp_messages WHERE id = $1 AND contact_id = $2",
+    [messageId, contactId]
+  );
+  return result.rows[0] || null;
+}
+
+async function hideMessage(messageId, userId) {
+  await query(
+    "UPDATE whatsapp_messages SET hidden_at = NOW(), hidden_by = $2 WHERE id = $1 AND hidden_at IS NULL",
+    [messageId, userId]
+  );
 }
 
 async function markRead(contactId, userId) {
@@ -273,6 +291,8 @@ module.exports = {
   updateStatus,
   listConversations,
   listMessages,
+  findMessage,
+  hideMessage,
   markRead,
   unreadCount,
   reassignAllFromSales,

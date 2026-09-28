@@ -31,6 +31,14 @@ async function sendMessage(req, res) {
   }
 }
 
+async function hideMessage(req, res) {
+  try {
+    res.json(await whatsappService.hideMessage(req.auth, req.params.contactId, req.params.messageId));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function linkStudent(req, res) {
   try {
     const studentId = req.body?.studentId;
@@ -59,4 +67,4 @@ async function unreadCount(req, res) {
   }
 }
 
-module.exports = { listConversations, getMessages, sendMessage, linkStudent, assignOwner, unreadCount };
+module.exports = { listConversations, getMessages, sendMessage, hideMessage, linkStudent, assignOwner, unreadCount };
