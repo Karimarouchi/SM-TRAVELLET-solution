@@ -38,6 +38,13 @@ const LIST_POLL_MS = 10_000;
 const THREAD_POLL_MS = 5_000;
 const TEXT_TYPES = ["text", "button", "interactive"];
 
+// Gras façon WhatsApp : *texte* s'affiche en gras (sur une seule ligne).
+function withBold(text: string) {
+  return text.split(/(\*[^*\n]+\*)/g).map((part, index) =>
+    /^\*[^*\n]+\*$/.test(part) ? <strong key={index}>{part.slice(1, -1)}</strong> : part
+  );
+}
+
 function displayName(item: WhatsAppConversation) {
   return item.studentName || item.profileName || formatWhatsAppPhone(item.phone);
 }
@@ -663,7 +670,7 @@ export default function WhatsAppInbox() {
                                 <FileWarning className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {item.body}
                               </p>
                             ) : (
-                              <p className="whitespace-pre-wrap break-words">{item.body}</p>
+                              <p className="whitespace-pre-wrap break-words">{withBold(item.body)}</p>
                             )}
                             <p className="-mb-0.5 mt-0.5 flex items-center justify-end gap-1 text-[11px] text-[#667781]">
                               {clock(item.createdAt)}

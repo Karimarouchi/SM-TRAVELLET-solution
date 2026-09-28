@@ -50,12 +50,28 @@ async function listForSales(salesId) {
   return rows.map(codeDto);
 }
 
+// Prénom affichable dans « Bonjour … » : sans les caractères de mise en forme
+// WhatsApp (* _ ~ `), et ignoré s'il ne contient aucune lettre (ex. « ~~ »).
+function greetingName(raw) {
+  const name = String(raw || "").replace(/[*_~`]/g, "").replace(/\s+/g, " ").trim();
+  return /\p{L}/u.test(name) ? name : "";
+}
+
+// Message WhatsApp du code : le code seul sur sa ligne, en gras (*...* en
+// syntaxe WhatsApp), pour qu'il soit lisible et facile à recopier.
 function codeMessage(code, contactName) {
   const link = `${env.appPublicUrl}/app/#/register?code=${encodeURIComponent(code)}`;
+  const name = greetingName(contactName);
   return [
-    `Bonjour${contactName ? ` ${contactName}` : ""},`,
-    `Voici votre code SM Travel : ${code}`,
-    `Créez votre compte ici, le code est déjà rempli : ${link}`,
+    `Bonjour${name ? ` ${name}` : ""} 👋`,
+    "",
+    "Voici votre code d'inscription SM Travel :",
+    "",
+    `🔑 *${code}*`,
+    "",
+    "👉 Créez votre compte ici, le code est déjà rempli :",
+    link,
+    "",
     "Ce code vous relie directement à votre conseiller."
   ].join("\n");
 }
