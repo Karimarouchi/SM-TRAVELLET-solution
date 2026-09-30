@@ -68,6 +68,7 @@ export default function StudentDetailPage() {
   const session = getSession();
   const role = session?.user?.role;
   const canActUniversity = role === "ADMIN";
+  const [activeTab, setActiveTab] = useState<"overview" | "history">("overview");
   const [visaDocs, setVisaDocs] = useState<VisaDocumentChecklistItem[]>([]);
   const visaApp = applications.find((a) => a.status === "ACCEPTED" && !a.visaStatus);
 

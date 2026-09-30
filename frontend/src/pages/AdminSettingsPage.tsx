@@ -30,6 +30,7 @@ export default function AdminSettingsPage() {
   const [senderSaving, setSenderSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [senderSaved, setSenderSaved] = useState(false);
   const [workForm, setWorkForm] = useState({ workDays: [1, 2, 3, 4, 5] as number[], workStart: "09:00", workEnd: "18:00", workHalfwayMinutes: "960" });
   const [workSaving, setWorkSaving] = useState(false);
   const [workSaved, setWorkSaved] = useState(false);

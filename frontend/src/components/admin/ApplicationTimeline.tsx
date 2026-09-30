@@ -14,7 +14,6 @@ import {
 } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import {
-  AlertTriangle,
   Calendar,
   CheckCircle2,
   ExternalLink,
