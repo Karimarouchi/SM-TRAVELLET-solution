@@ -23,6 +23,12 @@ function dto(row) {
 function normalizeName(rawName) {
   const name = String(rawName || "").trim();
   if (!name) throw fail("Le nom de l'université est obligatoire.", 400);
+  if (name.length < 2 || name.length > 200) {
+    throw fail("Le nom de l'université doit contenir entre 2 et 200 caractères.", 400);
+  }
+  if (!/^[\p{L}\p{N} .,'()+\-&/]+$/u.test(name)) {
+    throw fail("L'université contient des caractères non autorisés.", 400);
+  }
   return name;
 }
 
@@ -90,5 +96,6 @@ module.exports = {
   createUniversity,
   updateUniversity,
   setActive,
-  removeUniversity
+  removeUniversity,
+  sanitizeName: normalizeName
 };

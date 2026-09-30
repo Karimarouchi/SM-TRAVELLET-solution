@@ -31,20 +31,33 @@ async function findById(id) {
 
 async function findByCountryAndName(countryId, name) {
   const result = await query(
-    `SELECT id FROM country_universities WHERE country_id = $1 AND name = $2`,
-    [countryId, name]
+    `SELECT * FROM country_universities WHERE country_id = $1 AND LOWER(name) = LOWER($2)`,
+    [countryId, String(name || "").trim()]
   );
   return result.rows[0] || null;
 }
 
-async function create({ countryId, name, displayOrder = 0 }) {
+async function create({ countryId, name, displayOrder = 0, active = true }) {
   const result = await query(
-    `INSERT INTO country_universities (country_id, name, display_order, updated_at)
-     VALUES ($1, $2, $3, NOW())
+    `INSERT INTO country_universities (country_id, name, display_order, active, updated_at)
+     VALUES ($1, $2, $3, $4, NOW())
      RETURNING *`,
-    [countryId, name, displayOrder]
+    [countryId, name, displayOrder, active !== false]
   );
   return result.rows[0];
+}
+
+async function findOrCreate({ countryId, name, active = true }) {
+  const trimmed = String(name || "").trim();
+  const existing = await findByCountryAndName(countryId, trimmed);
+  if (existing) return existing;
+  try {
+    return await create({ countryId, name: trimmed, active });
+  } catch (error) {
+    const raced = await findByCountryAndName(countryId, trimmed);
+    if (raced) return raced;
+    throw error;
+  }
 }
 
 async function update(id, { name, displayOrder }) {
@@ -76,6 +89,7 @@ module.exports = {
   findActiveByCountryIds,
   findById,
   findByCountryAndName,
+  findOrCreate,
   create,
   update,
   setActive,

@@ -1,4 +1,5 @@
 import { FancySelect } from "@/components/ui/fancy-select";
+import UniversityPicker from "@/components/UniversityPicker";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { PhoneField, isValidInternational, parsePhone, toInternational, type PhoneValue } from "@/components/ui/phone-field";
 import { fetchMe, fetchPublicCountries, fetchPublicUniversities, getSession, mediaUrl, saveOnboarding, updateIdentity, uploadAvatar, type AuthUser, type Country, type PublicUniversity } from "@/lib/auth";
@@ -477,7 +478,7 @@ export default function ProfilePage() {
                                 <FancySelect invalid={Boolean(errors.targetIntake)} value={form.targetIntake} onChange={(value) => setField("targetIntake", value)} options={INTAKES} placeholder="Choisir" />
                               </Field>
                               <Field label="Université précise" error={errors.targetUniversity}>
-                                <FancySelect
+                                <UniversityPicker
                                   invalid={Boolean(errors.targetUniversity)}
                                   value={form.targetUniversity}
                                   onChange={(value) => setField("targetUniversity", value)}
@@ -485,9 +486,7 @@ export default function ProfilePage() {
                                   placeholder={
                                     !form.preferredCountries.length
                                       ? "Choisissez d'abord un pays préféré"
-                                      : universities.length
-                                        ? "Choisir une université (optionnel)"
-                                        : "Aucune université configurée pour ce pays"
+                                      : "Liste proposée, ou tapez un autre nom"
                                   }
                                 />
                               </Field>

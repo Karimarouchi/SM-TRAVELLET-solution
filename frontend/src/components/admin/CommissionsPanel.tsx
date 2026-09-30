@@ -13,14 +13,15 @@ import { cn } from "@/lib/utils";
 import { Check, ChevronDown, ChevronUp, Coins, Globe2, Search, UserCog, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 
-const SALES_STAGES: CommissionStage[] = ["CODE_CLAIMED", "DOCUMENTS_VALIDATED", "APPLIED", "ACCEPTED"];
-const RDV_STAGES: CommissionStage[] = ["VISA_SUBMITTED", "VISA_ACCEPTED"];
+const SALES_STAGES: CommissionStage[] = ["CODE_CLAIMED", "DOCUMENTS_VALIDATED", "VISA_DOCUMENTS_VALIDATED"];
+const RDV_STAGES: CommissionStage[] = ["APPLIED", "ACCEPTED", "VISA_SUBMITTED", "VISA_ACCEPTED"];
 
 const STAGE_LABELS: Record<CommissionStage, string> = {
   CODE_CLAIMED: "Étudiant inscrit via un code",
   DOCUMENTS_VALIDATED: "Documents du dossier validés",
   APPLIED: "Candidature déposée",
   ACCEPTED: "Candidature acceptée par l'université",
+  VISA_DOCUMENTS_VALIDATED: "Documents visa validés",
   VISA_SUBMITTED: "Dossier visa déposé",
   VISA_ACCEPTED: "Visa accepté"
 };

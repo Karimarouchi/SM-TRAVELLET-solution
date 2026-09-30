@@ -367,6 +367,11 @@ export type AdminSettings = {
   emailFromName: string;
   emailFromAddress: string;
   emailHasAppPassword: boolean;
+  workDays: number[];
+  workStart: string;
+  workEnd: string;
+  workTimezone: string;
+  workHalfwayMinutes: number;
 };
 
 export async function fetchAdminSettings() {
@@ -378,6 +383,40 @@ export async function updateAdminSettings(payload: Partial<AdminSettings> & { em
     method: "PUT",
     body: JSON.stringify(payload)
   });
+}
+
+export type WorkHoursReport = {
+  workHours: { days: number[]; start: string; end: string; timezone: string; halfwayMinutes: number };
+  sales: {
+    id: string;
+    prenom: string;
+    nom: string;
+    email: string;
+    isActive: boolean;
+    students: number;
+    documentsValidated: number;
+    avgAssignToDocsLabel: string;
+    halfwayDossiers: number;
+    whatsappConversationsWeek: number;
+    whatsappConversationsMonth: number;
+    avgWhatsappReplyLabel: string;
+  }[];
+  rdv: {
+    id: string;
+    prenom: string;
+    nom: string;
+    email: string;
+    isActive: boolean;
+    dossiers: number;
+    avgReadyToAppliedLabel: string;
+    avgAppliedToAcceptedLabel: string;
+    avgVisaPrepToSubmitLabel: string;
+    halfwayDossiers: number;
+  }[];
+};
+
+export async function fetchWorkHoursReport() {
+  return request<WorkHoursReport>("/api/admin/work-hours");
 }
 
 export async function createSalesAccount(payload: {
@@ -735,7 +774,7 @@ export async function fetchAdminCountries(): Promise<Country[]> {
 // COMMISSIONS (Sales / RDV)
 // ==========================================
 export type CommissionRole = "SALES" | "RDV";
-export type CommissionStage = "CODE_CLAIMED" | "DOCUMENTS_VALIDATED" | "APPLIED" | "ACCEPTED" | "VISA_SUBMITTED" | "VISA_ACCEPTED";
+export type CommissionStage = "CODE_CLAIMED" | "DOCUMENTS_VALIDATED" | "APPLIED" | "ACCEPTED" | "VISA_DOCUMENTS_VALIDATED" | "VISA_SUBMITTED" | "VISA_ACCEPTED";
 
 export type CommissionRule = {
   id: string;
@@ -1046,6 +1085,10 @@ export type UniversityApplication = {
   visaPrepMeetingLocation: string | null;
   visaPrepMeetingInstructions: string | null;
   visaEmbassyAppointmentAt: string | null;
+  staffMeetAt: string | null;
+  staffMeetLink: string | null;
+  staffMeetInstructions: string | null;
+  visaDocsValidatedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -1077,9 +1120,19 @@ export async function fetchStudentApplicationHistory(studentId: string): Promise
 
 export async function markApplicationApplied(
   applicationId: string,
-  payload: { universityId?: string; programmeId?: string; appliedAt: string; applicationReference?: string; notes?: string }
+  payload: { universityId?: string; universityName?: string; programmeId?: string; appliedAt: string; applicationReference?: string; notes?: string }
 ): Promise<UniversityApplication> {
   return request<UniversityApplication>(`/api/applications/${applicationId}/apply`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function scheduleStaffMeet(
+  applicationId: string,
+  payload: { date: string; link: string; instructions?: string }
+): Promise<UniversityApplication> {
+  return request<UniversityApplication>(`/api/applications/${applicationId}/staff-meet`, {
     method: "PATCH",
     body: JSON.stringify(payload)
   });
@@ -1125,7 +1178,7 @@ export async function closeApplication(applicationId: string, comment?: string):
 
 export async function reapplyApplication(
   applicationId: string,
-  payload: { universityId: string; programmeId?: string }
+  payload: { universityId?: string; universityName?: string; programmeId?: string }
 ): Promise<UniversityApplication> {
   return request<UniversityApplication>(`/api/applications/${applicationId}/reapply`, {
     method: "POST",

@@ -12,6 +12,7 @@ import AdminPage from "@/pages/AdminPage";
 import AdminSalesPage from "@/pages/AdminSalesPage";
 import AdminUsersPage from "@/pages/AdminUsersPage";
 import AdminSettingsPage from "@/pages/AdminSettingsPage";
+import AdminWorkHoursPage from "@/pages/AdminWorkHoursPage";
 import AdminProgrammesPage from "@/pages/AdminProgrammesPage";
 import AdminVisaDocumentsPage from "@/pages/AdminVisaDocumentsPage";
 import AdminAvisPage from "@/pages/AdminAvisPage";
@@ -42,6 +43,7 @@ export default function App() {
           <Route path="/admin/sales" element={<AdminSalesPage />} />
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
+          <Route path="/admin/heures" element={<AdminWorkHoursPage />} />
           <Route path="/admin/programmes" element={<AdminProgrammesPage />} />
           <Route path="/admin/visa-documents" element={<AdminVisaDocumentsPage />} />
           <Route path="/admin/avis" element={<AdminAvisPage />} />

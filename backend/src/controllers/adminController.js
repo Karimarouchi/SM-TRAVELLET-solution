@@ -164,4 +164,12 @@ async function listRdvStudents(req, res) {
   }
 }
 
-module.exports = { dashboard, board, studentsOverview, setStudentActive, autoAssign, getSettings, updateSettings, createSales, setSalesActive, transferSales, deleteSales, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };
+async function workHours(req, res) {
+  try {
+    res.json(await require("../services/performanceService").getWorkHoursReport());
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
+module.exports = { dashboard, board, studentsOverview, setStudentActive, autoAssign, getSettings, updateSettings, workHours, createSales, setSalesActive, transferSales, deleteSales, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };

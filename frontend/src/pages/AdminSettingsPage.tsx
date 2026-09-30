@@ -1,13 +1,24 @@
 import { fetchAdminSettings, updateAdminSettings, type AdminSettings, type StalledAlertFrequency } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, CheckCircle2, KeyRound, Mail, Save, Settings as SettingsIcon, ShieldCheck, Users2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, KeyRound, Mail, Save, Settings as SettingsIcon, ShieldCheck, Users2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import BackupPanel from "@/components/admin/BackupPanel";
+
 
 const FREQUENCIES: { id: StalledAlertFrequency; label: string; hint: string }[] = [
   { id: "once", label: "Une seule fois", hint: "Un email au franchissement du seuil, jamais renvoyé ensuite." },
   { id: "daily", label: "Rappel quotidien", hint: "Un email chaque jour tant que le dossier reste bloqué." },
   { id: "weekly", label: "Rappel hebdomadaire", hint: "Un email toutes les semaines tant que le dossier reste bloqué." }
+];
+
+const WEEKDAYS = [
+  { id: 1, label: "Lundi" },
+  { id: 2, label: "Mardi" },
+  { id: 3, label: "Mercredi" },
+  { id: 4, label: "Jeudi" },
+  { id: 5, label: "Vendredi" },
+  { id: 6, label: "Samedi" },
+  { id: 7, label: "Dimanche" }
 ];
 
 export default function AdminSettingsPage() {
@@ -19,7 +30,9 @@ export default function AdminSettingsPage() {
   const [senderSaving, setSenderSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
-  const [senderSaved, setSenderSaved] = useState(false);
+  const [workForm, setWorkForm] = useState({ workDays: [1, 2, 3, 4, 5] as number[], workStart: "09:00", workEnd: "18:00", workHalfwayMinutes: "960" });
+  const [workSaving, setWorkSaving] = useState(false);
+  const [workSaved, setWorkSaved] = useState(false);
 
   useEffect(() => {
     fetchAdminSettings()
@@ -31,6 +44,12 @@ export default function AdminSettingsPage() {
           stalledAlertEmail: data.stalledAlertEmail
         });
         setSenderForm({ emailFromName: data.emailFromName, emailFromAddress: data.emailFromAddress, emailAppPassword: "" });
+        setWorkForm({
+          workDays: data.workDays?.length ? data.workDays : [1, 2, 3, 4, 5],
+          workStart: data.workStart || "09:00",
+          workEnd: data.workEnd || "18:00",
+          workHalfwayMinutes: String(data.workHalfwayMinutes || 960)
+        });
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Impossible de charger les paramètres."))
       .finally(() => setLoading(false));
@@ -87,6 +106,30 @@ export default function AdminSettingsPage() {
       setError(err instanceof Error ? err.message : "Enregistrement impossible.");
     } finally {
       setSenderSaving(false);
+    }
+  }
+
+  async function saveWorkHours() {
+    setWorkSaving(true);
+    setError("");
+    setWorkSaved(false);
+    try {
+      const minutes = parseInt(workForm.workHalfwayMinutes, 10);
+      if (!workForm.workDays.length) throw new Error("Choisissez au moins un jour ouvré.");
+      if (!Number.isInteger(minutes) || minutes < 30) throw new Error("Le seuil à mi-parcours doit être d'au moins 30 minutes.");
+      const updated = await updateAdminSettings({
+        workDays: workForm.workDays,
+        workStart: workForm.workStart,
+        workEnd: workForm.workEnd,
+        workHalfwayMinutes: minutes
+      });
+      setSettings(updated);
+      setWorkSaved(true);
+      window.setTimeout(() => setWorkSaved(false), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Enregistrement impossible.");
+    } finally {
+      setWorkSaving(false);
     }
   }
 
@@ -272,6 +315,57 @@ export default function AdminSettingsPage() {
               {saved && (
                 <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
                   <CheckCircle2 className="h-4 w-4" /> Réglages enregistrés
+                </span>
+              )}
+            </div>
+          </section>
+
+          <section className="mt-4 rounded-[24px] border border-line bg-white p-6">
+            <h2 className="flex items-center gap-2 font-display text-xl font-bold text-dark">
+              <Clock className="h-5 w-5 text-brand" /> Horaires de travail
+            </h2>
+            <p className="mt-1 text-xs text-muted">
+              La page Heures de travail ne compte que ces jours et ces heures (fuseau Africa/Tunis). Les nuits et jours non cochés sont exclus des durées et des dossiers « à mi-parcours ».
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {WEEKDAYS.map((day) => {
+                const on = workForm.workDays.includes(day.id);
+                return (
+                  <button
+                    key={day.id}
+                    type="button"
+                    onClick={() => setWorkForm((prev) => ({
+                      ...prev,
+                      workDays: on ? prev.workDays.filter((d) => d !== day.id) : [...prev.workDays, day.id].sort((a, b) => a - b)
+                    }))}
+                    className={cn("rounded-full px-3 py-1.5 text-xs font-bold", on ? "bg-brand text-white" : "border border-line text-muted")}
+                  >
+                    {day.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+              <div>
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Début</label>
+                <input type="time" value={workForm.workStart} onChange={(e) => setWorkForm({ ...workForm, workStart: e.target.value })} className="w-full rounded-xl border border-line bg-slate-50 px-3 py-2.5 text-sm" />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Fin</label>
+                <input type="time" value={workForm.workEnd} onChange={(e) => setWorkForm({ ...workForm, workEnd: e.target.value })} className="w-full rounded-xl border border-line bg-slate-50 px-3 py-2.5 text-sm" />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Seuil mi-parcours (min)</label>
+                <input type="number" min={30} value={workForm.workHalfwayMinutes} onChange={(e) => setWorkForm({ ...workForm, workHalfwayMinutes: e.target.value })} className="w-full rounded-xl border border-line bg-slate-50 px-3 py-2.5 text-sm" />
+              </div>
+            </div>
+            <div className="mt-5 flex items-center gap-3">
+              <button type="button" disabled={workSaving} onClick={saveWorkHours} className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white disabled:opacity-60">
+                <Save className="h-4 w-4" /> {workSaving ? "Enregistrement..." : "Enregistrer les horaires"}
+              </button>
+              {workSaved && (
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
+                  <CheckCircle2 className="h-4 w-4" /> Horaires enregistrés
                 </span>
               )}
             </div>

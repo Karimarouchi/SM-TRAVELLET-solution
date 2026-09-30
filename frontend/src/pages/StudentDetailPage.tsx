@@ -1,14 +1,18 @@
 import {
+  fetchApplicationVisaDocuments,
   fetchStudentApplications,
   fetchStudentApplicationHistory,
   fetchStudentDetail,
   fetchStudentDocuments,
+  getSession,
+  reviewApplicationVisaDocument,
   reviewStudentDocument,
   type ApplicationHistoryEntry,
   type AuthUser,
   type StudentDocumentChecklistItem,
   type StudentProfile,
-  type UniversityApplication
+  type UniversityApplication,
+  type VisaDocumentChecklistItem
 } from "@/lib/auth";
 import { openProtectedFile } from "@/lib/auth";
 import { useLanguage } from "@/lib/i18n";
@@ -61,13 +65,26 @@ export default function StudentDetailPage() {
   const [history, setHistory] = useState<ApplicationHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState<"overview" | "history">("overview");
+  const session = getSession();
+  const role = session?.user?.role;
+  const canActUniversity = role === "ADMIN";
+  const [visaDocs, setVisaDocs] = useState<VisaDocumentChecklistItem[]>([]);
+  const visaApp = applications.find((a) => a.status === "ACCEPTED" && !a.visaStatus);
 
   const loadApplications = () => {
     if (!id) return;
     fetchStudentApplications(id).then(setApplications).catch(() => undefined);
     fetchStudentApplicationHistory(id).then(setHistory).catch(() => undefined);
   };
+
+  useEffect(() => {
+    const accepted = applications.find((a) => a.status === "ACCEPTED" && !a.visaStatus);
+    if (!accepted) {
+      setVisaDocs([]);
+      return;
+    }
+    fetchApplicationVisaDocuments(accepted.id).then(setVisaDocs).catch(() => undefined);
+  }, [applications]);
 
   useEffect(() => {
     if (!id) return;
@@ -203,9 +220,39 @@ export default function StudentDetailPage() {
               <GraduationCap className="h-5 w-5 text-brand" /> {t("Candidatures universitaires", "University applications")} ({applications.length})
             </h2>
             <div className="mt-3">
-              <ApplicationTimeline applications={applications} canAct onChanged={loadApplications} />
+              <ApplicationTimeline applications={applications} canAct={canActUniversity} onChanged={loadApplications} />
             </div>
           </section>
+
+          {visaApp && (role === "SALES" || role === "ADMIN") && (
+            <section className="mt-6">
+              <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark">
+                <FileText className="h-5 w-5 text-brand" /> {t("Documents visa", "Visa documents")}
+              </h2>
+              <p className="mt-1 text-xs text-muted">
+                {t("Validez tous les documents visa obligatoires : le dossier revient ensuite automatiquement au même RDV (ou au moins chargé s'il n'est plus actif).", "Approve every required visa document: the file then returns automatically to the same visa officer (or the least loaded if they are inactive).")}
+              </p>
+              <div className="mt-3 space-y-2">
+                {visaDocs.length === 0 ? (
+                  <p className="rounded-2xl border border-dashed border-line bg-white p-6 text-sm text-muted">
+                    {t("Aucun document visa configuré pour ce pays, ou l'étudiant n'a pas encore déposé de fichier.", "No visa document configured for this country, or the student has not uploaded a file yet.")}
+                  </p>
+                ) : (
+                  visaDocs.map((doc) => (
+                    <VisaSalesReviewRow
+                      key={doc.requirementId}
+                      applicationId={visaApp.id}
+                      doc={doc}
+                      onReviewed={(updated) => {
+                        setVisaDocs((prev) => prev.map((d) => (d.requirementId === updated.requirementId ? updated : d)));
+                        loadApplications();
+                      }}
+                    />
+                  ))
+                )}
+              </div>
+            </section>
+          )}
         </>
       ) : (
         <FullHistoryTimeline history={history} />
@@ -384,6 +431,110 @@ function DocumentReviewRow({
                   {t("Confirmer le refus", "Confirm rejection")}
                 </button>
               </div>
+            </div>
+          )}
+        </div>
+      )}
+      {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
+    </div>
+  );
+}
+
+function VisaSalesReviewRow({
+  applicationId,
+  doc,
+  onReviewed
+}: {
+  applicationId: string;
+  doc: VisaDocumentChecklistItem;
+  onReviewed: (d: VisaDocumentChecklistItem) => void;
+}) {
+  const { t } = useLanguage();
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const meta = statusMeta(t)[doc.status];
+  const StatusIcon = meta.icon;
+  const canReview = doc.status === "SUBMITTED" || doc.status === "REJECTED";
+
+  return (
+    <div className="rounded-2xl border border-line bg-white p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-2">
+          <FileText className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+          <div>
+            <p className="text-sm font-bold text-dark">
+              {doc.name}
+              {doc.required && <span className="ml-1.5 text-red-500">*</span>}
+            </p>
+            {doc.fileUrl && (
+              <button
+                type="button"
+                onClick={() => openProtectedFile(doc.fileUrl!).catch((err) => setError(err instanceof Error ? err.message : t("Impossible d'ouvrir ce document.", "Unable to open this document.")))}
+                className="mt-1 inline-block text-left text-xs text-brand underline"
+              >
+                {doc.originalFilename || t("Voir le fichier", "View file")}
+              </button>
+            )}
+          </div>
+        </div>
+        <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold", meta.color)}>
+          <StatusIcon className="h-2.5 w-2.5" /> {meta.label}
+        </span>
+      </div>
+      {canReview && (
+        <div className="mt-3">
+          {rejecting ? (
+            <div className="space-y-2">
+              <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} placeholder={t("Motif du refus", "Rejection reason")} className="w-full rounded-lg border border-line px-3 py-2 text-xs" />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    setError("");
+                    try {
+                      onReviewed(await reviewApplicationVisaDocument(applicationId, doc.requirementId, "REJECTED", reason.trim()));
+                      setRejecting(false);
+                      setReason("");
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : t("Erreur.", "Error."));
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                  className="rounded-lg bg-red-500 px-3 py-1.5 text-xs font-bold text-white"
+                >
+                  {t("Confirmer le refus", "Confirm rejection")}
+                </button>
+                <button type="button" onClick={() => setRejecting(false)} className="rounded-lg border border-line px-3 py-1.5 text-xs font-bold text-muted">{t("Annuler", "Cancel")}</button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  setError("");
+                  try {
+                    onReviewed(await reviewApplicationVisaDocument(applicationId, doc.requirementId, "VALIDATED"));
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : t("Erreur.", "Error."));
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white"
+              >
+                <ThumbsUp className="h-3 w-3" /> {t("Valider", "Approve")}
+              </button>
+              <button type="button" onClick={() => setRejecting(true)} className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600">
+                <ThumbsDown className="h-3 w-3" /> {t("Refuser", "Reject")}
+              </button>
             </div>
           )}
         </div>

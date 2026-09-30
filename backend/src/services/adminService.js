@@ -453,10 +453,11 @@ async function setAutoAssign(enabled) {
 }
 
 async function getSettings() {
-  const [autoAssignSales, stalledAlert, emailSender] = await Promise.all([
+  const [autoAssignSales, stalledAlert, emailSender, workHours] = await Promise.all([
     settings.isAutoAssignEnabled(),
     settings.getStalledAlertConfig(),
-    settings.getEmailSenderConfig()
+    settings.getEmailSenderConfig(),
+    settings.getWorkHoursConfig()
   ]);
   return {
     autoAssignSales,
@@ -465,7 +466,12 @@ async function getSettings() {
     stalledAlertEmail: stalledAlert.email,
     emailFromName: emailSender.fromName,
     emailFromAddress: emailSender.fromAddress,
-    emailHasAppPassword: emailSender.hasAppPassword
+    emailHasAppPassword: emailSender.hasAppPassword,
+    workDays: String(workHours.days).split(",").map((d) => parseInt(d, 10)).filter((d) => d >= 1 && d <= 7),
+    workStart: workHours.start,
+    workEnd: workHours.end,
+    workTimezone: workHours.timezone,
+    workHalfwayMinutes: parseInt(workHours.halfwayMinutes, 10) || 960
   };
 }
 
@@ -513,6 +519,39 @@ async function updateSettings(body) {
     // vides pour ce champ.
     const appPassword = body.emailAppPassword !== undefined ? String(body.emailAppPassword) : undefined;
     await settings.setEmailSenderConfig({ fromName, fromAddress, appPassword });
+  }
+
+  const touchesWorkHours =
+    body.workDays !== undefined ||
+    body.workStart !== undefined ||
+    body.workEnd !== undefined ||
+    body.workTimezone !== undefined ||
+    body.workHalfwayMinutes !== undefined;
+  if (touchesWorkHours) {
+    const current = await settings.getWorkHoursConfig();
+    let days = current.days;
+    if (body.workDays !== undefined) {
+      const parsed = (Array.isArray(body.workDays) ? body.workDays : String(body.workDays).split(","))
+        .map((d) => parseInt(d, 10))
+        .filter((d) => settings.WEEKDAY_IDS.includes(d));
+      if (!parsed.length) throw fail("Choisissez au moins un jour ouvré.", 400);
+      days = [...new Set(parsed)].sort((a, b) => a - b).join(",");
+    }
+    const hm = (value, fallback) => {
+      const raw = value !== undefined ? String(value).trim() : fallback;
+      if (!/^\d{1,2}:\d{2}$/.test(raw)) throw fail("Les horaires doivent être au format HH:MM.", 400);
+      return raw.length === 4 ? `0${raw}` : raw;
+    };
+    const start = hm(body.workStart, current.start);
+    const end = hm(body.workEnd, current.end);
+    const timezone = body.workTimezone !== undefined ? String(body.workTimezone).trim() || "Africa/Tunis" : current.timezone;
+    const halfwayMinutes = body.workHalfwayMinutes !== undefined
+      ? parseInt(body.workHalfwayMinutes, 10)
+      : parseInt(current.halfwayMinutes, 10);
+    if (!Number.isInteger(halfwayMinutes) || halfwayMinutes < 30) {
+      throw fail("Le seuil « à mi-parcours » doit être un nombre de minutes ≥ 30.", 400);
+    }
+    await settings.setWorkHoursConfig({ days, start, end, timezone, halfwayMinutes });
   }
 
   return getSettings();

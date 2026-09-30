@@ -88,6 +88,34 @@ async function setArchivePurgeConfig(enabled, days) {
   await set("archive_purge_days", days.toString());
 }
 
+const WEEKDAY_IDS = [1, 2, 3, 4, 5, 6, 7];
+
+async function getWorkHoursConfig() {
+  const [days, start, end, timezone, halfway] = await Promise.all([
+    get("work_days"),
+    get("work_start"),
+    get("work_end"),
+    get("work_timezone"),
+    get("work_halfway_minutes")
+  ]);
+  return {
+    days: days || "1,2,3,4,5",
+    start: start || "09:00",
+    end: end || "18:00",
+    timezone: timezone || "Africa/Tunis",
+    halfwayMinutes: halfway || "960"
+  };
+}
+
+async function setWorkHoursConfig({ days, start, end, timezone, halfwayMinutes }) {
+  if (days !== undefined) await set("work_days", Array.isArray(days) ? days.join(",") : String(days));
+  if (start !== undefined) await set("work_start", String(start));
+  if (end !== undefined) await set("work_end", String(end));
+  if (timezone !== undefined) await set("work_timezone", String(timezone));
+  if (halfwayMinutes !== undefined) await set("work_halfway_minutes", String(halfwayMinutes));
+  return getWorkHoursConfig();
+}
+
 module.exports = {
   get,
   set,
@@ -99,5 +127,8 @@ module.exports = {
   getEmailSenderConfig,
   getEmailSenderSecrets,
   setEmailSenderConfig,
-  STALLED_ALERT_FREQUENCIES
+  getWorkHoursConfig,
+  setWorkHoursConfig,
+  STALLED_ALERT_FREQUENCIES,
+  WEEKDAY_IDS
 };

@@ -268,14 +268,23 @@ async function getVisaChecklist(countryId, studentId) {
 // et non clôturée.
 async function findActiveVisaApplicationForStudent(studentId) {
   const rows = await appRepo.findActiveForStudent(studentId);
-  return rows.find((r) => r.visa_status) || null;
+  return rows.find((r) => r.status === "ACCEPTED" && r.visa_status !== "ACCEPTED" && r.visa_status !== "REJECTED") || null;
 }
 
 function assertVisaDocAccess(auth, application) {
   const roles = authRoles(auth);
   if (roles.includes("ADMIN")) return;
-  if (roles.includes("RDV") && application.assigned_rdv_id === auth.sub) return;
+  if (roles.includes("SALES") && application.sales_id === auth.sub) return;
+  if (roles.includes("RDV") && application.assigned_rdv_id === auth.sub && application.visa_status) return;
   throw fail("Vous n’avez pas accès à ce dossier visa.", 403);
+}
+
+function assertVisaDocReview(auth, application) {
+  const roles = authRoles(auth);
+  if (roles.includes("ADMIN")) return;
+  if (roles.includes("SALES") && application.sales_id === auth.sub && !application.visa_status) return;
+  if (roles.includes("RDV") && application.assigned_rdv_id === auth.sub && application.visa_status) return;
+  throw fail("La validation des documents visa est réservée au conseiller tant que le dossier n'est pas revenu au RDV.", 403);
 }
 
 async function getMyVisaChecklist(studentUserId) {
@@ -323,7 +332,14 @@ async function uploadVisaDocument(studentUserId, requirementId, fileBase64, orig
     fileSize: buffer.length
   });
 
-  if (application.assigned_rdv_id) {
+  if (application.sales_id && !application.visa_status) {
+    await notificationService.notify(application.sales_id, {
+      type: "VISA_DOCUMENT_UPLOADED",
+      title: "Document visa déposé à vérifier",
+      body: `${await studentName(studentUserId)} a déposé « ${requirement.name} » (${application.country_name || "visa"}).`,
+      link: `/conseiller/etudiants/${studentUserId}`
+    });
+  } else if (application.assigned_rdv_id) {
     await notificationService.notify(application.assigned_rdv_id, {
       type: "VISA_DOCUMENT_UPLOADED",
       title: "Document visa déposé à vérifier",
@@ -347,7 +363,7 @@ async function getVisaChecklistForApplication(auth, applicationId) {
 async function reviewVisaDocument(auth, applicationId, requirementId, status, reason) {
   const application = await appRepo.findById(applicationId);
   if (!application) throw fail("Candidature introuvable.", 404);
-  assertVisaDocAccess(auth, application);
+  assertVisaDocReview(auth, application);
 
   if (!["VALIDATED", "REJECTED"].includes(status)) throw fail("Statut invalide.", 400);
   const trimmedReason = String(reason || "").trim();
@@ -383,6 +399,9 @@ async function reviewVisaDocument(auth, applicationId, requirementId, status, re
       });
 
   const checklist = await getVisaChecklist(application.country_id, application.student_id);
+  if (status === "VALIDATED") {
+    await universityApplicationService.maybeAdvanceVisaAfterDocs(application.id);
+  }
   return checklist.find((d) => d.requirementId === requirement.id);
 }
 

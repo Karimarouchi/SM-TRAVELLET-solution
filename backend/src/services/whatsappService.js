@@ -265,6 +265,9 @@ function metaErrorToHttp(metaError) {
 }
 
 async function sendText(auth, contactId, text) {
+  if (!authRoles(auth).includes("SALES")) {
+    throw fail("Seul un conseiller peut envoyer un message WhatsApp.", 403);
+  }
   const body = String(text || "").trim();
   if (!body) throw fail("Le message est vide.", 400);
   if (body.length > MAX_TEXT_LENGTH) throw fail(`Message trop long (${MAX_TEXT_LENGTH} caractères maximum).`, 400);

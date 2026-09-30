@@ -6,6 +6,7 @@ const sales = require("../repositories/salesRepository");
 const settings = require("../repositories/settingsRepository");
 const { studentProfileDto, userDto, formatPgDate, lockedFieldsFromRow } = require("../dto/userDto");
 const { canAccessStudent } = require("../security/rbac");
+const countryUniversityService = require("./countryUniversityService");
 const notificationService = require("./notificationService");
 const whatsappService = require("./whatsappService");
 const { normalizePhone } = whatsappService;
@@ -190,7 +191,9 @@ function validateOnboarding(body) {
     targetLevel: String(body.targetLevel).trim(),
     targetField: String(body.targetField).trim(),
     targetIntake: String(body.targetIntake).trim(),
-    targetUniversity: String(body.targetUniversity || "").trim(),
+    targetUniversity: body.targetUniversity
+      ? countryUniversityService.sanitizeName(String(body.targetUniversity || "").trim())
+      : "",
     annualBudget: budget,
     fundingMode: String(body.fundingMode).trim(),
     languageLevel: `Français ${french} / Anglais ${english}`,

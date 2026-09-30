@@ -1,18 +1,15 @@
 import {
   acceptApplication,
-  assignApplicationRdv,
   closeApplication,
   completeApplicationInterview,
   fetchCountryUniversities,
-  fetchRdvSuggestion,
-  fetchRdvUsers,
   markApplicationApplied,
   reapplyApplication,
   rejectApplication,
   scheduleApplicationInterview,
+  scheduleStaffMeet,
   type ApplicationStatus,
   type CountryUniversity,
-  type RdvUser,
   type UniversityApplication
 } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -25,7 +22,7 @@ import {
   Send,
   ThumbsDown,
   ThumbsUp,
-  UserCog,
+  Video,
   XCircle
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -78,7 +75,7 @@ export default function ApplicationTimeline({
 }
 
 function ApplicationCard({ app, canAct, onChanged }: { app: UniversityApplication; canAct: boolean; onChanged: () => void }) {
-  const [modal, setModal] = useState<null | "apply" | "interview" | "reject" | "reapply" | "transfer-rdv">(null);
+  const [modal, setModal] = useState<null | "apply" | "interview" | "reject" | "reapply" | "meet">(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const meta = STATUS_META[app.status];
@@ -128,10 +125,23 @@ function ApplicationCard({ app, canAct, onChanged }: { app: UniversityApplicatio
       {app.status === "REJECTED" && app.decisionReason && (
         <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">Motif du refus : {app.decisionReason}</p>
       )}
+      {app.staffMeetAt && app.status === "READY_TO_APPLY" && (
+        <div className="mt-2 rounded-xl bg-sky-50 px-3 py-2 text-xs text-sky-700">
+          <p className="flex items-center gap-1.5 font-semibold"><Video className="h-3.5 w-3.5" /> Meet optionnel : {fmtDateTime(app.staffMeetAt)}</p>
+          {app.staffMeetLink && (
+            <a href={app.staffMeetLink} target="_blank" rel="noreferrer" className="mt-1 flex items-center gap-1 underline">
+              <ExternalLink className="h-3 w-3" /> {app.staffMeetLink}
+            </a>
+          )}
+          {app.staffMeetInstructions && <p className="mt-1">{app.staffMeetInstructions}</p>}
+        </div>
+      )}
       {app.status === "ACCEPTED" && (
         <p className="mt-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
           Accepté le {fmt(app.decisionAt)}{app.acceptanceReference ? ` · Réf. ${app.acceptanceReference}` : ""}
-          {app.assignedRdvId ? " · Dossier transféré au Responsable Visa" : " · Dossier visa pas encore transféré"}
+          {app.visaStatus
+            ? " · Dossier visa chez le Responsable Visa"
+            : " · Documents visa à valider par le conseiller"}
         </p>
       )}
 
@@ -140,9 +150,14 @@ function ApplicationCard({ app, canAct, onChanged }: { app: UniversityApplicatio
       {canAct && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {app.status === "READY_TO_APPLY" && (
-            <button type="button" disabled={busy} onClick={() => setModal("apply")} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white hover:opacity-90">
-              <Send className="h-3 w-3" /> Marquer comme candidature déposée
-            </button>
+            <>
+              <button type="button" disabled={busy} onClick={() => setModal("meet")} className="inline-flex items-center gap-1.5 rounded-lg bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-700 hover:bg-sky-100">
+                <Video className="h-3 w-3" /> {app.staffMeetAt ? "Modifier le Meet (optionnel)" : "Planifier un Meet (optionnel)"}
+              </button>
+              <button type="button" disabled={busy} onClick={() => setModal("apply")} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white hover:opacity-90">
+                <Send className="h-3 w-3" /> Marquer comme candidature déposée
+              </button>
+            </>
           )}
           {(app.status === "WAITING_UNIVERSITY_RESPONSE" || app.status === "INTERVIEW_SCHEDULED") && (
             <>
@@ -168,16 +183,6 @@ function ApplicationCard({ app, canAct, onChanged }: { app: UniversityApplicatio
                 <ThumbsDown className="h-3 w-3" /> Refusé par l'université
               </button>
             </>
-          )}
-          {app.status === "ACCEPTED" && !app.assignedRdvId && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => setModal("transfer-rdv")}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white hover:opacity-90"
-            >
-              <UserCog className="h-3 w-3" /> Transférer au Responsable Dossier Visa
-            </button>
           )}
           {app.status === "REJECTED" && (
             <>
@@ -208,42 +213,27 @@ function ApplicationCard({ app, canAct, onChanged }: { app: UniversityApplicatio
       {modal === "reapply" && (
         <ReapplyModal app={app} onClose={() => setModal(null)} onDone={() => { setModal(null); onChanged(); }} />
       )}
-      {modal === "transfer-rdv" && (
-        <TransferRdvModal app={app} onClose={() => setModal(null)} onDone={() => { setModal(null); onChanged(); }} />
+      {modal === "meet" && (
+        <StaffMeetModal app={app} onClose={() => setModal(null)} onDone={() => { setModal(null); onChanged(); }} />
       )}
     </div>
   );
 }
 
-function TransferRdvModal({ app, onClose, onDone }: { app: UniversityApplication; onClose: () => void; onDone: () => void }) {
-  const [suggestedId, setSuggestedId] = useState<string | null>(null);
-  const [suggestedName, setSuggestedName] = useState<string | null>(null);
-  const [fallback, setFallback] = useState(false);
-  const [rdvUsers, setRdvUsers] = useState<RdvUser[]>([]);
-  const [selectedId, setSelectedId] = useState("");
-  const [override, setOverride] = useState(false);
-  const [loading, setLoading] = useState(true);
+function StaffMeetModal({ app, onClose, onDone }: { app: UniversityApplication; onClose: () => void; onDone: () => void }) {
+  const [date, setDate] = useState(app.staffMeetAt ? app.staffMeetAt.slice(0, 16) : "");
+  const [link, setLink] = useState(app.staffMeetLink || "");
+  const [instructions, setInstructions] = useState(app.staffMeetInstructions || "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    Promise.all([fetchRdvSuggestion(app.id), fetchRdvUsers()])
-      .then(([suggestion, users]) => {
-        setSuggestedId(suggestion.rdvUserId);
-        setSuggestedName(suggestion.rdvName);
-        setFallback(suggestion.fallback);
-        setRdvUsers(users.filter((u) => u.isActive));
-        setSelectedId(suggestion.rdvUserId || "");
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Erreur."))
-      .finally(() => setLoading(false));
-  }, [app.id]);
-
   const submit = async () => {
+    if (!date) { setError("La date et l'heure sont obligatoires."); return; }
+    if (!link.trim()) { setError("Le lien Meet est obligatoire."); return; }
     setBusy(true);
     setError("");
     try {
-      await assignApplicationRdv(app.id, selectedId || undefined);
+      await scheduleStaffMeet(app.id, { date: new Date(date).toISOString(), link: link.trim(), instructions: instructions.trim() || undefined });
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur.");
@@ -253,44 +243,25 @@ function TransferRdvModal({ app, onClose, onDone }: { app: UniversityApplication
   };
 
   return (
-    <ModalShell title="Transférer au Responsable Dossier Visa" onClose={onClose}>
+    <ModalShell title="Meet optionnel avec l'étudiant" onClose={onClose}>
+      <p className="mt-1 text-xs text-muted">Ce rendez-vous n'est pas obligatoire : vous pouvez déposer la candidature sans le planifier.</p>
       <div className="mt-4 space-y-3">
-        {loading ? (
-          <div className="flex justify-center py-4"><div className="h-6 w-6 animate-spin rounded-full border-2 border-line border-t-brand" /></div>
-        ) : suggestedId ? (
-          <>
-            <div className="rounded-lg border border-brand/20 bg-brand/5 px-3 py-2">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-muted">Dossier transféré à</p>
-              <p className="mt-0.5 text-sm font-bold text-dark">{suggestedName}</p>
-            </div>
-            {fallback && (
-              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <p>Aucun RDV n'est spécialisé pour ce pays : le dossier est réparti équitablement, au RDV actif le moins chargé, toutes destinations confondues.</p>
-              </div>
-            )}
-            {!override ? (
-              <button type="button" onClick={() => setOverride(true)} className="text-xs font-bold text-brand hover:underline">
-                Choisir un autre Responsable Visa
-              </button>
-            ) : (
-              <div>
-                <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Responsable Visa</label>
-                <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)} className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm">
-                  {rdvUsers.map((u) => <option key={u.id} value={u.id}>{u.prenom} {u.nom}</option>)}
-                </select>
-              </div>
-            )}
-          </>
-        ) : (
-          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
-            Aucun Responsable Dossier Visa actif n'existe pour l'instant. Créez-en un depuis Sales &gt; Responsables Visa.
-          </p>
-        )}
+        <div>
+          <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Date et heure</label>
+          <input type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Lien Meet</label>
+          <input type="text" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://meet.google.com/..." className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Instructions (optionnel)</label>
+          <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} rows={2} className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />
+        </div>
         {error && <p className="text-xs text-red-500">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className="rounded-lg border border-line px-4 py-2 text-xs font-bold text-muted">Annuler</button>
-          <button type="button" disabled={busy || loading || !selectedId} onClick={submit} className="rounded-lg bg-brand px-4 py-2 text-xs font-bold text-white disabled:opacity-60">Confirmer le transfert</button>
+          <button type="button" disabled={busy} onClick={submit} className="rounded-lg bg-brand px-4 py-2 text-xs font-bold text-white disabled:opacity-60">Enregistrer</button>
         </div>
       </div>
     </ModalShell>
@@ -312,11 +283,13 @@ function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onCl
   const [universities, setUniversities] = useState<CountryUniversity[]>([]);
   const [universitiesLoading, setUniversitiesLoading] = useState(true);
   const [universityId, setUniversityId] = useState(app.universityId);
+  const [customName, setCustomName] = useState("");
   const [appliedAt, setAppliedAt] = useState(new Date().toISOString().slice(0, 10));
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const useCustom = universityId === "__other__";
 
   useEffect(() => {
     setUniversitiesLoading(true);
@@ -326,13 +299,23 @@ function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onCl
       .finally(() => setUniversitiesLoading(false));
   }, [app.countryId]);
 
-  const selectedName = universities.find((u) => u.id === universityId)?.name || app.universityName;
+  const selectedName = useCustom ? customName : (universities.find((u) => u.id === universityId)?.name || app.universityName);
 
   const submit = async () => {
+    if (useCustom && customName.trim().length < 2) {
+      setError("Saisissez le nom de l'université.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
-      await markApplicationApplied(app.id, { universityId, appliedAt, applicationReference: reference || undefined, notes: notes || undefined });
+      await markApplicationApplied(app.id, {
+        universityId: useCustom ? undefined : universityId,
+        universityName: useCustom ? customName.trim() : undefined,
+        appliedAt,
+        applicationReference: reference || undefined,
+        notes: notes || undefined
+      });
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur.");
@@ -352,14 +335,23 @@ function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onCl
           <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Université *</label>
           {universitiesLoading ? (
             <div className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm text-muted">Chargement...</div>
-          ) : universities.filter((u) => u.active).length === 0 ? (
-            <div className="w-full rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              Aucune université active configurée pour ce pays. Ajoutez-en une depuis l'onglet Programmes &gt; Universités.
-            </div>
           ) : (
-            <select value={universityId} onChange={(e) => setUniversityId(e.target.value)} className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm">
-              {universities.filter((u) => u.active).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
+            <>
+              <select value={universityId} onChange={(e) => setUniversityId(e.target.value)} className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm">
+                {universities.filter((u) => u.active).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                <option value="__other__">Autre — taper un nom</option>
+              </select>
+              {useCustom && (
+                <input
+                  type="text"
+                  maxLength={200}
+                  value={customName}
+                  onChange={(e) => setCustomName(e.target.value)}
+                  placeholder="Nom de l'université"
+                  className="mt-2 w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm"
+                />
+              )}
+            </>
           )}
         </div>
         <div>
@@ -467,17 +459,30 @@ function ReasonModal({ title, onClose, onSubmit }: { title: string; onClose: () 
 function ReapplyModal({ app, onClose, onDone }: { app: UniversityApplication; onClose: () => void; onDone: () => void }) {
   const [universities, setUniversities] = useState<CountryUniversity[]>([]);
   const [universityId, setUniversityId] = useState("");
+  const [customName, setCustomName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const useCustom = universityId === "__other__";
 
-  useEffect(() => { fetchCountryUniversities(app.countryId).then((list) => { setUniversities(list); setUniversityId(list.find((u) => u.id !== app.universityId)?.id || ""); }).catch(() => setUniversities([])); }, [app.countryId, app.universityId]);
+  useEffect(() => {
+    fetchCountryUniversities(app.countryId)
+      .then((list) => {
+        setUniversities(list);
+        setUniversityId(list.find((u) => u.id !== app.universityId)?.id || "__other__");
+      })
+      .catch(() => setUniversities([]));
+  }, [app.countryId, app.universityId]);
 
   const submit = async () => {
-    if (!universityId) return;
+    if (useCustom && customName.trim().length < 2) {
+      setError("Saisissez le nom de l'université.");
+      return;
+    }
+    if (!useCustom && !universityId) return;
     setBusy(true);
     setError("");
     try {
-      await reapplyApplication(app.id, { universityId });
+      await reapplyApplication(app.id, useCustom ? { universityName: customName.trim() } : { universityId });
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur.");
@@ -493,14 +498,25 @@ function ReapplyModal({ app, onClose, onDone }: { app: UniversityApplication; on
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Nouvelle université *</label>
           <select value={universityId} onChange={(e) => setUniversityId(e.target.value)} className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm">
-            <option value="">Choisir...</option>
+            <option value="">Choisir</option>
             {universities.filter((u) => u.active).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+            <option value="__other__">Autre — taper un nom</option>
           </select>
+          {useCustom && (
+            <input
+              type="text"
+              maxLength={200}
+              value={customName}
+              onChange={(e) => setCustomName(e.target.value)}
+              placeholder="Nom de l'université"
+              className="mt-2 w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm"
+            />
+          )}
         </div>
         {error && <p className="text-xs text-red-500">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className="rounded-lg border border-line px-4 py-2 text-xs font-bold text-muted">Annuler</button>
-          <button type="button" disabled={busy || !universityId} onClick={submit} className="rounded-lg bg-brand px-4 py-2 text-xs font-bold text-white disabled:opacity-60">Créer la candidature</button>
+          <button type="button" disabled={busy || (!useCustom && !universityId) || (useCustom && customName.trim().length < 2)} onClick={submit} className="rounded-lg bg-brand px-4 py-2 text-xs font-bold text-white disabled:opacity-60">Créer la candidature</button>
         </div>
       </div>
     </ModalShell>

@@ -132,6 +132,14 @@ async function listMineForRdv(req, res) {
   }
 }
 
+async function scheduleStaffMeet(req, res) {
+  try {
+    res.json(await service.scheduleStaffMeet(req.auth, req.params.id, req.body));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function scheduleVisaPrepMeeting(req, res) {
   try {
     res.json(await service.scheduleVisaPrepMeeting(req.auth, req.params.id, req.body));
@@ -162,6 +170,7 @@ module.exports = {
   markRejected,
   closeApplication,
   reapply,
+  scheduleStaffMeet,
   markVisaSubmitted,
   markVisaAccepted,
   markVisaRejected,

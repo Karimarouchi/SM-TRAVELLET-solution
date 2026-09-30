@@ -1,6 +1,7 @@
 const appRepo = require("../repositories/universityApplicationRepository");
 const countryRepo = require("../repositories/countryRepository");
 const universityRepo = require("../repositories/countryUniversityRepository");
+const countryUniversityService = require("./countryUniversityService");
 const studentDocRepo = require("../repositories/studentDocumentRepository");
 const studentRepo = require("../repositories/studentRepository");
 const userRepo = require("../repositories/userRepository");
@@ -50,6 +51,10 @@ function dto(row) {
     visaPrepMeetingLocation: row.visa_prep_meeting_location,
     visaPrepMeetingInstructions: row.visa_prep_meeting_instructions,
     visaEmbassyAppointmentAt: row.visa_embassy_appointment_at,
+    staffMeetAt: row.staff_meet_at,
+    staffMeetLink: row.staff_meet_link,
+    staffMeetInstructions: row.staff_meet_instructions,
+    visaDocsValidatedAt: row.visa_docs_validated_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -101,8 +106,8 @@ async function checkAndAdvanceReadyToApply(studentId) {
     // Résout l'université choisie par l'étudiant (target_university, saisi à
     // l'onboarding depuis la liste Admin) pour ce pays précis.
     if (!profile.target_university) continue;
-    const university = await universityRepo.findByCountryAndName(country.id, profile.target_university);
-    if (!university) continue; // université non reconnue pour ce pays : le Sales créera la candidature manuellement
+    const university = await universityRepo.findOrCreate({ countryId: country.id, name: profile.target_university, active: false });
+    if (!university) continue;
 
     const created = await appRepo.create({
       studentId,
@@ -111,6 +116,7 @@ async function checkAndAdvanceReadyToApply(studentId) {
       salesId: profile.assigned_sales_id
     });
     await recordHistory(created.id, studentId, null, "READY_TO_APPLY", null, "Documents validés — dossier prêt à postuler (automatique).");
+    await autoAssignRdvForApply(created);
   }
 
   if (anyReady && profile.dossier_stage === "DOCUMENTS") {
@@ -156,14 +162,6 @@ function assertSalesOrAdmin(auth) {
 
 // L'entretien terminé peut être déclaré par le Sales/Admin, ou par
 // l'étudiant lui-même une fois l'entretien passé (dossier lui appartenant).
-function assertSalesAdminOrOwnerStudent(auth, application) {
-  if (auth.role === "SALES" || auth.role === "ADMIN") return;
-  if (auth.role === "STUDENT" && auth.sub === application.student_id) return;
-  throw fail("Action non autorisée.", 403);
-}
-
-// Le dossier visa n'est géré que par le RDV assigné à CETTE candidature (pas
-// n'importe quel RDV) ou par l'Admin — jamais par le Sales.
 function assertRdvOrAdmin(auth, application) {
   const roles = authRoles(auth);
   if (roles.includes("ADMIN")) return;
@@ -171,25 +169,155 @@ function assertRdvOrAdmin(auth, application) {
   throw fail("Action réservée au Responsable Dossier Visa assigné ou à l’administrateur.", 403);
 }
 
+function assertUniversityActor(auth, application) {
+  const roles = authRoles(auth);
+  if (roles.includes("ADMIN")) return;
+  if (roles.includes("RDV") && application.assigned_rdv_id === auth.sub) return;
+  throw fail("Le dépôt et le suivi universitaire sont gérés par le RDV assigné.", 403);
+}
+
+function assertSalesAdminOrOwnerStudent(auth, application) {
+  const roles = authRoles(auth);
+  if (roles.includes("ADMIN") || roles.includes("SALES")) return;
+  if (roles.includes("RDV") && application.assigned_rdv_id === auth.sub) return;
+  if (auth.role === "STUDENT" && auth.sub === application.student_id) return;
+  throw fail("Action non autorisée.", 403);
+}
+
+async function isActiveRdv(userId) {
+  if (!userId) return false;
+  const user = await userRepo.findById(userId);
+  if (!user || user.is_active === false) return false;
+  const roles = await userRoleRepo.getEffectiveRoles(user);
+  return roles.includes("RDV");
+}
+
+async function pickRdv({ countryId, preferredUserId }) {
+  if (preferredUserId && (await isActiveRdv(preferredUserId))) {
+    const user = await userRepo.findById(preferredUserId);
+    return { rdvUserId: preferredUserId, rdvName: `${user.prenom} ${user.nom}`.trim(), fallback: false, sameAsPart1: true };
+  }
+  const suggestion = await computeRdvSuggestion(countryId);
+  return { ...suggestion, sameAsPart1: false };
+}
+
+async function applyRdvAssignment(application, pick, { visaPreparation, actorId, comment }) {
+  const fields = { assigned_rdv_id: pick.rdvUserId };
+  if (visaPreparation && !application.visa_status) fields.visa_status = "PREPARATION";
+  const updated = await appRepo.update(application.id, fields);
+  await recordHistory(
+    application.id,
+    application.student_id,
+    application.status,
+    application.status,
+    actorId || null,
+    comment
+  );
+  if (pick.rdvUserId) {
+    await notificationService.notify(pick.rdvUserId, {
+      type: "APPLICATION_ASSIGNED",
+      title: visaPreparation ? "Dossier visa à déposer" : "Candidature universitaire à déposer",
+      body: visaPreparation
+        ? "Les documents visa sont validés. Vous pouvez déposer le dossier."
+        : "Les documents d'études sont validés. Un Meet avec l'étudiant est optionnel, puis déposez la candidature.",
+      link: "/rdv"
+    });
+  }
+  return updated;
+}
+
+async function autoAssignRdvForApply(application) {
+  const pick = await pickRdv({ countryId: application.country_id, preferredUserId: null });
+  if (!pick.rdvUserId) return application;
+  const comment = pick.fallback
+    ? `RDV attribué à ${pick.rdvName} (répartition équitable, aucun spécialiste pour ce pays).`
+    : `RDV attribué à ${pick.rdvName} pour le dépôt de candidature.`;
+  return applyRdvAssignment(application, pick, { visaPreparation: false, comment });
+}
+
+async function autoAssignRdvForVisa(application) {
+  const pick = await pickRdv({ countryId: application.country_id, preferredUserId: application.assigned_rdv_id });
+  if (!pick.rdvUserId) {
+    throw fail("Aucun Responsable Dossier Visa actif n'existe pour reprendre ce dossier.", 409);
+  }
+  const comment = pick.sameAsPart1
+    ? `Documents visa validés — le dossier revient à ${pick.rdvName} (même RDV qu'en partie 1).`
+    : `Documents visa validés — ${pick.rdvName} reprend le dossier (RDV de la partie 1 inactif, moins chargé).`;
+  const updated = await applyRdvAssignment(application, pick, { visaPreparation: true, comment });
+  if (!application.visa_docs_validated_at) {
+    await appRepo.update(application.id, { visa_docs_validated_at: new Date() });
+  }
+  if (application.sales_id) {
+    await commissionService.awardCommission({
+      userId: application.sales_id,
+      studentId: application.student_id,
+      countryId: application.country_id,
+      role: "SALES",
+      stage: "VISA_DOCUMENTS_VALIDATED",
+      applicationId: application.id
+    });
+  }
+  return updated;
+}
+
+async function maybeAdvanceVisaAfterDocs(applicationId) {
+  const application = await appRepo.findById(applicationId);
+  if (!application || application.status !== "ACCEPTED") return;
+  if (application.visa_status) return;
+  const requiredStatuses = await studentDocRepo.findRequiredActiveVisaStatusesForCountry(application.country_id, application.student_id);
+  if (!requiredStatuses.length) {
+    if (!application.visa_status) await autoAssignRdvForVisa(application);
+    return;
+  }
+  if (requiredStatuses.every((r) => r.status === "VALIDATED") && !application.visa_docs_validated_at) {
+    await autoAssignRdvForVisa(application);
+  }
+}
+
 // §5 — Marquer comme candidature déposée. Confirme (ou modifie) l'université
 // choisie par l'étudiant, renseigne la date/référence/commentaire.
+function requireHttpsUrl(raw, label) {
+  let parsed;
+  try {
+    parsed = new URL(String(raw || "").trim());
+  } catch {
+    throw fail(`${label} invalide.`, 400);
+  }
+  if (parsed.protocol !== "https:") throw fail(`${label} doit commencer par https://.`, 400);
+  return parsed.toString();
+}
+
+function sanitizeUniversityName(raw) {
+  return countryUniversityService.sanitizeName(raw);
+}
+
+async function resolveUniversity(countryId, payload) {
+  const customName = payload.universityName ? sanitizeUniversityName(payload.universityName) : "";
+  if (customName) {
+    return universityRepo.findOrCreate({ countryId, name: customName, active: true });
+  }
+  if (payload.universityId) {
+    const university = await universityRepo.findById(payload.universityId);
+    if (!university || university.country_id !== countryId) {
+      throw fail("Université invalide pour ce pays.", 400);
+    }
+    return university;
+  }
+  return null;
+}
+
 async function markApplied(auth, applicationId, payload) {
-  assertSalesOrAdmin(auth);
   const application = await appRepo.findById(applicationId);
   if (!application) throw fail("Candidature introuvable.", 404);
+  assertUniversityActor(auth, application);
   await assertApplicationAccess(auth, application);
   if (application.status !== "READY_TO_APPLY") {
     throw fail("Cette candidature n’est pas au statut « prête à postuler ».", 400);
   }
 
   let universityId = application.university_id;
-  if (payload.universityId && payload.universityId !== universityId) {
-    const university = await universityRepo.findById(payload.universityId);
-    if (!university || university.country_id !== application.country_id) {
-      throw fail("Université invalide pour ce pays.", 400);
-    }
-    universityId = university.id;
-  }
+  const resolved = await resolveUniversity(application.country_id, payload);
+  if (resolved) universityId = resolved.id;
 
   const appliedAt = payload.appliedAt ? new Date(payload.appliedAt) : new Date();
   if (Number.isNaN(appliedAt.getTime())) throw fail("Date de dépôt invalide.", 400);
@@ -206,12 +334,12 @@ async function markApplied(auth, applicationId, payload) {
   await recordHistory(applicationId, application.student_id, application.status, "WAITING_UNIVERSITY_RESPONSE", auth.sub, "Candidature déposée.");
   await notifyStudent(application, `Votre candidature a été déposée. En attente de la réponse de l'université.`, auth.sub);
 
-  if (application.sales_id) {
+  if (application.assigned_rdv_id) {
     await commissionService.awardCommission({
-      userId: application.sales_id,
+      userId: application.assigned_rdv_id,
       studentId: application.student_id,
       countryId: application.country_id,
-      role: "SALES",
+      role: "RDV",
       stage: "APPLIED",
       applicationId
     });
@@ -247,9 +375,9 @@ async function notifyAdminsOfVisaDecision(application, accepted, reason) {
 
 // §7 — Entretien demandé / planifié / modifié.
 async function scheduleInterview(auth, applicationId, payload) {
-  assertSalesOrAdmin(auth);
   const application = await appRepo.findById(applicationId);
   if (!application) throw fail("Candidature introuvable.", 404);
+  assertUniversityActor(auth, application);
   await assertApplicationAccess(auth, application);
   if (!["WAITING_UNIVERSITY_RESPONSE", "INTERVIEW_REQUIRED", "INTERVIEW_SCHEDULED"].includes(application.status)) {
     throw fail("Cette candidature n’est pas dans un état permettant de planifier un entretien.", 400);
@@ -260,13 +388,14 @@ async function scheduleInterview(auth, applicationId, payload) {
   // Tous les entretiens se font en ligne.
   const type = "ONLINE";
   if (!payload.interviewLink) throw fail("Le lien de l’entretien en ligne est obligatoire.", 400);
+  requireHttpsUrl(payload.interviewLink, "Le lien de l’entretien");
 
   const wasScheduled = application.status === "INTERVIEW_SCHEDULED";
   const updated = await appRepo.update(applicationId, {
     status: "INTERVIEW_SCHEDULED",
     interview_date: date,
     interview_type: type,
-    interview_link: String(payload.interviewLink).trim(),
+    interview_link: requireHttpsUrl(payload.interviewLink, "Le lien de l’entretien"),
     interview_instructions: payload.instructions ? String(payload.instructions).trim() : null
   });
 
@@ -325,9 +454,9 @@ async function completeInterview(auth, applicationId) {
 
 // §9 — Acceptation.
 async function markAccepted(auth, applicationId, payload) {
-  assertSalesOrAdmin(auth);
   const application = await appRepo.findById(applicationId);
   if (!application) throw fail("Candidature introuvable.", 404);
+  assertUniversityActor(auth, application);
   await assertApplicationAccess(auth, application);
   if (!["WAITING_UNIVERSITY_RESPONSE", "INTERVIEW_SCHEDULED", "INTERVIEW_COMPLETED"].includes(application.status)) {
     throw fail("Cette candidature n’est pas dans un état permettant une acceptation.", 400);
@@ -340,29 +469,40 @@ async function markAccepted(auth, applicationId, payload) {
     notes: payload.comment ? String(payload.comment).trim() : application.notes
   });
   await recordHistory(applicationId, application.student_id, application.status, "ACCEPTED", auth.sub, payload.comment || "Étudiant accepté par l’université.");
-  await notifyStudent(application, "Félicitations, votre candidature a été acceptée ! Votre dossier passe maintenant à l'étape visa.", auth.sub);
+  await notifyStudent(application, "Félicitations, votre candidature a été acceptée ! Préparez maintenant vos documents visa avec votre conseiller.", auth.sub);
 
   await studentRepo.setDossierStage(application.student_id, "VISA");
 
-  if (application.sales_id) {
+  if (application.assigned_rdv_id) {
     await commissionService.awardCommission({
-      userId: application.sales_id,
+      userId: application.assigned_rdv_id,
       studentId: application.student_id,
       countryId: application.country_id,
-      role: "SALES",
+      role: "RDV",
       stage: "ACCEPTED",
       applicationId
     });
   }
+
+  if (application.sales_id) {
+    await notificationService.notify(application.sales_id, {
+      type: "VISA_DOCUMENTS_READY",
+      title: "Documents visa à préparer",
+      body: "L'université a accepté l'étudiant. Validez les documents visa, puis le dossier reviendra au RDV.",
+      link: `/conseiller/etudiants/${application.student_id}`
+    });
+  }
+
+  await maybeAdvanceVisaAfterDocs(applicationId);
 
   return dto({ ...updated, country_name: (await countryRepo.findById(updated.country_id))?.name });
 }
 
 // §11 — Refus, motif obligatoire.
 async function markRejected(auth, applicationId, reason) {
-  assertSalesOrAdmin(auth);
   const application = await appRepo.findById(applicationId);
   if (!application) throw fail("Candidature introuvable.", 404);
+  assertUniversityActor(auth, application);
   await assertApplicationAccess(auth, application);
   const trimmed = String(reason || "").trim();
   if (!trimmed) throw fail("Un motif est obligatoire pour refuser une candidature.", 400);
@@ -382,9 +522,9 @@ async function markRejected(auth, applicationId, reason) {
 
 // §12 — Clôturer le parcours (après refus), ne réouvre rien.
 async function closeApplication(auth, applicationId, comment) {
-  assertSalesOrAdmin(auth);
   const application = await appRepo.findById(applicationId);
   if (!application) throw fail("Candidature introuvable.", 404);
+  assertUniversityActor(auth, application);
   await assertApplicationAccess(auth, application);
   if (application.status !== "REJECTED") {
     throw fail("Seule une candidature refusée peut être clôturée.", 400);
@@ -397,19 +537,16 @@ async function closeApplication(auth, applicationId, comment) {
 // §12 — Postuler dans une autre université après refus : NE modifie PAS
 // l'ancienne candidature (conservée telle quelle), en crée une nouvelle.
 async function reapply(auth, applicationId, payload) {
-  assertSalesOrAdmin(auth);
   const previous = await appRepo.findById(applicationId);
   if (!previous) throw fail("Candidature introuvable.", 404);
+  assertUniversityActor(auth, previous);
   await assertApplicationAccess(auth, previous);
   const visaRejected = previous.visa_status === "REJECTED";
   if (previous.status !== "REJECTED" && !visaRejected) {
     throw fail("Une nouvelle candidature ne peut être créée qu’après un refus.", 400);
   }
-  if (!payload.universityId) throw fail("Choisissez une université.", 400);
-  const university = await universityRepo.findById(payload.universityId);
-  if (!university || university.country_id !== previous.country_id) {
-    throw fail("Université invalide pour ce pays.", 400);
-  }
+  const university = await resolveUniversity(previous.country_id, payload);
+  if (!university) throw fail("Choisissez ou saisissez une université.", 400);
 
   const created = await appRepo.create({
     studentId: previous.student_id,
@@ -426,6 +563,7 @@ async function reapply(auth, applicationId, payload) {
     auth.sub,
     visaRejected ? `Nouvelle candidature après refus du visa (${university.name}).` : `Nouvelle candidature après refus (${university.name}).`
   );
+  await autoAssignRdvForApply(created);
   if (visaRejected) {
     await studentRepo.setDossierStage(previous.student_id, "UNIVERSITY_APPLICATION");
   }
@@ -459,67 +597,72 @@ async function suggestRdv(auth, applicationId) {
 }
 
 async function assignRdv(auth, applicationId, payload) {
-  assertSalesOrAdmin(auth);
+  const roles = authRoles(auth);
+  if (!roles.includes("ADMIN")) {
+    throw fail("La réattribution manuelle d'un RDV est réservée à l'administrateur.", 403);
+  }
   const application = await appRepo.findById(applicationId);
   if (!application) throw fail("Candidature introuvable.", 404);
-  await assertApplicationAccess(auth, application);
-  if (application.status !== "ACCEPTED") {
-    throw fail("Le transfert au Responsable Dossier Visa n’est possible qu’après acceptation.", 400);
-  }
 
   let rdvUserId = payload.rdvUserId || null;
   let fallback = false;
   if (!rdvUserId) {
-    // Attribution automatique : RDV spécialisé sur le pays de la candidature,
-    // le moins chargé. À défaut (aucun RDV spécialisé), répartition équitable
-    // parmi tous les RDV actifs. L'auto-attribution à soi-même est autorisée.
     const suggestion = await computeRdvSuggestion(application.country_id);
     if (!suggestion.rdvUserId) {
       throw fail("Aucun Responsable Dossier Visa actif n'existe. Créez-en un ou choisissez-en un manuellement.", 409);
     }
     rdvUserId = suggestion.rdvUserId;
     fallback = suggestion.fallback;
-  } else if (authRoles(auth).includes("ADMIN")) {
-    // L'Admin a autorité pour réattribuer librement, y compris vers un RDV
-    // non spécialisé sur ce pays (ex: rééquilibrage manuel de la charge).
-    const allRdv = await userRoleRepo.listUsersWithRole("RDV");
-    if (!allRdv.some((r) => r.id === rdvUserId && r.is_active !== false)) {
-      throw fail("Ce compte n'est pas un Responsable Dossier Visa actif.", 400);
-    }
-  } else {
-    const assigned = await userRoleRepo.listRdvAssignmentsForCountry(application.country_id);
-    if (assigned.length) {
-      if (!assigned.some((r) => r.id === rdvUserId)) {
-        const country = await countryRepo.findById(application.country_id);
-        throw fail(`Ce RDV n'est pas configuré pour ${country?.name || "ce pays"}.`, 400);
-      }
-    } else {
-      const allRdv = await userRoleRepo.listUsersWithRole("RDV");
-      if (!allRdv.some((r) => r.id === rdvUserId && r.is_active !== false)) {
-        throw fail("Ce compte n'est pas un Responsable Dossier Visa actif.", 400);
-      }
-      fallback = true;
-    }
+  } else if (!(await isActiveRdv(rdvUserId))) {
+    throw fail("Ce compte n'est pas un Responsable Dossier Visa actif.", 400);
   }
 
   const wasAlreadyAssigned = Boolean(application.assigned_rdv_id);
   const fields = { assigned_rdv_id: rdvUserId };
-  // Une réattribution (le dossier avait déjà un RDV et un statut visa en
-  // cours) ne remet pas le compteur à zéro : seul le responsable change.
-  if (!application.visa_status) fields.visa_status = "PREPARATION";
+  if (application.status === "ACCEPTED" && application.visa_docs_validated_at && !application.visa_status) {
+    fields.visa_status = "PREPARATION";
+  }
   const updated = await appRepo.update(applicationId, fields);
   const rdvUser = await userRepo.findById(rdvUserId);
   const rdvName = rdvUser ? `${rdvUser.prenom} ${rdvUser.nom}`.trim() : "Responsable Dossier Visa";
   const comment = wasAlreadyAssigned
     ? `Dossier réattribué à ${rdvName}.`
     : fallback
-      ? `Dossier transféré à ${rdvName} — aucun RDV spécialisé pour ce pays, attribution équitable parmi tous les RDV actifs.`
-      : `Dossier transféré à ${rdvName} — préparation du visa.`;
+      ? `Dossier transféré à ${rdvName} — attribution équitable parmi tous les RDV actifs.`
+      : `Dossier transféré à ${rdvName}.`;
   await recordHistory(applicationId, application.student_id, application.status, application.status, auth.sub, comment);
-  await studentRepo.setDossierStage(application.student_id, "VISA");
-  if (!wasAlreadyAssigned) {
-    await notifyStudent(updated, "Votre dossier universitaire est accepté ! Il passe maintenant à l'étape de préparation du visa.", auth.sub);
+  return dto({ ...updated, country_name: (await countryRepo.findById(updated.country_id))?.name, university_name: (await universityRepo.findById(updated.university_id))?.name });
+}
+
+async function scheduleStaffMeet(auth, applicationId, payload) {
+  const application = await appRepo.findById(applicationId);
+  if (!application) throw fail("Candidature introuvable.", 404);
+  assertUniversityActor(auth, application);
+  if (application.status !== "READY_TO_APPLY") {
+    throw fail("Le Meet optionnel se planifie avant le dépôt de candidature.", 400);
   }
+  const date = payload.date ? new Date(payload.date) : null;
+  if (!date || Number.isNaN(date.getTime())) throw fail("Date/heure du Meet invalide.", 400);
+  const link = requireHttpsUrl(payload.link, "Le lien du Meet");
+  const instructions = payload.instructions ? String(payload.instructions).trim() : null;
+  const updated = await appRepo.update(applicationId, {
+    staff_meet_at: date,
+    staff_meet_link: link,
+    staff_meet_instructions: instructions
+  });
+  await recordHistory(
+    applicationId,
+    application.student_id,
+    application.status,
+    application.status,
+    auth.sub,
+    `Meet optionnel ${application.staff_meet_at ? "reprogrammé" : "planifié"} le ${date.toLocaleString("fr-FR")}.`
+  );
+  await notifyStudent(
+    updated,
+    `Un rendez-vous Meet a été ${application.staff_meet_at ? "reprogrammé" : "planifié"} le ${date.toLocaleString("fr-FR")}. Il n'est pas obligatoire pour déposer la candidature.`,
+    auth.sub
+  );
   return dto({ ...updated, country_name: (await countryRepo.findById(updated.country_id))?.name, university_name: (await universityRepo.findById(updated.university_id))?.name });
 }
 
@@ -729,8 +872,10 @@ async function listMineForRdv(auth) {
 
 module.exports = {
   checkAndAdvanceReadyToApply,
+  maybeAdvanceVisaAfterDocs,
   assignRdv,
   suggestRdv,
+  scheduleStaffMeet,
   listMineForRdv,
   listForStudent,
   getHistoryForStudent,

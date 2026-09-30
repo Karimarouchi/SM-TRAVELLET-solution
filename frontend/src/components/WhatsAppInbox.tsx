@@ -698,6 +698,7 @@ export default function WhatsAppInbox() {
                 )}
                 {error && <p className="bg-[#f0f2f5] px-4 pt-2 text-xs text-red-500">{error}</p>}
 
+                {!isAdmin ? (
                 <div
                   className="flex items-end gap-2 bg-[#f0f2f5] px-2 pt-2 md:px-3"
                   style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
@@ -726,6 +727,9 @@ export default function WhatsAppInbox() {
                     <Send className="h-[18px] w-[18px]" />
                   </button>
                 </div>
+                ) : (
+                  <p className="bg-[#f0f2f5] px-4 py-3 text-xs text-muted">Lecture seule : seuls les conseillers peuvent envoyer un message WhatsApp.</p>
+                )}
               </>
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center bg-[#f7f5f2] px-8 text-center">

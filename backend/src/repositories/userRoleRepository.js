@@ -27,8 +27,10 @@ async function setAdditionalRoles(userId, roles) {
 // visa_status qui porte l'étape réelle, donc c'est lui qu'il faut compter.
 const ACTIVE_VISA_LOAD_SQL = `
   ua.assigned_rdv_id = u.id
-  AND ua.status = 'ACCEPTED'
-  AND (ua.visa_status IS NULL OR ua.visa_status IN ('PREPARATION', 'SUBMITTED'))
+  AND (
+    ua.status IN ('READY_TO_APPLY', 'APPLIED', 'WAITING_UNIVERSITY_RESPONSE', 'INTERVIEW_REQUIRED', 'INTERVIEW_SCHEDULED', 'INTERVIEW_COMPLETED')
+    OR (ua.status = 'ACCEPTED' AND ua.visa_status IN ('PREPARATION', 'SUBMITTED'))
+  )
 `;
 
 async function findRdvForCountry(countryId) {

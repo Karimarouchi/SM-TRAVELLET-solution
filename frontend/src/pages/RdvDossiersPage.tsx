@@ -16,6 +16,7 @@ import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, Calendar, CheckCircle2, Clock, FileText, GraduationCap, Landmark, Send, ThumbsDown, ThumbsUp, Video, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
+import ApplicationTimeline from "@/components/admin/ApplicationTimeline";
 import MyCommissionsCard from "@/components/MyCommissionsCard";
 
 function docStatusMeta(t: (fr: string, en: string) => string): Record<VisaDocumentChecklistItem["status"], { label: string; color: string; icon: typeof Clock }> {
@@ -30,11 +31,13 @@ function docStatusMeta(t: (fr: string, en: string) => string): Record<VisaDocume
 function VisaDocumentReviewRow({
   applicationId,
   doc,
-  onReviewed
+  onReviewed,
+  allowReview = true
 }: {
   applicationId: string;
   doc: VisaDocumentChecklistItem;
   onReviewed: (d: VisaDocumentChecklistItem) => void;
+  allowReview?: boolean;
 }) {
   const { t } = useLanguage();
   const [rejecting, setRejecting] = useState(false);
@@ -43,7 +46,7 @@ function VisaDocumentReviewRow({
   const [error, setError] = useState("");
   const meta = docStatusMeta(t)[doc.status];
   const StatusIcon = meta.icon;
-  const canReview = doc.status === "SUBMITTED" || doc.status === "REJECTED";
+  const canReview = allowReview && (doc.status === "SUBMITTED" || doc.status === "REJECTED");
 
   const handleValidate = async () => {
     setBusy(true);
@@ -368,7 +371,7 @@ export default function RdvDossiersPage() {
         <p className="text-sm text-white/80">{t("Espace RDV", "Visa officer area")}</p>
         <h1 className="mt-1 font-display text-3xl font-extrabold">{t("Bonjour", "Hello")}, {session.user.prenom}</h1>
         <p className="mt-3 text-sm text-white/85">
-          {applications.length} {t(`dossier${applications.length > 1 ? "s" : ""} visa qui vous sont attribués.`, `visa file${applications.length > 1 ? "s" : ""} assigned to you.`)}
+          {applications.length} {t(`dossier${applications.length > 1 ? "s" : ""} qui vous sont attribués (candidature puis visa).`, `file${applications.length > 1 ? "s" : ""} assigned to you (application then visa).`)}
         </p>
       </section>
 
@@ -378,11 +381,27 @@ export default function RdvDossiersPage() {
 
       {!applications.length ? (
         <p className="mt-6 rounded-[20px] border border-dashed border-line bg-white p-8 text-sm text-muted">
-          {t("Aucun dossier visa ne vous est attribué pour l'instant.", "No visa file is assigned to you yet.")}
+          {t("Aucun dossier ne vous est attribué pour l'instant.", "No file is assigned to you yet.")}
         </p>
       ) : (
+        <>
+          {applications.some((a) => a.status !== "ACCEPTED" && a.status !== "CLOSED") && (
+            <section className="mt-6">
+              <h2 className="mb-3 font-display text-lg font-bold text-dark">{t("Candidatures universitaires", "University applications")}</h2>
+              <ApplicationTimeline
+                applications={applications.filter((a) => a.status !== "ACCEPTED" && a.status !== "CLOSED")}
+                canAct
+                onChanged={load}
+              />
+            </section>
+          )}
+          {applications.some((a) => a.status === "ACCEPTED" && !a.visaStatus) && (
+            <section className="mt-6 rounded-[20px] border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
+              {t("Dossiers en attente des documents visa chez le conseiller. Ils vous reviendront automatiquement (même RDV, ou le moins chargé s'il n'est plus actif).", "Files waiting for visa documents with the advisor. They will return to you automatically (same officer, or the least loaded if they are inactive).")}
+            </section>
+          )}
         <div className="mt-6 space-y-4">
-          {applications.map((app) => {
+          {applications.filter((app) => app.visaStatus).map((app) => {
             const meta = VISA_STEP_META[app.visaStatus || "PREPARATION"];
             const busy = busyId === app.id;
             const docs = docsByApp[app.id] || [];
@@ -435,6 +454,7 @@ export default function RdvDossiersPage() {
                             key={doc.requirementId}
                             applicationId={app.id}
                             doc={doc}
+                            allowReview={false}
                             onReviewed={(updated) =>
                               setDocsByApp((prev) => ({
                                 ...prev,
@@ -515,6 +535,7 @@ export default function RdvDossiersPage() {
             );
           })}
         </div>
+        </>
       )}
 
       {rejectTarget && (

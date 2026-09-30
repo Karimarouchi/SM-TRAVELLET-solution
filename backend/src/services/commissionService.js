@@ -5,12 +5,13 @@ const notificationService = require("./notificationService");
 const logger = require("../logger");
 
 const ROLES = ["SALES", "RDV"];
-const STAGES = ["CODE_CLAIMED", "DOCUMENTS_VALIDATED", "APPLIED", "ACCEPTED", "VISA_SUBMITTED", "VISA_ACCEPTED"];
+const STAGES = ["CODE_CLAIMED", "DOCUMENTS_VALIDATED", "APPLIED", "ACCEPTED", "VISA_DOCUMENTS_VALIDATED", "VISA_SUBMITTED", "VISA_ACCEPTED"];
 const STAGE_LABELS = {
   CODE_CLAIMED: "Code conseiller utilisé",
   DOCUMENTS_VALIDATED: "Documents validés",
   APPLIED: "Candidature déposée",
   ACCEPTED: "Acceptation université",
+  VISA_DOCUMENTS_VALIDATED: "Documents visa validés",
   VISA_SUBMITTED: "Dossier visa déposé",
   VISA_ACCEPTED: "Visa obtenu"
 };
