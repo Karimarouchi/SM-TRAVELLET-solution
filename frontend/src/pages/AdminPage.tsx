@@ -14,6 +14,7 @@ import {
   Sparkline,
 } from "@/components/admin/AdminCharts";
 import StudentsPipelineBoard from "@/components/admin/StudentsPipelineBoard";
+import TeamPerformancePanel from "@/components/admin/TeamPerformancePanel";
 import {
   CheckCircle2,
   GraduationCap,
@@ -488,6 +489,9 @@ export default function AdminPage() {
           </div>
         </section>
       </div>
+
+      {/* ── Statistiques WhatsApp et délais, par employé ─────────────────── */}
+      <TeamPerformancePanel />
 
       {/* ── Performance des deux équipes, classées séparément ────────────── */}
       <div className="mt-4 grid gap-4 xl:grid-cols-2">

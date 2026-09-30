@@ -385,38 +385,81 @@ export async function updateAdminSettings(payload: Partial<AdminSettings> & { em
   });
 }
 
-export type WorkHoursReport = {
-  workHours: { days: number[]; start: string; end: string; timezone: string; halfwayMinutes: number };
-  sales: {
-    id: string;
-    prenom: string;
-    nom: string;
-    email: string;
-    isActive: boolean;
-    students: number;
-    documentsValidated: number;
-    avgAssignToDocsLabel: string;
-    halfwayDossiers: number;
-    whatsappConversationsWeek: number;
-    whatsappConversationsMonth: number;
-    avgWhatsappReplyLabel: string;
-  }[];
-  rdv: {
-    id: string;
-    prenom: string;
-    nom: string;
-    email: string;
-    isActive: boolean;
-    dossiers: number;
-    avgReadyToAppliedLabel: string;
-    avgAppliedToAcceptedLabel: string;
-    avgVisaPrepToSubmitLabel: string;
-    halfwayDossiers: number;
-  }[];
+// ── Statistiques Admin (durées en heures ouvrées, cf. Paramètres) ─────────
+export type PerformancePeriod = "7" | "30" | "90" | "all";
+export type PerfDuration = { minutes: number | null; label: string; count: number };
+
+export type WhatsAppFunnel = {
+  conversations: number;
+  answered: number;
+  unanswered: number;
+  codeSent: number;
+  registered: number;
+  converted: number;
+  notConverted: number;
+  conversionRate: number | null;
 };
 
-export async function fetchWorkHoursReport() {
-  return request<WorkHoursReport>("/api/admin/work-hours");
+export type PerfContactItem = { contactId: string; name: string; phone: string; lastMessageAt?: string | null; since?: string; waitingLabel?: string };
+export type PerfDossierItem = { name: string; step: string; waitingLabel: string };
+
+export type SalesPerformance = {
+  whatsapp: WhatsAppFunnel & { firstReply: PerfDuration; reply: PerfDuration; pendingNow: number };
+  students: number;
+  handoff: PerfDuration;
+  documentReview: PerfDuration;
+  documentsValidated: number;
+  documentsRejected: number;
+  acceptedToVisaDocs: PerfDuration;
+  halfwayDossiers: number;
+  codes: { created: number; used: number; sentOnWhatsapp: number };
+  lists?: { notConverted: PerfContactItem[]; unanswered: PerfContactItem[]; pending: PerfContactItem[]; halfway: PerfDossierItem[] };
+};
+
+export type RdvPerformance = {
+  dossiers: number;
+  readyToApplied: PerfDuration;
+  appliedToDecision: PerfDuration;
+  visaDocsToSubmit: PerfDuration;
+  accepted: number;
+  rejected: number;
+  visaAccepted: number;
+  visaRejected: number;
+  acceptanceRate: number | null;
+  visaAcceptanceRate: number | null;
+  halfwayDossiers: number;
+  lists?: { halfway: PerfDossierItem[] };
+};
+
+export type StaffPerformance = {
+  id: string;
+  prenom: string;
+  nom: string;
+  email: string;
+  phone: string;
+  isActive: boolean;
+  roles: string[];
+  sales: SalesPerformance | null;
+  rdv: RdvPerformance | null;
+};
+
+export type PerfWorkHours = { days: number[]; start: string; end: string; timezone: string; halfwayMinutes: number };
+
+export type TeamPerformance = {
+  period: PerformancePeriod;
+  workHours: PerfWorkHours;
+  whatsapp: WhatsAppFunnel & { unassigned: number; firstReply: PerfDuration; reply: PerfDuration; pendingNow: number };
+  staff: StaffPerformance[];
+};
+
+export async function fetchTeamPerformance(period: PerformancePeriod) {
+  return request<TeamPerformance>(`/api/admin/performance?period=${period}`);
+}
+
+export async function fetchUserPerformance(userId: string, period: PerformancePeriod) {
+  return request<{ period: PerformancePeriod; workHours: PerfWorkHours; user: StaffPerformance }>(
+    `/api/admin/performance/users/${userId}?period=${period}`
+  );
 }
 
 export async function createSalesAccount(payload: {

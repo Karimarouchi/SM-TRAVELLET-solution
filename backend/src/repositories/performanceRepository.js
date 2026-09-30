@@ -1,70 +1,100 @@
 const { query } = require("../../db");
+const { CONVERSATIONS_CTE } = require("./whatsappRepository");
 
-async function listSalesStudents() {
+// Conseillers et Responsables Visa (rôle de base ou rôle additionnel).
+async function listStaff() {
   const result = await query(
-    `SELECT u.id AS sales_id, u.prenom, u.nom, u.email, u.is_active,
-            sp.user_id AS student_id,
-            sp.created_at AS assigned_at,
-            sp.onboarding_completed_at,
-            sp.dossier_stage
+    `SELECT u.id, u.prenom, u.nom, u.email, COALESCE(sp.phone, '') AS phone, u.is_active, u.role,
+            ARRAY(SELECT ur.role FROM user_roles ur WHERE ur.user_id = u.id) AS extra_roles
      FROM users u
-     LEFT JOIN student_profiles sp ON sp.assigned_sales_id = u.id
-     WHERE u.role = 'SALES' OR EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'SALES')
+     LEFT JOIN sales_profiles sp ON sp.user_id = u.id
+     WHERE u.role IN ('SALES', 'RDV')
+        OR EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role IN ('SALES', 'RDV'))
      ORDER BY u.prenom, u.nom`
   );
   return result.rows;
 }
 
-async function listApplicationsForTiming() {
+// Une ligne par conversation WhatsApp, avec son responsable effectif (même
+// règle que la messagerie) et ce qu'il en est advenu.
+async function listConversations() {
   const result = await query(
-    `SELECT ua.id, ua.student_id, ua.sales_id, ua.assigned_rdv_id, ua.country_id,
-            ua.status, ua.created_at, ua.applied_at, ua.decision_at,
-            ua.visa_status, ua.visa_submitted_at, ua.visa_decision_at, ua.visa_docs_validated_at,
-            rdv.prenom AS rdv_prenom, rdv.nom AS rdv_nom, rdv.email AS rdv_email, rdv.is_active AS rdv_active,
-            sales.prenom AS sales_prenom, sales.nom AS sales_nom, sales.email AS sales_email
-     FROM university_applications ua
-     LEFT JOIN users rdv ON rdv.id = ua.assigned_rdv_id
-     LEFT JOIN users sales ON sales.id = ua.sales_id
-     WHERE ua.status <> 'CLOSED'
-     ORDER BY ua.created_at DESC`
+    `${CONVERSATIONS_CTE}
+     SELECT c.id, c.phone, c.profile_name, c.student_id, c.student_prenom, c.student_nom,
+            c.owner_id, c.created_at, c.last_message_at,
+            (SELECT MIN(m.created_at) FROM whatsapp_messages m WHERE m.contact_id = c.id AND m.direction = 'in') AS first_inbound_at,
+            (SELECT MAX(m.created_at) FROM whatsapp_messages m WHERE m.contact_id = c.id AND m.direction = 'in') AS last_inbound_at,
+            EXISTS (SELECT 1 FROM whatsapp_messages m WHERE m.contact_id = c.id AND m.direction = 'out') AS answered,
+            EXISTS (SELECT 1 FROM sales_codes sc WHERE sc.whatsapp_contact_id = c.id) AS code_sent
+     FROM conv c`
   );
   return result.rows;
 }
 
-async function listWhatsAppReplyPairs() {
+// Messages dans l'ordre, pour découper les « tours » : premier message
+// entrant sans réponse → première réponse.
+async function listMessagesForTurns(since) {
   const result = await query(
-    `SELECT c.assigned_sales_id,
-            inbound.created_at AS inbound_at,
-            (
-              SELECT MIN(outbound.created_at)
-              FROM whatsapp_messages outbound
-              WHERE outbound.contact_id = inbound.contact_id
-                AND outbound.direction = 'out'
-                AND outbound.created_at > inbound.created_at
-            ) AS reply_at
-     FROM whatsapp_messages inbound
-     JOIN whatsapp_contacts c ON c.id = inbound.contact_id
-     WHERE inbound.direction = 'in' AND c.assigned_sales_id IS NOT NULL`
-  );
-  return result.rows;
-}
-
-async function listWhatsAppConversationCounts(since) {
-  const result = await query(
-    `SELECT assigned_sales_id AS sales_id, COUNT(*)::int AS count
-     FROM whatsapp_contacts
-     WHERE assigned_sales_id IS NOT NULL
-       AND last_message_at IS NOT NULL
-       AND last_message_at >= $1
-     GROUP BY assigned_sales_id`,
+    `SELECT contact_id, direction, sent_by, created_at
+     FROM whatsapp_messages
+     WHERE ($1::timestamptz IS NULL OR created_at >= $1::timestamptz - INTERVAL '30 days')
+     ORDER BY contact_id, created_at`,
     [since]
   );
   return result.rows;
 }
 
+async function listSalesStudents() {
+  const result = await query(
+    `SELECT sp.user_id AS student_id, sp.assigned_sales_id AS sales_id,
+            su.prenom, su.nom,
+            COALESCE(sp.onboarding_completed_at, sp.created_at) AS started_at,
+            sp.dossier_stage,
+            (SELECT MIN(ua.created_at) FROM university_applications ua WHERE ua.student_id = sp.user_id) AS handed_off_at
+     FROM student_profiles sp
+     JOIN users su ON su.id = sp.user_id
+     WHERE sp.assigned_sales_id IS NOT NULL`
+  );
+  return result.rows;
+}
+
+async function listDocumentReviews(since) {
+  const result = await query(
+    `SELECT reviewed_by, status, submitted_at, reviewed_at
+     FROM student_documents
+     WHERE reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL AND submitted_at IS NOT NULL
+       AND ($1::timestamptz IS NULL OR reviewed_at >= $1::timestamptz)`,
+    [since]
+  );
+  return result.rows;
+}
+
+async function listApplications() {
+  const result = await query(
+    `SELECT ua.id, ua.student_id, ua.sales_id, ua.assigned_rdv_id, ua.status,
+            ua.created_at, ua.applied_at, ua.decision_at,
+            ua.visa_status, ua.visa_docs_validated_at, ua.visa_submitted_at, ua.visa_decision_at,
+            su.prenom AS student_prenom, su.nom AS student_nom, c.name AS country_name
+     FROM university_applications ua
+     JOIN users su ON su.id = ua.student_id
+     LEFT JOIN countries c ON c.id = ua.country_id`
+  );
+  return result.rows;
+}
+
+async function listCodes() {
+  const result = await query(
+    "SELECT sales_id, used, used_at, created_at, whatsapp_contact_id FROM sales_codes"
+  );
+  return result.rows;
+}
+
 module.exports = {
+  listStaff,
+  listConversations,
+  listMessagesForTurns,
   listSalesStudents,
-  listApplicationsForTiming,
-  listWhatsAppReplyPairs,
-  listWhatsAppConversationCounts
+  listDocumentReviews,
+  listApplications,
+  listCodes
 };

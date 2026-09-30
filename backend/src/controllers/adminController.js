@@ -164,12 +164,20 @@ async function listRdvStudents(req, res) {
   }
 }
 
-async function workHours(req, res) {
+async function teamPerformance(req, res) {
   try {
-    res.json(await require("../services/performanceService").getWorkHoursReport());
+    res.json(await require("../services/performanceService").getTeamPerformance(req.query.period));
   } catch (error) {
     handle(res, error);
   }
 }
 
-module.exports = { dashboard, board, studentsOverview, setStudentActive, autoAssign, getSettings, updateSettings, workHours, createSales, setSalesActive, transferSales, deleteSales, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };
+async function userPerformance(req, res) {
+  try {
+    res.json(await require("../services/performanceService").getUserPerformance(req.params.id, req.query.period));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
+module.exports = { dashboard, board, studentsOverview, setStudentActive, autoAssign, getSettings, updateSettings, teamPerformance, userPerformance, createSales, setSalesActive, transferSales, deleteSales, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };

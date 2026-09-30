@@ -21,9 +21,10 @@ import {
 } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import { Coins, GraduationCap, LayoutGrid, List, Mail, MapPinOff, Phone, Plus, ShieldCheck, Trophy, UserCog, Users, Users2, X, ArrowRightLeft } from "lucide-react";
+import { BarChart3, Coins, GraduationCap, LayoutGrid, List, Mail, MapPinOff, Phone, Plus, ShieldCheck, Trophy, UserCog, Users, Users2, X, ArrowRightLeft } from "lucide-react";
 import { DragEvent, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { Link } from "react-router-dom";
 import AdminAssignment from "@/pages/AdminAssignment";
 import CommissionsPanel from "@/components/admin/CommissionsPanel";
 
@@ -301,13 +302,21 @@ function SalesTab({ board, onOpenAccess, onChanged }: { board: AssignmentBoard |
                 <p className="mt-3 flex items-center gap-2 text-xs text-mid"><Mail className="h-3.5 w-3.5 shrink-0 text-brand" /> <span className="min-w-0 truncate">{item.email}</span></p>
                 <p className="mt-1.5 flex items-center gap-2 text-xs text-mid"><Phone className="h-3.5 w-3.5 text-brand" /> {item.phone || "Non renseigné"}</p>
                 <p className="mt-1.5 flex items-center gap-2 text-xs text-mid"><Users className="h-3.5 w-3.5 text-brand" /> {item.students.length} étudiant{item.students.length > 1 ? "s" : ""} · {completedCount} complet{completedCount > 1 ? "s" : ""}</p>
+                <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => onOpenAccess(item.id, `${item.prenom} ${item.nom}`)}
-                  className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-brand/10 px-3 py-1.5 text-xs font-bold text-brand hover:bg-brand hover:text-white transition"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand/10 px-3 py-1.5 text-xs font-bold text-brand hover:bg-brand hover:text-white transition"
                 >
                   <ShieldCheck className="h-3.5 w-3.5" /> Gérer les accès
                 </button>
+                <Link
+                  to={`/admin/equipe/${item.id}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 transition hover:bg-emerald-600 hover:text-white"
+                >
+                  <BarChart3 className="h-3.5 w-3.5" /> Voir stats
+                </Link>
+                </div>
               </article>
             );
           })}
@@ -341,6 +350,10 @@ function SalesTab({ board, onOpenAccess, onChanged }: { board: AssignmentBoard |
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                      <Link to={`/admin/equipe/${item.id}`} title="Voir stats" className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700 transition hover:bg-emerald-600 hover:text-white">
+                        <BarChart3 className="h-3.5 w-3.5" /> Stats
+                      </Link>
                       <button
                         type="button"
                         onClick={() => onOpenAccess(item.id, `${item.prenom} ${item.nom}`)}
@@ -348,6 +361,7 @@ function SalesTab({ board, onOpenAccess, onChanged }: { board: AssignmentBoard |
                       >
                         <ShieldCheck className="h-3.5 w-3.5" /> Gérer les accès
                       </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -766,6 +780,10 @@ function RdvTab({ onNewRdv, onOpenAccess }: { onNewRdv: () => void; onOpenAccess
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                      <Link to={`/admin/equipe/${rdv.id}`} title="Voir stats" className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700 transition hover:bg-emerald-600 hover:text-white">
+                        <BarChart3 className="h-3.5 w-3.5" /> Stats
+                      </Link>
                       <button
                         type="button"
                         onClick={() => onOpenAccess(rdv.id, `${rdv.prenom} ${rdv.nom}`)}
@@ -773,6 +791,7 @@ function RdvTab({ onNewRdv, onOpenAccess }: { onNewRdv: () => void; onOpenAccess
                       >
                         <ShieldCheck className="h-3.5 w-3.5" /> Gérer les accès
                       </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -807,6 +826,12 @@ function RdvTab({ onNewRdv, onOpenAccess }: { onNewRdv: () => void; onOpenAccess
                     >
                       <ShieldCheck className="h-3.5 w-3.5" /> Accès
                     </button>
+                    <Link
+                      to={`/admin/equipe/${rdv.id}`}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 transition hover:bg-emerald-600 hover:text-white"
+                    >
+                      <BarChart3 className="h-3.5 w-3.5" /> Stats
+                    </Link>
                   </div>
                 </div>
 

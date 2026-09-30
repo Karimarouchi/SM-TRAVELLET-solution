@@ -159,7 +159,8 @@ app.get("/api/admin/students-overview", requireAuth, requireRoles("ADMIN"), admi
 app.patch("/api/admin/students/:id/active", requireAuth, requireRoles("ADMIN"), adminController.setStudentActive);
 app.get("/api/admin/settings", requireAuth, requireRoles("ADMIN"), adminController.getSettings);
 app.put("/api/admin/settings", requireAuth, requireRoles("ADMIN"), adminController.updateSettings);
-app.get("/api/admin/work-hours", requireAuth, requireRoles("ADMIN"), adminController.workHours);
+app.get("/api/admin/performance", requireAuth, requireRoles("ADMIN"), adminController.teamPerformance);
+app.get("/api/admin/performance/users/:id", requireAuth, requireRoles("ADMIN"), adminController.userPerformance);
 app.patch("/api/admin/auto-assign", requireAuth, requireRoles("ADMIN"), adminController.autoAssign);
 app.post("/api/admin/sales", requireAuth, requireRoles("ADMIN"), adminController.createSales);
 app.patch("/api/admin/sales/:id/active", requireAuth, requireRoles("ADMIN"), adminController.setSalesActive);

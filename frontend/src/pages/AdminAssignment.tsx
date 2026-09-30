@@ -13,7 +13,8 @@ import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { DragEvent, FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowRightLeft, Ban, Check, ChevronDown, GraduationCap, MapPin, Plus, Trash2, Unlock, UserRound, Users } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowRightLeft, Ban, BarChart3, Check, ChevronDown, GraduationCap, MapPin, Plus, Trash2, Unlock, UserRound, Users } from "lucide-react";
 
 /* ─── Menu déroulant personnalisé (remplace le <select> natif, moche) ──── */
 function SalesPicker({ candidates, value, onChange }: { candidates: BoardSales[]; value: string; onChange: (id: string) => void }) {
@@ -533,6 +534,14 @@ export default function AdminAssignment({ onChanged }: { onChanged?: () => void 
             onMoveStudent={(student, fromId) => setMoveTarget({ student, fromId })}
             headerExtra={
               <div className="flex items-center gap-1.5">
+                <Link
+                  to={`/admin/equipe/${item.id}`}
+                  title="Voir les statistiques de ce conseiller"
+                  aria-label="Voir les statistiques de ce conseiller"
+                  className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 transition hover:bg-emerald-600 hover:text-white"
+                >
+                  <BarChart3 className="h-3 w-3" />
+                </Link>
                 {item.isActive && item.students.length > 0 && (
                   <button
                     type="button"

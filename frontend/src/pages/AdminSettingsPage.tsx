@@ -326,7 +326,7 @@ export default function AdminSettingsPage() {
               <Clock className="h-5 w-5 text-brand" /> Horaires de travail
             </h2>
             <p className="mt-1 text-xs text-muted">
-              La page Heures de travail ne compte que ces jours et ces heures (fuseau Africa/Tunis). Les nuits et jours non cochés sont exclus des durées et des dossiers « à mi-parcours ».
+              Les statistiques du Dashboard et des pages employés ne comptent que ces jours et ces heures (fuseau Africa/Tunis). Les nuits et jours non cochés sont exclus des durées et des dossiers « à mi-parcours ».
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               {WEEKDAYS.map((day) => {

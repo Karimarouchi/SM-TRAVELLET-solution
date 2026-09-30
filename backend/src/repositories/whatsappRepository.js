@@ -297,5 +297,6 @@ module.exports = {
   unreadCount,
   reassignAllFromSales,
   listContactIdsAssignedTo,
-  listOrphanContactIds
+  listOrphanContactIds,
+  CONVERSATIONS_CTE
 };
