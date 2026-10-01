@@ -8,6 +8,7 @@ const { studentProfileDto, userDto, formatPgDate, lockedFieldsFromRow } = requir
 const { canAccessStudent } = require("../security/rbac");
 const countryUniversityService = require("./countryUniversityService");
 const notificationService = require("./notificationService");
+const autoAssign = require("./autoAssignService");
 const passport = require("./passport");
 const whatsappService = require("./whatsappService");
 const { normalizePhone } = whatsappService;
@@ -347,10 +348,11 @@ async function saveOnboarding(userId, body) {
 
   let profile = studentProfileDto(await students.updateOnboarding(userId, fields));
   if (!profile.assignedSalesId && (await settings.isAutoAssignEnabled())) {
-    const leastLoaded = await sales.findLeastLoadedActive();
-    if (leastLoaded) {
-      profile = studentProfileDto(await students.assignSales(userId, leastLoaded.id));
-      await notificationService.notifyStudentAssigned(leastLoaded.id, userId);
+    // Pourcentages si le mode est activé dans Paramètres, sinon le moins chargé.
+    const salesId = await autoAssign.pickOrFallback("students", () => sales.findLeastLoadedActive());
+    if (salesId) {
+      profile = studentProfileDto(await students.assignSales(userId, salesId));
+      await notificationService.notifyStudentAssigned(salesId, userId);
     }
   }
   if (phoneChanged) await whatsappService.linkStudentByPhone(userId, fields.phone);

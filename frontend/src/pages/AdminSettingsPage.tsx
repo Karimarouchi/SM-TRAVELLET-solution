@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, Clock, KeyRound, Mail, Save, Settings as S
 import { useEffect, useState } from "react";
 import BackupPanel from "@/components/admin/BackupPanel";
 import GoogleCalendarCard from "@/components/admin/GoogleCalendarCard";
+import AutoAssignSharesCard from "@/components/admin/AutoAssignSharesCard";
 
 
 const FREQUENCIES: { id: StalledAlertFrequency; label: string; hint: string }[] = [
@@ -176,7 +177,7 @@ export default function AdminSettingsPage() {
                   <Users2 className="h-5 w-5 text-brand" /> Affectation automatique des sales
                 </h2>
                 <p className="mt-1 text-xs text-muted">
-                  Quand un nouvel étudiant termine son onboarding, il est affecté automatiquement au conseiller le moins chargé.
+                  Quand un étudiant sans conseiller termine son onboarding, il est affecté automatiquement à un conseiller (le moins chargé, ou selon les pourcentages ci-dessous).
                 </p>
               </div>
               <button
@@ -191,6 +192,9 @@ export default function AdminSettingsPage() {
               </button>
             </div>
           </section>
+
+          {/* ── Répartition par pourcentage ──────────────────────────────── */}
+          <AutoAssignSharesCard />
 
           {/* ── Expéditeur des emails ────────────────────────────────────── */}
           <section className="mt-4 rounded-[24px] border border-line bg-white p-6">

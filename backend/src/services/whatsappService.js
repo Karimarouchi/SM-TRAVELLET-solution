@@ -3,6 +3,7 @@ const env = require("../config/env");
 const logger = require("../logger");
 const repo = require("../repositories/whatsappRepository");
 const notificationService = require("./notificationService");
+const autoAssign = require("./autoAssignService");
 
 const MAX_TEXT_LENGTH = 4096;
 const WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -80,8 +81,8 @@ async function ensureOwner(contactId, { isNew = false } = {}) {
       }
     }
     if (!after) {
-      const leastLoaded = await repo.findLeastLoadedActiveSales();
-      after = leastLoaded ? leastLoaded.id : null;
+      // Pourcentages si le mode est activé dans Paramètres, sinon le moins chargé.
+      after = await autoAssign.pickOrFallback("whatsapp", () => repo.findLeastLoadedActiveSales());
     }
     await repo.setAssignedSales(contactId, after);
   }

@@ -272,6 +272,28 @@ export async function setStudentActive(studentId: string, isActive: boolean) {
   });
 }
 
+// Répartition automatique : équitable (par charge) ou par pourcentage.
+export type AutoAssignMode = "balanced" | "percentage";
+export type AutoAssignShare = {
+  salesId: string;
+  prenom: string;
+  nom: string;
+  email: string;
+  isActive: boolean;
+  percent: number;
+  receivedStudents: number;
+  receivedWhatsapp: number;
+};
+export type AutoAssignSettings = { mode: AutoAssignMode; shares: AutoAssignShare[]; totalPercent: number };
+
+export async function fetchAutoAssignShares() {
+  return request<AutoAssignSettings>("/api/admin/auto-assign-shares");
+}
+
+export async function saveAutoAssignShares(payload: { mode: AutoAssignMode; shares: { salesId: string; percent: number }[] }) {
+  return request<AutoAssignSettings>("/api/admin/auto-assign-shares", { method: "PUT", body: JSON.stringify(payload) });
+}
+
 export type StudentDeletionPreview = {
   id: string;
   name: string;

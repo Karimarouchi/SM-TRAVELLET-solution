@@ -180,6 +180,22 @@ async function deleteStudent(req, res) {
   }
 }
 
+async function autoAssignShares(req, res) {
+  try {
+    res.json(await require("../services/autoAssignService").getSettings());
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
+async function saveAutoAssignShares(req, res) {
+  try {
+    res.json(await require("../services/autoAssignService").saveSettings(req.body));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function teamPerformance(req, res) {
   try {
     res.json(await require("../services/performanceService").getTeamPerformance(req.query.period));
@@ -196,4 +212,4 @@ async function userPerformance(req, res) {
   }
 }
 
-module.exports = { dashboard, board, studentsOverview, setStudentActive, autoAssign, getSettings, updateSettings, teamPerformance, userPerformance, studentDeletionPreview, deleteStudent, createSales, setSalesActive, transferSales, deleteSales, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };
+module.exports = { dashboard, board, studentsOverview, setStudentActive, autoAssign, getSettings, updateSettings, teamPerformance, userPerformance, autoAssignShares, saveAutoAssignShares, studentDeletionPreview, deleteStudent, createSales, setSalesActive, transferSales, deleteSales, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };

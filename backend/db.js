@@ -13,6 +13,22 @@ async function query(text, params) {
   return pool.query(text, params);
 }
 
+// Exécute fn(client) dans une transaction : tout est validé, ou rien.
+async function transaction(fn) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await fn(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 function adminConnectionString() {
   const url = new URL(connectionString);
   url.pathname = "/postgres";
@@ -47,4 +63,4 @@ async function ensureUsersTable() {
   `);
 }
 
-module.exports = { pool, query, ensureDatabase, ensureUsersTable };
+module.exports = { pool, query, transaction, ensureDatabase, ensureUsersTable };
