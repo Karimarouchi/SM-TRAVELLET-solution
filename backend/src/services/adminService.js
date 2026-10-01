@@ -8,6 +8,8 @@ const countryRepo = require("../repositories/countryRepository");
 const universityApplications = require("../repositories/universityApplicationRepository");
 const whatsapp = require("./whatsappService");
 const notificationService = require("./notificationService");
+const emailService = require("./emailService");
+const env = require("../config/env");
 const { hashPassword } = require("../security/password");
 const { formatPgDate } = require("../dto/userDto");
 
@@ -467,6 +469,8 @@ async function getSettings() {
     emailFromName: emailSender.fromName,
     emailFromAddress: emailSender.fromAddress,
     emailHasAppPassword: emailSender.hasAppPassword,
+    emailSmtpHost: emailSender.smtpHost,
+    emailSmtpPort: emailSender.smtpPort,
     workDays: String(workHours.days).split(",").map((d) => parseInt(d, 10)).filter((d) => d >= 1 && d <= 7),
     workStart: workHours.start,
     workEnd: workHours.end,
@@ -506,7 +510,11 @@ async function updateSettings(body) {
   }
 
   const touchesEmailSender =
-    body.emailFromName !== undefined || body.emailFromAddress !== undefined || body.emailAppPassword !== undefined;
+    body.emailFromName !== undefined ||
+    body.emailFromAddress !== undefined ||
+    body.emailAppPassword !== undefined ||
+    body.emailSmtpHost !== undefined ||
+    body.emailSmtpPort !== undefined;
   if (touchesEmailSender) {
     const current = await settings.getEmailSenderConfig();
     const fromName = body.emailFromName !== undefined ? String(body.emailFromName).trim() : current.fromName;
@@ -518,7 +526,33 @@ async function updateSettings(body) {
     // pas "je le supprime" — setEmailSenderConfig ignore déjà les valeurs
     // vides pour ce champ.
     const appPassword = body.emailAppPassword !== undefined ? String(body.emailAppPassword) : undefined;
-    await settings.setEmailSenderConfig({ fromName, fromAddress, appPassword });
+
+    const smtpHost = body.emailSmtpHost !== undefined ? String(body.emailSmtpHost).trim().toLowerCase() : undefined;
+    if (smtpHost !== undefined && smtpHost && !/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/.test(smtpHost)) {
+      throw fail("Serveur d'envoi invalide.", 400);
+    }
+    const smtpPort = body.emailSmtpPort !== undefined && body.emailSmtpPort !== "" && body.emailSmtpPort !== null
+      ? parseInt(body.emailSmtpPort, 10)
+      : body.emailSmtpPort === undefined ? undefined : null;
+    if (smtpPort && (!Number.isInteger(smtpPort) || ![465, 587].includes(smtpPort))) {
+      throw fail("Port invalide : utilisez 465 (SSL) ou 587.", 400);
+    }
+
+    // On teste la connexion AVANT d'enregistrer : un mauvais couple
+    // adresse / serveur / mot de passe casserait tous les emails de la
+    // plateforme (vérification de compte, entretiens, alertes) sans qu'on
+    // s'en aperçoive.
+    const secrets = await settings.getEmailSenderSecrets();
+    const effective = {
+      host: (smtpHost !== undefined ? smtpHost : secrets.smtpHost) || emailService.guessSmtpHost(fromAddress) || env.smtp.host,
+      port: (smtpPort !== undefined ? smtpPort : secrets.smtpPort) || env.smtp.port,
+      user: fromAddress || env.smtp.user,
+      pass: appPassword || secrets.appPassword || env.smtp.pass
+    };
+    const problem = await emailService.verifySmtp(effective);
+    if (problem) throw fail(`Rien n'a été enregistré. ${problem}`, 400);
+
+    await settings.setEmailSenderConfig({ fromName, fromAddress, appPassword, smtpHost, smtpPort });
   }
 
   const touchesWorkHours =

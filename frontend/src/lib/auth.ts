@@ -367,6 +367,8 @@ export type AdminSettings = {
   emailFromName: string;
   emailFromAddress: string;
   emailHasAppPassword: boolean;
+  emailSmtpHost: string;
+  emailSmtpPort: number | null;
   workDays: number[];
   workStart: string;
   workEnd: string;

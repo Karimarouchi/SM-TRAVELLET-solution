@@ -10,16 +10,57 @@ const settingsRepository = require("../repositories/settingsRepository");
 // réglage soit pris en compte immédiatement, sans redémarrer le serveur. À
 // défaut de valeur en base, on retombe sur le .env (compte de secours de
 // l'infrastructure).
+function guessSmtpHost(address) {
+  const domain = String(address || "").split("@")[1]?.toLowerCase();
+  if (domain === "gmail.com" || domain === "googlemail.com") return "smtp.gmail.com";
+  return "";
+}
+
+// Teste la connexion SMTP (serveur + identifiants) SANS envoyer d'email.
+// Renvoie un message d'erreur lisible, ou null si tout est bon.
+async function verifySmtp({ host, port, user, pass }) {
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 15000
+  });
+  try {
+    await transporter.verify();
+    return null;
+  } catch (error) {
+    const detail = String(error.response || error.message || "");
+    if (error.code === "EAUTH" || /535|auth/i.test(detail)) {
+      return `${host} refuse cette adresse ou ce mot de passe. Vérifiez qu'ils correspondent bien au serveur choisi (Gmail : mot de passe d'application ; Hostinger : mot de passe de la boîte mail).`;
+    }
+    if (/ENOTFOUND|EAI_AGAIN/.test(detail)) return `Serveur d'envoi introuvable : ${host}.`;
+    if (/ETIMEDOUT|ECONNREFUSED|ECONNRESET|timeout/i.test(detail)) {
+      return `Impossible de joindre ${host}:${port} (délai dépassé ou connexion refusée). Vérifiez le serveur et le port.`;
+    }
+    return `Connexion à ${host} impossible : ${detail.slice(0, 160)}`;
+  } finally {
+    transporter.close();
+  }
+}
+
 async function resolveSender() {
   const secrets = await settingsRepository.getEmailSenderSecrets();
   const user = secrets.fromAddress || env.smtp.user;
   const pass = secrets.appPassword || env.smtp.pass;
   const fromName = secrets.fromName || env.smtp.fromName;
 
+  // Le serveur d'envoi doit correspondre à l'adresse : Gmail refuse un compte
+  // Hostinger et inversement. Réglé dans Paramètres ; à défaut, déduit de
+  // l'adresse (gmail.com → Gmail), sinon le .env.
+  const host = secrets.smtpHost || guessSmtpHost(user) || env.smtp.host;
+  const port = secrets.smtpPort || env.smtp.port;
   const transporter = nodemailer.createTransport({
-    host: env.smtp.host,
-    port: env.smtp.port,
-    secure: env.smtp.port === 465,
+    host,
+    port,
+    secure: port === 465,
     auth: { user, pass }
   });
 
@@ -245,4 +286,4 @@ async function sendAlertEmail(to, subject, message) {
   });
 }
 
-module.exports = { sendVerificationEmail, sendInterviewEmail, sendAlertEmail, sendVisaPrepMeetingEmail, sendVisaEmbassyAppointmentEmail };
+module.exports = { verifySmtp, guessSmtpHost, sendVerificationEmail, sendInterviewEmail, sendAlertEmail, sendVisaPrepMeetingEmail, sendVisaEmbassyAppointmentEmail };

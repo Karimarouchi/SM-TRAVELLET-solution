@@ -21,10 +21,16 @@ const WEEKDAYS = [
   { id: 7, label: "Dimanche" }
 ];
 
+const SMTP_PRESETS = [
+  { id: "gmail", label: "Gmail", host: "smtp.gmail.com", port: 465 },
+  { id: "hostinger", label: "Hostinger", host: "smtp.hostinger.com", port: 465 },
+  { id: "ovh", label: "OVH", host: "ssl0.ovh.net", port: 465 }
+];
+
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<AdminSettings | null>(null);
   const [form, setForm] = useState({ stalledAlertDays: "30", stalledAlertFrequency: "once" as StalledAlertFrequency, stalledAlertEmail: "" });
-  const [senderForm, setSenderForm] = useState({ emailFromName: "", emailFromAddress: "", emailAppPassword: "" });
+  const [senderForm, setSenderForm] = useState({ emailFromName: "", emailFromAddress: "", emailAppPassword: "", emailSmtpHost: "", emailSmtpPort: "" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [senderSaving, setSenderSaving] = useState(false);
@@ -44,7 +50,13 @@ export default function AdminSettingsPage() {
           stalledAlertFrequency: data.stalledAlertFrequency,
           stalledAlertEmail: data.stalledAlertEmail
         });
-        setSenderForm({ emailFromName: data.emailFromName, emailFromAddress: data.emailFromAddress, emailAppPassword: "" });
+        setSenderForm({
+          emailFromName: data.emailFromName,
+          emailFromAddress: data.emailFromAddress,
+          emailAppPassword: "",
+          emailSmtpHost: data.emailSmtpHost || "",
+          emailSmtpPort: data.emailSmtpPort ? String(data.emailSmtpPort) : ""
+        });
         setWorkForm({
           workDays: data.workDays?.length ? data.workDays : [1, 2, 3, 4, 5],
           workStart: data.workStart || "09:00",
@@ -97,6 +109,8 @@ export default function AdminSettingsPage() {
       const updated = await updateAdminSettings({
         emailFromName: senderForm.emailFromName.trim(),
         emailFromAddress: senderForm.emailFromAddress.trim(),
+        emailSmtpHost: senderForm.emailSmtpHost,
+        emailSmtpPort: senderForm.emailSmtpPort ? Number(senderForm.emailSmtpPort) : null,
         ...(senderForm.emailAppPassword ? { emailAppPassword: senderForm.emailAppPassword } : {})
       });
       setSettings(updated);
@@ -183,8 +197,8 @@ export default function AdminSettingsPage() {
               <Mail className="h-5 w-5 text-brand" /> Expéditeur des emails
             </h2>
             <p className="mt-1 text-xs text-muted">
-              Nom, adresse et mot de passe d'application utilisés pour envoyer tous les emails de la plateforme (vérification de compte, entretiens, rendez-vous visa, alertes...).
-              Changer l'adresse ne fonctionnera que si le mot de passe d'application correspondant est aussi renseigné ci-dessous : sans lui, le serveur mail refusera l'envoi.
+              Nom, adresse, serveur et mot de passe utilisés pour envoyer tous les emails de la plateforme (vérification de compte, entretiens, rendez-vous visa, alertes...).
+              Changer l'adresse ne fonctionne que si le serveur et le mot de passe correspondent à cette adresse.
             </p>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -211,8 +225,42 @@ export default function AdminSettingsPage() {
             </div>
 
             <div className="mt-4">
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Serveur d'envoi</label>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {SMTP_PRESETS.map((preset) => {
+                  // Serveur jamais choisi : déduit de l'adresse (@gmail.com → Gmail), comme le fait le serveur.
+                  const effectiveHost =
+                    senderForm.emailSmtpHost || (/@(gmail|googlemail)\.com$/i.test(senderForm.emailFromAddress.trim()) ? "smtp.gmail.com" : "");
+                  const active = preset.host === effectiveHost;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => setSenderForm({ ...senderForm, emailSmtpHost: preset.host, emailSmtpPort: String(preset.port) })}
+                      aria-pressed={active}
+                      className={cn(
+                        "rounded-xl border px-3 py-2.5 text-left transition",
+                        active ? "border-brand bg-brand-light/50 shadow-[0_0_0_3px_rgba(109,40,217,0.1)]" : "border-line bg-white hover:border-brand/40"
+                      )}
+                    >
+                      <span className="block text-sm font-bold text-dark">{preset.label}</span>
+                      <span className="block truncate text-[11px] text-muted">{preset.host}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-1.5 text-[11px] text-muted">
+                Choisissez le fournisseur de l'adresse d'expédition : adresse en @gmail.com → Gmail ; adresse de votre nom de domaine
+                créée chez Hostinger (ex. services@smtravel.fr) → Hostinger.
+                {senderForm.emailSmtpHost && !SMTP_PRESETS.some((p) => p.host === senderForm.emailSmtpHost) && (
+                  <> Serveur actuel : <strong>{senderForm.emailSmtpHost}</strong>.</>
+                )}
+              </p>
+            </div>
+
+            <div className="mt-4">
               <label className="mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">
-                <KeyRound className="h-3 w-3" /> Mot de passe d'application du compte mail
+                <KeyRound className="h-3 w-3" /> Mot de passe du compte mail
               </label>
               <input
                 type="password"
@@ -230,8 +278,10 @@ export default function AdminSettingsPage() {
             </div>
 
             <p className="mt-3 text-[11px] text-muted">
-              Ceci n'est pas le mot de passe habituel du compte mail : la plupart des fournisseurs (Gmail, Outlook...) exigent un
-              "mot de passe d'application" dédié, généré depuis les paramètres de sécurité de ce compte mail. Laissez les champs vides pour utiliser la configuration par défaut du serveur.
+              <strong>Gmail</strong> : saisissez un « mot de passe d'application » (généré dans les paramètres de sécurité du compte Google), pas
+              le mot de passe habituel. <strong>Hostinger</strong> : saisissez le mot de passe de la boîte mail. La connexion est testée à
+              l'enregistrement : si le couple adresse / serveur / mot de passe est faux, rien n'est enregistré et le motif s'affiche.
+              Laissez les champs vides pour utiliser la configuration par défaut du serveur.
             </p>
 
             <div className="mt-5 flex items-center gap-3">

@@ -23,26 +23,42 @@ async function isAutoAssignEnabled() {
 // Version exposable à l'admin (via l'API) : jamais le mot de passe en clair,
 // juste un indicateur qu'il est renseigné.
 async function getEmailSenderConfig() {
-  const [fromName, fromAddress, appPassword] = await Promise.all([
+  const [fromName, fromAddress, appPassword, smtpHost, smtpPort] = await Promise.all([
     get("email_from_name"),
     get("email_from_address"),
-    get("email_smtp_app_password")
+    get("email_smtp_app_password"),
+    get("email_smtp_host"),
+    get("email_smtp_port")
   ]);
-  return { fromName: fromName || "", fromAddress: fromAddress || "", hasAppPassword: Boolean(appPassword) };
+  return {
+    fromName: fromName || "",
+    fromAddress: fromAddress || "",
+    hasAppPassword: Boolean(appPassword),
+    smtpHost: smtpHost || "",
+    smtpPort: parseInt(smtpPort, 10) || null
+  };
 }
 
 // Version interne, avec le mot de passe en clair — réservée à l'envoi réel
 // des emails (emailService), jamais renvoyée par une route API.
 async function getEmailSenderSecrets() {
-  const [fromName, fromAddress, appPassword] = await Promise.all([
+  const [fromName, fromAddress, appPassword, smtpHost, smtpPort] = await Promise.all([
     get("email_from_name"),
     get("email_from_address"),
-    get("email_smtp_app_password")
+    get("email_smtp_app_password"),
+    get("email_smtp_host"),
+    get("email_smtp_port")
   ]);
-  return { fromName: fromName || "", fromAddress: fromAddress || "", appPassword: appPassword || "" };
+  return {
+    fromName: fromName || "",
+    fromAddress: fromAddress || "",
+    appPassword: appPassword || "",
+    smtpHost: smtpHost || "",
+    smtpPort: parseInt(smtpPort, 10) || null
+  };
 }
 
-async function setEmailSenderConfig({ fromName, fromAddress, appPassword }) {
+async function setEmailSenderConfig({ fromName, fromAddress, appPassword, smtpHost, smtpPort }) {
   await set("email_from_name", fromName || "");
   await set("email_from_address", fromAddress || "");
   // Un mot de passe vide/absent dans la requête ne doit PAS effacer celui
@@ -51,6 +67,10 @@ async function setEmailSenderConfig({ fromName, fromAddress, appPassword }) {
   if (appPassword) {
     await set("email_smtp_app_password", appPassword);
   }
+  // Serveur d'envoi (smtp.gmail.com, smtp.hostinger.com...) : doit
+  // correspondre à l'adresse, sinon le serveur refuse la connexion.
+  if (smtpHost !== undefined) await set("email_smtp_host", smtpHost || "");
+  if (smtpPort !== undefined) await set("email_smtp_port", smtpPort ? String(smtpPort) : "");
 }
 
 const STALLED_ALERT_FREQUENCIES = ["once", "daily", "weekly"];
