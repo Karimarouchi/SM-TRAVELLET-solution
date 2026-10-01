@@ -2,6 +2,7 @@ import { fetchStudentsOverview, setStudentActive, type StudentOverview } from "@
 import { cn } from "@/lib/utils";
 import { Ban, CheckCircle2, Search, Trash2, Unlock } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import StudentsPipelineBoard, { StageBadge } from "@/components/admin/StudentsPipelineBoard";
 import DeleteStudentModal from "@/components/admin/DeleteStudentModal";
 
@@ -18,6 +19,8 @@ function StudentsTable({
   onToggleBlock: (student: StudentOverview) => void;
   onDelete: (student: StudentOverview) => void;
 }) {
+  const navigate = useNavigate();
+  const profilePath = (student: StudentOverview) => `/conseiller/etudiants/${student.id}`;
   const deleteButton = (student: StudentOverview) => (
     <button
       type="button"
@@ -51,10 +54,11 @@ function StudentsTable({
       {students.map((student) => (
         <div key={student.id} className="rounded-2xl border border-line bg-white p-4 shadow-sm">
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
+            <Link to={profilePath(student)} className="min-w-0 flex-1" aria-label={`Ouvrir le profil de ${student.prenom} ${student.nom}`}>
               <p className="truncate text-sm font-bold text-dark">{student.prenom} {student.nom}</p>
               <p className="truncate text-xs text-muted">{student.email}</p>
-            </div>
+              <span className="mt-1 inline-block text-[11px] font-bold text-brand">Voir le profil →</span>
+            </Link>
             {!student.isActive && (
               <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700">
                 <Ban className="h-3 w-3" /> Bloqué
@@ -90,10 +94,18 @@ function StudentsTable({
         </thead>
         <tbody className="divide-y divide-line/60">
           {students.map((student) => (
-            <tr key={student.id} className="transition hover:bg-brand/5">
+            <tr
+              key={student.id}
+              onClick={() => navigate(profilePath(student))}
+              className="cursor-pointer transition hover:bg-brand/5"
+              title="Ouvrir le profil détaillé"
+            >
               <td className="px-4 py-3">
-                <p className="text-xs font-bold text-dark">{student.prenom} {student.nom}</p>
-                <p className="text-[11px] text-muted">{student.email}</p>
+                {/* Vrai lien (clavier, ouverture dans un nouvel onglet) ; le clic sur la ligne entière fait pareil. */}
+                <Link to={profilePath(student)} onClick={(e) => e.stopPropagation()} className="block hover:underline">
+                  <p className="text-xs font-bold text-dark">{student.prenom} {student.nom}</p>
+                  <p className="text-[11px] text-muted">{student.email}</p>
+                </Link>
               </td>
               <td className="px-4 py-3 hidden sm:table-cell text-xs text-mid">{student.assignedSalesName || "—"}</td>
               <td className="px-4 py-3"><StageBadge stage={student.stage} /></td>
@@ -108,7 +120,7 @@ function StudentsTable({
                   </span>
                 )}
               </td>
-              <td className="px-4 py-3 text-right">
+              <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-end gap-2">
                   {blockButton(student)}
                   {deleteButton(student)}
