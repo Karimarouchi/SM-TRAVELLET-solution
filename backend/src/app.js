@@ -12,6 +12,7 @@ const adminController = require("./controllers/adminController");
 const notificationController = require("./controllers/notificationController");
 const whatsappWebhookController = require("./controllers/whatsappWebhookController");
 const whatsappController = require("./controllers/whatsappController");
+const googleController = require("./controllers/googleController");
 const programmeController = require("./controllers/programmeController");
 const avisController = require("./controllers/avisController");
 const countryController = require("./controllers/countryController");
@@ -58,6 +59,13 @@ app.get("/api/public/avis", avisController.getPublicAvis);
 app.get("/api/public/countries", countryController.listPublic);
 app.get("/api/public/universities", countryUniversityController.listPublic);
 
+// Google Calendar (liens Meet automatiques) : le retour OAuth est public
+// (c'est le navigateur de l'admin qui revient de Google), protégé par le
+// « state » signé.
+app.get("/api/google/callback", googleController.callback);
+app.get("/api/google/status", requireAuth, requireRoles("ADMIN", "RDV"), googleController.status);
+app.get("/api/admin/google/connect", requireAuth, requireRoles("ADMIN"), googleController.connect);
+app.delete("/api/admin/google", requireAuth, requireRoles("ADMIN"), googleController.disconnect);
 app.get("/api/whatsapp/webhook", whatsappWebhookController.verifyWebhook);
 app.post("/api/whatsapp/webhook", whatsappWebhookController.receiveWebhook);
 
@@ -120,6 +128,7 @@ app.patch("/api/applications/:id/accept", requireAuth, requireRoles("RDV", "ADMI
 app.patch("/api/applications/:id/reject", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.markRejected);
 app.patch("/api/applications/:id/close", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.closeApplication);
 app.post("/api/applications/:id/reapply", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.reapply);
+app.post("/api/applications/:id/meet-link", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.createMeetLink);
 app.patch("/api/applications/:id/staff-meet", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.scheduleStaffMeet);
 app.get("/api/applications/:id/rdv-suggestion", requireAuth, requireRoles("ADMIN"), universityApplicationController.suggestRdv);
 app.patch("/api/applications/:id/assign-rdv", requireAuth, requireRoles("ADMIN"), universityApplicationController.assignRdv);

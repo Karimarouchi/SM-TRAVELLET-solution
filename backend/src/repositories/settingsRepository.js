@@ -73,6 +73,27 @@ async function setEmailSenderConfig({ fromName, fromAddress, appPassword, smtpHo
   if (smtpPort !== undefined) await set("email_smtp_port", smtpPort ? String(smtpPort) : "");
 }
 
+// Connexion Google Calendar : le jeton de rafraîchissement est stocké chiffré
+// (voir googleCalendarService), jamais renvoyé par l'API.
+async function getGoogleConnection() {
+  const [refreshToken, email, connectedAt] = await Promise.all([
+    get("google_refresh_token"),
+    get("google_account_email"),
+    get("google_connected_at")
+  ]);
+  return { refreshToken: refreshToken || "", email: email || "", connectedAt: connectedAt || "" };
+}
+
+async function setGoogleConnection({ refreshToken, email }) {
+  await set("google_refresh_token", refreshToken);
+  await set("google_account_email", email || "");
+  await set("google_connected_at", new Date().toISOString());
+}
+
+async function clearGoogleConnection() {
+  await query("DELETE FROM app_settings WHERE key IN ('google_refresh_token', 'google_account_email', 'google_connected_at')");
+}
+
 const STALLED_ALERT_FREQUENCIES = ["once", "daily", "weekly"];
 
 async function getStalledAlertConfig() {
@@ -147,6 +168,9 @@ module.exports = {
   getEmailSenderConfig,
   getEmailSenderSecrets,
   setEmailSenderConfig,
+  getGoogleConnection,
+  setGoogleConnection,
+  clearGoogleConnection,
   getWorkHoursConfig,
   setWorkHoursConfig,
   STALLED_ALERT_FREQUENCIES,

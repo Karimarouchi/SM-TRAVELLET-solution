@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { AlertTriangle, CheckCircle2, Clock, KeyRound, Mail, Save, Settings as SettingsIcon, ShieldCheck, Users2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import BackupPanel from "@/components/admin/BackupPanel";
+import GoogleCalendarCard from "@/components/admin/GoogleCalendarCard";
 
 
 const FREQUENCIES: { id: StalledAlertFrequency; label: string; hint: string }[] = [
@@ -300,6 +301,9 @@ export default function AdminSettingsPage() {
               )}
             </div>
           </section>
+
+          {/* ── Google Calendar : liens Meet automatiques ────────────────── */}
+          <GoogleCalendarCard />
 
           {/* ── Alerte dossier bloqué ────────────────────────────────────── */}
           <section className="mt-4 rounded-[24px] border border-line bg-white p-6">

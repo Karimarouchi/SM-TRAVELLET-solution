@@ -13,6 +13,7 @@ import {
   type UniversityApplication
 } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { MeetLinkButton } from "@/components/MeetLinkButton";
 import {
   Calendar,
   CheckCircle2,
@@ -252,6 +253,7 @@ function StaffMeetModal({ app, onClose, onDone }: { app: UniversityApplication; 
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Lien Meet</label>
           <input type="text" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://meet.google.com/..." className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />
+          <MeetLinkButton applicationId={app.id} kind="staff" date={date} onCreated={setLink} />
         </div>
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Instructions (optionnel)</label>
@@ -405,6 +407,7 @@ function InterviewModal({ app, onClose, onDone }: { app: UniversityApplication; 
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Lien (Meet/Teams/Zoom) *</label>
           <input type="text" value={link} onChange={(e) => setLink(e.target.value)} className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />
+          <MeetLinkButton applicationId={app.id} kind="interview" date={date} onCreated={setLink} />
         </div>
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Instructions</label>

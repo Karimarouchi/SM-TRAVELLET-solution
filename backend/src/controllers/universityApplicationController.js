@@ -140,6 +140,14 @@ async function scheduleStaffMeet(req, res) {
   }
 }
 
+async function createMeetLink(req, res) {
+  try {
+    res.status(201).json(await service.createMeetLink(req.auth, req.params.id, req.body));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function scheduleVisaPrepMeeting(req, res) {
   try {
     res.json(await service.scheduleVisaPrepMeeting(req.auth, req.params.id, req.body));
@@ -174,6 +182,7 @@ module.exports = {
   markVisaSubmitted,
   markVisaAccepted,
   markVisaRejected,
+  createMeetLink,
   scheduleVisaPrepMeeting,
   scheduleVisaEmbassyAppointment
 };

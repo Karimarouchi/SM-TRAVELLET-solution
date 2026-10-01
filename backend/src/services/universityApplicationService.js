@@ -8,6 +8,7 @@ const userRepo = require("../repositories/userRepository");
 const userRoleRepo = require("../repositories/userRoleRepository");
 const notificationService = require("./notificationService");
 const emailService = require("./emailService");
+const googleCalendar = require("./googleCalendarService");
 const commissionService = require("./commissionService");
 const logger = require("../logger");
 const { canAccessStudent, canAccessApplication, authRoles } = require("../security/rbac");
@@ -666,6 +667,74 @@ async function scheduleStaffMeet(auth, applicationId, payload) {
   return dto({ ...updated, country_name: (await countryRepo.findById(updated.country_id))?.name, university_name: (await universityRepo.findById(updated.university_id))?.name });
 }
 
+// Crée automatiquement un lien Google Meet (événement Google Calendar) pour
+// l'un des trois rendez-vous en ligne. Mêmes droits et mêmes états que la
+// planification correspondante : on ne crée pas un événement (et une
+// invitation envoyée à l'étudiant) pour une action qui serait refusée ensuite.
+const MEET_KINDS = {
+  interview: { title: "Entretien universitaire", guard: assertUniversityActor },
+  staff: { title: "Rendez-vous SM Travel", guard: assertUniversityActor },
+  visaPrep: { title: "Préparation à l'entretien visa", guard: assertRdvOrAdmin }
+};
+const recentMeetRequests = new Map();
+
+async function createMeetLink(auth, applicationId, payload) {
+  const kind = MEET_KINDS[payload?.kind];
+  if (!kind) throw fail("Type de rendez-vous inconnu.", 400);
+  const application = await appRepo.findById(applicationId);
+  if (!application) throw fail("Candidature introuvable.", 404);
+  kind.guard(auth, application);
+
+  if (payload.kind === "interview" && !["WAITING_UNIVERSITY_RESPONSE", "INTERVIEW_REQUIRED", "INTERVIEW_SCHEDULED"].includes(application.status)) {
+    throw fail("Cette candidature n’est pas dans un état permettant de planifier un entretien.", 400);
+  }
+  if (payload.kind === "staff" && application.status !== "READY_TO_APPLY") {
+    throw fail("Le Meet optionnel se planifie avant le dépôt de candidature.", 400);
+  }
+  if (payload.kind === "visaPrep" && (!application.visa_status || application.visa_status === "PREPARATION")) {
+    throw fail("Le dossier visa doit être déposé avant de planifier cette réunion.", 400);
+  }
+
+  const date = payload.date ? new Date(payload.date) : null;
+  if (!date || Number.isNaN(date.getTime())) throw fail("Choisissez d'abord la date et l'heure du rendez-vous.", 400);
+
+  // Anti double-clic : chaque création envoie une invitation à l'étudiant.
+  const key = `${applicationId}:${payload.kind}`;
+  if (Date.now() - (recentMeetRequests.get(key) || 0) < 15_000) {
+    throw fail("Un lien vient d'être créé pour ce rendez-vous. Patientez quelques secondes.", 429);
+  }
+  recentMeetRequests.set(key, Date.now());
+
+  const student = await userRepo.findById(application.student_id);
+  const actor = await userRepo.findById(auth.sub);
+  const university = application.university_id ? await universityRepo.findById(application.university_id) : null;
+  const studentName = student ? `${student.prenom} ${student.nom}`.trim() : "étudiant";
+  const title = `${kind.title} — ${studentName}${university?.name ? ` (${university.name})` : ""}`;
+
+  try {
+    const meet = await googleCalendar.createMeetEvent({
+      title,
+      description: `Rendez-vous organisé via SM Travel pour ${studentName}.`,
+      startAt: date,
+      durationMinutes: payload.durationMinutes,
+      attendees: [student?.email, actor?.email]
+    });
+    await recordHistory(
+      applicationId,
+      application.student_id,
+      application.status,
+      application.status,
+      auth.sub,
+      `Lien Google Meet créé automatiquement (${kind.title.toLowerCase()}).`
+    );
+    return { link: meet.link, calendarLink: meet.htmlLink };
+  } catch (error) {
+    // L'échec ne doit pas bloquer 15 s de plus la nouvelle tentative.
+    recentMeetRequests.delete(key);
+    throw error;
+  }
+}
+
 // Étape visa 1/3 — le dossier visa est déposé.
 async function markVisaSubmitted(auth, applicationId) {
   const application = await appRepo.findById(applicationId);
@@ -876,6 +945,7 @@ module.exports = {
   assignRdv,
   suggestRdv,
   scheduleStaffMeet,
+  createMeetLink,
   listMineForRdv,
   listForStudent,
   getHistoryForStudent,

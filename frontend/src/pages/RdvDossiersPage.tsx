@@ -14,6 +14,7 @@ import {
 import { openProtectedFile } from "@/lib/auth";
 import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+import { MeetLinkButton } from "@/components/MeetLinkButton";
 import { AlertTriangle, Calendar, CheckCircle2, Clock, FileText, GraduationCap, Landmark, Send, ThumbsDown, ThumbsUp, Video, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import ApplicationTimeline from "@/components/admin/ApplicationTimeline";
@@ -258,6 +259,7 @@ function PrepMeetingModal({
           placeholder={type === "ONLINE" ? "https://meet.google.com/..." : "Adresse du rendez-vous"}
           className="mt-1 w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm"
         />
+        {type === "ONLINE" && <MeetLinkButton applicationId={app.id} kind="visaPrep" date={date} onCreated={setLocation} />}
 
         <label className="mt-3 block text-[11px] font-bold uppercase text-muted">Instructions (optionnel)</label>
         <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />

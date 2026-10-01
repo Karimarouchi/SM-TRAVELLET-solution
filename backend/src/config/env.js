@@ -16,6 +16,16 @@ module.exports = {
   // Adresse publique du site, pour les liens envoyés aux étudiants (ex. lien
   // d'inscription avec code pré-rempli envoyé par WhatsApp).
   appPublicUrl: (process.env.APP_PUBLIC_URL || "https://sm.antigoneinterne.agency").replace(/\/+$/, ""),
+  // Google Calendar : création automatique des liens Meet (voir
+  // backend/GOOGLE_CALENDAR.md). Optionnel : sans ces variables, les liens
+  // Meet se collent à la main comme avant.
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID || "",
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+    // Doit être enregistrée à l'identique dans Google Cloud (URI de
+    // redirection autorisés).
+    redirectUri: process.env.GOOGLE_REDIRECT_URI || ""
+  },
   smtp: {
     host: process.env.SMTP_HOST || "smtp.gmail.com",
     port: Number(process.env.SMTP_PORT) || 465,
