@@ -7,6 +7,8 @@ import { ReactNode, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Globe2, GraduationCap, Lock, MapPinned, Sparkles, Wallet } from "lucide-react";
 import "./onboarding.css";
+import PassportFields from "@/components/PassportFields";
+import { normalizePassportNumber, validatePassportExpiry, validatePassportNumber } from "@/lib/passport";
 
 const COUNTRIES = ["Tunisie", "Algérie", "Maroc", "France", "Allemagne", "Espagne", "Italie", "Hongrie", "Lituanie", "Canada", "Belgique", "Suisse"];
 const LEVELS = ["Baccalauréat", "Licence", "Master", "Doctorat", "Autre"];
@@ -85,6 +87,8 @@ type FormState = {
   languageTestFrenchOther: string;
   languageTestEnglishOther: string;
   hasPassport: "" | "yes" | "no";
+  passportNumber: string;
+  passportExpiresOn: string;
   visaAlreadyRequested: "" | "yes" | "no";
   availableDocuments: string;
 };
@@ -119,6 +123,8 @@ const EMPTY: FormState = {
   languageTestFrenchOther: "",
   languageTestEnglishOther: "",
   hasPassport: "",
+  passportNumber: "",
+  passportExpiresOn: "",
   visaAlreadyRequested: "",
   availableDocuments: ""
 };
@@ -217,6 +223,10 @@ function validateField(key: FieldKey, form: FormState): string {
       return "";
     case "hasPassport":
       return text ? "" : "Indiquez si le passeport est disponible.";
+    case "passportNumber":
+      return form.hasPassport === "yes" ? validatePassportNumber(form.passportNumber) : "";
+    case "passportExpiresOn":
+      return form.hasPassport === "yes" ? validatePassportExpiry(form.passportExpiresOn) : "";
     case "visaAlreadyRequested":
       return text ? "" : "Indiquez si un visa a déjà été demandé.";
     case "availableDocuments":
@@ -231,7 +241,7 @@ const STEP_FIELDS: FieldKey[][] = [
   ["nationality", "residenceCountry", "city"],
   ["currentStudyLevel", "lastDiploma", "studyField", "currentInstitution", "diplomaYear"],
   ["preferredCountries", "preferredCity", "targetLevel", "targetField", "targetIntake", "targetUniversity"],
-  ["annualBudget", "fundingMode", "languageLevelFrench", "languageLevelEnglish", "hasLanguageTest", "languageTestLangs", "languageTestFrench", "languageTestEnglish", "languageTestFrenchOther", "languageTestEnglishOther", "hasPassport", "visaAlreadyRequested", "availableDocuments"]
+  ["annualBudget", "fundingMode", "languageLevelFrench", "languageLevelEnglish", "hasLanguageTest", "languageTestLangs", "languageTestFrench", "languageTestEnglish", "languageTestFrenchOther", "languageTestEnglishOther", "hasPassport", "passportNumber", "passportExpiresOn", "visaAlreadyRequested", "availableDocuments"]
 ];
 
 function validateStep(index: number, form: FormState): FieldErrors {
@@ -434,6 +444,8 @@ export default function OnboardingPage() {
         languageTestFrenchOther: form.languageTestFrench === "Autre" ? form.languageTestFrenchOther.trim() : "",
         languageTestEnglishOther: form.languageTestEnglish === "Autre" ? form.languageTestEnglishOther.trim() : "",
         hasPassport: form.hasPassport === "yes",
+        passportNumber: form.hasPassport === "yes" ? normalizePassportNumber(form.passportNumber) : "",
+        passportExpiresOn: form.hasPassport === "yes" ? form.passportExpiresOn : "",
         visaAlreadyRequested: form.visaAlreadyRequested === "yes"
       });
       navigate("/espace");
@@ -811,6 +823,16 @@ export default function OnboardingPage() {
                       placeholder="Oui / Non"
                     />
                   </Field>
+                  {form.hasPassport === "yes" && (
+                    <PassportFields
+                      number={form.passportNumber}
+                      expiresOn={form.passportExpiresOn}
+                      onNumberChange={(value) => set("passportNumber", value)}
+                      onExpiresOnChange={(value) => set("passportExpiresOn", value)}
+                      numberError={errors.passportNumber}
+                      expiresOnError={errors.passportExpiresOn}
+                    />
+                  )}
                   <Field label="Visa déjà demandé" required error={errors.visaAlreadyRequested}>
                     <FancySelect
                       invalid={Boolean(errors.visaAlreadyRequested)}

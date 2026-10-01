@@ -28,6 +28,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Camera, Check, ChevronDown, Globe2, GraduationCap, MapPinned, Sparkles, UserRound, Wallet } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
 import "./profile.css";
+import PassportFields from "@/components/PassportFields";
 
 type SectionId = "account" | "identity" | "school" | "project" | "budget";
 
@@ -581,6 +582,17 @@ export default function ProfilePage() {
                             <Field label="Passeport disponible" required error={errors.hasPassport}>
                               <FancySelect invalid={Boolean(errors.hasPassport)} value={form.hasPassport} onChange={(value) => setField("hasPassport", value as ProfileForm["hasPassport"])} options={YES_NO} />
                             </Field>
+                            {form.hasPassport === "yes" && (
+                              <PassportFields
+                                required={false}
+                                number={form.passportNumber}
+                                expiresOn={form.passportExpiresOn}
+                                onNumberChange={(value) => setField("passportNumber", value)}
+                                onExpiresOnChange={(value) => setField("passportExpiresOn", value)}
+                                numberError={errors.passportNumber}
+                                expiresOnError={errors.passportExpiresOn}
+                              />
+                            )}
                             <Field label="Visa déjà demandé" required error={errors.visaAlreadyRequested}>
                               <FancySelect invalid={Boolean(errors.visaAlreadyRequested)} value={form.visaAlreadyRequested} onChange={(value) => setField("visaAlreadyRequested", value as ProfileForm["visaAlreadyRequested"])} options={YES_NO} />
                             </Field>

@@ -1,6 +1,8 @@
 const logger = require("../logger");
 const repo = require("../repositories/notificationRepository");
 const userRepo = require("../repositories/userRepository");
+const studentRepo = require("../repositories/studentRepository");
+const passport = require("./passport");
 
 function fail(message, status) {
   const error = new Error(message);
@@ -38,8 +40,39 @@ async function notifyStudentAssigned(salesId, studentId) {
       body: `${student ? `${student.prenom} ${student.nom}` : "Un étudiant"} vous a été attribué.`,
       link: `/conseiller/etudiants/${studentId}`
     });
+    await notifyPassportRisk(studentId, { admins: false, salesId });
   } catch (error) {
     logger.error("Échec de la notification d'attribution", { message: error.message });
+  }
+}
+
+// Passeport expiré ou qui expire dans moins de 24 mois : prévient l'admin
+// et/ou le conseiller. Ne fait rien si le passeport est valide ou inconnu.
+async function notifyPassportRisk(studentId, { admins = true, salesId = null } = {}) {
+  try {
+    const [student, profile] = await Promise.all([userRepo.findById(studentId), studentRepo.findByUserId(studentId)]);
+    if (!student || !profile) return;
+    const expiresOn = passport.formatExpiry(profile.passport_expires_on);
+    const status = passport.passportStatus({ hasPassport: profile.has_passport, expiresOn });
+    if (!passport.isRisky(status)) return;
+
+    const name = `${student.prenom} ${student.nom}`.trim();
+    const expiry = passport.parseExpiry(expiresOn);
+    const label = expiry.toLocaleDateString("fr-FR");
+    const months = passport.monthsLeft(expiry);
+    const payload = {
+      type: "PASSPORT_EXPIRING",
+      title: status === "EXPIRED" ? `Passeport expiré : ${name}` : `Passeport à renouveler : ${name}`,
+      body:
+        status === "EXPIRED"
+          ? `Le passeport de ${name} a expiré le ${label}. Il doit être renouvelé avant toute démarche.`
+          : `Le passeport de ${name} expire le ${label} (dans ${months < 1 ? "moins d'un mois" : `${months} mois`}), soit moins de ${passport.PASSPORT_MIN_VALIDITY_MONTHS} mois de validité.`,
+      link: `/conseiller/etudiants/${studentId}`
+    };
+    if (admins) await notifyAdmins(payload);
+    if (salesId) await notify(salesId, payload);
+  } catch (error) {
+    logger.error("Échec de la notification de passeport", { message: error.message });
   }
 }
 
@@ -75,4 +108,4 @@ async function markAllRead(auth) {
   await repo.markAllRead(auth.sub);
 }
 
-module.exports = { notify, notifyAdmins, notifyStudentAssigned, list, unreadCount, markRead, markAllRead };
+module.exports = { notify, notifyAdmins, notifyStudentAssigned, notifyPassportRisk, list, unreadCount, markRead, markAllRead };

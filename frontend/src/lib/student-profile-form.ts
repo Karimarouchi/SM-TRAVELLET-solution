@@ -1,4 +1,5 @@
 import type { StudentProfile } from "@/lib/auth";
+import { normalizePassportNumber, validatePassportExpiry, validatePassportNumber } from "@/lib/passport";
 
 export const COUNTRIES = ["Tunisie", "Algérie", "Maroc", "France", "Allemagne", "Espagne", "Italie", "Hongrie", "Lituanie", "Canada", "Belgique", "Suisse"];
 export const LEVELS = ["Baccalauréat", "Licence", "Master", "Doctorat", "Autre"];
@@ -74,6 +75,8 @@ export type ProfileForm = {
   languageTestFrenchOther: string;
   languageTestEnglishOther: string;
   hasPassport: "" | "yes" | "no";
+  passportNumber: string;
+  passportExpiresOn: string;
   visaAlreadyRequested: "" | "yes" | "no";
   availableDocuments: string;
 };
@@ -118,6 +121,8 @@ export function profileToForm(profile: StudentProfile | null): ProfileForm {
     languageTestFrenchOther: profile?.languageTestFrenchOther || "",
     languageTestEnglishOther: profile?.languageTestEnglishOther || "",
     hasPassport: profile?.hasPassport === true ? "yes" : profile?.hasPassport === false ? "no" : "",
+    passportNumber: profile?.passportNumber || "",
+    passportExpiresOn: profile?.passportExpiresOn || "",
     visaAlreadyRequested: profile?.visaAlreadyRequested === true ? "yes" : profile?.visaAlreadyRequested === false ? "no" : "",
     availableDocuments: profile?.availableDocuments || ""
   };
@@ -131,6 +136,8 @@ export function formToPayload(form: ProfileForm) {
     languageTestFrenchOther: form.languageTestFrench === "Autre" ? form.languageTestFrenchOther.trim() : "",
     languageTestEnglishOther: form.languageTestEnglish === "Autre" ? form.languageTestEnglishOther.trim() : "",
     hasPassport: form.hasPassport === "yes",
+    passportNumber: form.hasPassport === "yes" ? normalizePassportNumber(form.passportNumber) : "",
+    passportExpiresOn: form.hasPassport === "yes" ? form.passportExpiresOn : "",
     visaAlreadyRequested: form.visaAlreadyRequested === "yes"
   };
 }
@@ -243,6 +250,12 @@ export function validateField(key: ProfileField, form: ProfileForm): string {
       return text.length >= 2 ? "" : "Indiquez le nom du test d’anglais.";
     case "hasPassport":
       return text ? "" : "Indiquez si le passeport est disponible.";
+    // Sur le profil, ces champs sont facultatifs (les comptes créés avant la
+    // règle ne sont pas bloqués) : on vérifie seulement le format de ce qui est saisi.
+    case "passportNumber":
+      return form.hasPassport === "yes" && form.passportNumber.trim() ? validatePassportNumber(form.passportNumber) : "";
+    case "passportExpiresOn":
+      return form.hasPassport === "yes" && form.passportExpiresOn.trim() ? validatePassportExpiry(form.passportExpiresOn) : "";
     case "visaAlreadyRequested":
       return text ? "" : "Indiquez si un visa a déjà été demandé.";
     case "availableDocuments":
@@ -268,6 +281,8 @@ export const SECTION_FIELDS: Record<string, ProfileField[]> = {
     "languageTestFrenchOther",
     "languageTestEnglishOther",
     "hasPassport",
+    "passportNumber",
+    "passportExpiresOn",
     "visaAlreadyRequested",
     "availableDocuments"
   ]

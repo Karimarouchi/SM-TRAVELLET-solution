@@ -1,3 +1,4 @@
+import type { PassportStatus } from "@/lib/passport";
 export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 export function mediaUrl(path?: string | null) {
@@ -57,6 +58,9 @@ export type StudentProfile = {
   languageTestFrenchOther: string;
   languageTestEnglishOther: string;
   hasPassport: boolean | null;
+  passportNumber: string;
+  passportExpiresOn: string;
+  passportStatus: PassportStatus;
   visaAlreadyRequested: boolean | null;
   availableDocuments: string;
   onboardingCompleted: boolean;
@@ -247,6 +251,10 @@ export type StudentOverview = {
   city: string;
   currentStudyLevel: string;
   preferredCountries: string[];
+  // Liste admin : état et date seulement, jamais le numéro.
+  passportStatus: PassportStatus;
+  passportExpiresOn: string;
+  passportMonthsLeft: number | null;
   isActive: boolean;
   dossierStage: string;
   stage: PipelineStageKey;

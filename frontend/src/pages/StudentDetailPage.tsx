@@ -35,6 +35,8 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { PassportBadge } from "@/components/PassportBadge";
+import { monthsLeft, parseExpiry } from "@/lib/passport";
 
 function statusMeta(t: (fr: string, en: string) => string): Record<StudentDocumentChecklistItem["status"], { label: string; color: string; icon: typeof Clock }> {
   return {
@@ -68,6 +70,8 @@ export default function StudentDetailPage() {
   const session = getSession();
   const role = session?.user?.role;
   const canActUniversity = role === "ADMIN";
+  const passportExpiry = profile?.passportExpiresOn ? parseExpiry(profile.passportExpiresOn) : null;
+  const passportMonthsLeft = passportExpiry ? monthsLeft(passportExpiry) : null;
   const [activeTab, setActiveTab] = useState<"overview" | "history">("overview");
   const [visaDocs, setVisaDocs] = useState<VisaDocumentChecklistItem[]>([]);
   const visaApp = applications.find((a) => a.status === "ACCEPTED" && !a.visaStatus);
@@ -186,6 +190,15 @@ export default function StudentDetailPage() {
               <InfoRow label={t("Nationalité", "Nationality")} value={profile.nationality} />
               <InfoRow label={t("Pays de résidence", "Country of residence")} value={profile.residenceCountry} />
               <InfoRow label={t("Ville", "City")} value={profile.city} />
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted">{t("Passeport", "Passport")}</p>
+                {profile.passportNumber ? (
+                  <p className="mt-0.5 break-words font-mono text-sm font-semibold tracking-wide text-dark">{profile.passportNumber}</p>
+                ) : null}
+                <p className="mt-1">
+                  <PassportBadge status={profile.passportStatus} expiresOn={profile.passportExpiresOn} monthsLeft={passportMonthsLeft} showDate />
+                </p>
+              </div>
               <InfoRow label={t("Niveau actuel", "Current level")} value={profile.currentStudyLevel} />
               <InfoRow label={t("Dernier diplôme", "Last diploma")} value={profile.lastDiploma} />
               <InfoRow label={t("Pays préférés", "Preferred countries")} value={profile.preferredCountries.join(", ")} />

@@ -10,6 +10,7 @@ const countryRepo = require("../repositories/countryRepository");
 const universityApplications = require("../repositories/universityApplicationRepository");
 const whatsapp = require("./whatsappService");
 const notificationService = require("./notificationService");
+const passport = require("./passport");
 const emailService = require("./emailService");
 const logger = require("../logger");
 const env = require("../config/env");
@@ -46,7 +47,13 @@ function mapStudent(row) {
     phone: row.phone || "",
     city: row.city || "",
     currentStudyLevel: row.current_study_level || "",
-    preferredCountries: row.preferred_countries || []
+    preferredCountries: row.preferred_countries || [],
+    // Le tableau n'affiche que l'état et la date, jamais le numéro.
+    passportStatus: passport.passportStatus({ hasPassport: row.has_passport, expiresOn: row.passport_expires_on ? passport.formatExpiry(row.passport_expires_on) : null }),
+    passportExpiresOn: passport.formatExpiry(row.passport_expires_on),
+    passportMonthsLeft: row.passport_expires_on && passport.parseExpiry(passport.formatExpiry(row.passport_expires_on))
+      ? passport.monthsLeft(passport.parseExpiry(passport.formatExpiry(row.passport_expires_on)))
+      : null
   };
 }
 

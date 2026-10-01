@@ -58,6 +58,8 @@ async function updateOnboarding(userId, fields) {
       has_passport = $27,
       visa_already_requested = $28,
       available_documents = $29,
+      passport_number = $30,
+      passport_expires_on = $31,
       onboarding_completed = TRUE,
       onboarding_completed_at = NOW(),
       updated_at = NOW()
@@ -92,7 +94,9 @@ async function updateOnboarding(userId, fields) {
       fields.languageTestEnglishOther || null,
       fields.hasPassport,
       fields.visaAlreadyRequested,
-      fields.availableDocuments || null
+      fields.availableDocuments || null,
+      fields.passportNumber || null,
+      fields.passportExpiresOn || null
     ]
   );
   return result.rows[0];
@@ -191,6 +195,7 @@ async function listAllOverview() {
             sp.onboarding_completed, sp.onboarding_completed_at, sp.assigned_sales_id,
             sp.dossier_stage, sp.residence_country, sp.target_field, sp.phone, sp.city,
             sp.current_study_level, sp.preferred_countries,
+            sp.has_passport, sp.passport_expires_on,
             sal.prenom AS sales_prenom, sal.nom AS sales_nom
      FROM users u
      LEFT JOIN student_profiles sp ON sp.user_id = u.id

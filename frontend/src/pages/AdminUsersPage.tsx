@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import StudentsPipelineBoard, { StageBadge } from "@/components/admin/StudentsPipelineBoard";
 import DeleteStudentModal from "@/components/admin/DeleteStudentModal";
+import { PassportBadge } from "@/components/PassportBadge";
 
 // ── Tableau détaillé, toujours affiché sous le pipeline pour garder un accès
 // exhaustif (tri visuel, lecture rapide de tous les champs).
@@ -67,6 +68,7 @@ function StudentsTable({
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <StageBadge stage={student.stage} />
+            <PassportBadge status={student.passportStatus} expiresOn={student.passportExpiresOn} monthsLeft={student.passportMonthsLeft} />
           </div>
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3">
             <p className="min-w-0 truncate text-xs text-mid">
@@ -88,6 +90,7 @@ function StudentsTable({
             <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">Étudiant</th>
             <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted hidden sm:table-cell">Conseiller</th>
             <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">Étape</th>
+            <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted hidden md:table-cell">Passeport</th>
             <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted hidden md:table-cell">Compte</th>
             <th className="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-muted">Actions</th>
           </tr>
@@ -109,6 +112,9 @@ function StudentsTable({
               </td>
               <td className="px-4 py-3 hidden sm:table-cell text-xs text-mid">{student.assignedSalesName || "—"}</td>
               <td className="px-4 py-3"><StageBadge stage={student.stage} /></td>
+              <td className="px-4 py-3 hidden md:table-cell">
+                <PassportBadge status={student.passportStatus} expiresOn={student.passportExpiresOn} monthsLeft={student.passportMonthsLeft} showDate />
+              </td>
               <td className="px-4 py-3 hidden md:table-cell">
                 {student.isActive ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">

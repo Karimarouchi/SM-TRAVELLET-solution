@@ -8,6 +8,7 @@ const { studentProfileDto, userDto, formatPgDate, lockedFieldsFromRow } = requir
 const { canAccessStudent } = require("../security/rbac");
 const countryUniversityService = require("./countryUniversityService");
 const notificationService = require("./notificationService");
+const passport = require("./passport");
 const whatsappService = require("./whatsappService");
 const { normalizePhone } = whatsappService;
 
@@ -54,6 +55,28 @@ function required(value, label) {
     return `${label} est obligatoire.`;
   }
   return null;
+}
+
+// Numéro et date d'expiration : lus seulement si l'étudiant a un passeport. La
+// présence est exigée dans saveOnboarding (première fin d'onboarding), ici on
+// vérifie le FORMAT de ce qui est fourni.
+function validatePassport(body) {
+  if (body.hasPassport !== true) return { passportNumber: "", passportExpiresOn: "" };
+  const fail = (message) => {
+    const error = new Error(message);
+    error.status = 400;
+    return error;
+  };
+  const number = passport.normalizePassportNumber(body.passportNumber);
+  if (number && !passport.isValidPassportNumber(number)) {
+    throw fail("Le numéro de passeport doit contenir 5 à 20 lettres ou chiffres.");
+  }
+  const rawExpiry = String(body.passportExpiresOn || "").trim();
+  if (rawExpiry) {
+    const expiry = passport.parseExpiry(rawExpiry);
+    if (!expiry || !passport.isPlausibleExpiry(expiry)) throw fail("La date d'expiration du passeport est invalide.");
+  }
+  return { passportNumber: number, passportExpiresOn: rawExpiry };
 }
 
 function validateOnboarding(body) {
@@ -205,6 +228,7 @@ function validateOnboarding(body) {
     languageTestFrenchOther: languageTestFrench === "Autre" ? languageTestFrenchOther : "",
     languageTestEnglishOther: languageTestEnglish === "Autre" ? languageTestEnglishOther : "",
     hasPassport: Boolean(body.hasPassport),
+    ...validatePassport(body),
     visaAlreadyRequested: Boolean(body.visaAlreadyRequested),
     availableDocuments: String(body.availableDocuments || "").trim()
   };
@@ -288,6 +312,22 @@ async function saveOnboarding(userId, body) {
   const existingRow = await students.ensureProfile(userId);
   const locked = lockedFieldsFromRow(existingRow);
 
+  // Passeport : obligatoire à la PREMIÈRE fin d'onboarding. Les étudiants déjà
+  // inscrits (avant cette règle) ne sont pas bloqués quand ils modifient leur
+  // profil : leurs valeurs existantes sont conservées si le formulaire ne les
+  // renvoie pas.
+  const firstOnboarding = !existingRow.onboarding_completed;
+  if (fields.hasPassport && firstOnboarding && (!fields.passportNumber || !fields.passportExpiresOn)) {
+    const error = new Error("Indiquez le numéro de votre passeport et sa date d'expiration.");
+    error.status = 400;
+    throw error;
+  }
+  if (fields.hasPassport) {
+    if (!fields.passportNumber) fields.passportNumber = existingRow.passport_number || "";
+    if (!fields.passportExpiresOn) fields.passportExpiresOn = passport.formatExpiry(existingRow.passport_expires_on);
+  }
+  const previousExpiry = passport.formatExpiry(existingRow.passport_expires_on);
+
   // Un champ pré-rempli par un code Sales ne peut pas être modifié par
   // l'étudiant, même si la requête tente de le changer (défense côté
   // serveur, indépendante du verrouillage visuel côté frontend).
@@ -314,6 +354,14 @@ async function saveOnboarding(userId, body) {
     }
   }
   if (phoneChanged) await whatsappService.linkStudentByPhone(userId, fields.phone);
+
+  // Passeport à renouveler (expiré ou < 24 mois) : l'admin et le conseiller déjà
+  // en charge sont prévenus, une seule fois par date saisie. Un conseiller
+  // attribué à l'instant (auto-attribution) l'apprend via sa notification
+  // d'attribution.
+  if (fields.hasPassport && fields.passportExpiresOn && fields.passportExpiresOn !== previousExpiry) {
+    await notificationService.notifyPassportRisk(userId, { admins: true, salesId: existingRow.assigned_sales_id || null });
+  }
   return { profile, onboardingCompleted: true, assignedSalesId: profile.assignedSalesId || null };
 }
 

@@ -1,3 +1,4 @@
+const passport = require("../services/passport");
 function formatPgDate(value) {
   if (!value) return "";
   if (typeof value === "string") return value.slice(0, 10);
@@ -62,6 +63,9 @@ function studentProfileDto(row) {
     languageTestFrenchOther: row.language_test_french_other || "",
     languageTestEnglishOther: row.language_test_english_other || "",
     hasPassport: row.has_passport,
+    passportNumber: row.passport_number || "",
+    passportExpiresOn: passport.formatExpiry(row.passport_expires_on),
+    passportStatus: passport.passportStatus({ hasPassport: row.has_passport, expiresOn: row.passport_expires_on ? passport.formatExpiry(row.passport_expires_on) : null }),
     visaAlreadyRequested: row.visa_already_requested,
     availableDocuments: row.available_documents || "",
     onboardingCompleted: Boolean(row.onboarding_completed),
