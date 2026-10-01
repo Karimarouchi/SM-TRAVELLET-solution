@@ -1,7 +1,7 @@
 import { type PipelineStageKey, type StudentOverview } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import { Ban, CheckCircle2, ExternalLink, Lock, Unlock, UserRound } from "lucide-react";
+import { ArrowRight, Ban, CheckCircle2, ExternalLink, Lock, Unlock, UserRound } from "lucide-react";
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
@@ -221,6 +221,7 @@ function PipelineColumn({
   students: StudentOverview[];
 }) {
   const [expanded, setExpanded] = useState(false);
+  const navigate = useNavigate();
   const meta = STAGE_META[stageKey];
   const hidden = students.length - BUBBLES_PER_COLUMN;
   const visible = expanded || hidden <= 0 ? students : students.slice(0, BUBBLES_PER_COLUMN);
@@ -233,6 +234,16 @@ function PipelineColumn({
         </span>
         <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-muted shadow-sm">{students.length}</span>
       </div>
+      {/* Ouvre la page dédiée : tous les étudiants de cette étape, en cartes. */}
+      {students.length > 0 && (
+        <button
+          type="button"
+          onClick={() => navigate(`/admin/pipeline/${stageKey}`)}
+          className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-brand/20 bg-white px-3 py-1.5 text-[11px] font-bold text-brand transition hover:bg-brand hover:text-white"
+        >
+          Voir tout <ArrowRight className="h-3 w-3" />
+        </button>
+      )}
       {students.length ? (
         <div className="flex flex-wrap gap-2 pb-2 pt-1">
           {visible.map((student) => (

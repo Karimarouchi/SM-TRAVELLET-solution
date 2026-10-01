@@ -14,6 +14,7 @@ import AdminSalesPage from "@/pages/AdminSalesPage";
 import AdminUsersPage from "@/pages/AdminUsersPage";
 import AdminSettingsPage from "@/pages/AdminSettingsPage";
 import AdminStaffStatsPage from "@/pages/AdminStaffStatsPage";
+import AdminPipelineStagePage from "@/pages/AdminPipelineStagePage";
 import AdminProgrammesPage from "@/pages/AdminProgrammesPage";
 import AdminVisaDocumentsPage from "@/pages/AdminVisaDocumentsPage";
 import AdminAvisPage from "@/pages/AdminAvisPage";
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
           <Route path="/admin/equipe/:id" element={<AdminStaffStatsPage />} />
+          <Route path="/admin/pipeline/:stage" element={<AdminPipelineStagePage />} />
           <Route path="/admin/programmes" element={<AdminProgrammesPage />} />
           <Route path="/admin/visa-documents" element={<AdminVisaDocumentsPage />} />
           <Route path="/admin/avis" element={<AdminAvisPage />} />
