@@ -121,6 +121,54 @@ async function countSalesLinkedData(salesId) {
   };
 }
 
+// Ce qui disparaîtra avec un compte ÉTUDIANT (tout part en cascade en base) ou
+// qui sera détaché. `commissions` est bloquant : ces gains appartiennent aux
+// conseillers / RDV et ne doivent jamais être effacés en supprimant l'étudiant.
+async function countStudentLinkedData(studentId) {
+  const result = await query(
+    `SELECT
+       (SELECT COUNT(*) FROM student_documents WHERE student_id = $1) AS documents,
+       (SELECT COUNT(*) FROM university_applications WHERE student_id = $1) AS applications,
+       (SELECT COUNT(*) FROM commission_earnings WHERE student_id = $1) AS commissions,
+       (SELECT COUNT(*) FROM whatsapp_contacts WHERE student_id = $1) AS whatsapp_contacts,
+       (SELECT COUNT(*) FROM sales_codes WHERE used_by_student_id = $1) AS codes_used`,
+    [studentId]
+  );
+  const row = result.rows[0];
+  return {
+    documents: Number(row.documents),
+    applications: Number(row.applications),
+    commissions: Number(row.commissions),
+    whatsappContacts: Number(row.whatsapp_contacts),
+    codesUsed: Number(row.codes_used)
+  };
+}
+
+// Fichiers personnels de l'étudiant à supprimer du disque avec son compte.
+async function listStudentFiles(studentId) {
+  const [docs, user] = await Promise.all([
+    query("SELECT stored_filename FROM student_documents WHERE student_id = $1 AND stored_filename IS NOT NULL", [studentId]),
+    query("SELECT avatar_url FROM users WHERE id = $1", [studentId])
+  ]);
+  return {
+    documents: docs.rows.map((r) => r.stored_filename),
+    avatarUrl: user.rows[0]?.avatar_url || ""
+  };
+}
+
+// Supprime un compte ÉTUDIANT. Les codes conseiller qu'il a utilisés partent
+// avec lui : la base impose qu'un code « utilisé » ait toujours son étudiant,
+// et le remettre en « non utilisé » le rendrait réutilisable par quelqu'un
+// d'autre. Ils contiennent d'ailleurs son téléphone (pré-remplissage). Une
+// seule instruction (CTE) : tout est supprimé ou rien.
+async function deleteStudentById(id) {
+  await query(
+    `WITH removed_codes AS (DELETE FROM sales_codes WHERE used_by_student_id = $1)
+     DELETE FROM users WHERE id = $1 AND role = 'STUDENT'`,
+    [id]
+  );
+}
+
 async function deleteById(id) {
   await query("DELETE FROM users WHERE id = $1", [id]);
 }
@@ -141,5 +189,8 @@ module.exports = {
   setEmailVerificationCode,
   markEmailVerified,
   countSalesLinkedData,
+  countStudentLinkedData,
+  listStudentFiles,
+  deleteStudentById,
   deleteById
 };

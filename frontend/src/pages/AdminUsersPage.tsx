@@ -1,20 +1,35 @@
 import { fetchStudentsOverview, setStudentActive, type StudentOverview } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { Ban, CheckCircle2, Search, Unlock } from "lucide-react";
+import { Ban, CheckCircle2, Search, Trash2, Unlock } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import StudentsPipelineBoard, { StageBadge } from "@/components/admin/StudentsPipelineBoard";
+import DeleteStudentModal from "@/components/admin/DeleteStudentModal";
 
 // ── Tableau détaillé, toujours affiché sous le pipeline pour garder un accès
 // exhaustif (tri visuel, lecture rapide de tous les champs).
 function StudentsTable({
   students,
   busyId,
-  onToggleBlock
+  onToggleBlock,
+  onDelete
 }: {
   students: StudentOverview[];
   busyId: string | null;
   onToggleBlock: (student: StudentOverview) => void;
+  onDelete: (student: StudentOverview) => void;
 }) {
+  const deleteButton = (student: StudentOverview) => (
+    <button
+      type="button"
+      onClick={() => onDelete(student)}
+      title="Supprimer cet étudiant"
+      aria-label={`Supprimer ${student.prenom} ${student.nom}`}
+      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition hover:bg-red-100 hover:text-red-600"
+    >
+      <Trash2 className="h-3.5 w-3.5" />
+    </button>
+  );
+
   const blockButton = (student: StudentOverview) => (
     <button
       type="button"
@@ -53,7 +68,10 @@ function StudentsTable({
             <p className="min-w-0 truncate text-xs text-mid">
               <span className="text-muted">Conseiller : </span>{student.assignedSalesName || "—"}
             </p>
-            {blockButton(student)}
+            <div className="flex shrink-0 items-center gap-2">
+              {blockButton(student)}
+              {deleteButton(student)}
+            </div>
           </div>
         </div>
       ))}
@@ -90,7 +108,12 @@ function StudentsTable({
                   </span>
                 )}
               </td>
-              <td className="px-4 py-3 text-right">{blockButton(student)}</td>
+              <td className="px-4 py-3 text-right">
+                <div className="flex items-center justify-end gap-2">
+                  {blockButton(student)}
+                  {deleteButton(student)}
+                </div>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -106,6 +129,8 @@ export default function AdminUsersPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<StudentOverview | null>(null);
+  const [notice, setNotice] = useState("");
 
   const load = () => {
     setLoading(true);
@@ -166,6 +191,7 @@ export default function AdminUsersPage() {
       </section>
 
       {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
+      {notice && <p role="status" className="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{notice}</p>}
 
       {/* ── Recherche ────────────────────────────────────────────────────── */}
       <div className="mt-6">
@@ -200,8 +226,22 @@ export default function AdminUsersPage() {
           accès exhaustif (tri, lecture rapide de tous les champs). */}
       {!loading && filtered.length > 0 && (
         <div className="mt-2">
-          <StudentsTable students={filtered} busyId={busyId} onToggleBlock={toggleBlock} />
+          <StudentsTable students={filtered} busyId={busyId} onToggleBlock={toggleBlock} onDelete={setDeleteTarget} />
         </div>
+      )}
+
+      {deleteTarget && (
+        <DeleteStudentModal
+          student={deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onBlockInstead={() => toggleBlock(deleteTarget)}
+          onDeleted={() => {
+            setStudents((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+            setNotice(`${deleteTarget.prenom} ${deleteTarget.nom} a été supprimé définitivement.`);
+            setDeleteTarget(null);
+            window.setTimeout(() => setNotice(""), 5000);
+          }}
+        />
       )}
     </main>
   );

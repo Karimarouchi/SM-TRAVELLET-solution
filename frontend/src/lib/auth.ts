@@ -264,6 +264,27 @@ export async function setStudentActive(studentId: string, isActive: boolean) {
   });
 }
 
+export type StudentDeletionPreview = {
+  id: string;
+  name: string;
+  email: string;
+  documents: number;
+  applications: number;
+  commissions: number;
+  whatsappContacts: number;
+  codesUsed: number;
+  canDelete: boolean;
+};
+
+// Ce qui disparaîtra avec le compte (affiché dans la fenêtre de confirmation).
+export async function fetchStudentDeletionPreview(studentId: string) {
+  return request<StudentDeletionPreview>(`/api/admin/students/${studentId}/deletion-preview`);
+}
+
+export async function deleteStudent(studentId: string) {
+  return request<{ id: string }>(`/api/admin/students/${studentId}`, { method: "DELETE" });
+}
+
 export type BackupStatus = { success: boolean | null; at: string | null; error?: string; triggeredBy?: string };
 
 export async function fetchBackupStatus() {

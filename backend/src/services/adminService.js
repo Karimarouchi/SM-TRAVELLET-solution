@@ -1,3 +1,5 @@
+const fs = require("fs");
+const path = require("path");
 const users = require("../repositories/userRepository");
 const students = require("../repositories/studentRepository");
 const sales = require("../repositories/salesRepository");
@@ -9,11 +11,15 @@ const universityApplications = require("../repositories/universityApplicationRep
 const whatsapp = require("./whatsappService");
 const notificationService = require("./notificationService");
 const emailService = require("./emailService");
+const logger = require("../logger");
 const env = require("../config/env");
 const { hashPassword } = require("../security/password");
 const { formatPgDate } = require("../dto/userDto");
 
 const ASSIGNABLE_ROLES = ["SALES", "ADMIN", "RDV"];
+
+const DOCUMENTS_DIR = path.join(__dirname, "../../uploads/documents");
+const AVATARS_DIR = path.join(__dirname, "../../uploads/avatars");
 
 function fail(message, status) {
   const error = new Error(message);
@@ -698,6 +704,64 @@ async function deleteSales(salesId) {
   return { id: salesId };
 }
 
+// ── Suppression d'un étudiant ─────────────────────────────────────────────
+// Suppression DÉFINITIVE (compte, profil, documents, candidatures, historique,
+// notifications) pour nettoyer un compte de test ou créé par erreur, ou pour
+// effacer les données d'une personne qui le demande. Une seule limite : un
+// étudiant pour qui une commission a été gagnée ne se supprime pas (les gains
+// des conseillers / RDV partiraient avec lui) : on le bloque à la place.
+async function loadDeletableStudent(studentId) {
+  if (!/^[0-9a-f-]{36}$/i.test(String(studentId))) throw fail("Étudiant introuvable.", 404);
+  const user = await users.findById(studentId);
+  if (!user || user.role !== "STUDENT") throw fail("Étudiant introuvable.", 404);
+  return user;
+}
+
+async function getStudentDeletionPreview(studentId) {
+  const user = await loadDeletableStudent(studentId);
+  const linked = await users.countStudentLinkedData(studentId);
+  return {
+    id: user.id,
+    name: `${user.prenom} ${user.nom}`.trim(),
+    email: user.email,
+    ...linked,
+    // Bloque la suppression : l'interface propose « Bloquer » à la place.
+    canDelete: linked.commissions === 0
+  };
+}
+
+function removeFileQuietly(filePath) {
+  try {
+    fs.unlinkSync(filePath);
+  } catch (error) {
+    if (error.code !== "ENOENT") logger.warn("Suppression d'un fichier d'étudiant impossible", { file: path.basename(filePath), message: error.message });
+  }
+}
+
+async function deleteStudent(adminId, studentId) {
+  const user = await loadDeletableStudent(studentId);
+  const linked = await users.countStudentLinkedData(studentId);
+  if (linked.commissions > 0) {
+    throw fail(
+      `Cet étudiant a généré ${linked.commissions} commission${linked.commissions > 1 ? "s" : ""} pour des conseillers ou des RDV : le supprimer effacerait ces gains. Bloquez son compte à la place.`,
+      409
+    );
+  }
+
+  // Liste des fichiers AVANT la suppression : après, les lignes n'existent plus.
+  const files = await users.listStudentFiles(studentId);
+  await users.deleteStudentById(studentId);
+
+  for (const stored of files.documents) removeFileQuietly(path.join(DOCUMENTS_DIR, path.basename(stored)));
+  if (files.avatarUrl.startsWith("/uploads/avatars/")) {
+    removeFileQuietly(path.join(AVATARS_DIR, path.basename(files.avatarUrl.split("?")[0])));
+  }
+
+  // Trace d'audit : qui a supprimé quel compte, sans conserver de données personnelles.
+  logger.info("Étudiant supprimé", { adminId, studentId, documents: linked.documents, applications: linked.applications });
+  return { id: studentId };
+}
+
 async function createRdv(body) {
   const prenom = String(body.prenom || "").trim();
   const nom = String(body.nom || "").trim();
@@ -814,4 +878,4 @@ async function setRdvCountries(rdvUserId, countryIds) {
   return { rdvUserId, countryIds: ids };
 }
 
-module.exports = { getBoard, getDashboard, getStudentsOverview, setStudentActive, setAutoAssign, getSettings, updateSettings, createSales, setSalesActive, transferAndBlockSales, deleteSales, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };
+module.exports = { getBoard, getDashboard, getStudentsOverview, setStudentActive, setAutoAssign, getSettings, updateSettings, createSales, setSalesActive, transferAndBlockSales, deleteSales, getStudentDeletionPreview, deleteStudent, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };
