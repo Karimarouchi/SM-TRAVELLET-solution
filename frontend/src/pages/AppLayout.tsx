@@ -30,11 +30,11 @@ export default function AppLayout() {
     const hasVisaDocsAccess = Boolean(session.user.permissions?.includes("MANAGE_VISA_DOCUMENTS")) || role === "RDV";
     const onVisaDocsPage = path.startsWith("/admin/visa-documents");
     const shared = path === "/notifications" || path === "/archive";
-    if (role === "ADMIN" && !path.startsWith("/admin") && !shared && path !== "/whatsapp" && !path.startsWith("/conseiller/etudiants")) {
+    if (role === "ADMIN" && !path.startsWith("/admin") && !shared && !path.startsWith("/whatsapp") && !path.startsWith("/conseiller/etudiants")) {
       navigate("/admin", { replace: true });
       return;
     }
-    if (role === "SALES" && !path.startsWith("/conseiller") && !shared && path !== "/whatsapp" && !(hasVisaDocsAccess && onVisaDocsPage)) {
+    if (role === "SALES" && !path.startsWith("/conseiller") && !shared && !path.startsWith("/whatsapp") && !(hasVisaDocsAccess && onVisaDocsPage)) {
       navigate("/conseiller", { replace: true });
       return;
     }
@@ -42,7 +42,7 @@ export default function AppLayout() {
       navigate("/rdv", { replace: true });
       return;
     }
-    if (role === "STUDENT" && (path.startsWith("/admin") || path.startsWith("/conseiller") || path.startsWith("/rdv") || path === "/whatsapp")) {
+    if (role === "STUDENT" && (path.startsWith("/admin") || path.startsWith("/conseiller") || path.startsWith("/rdv") || path.startsWith("/whatsapp"))) {
       navigate("/espace", { replace: true });
     }
   }, [navigate, location.pathname]);

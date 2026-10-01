@@ -7,8 +7,11 @@ import {
   hideWhatsAppMessage,
   linkWhatsAppStudent,
   sendWhatsAppMessage,
+  segmentOf,
+  WHATSAPP_SEGMENTS,
   type WhatsAppConversation,
-  type WhatsAppMessage
+  type WhatsAppMessage,
+  type WhatsAppSegment
 } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/ui/user-avatar";
@@ -283,7 +286,7 @@ function AssignOwnerModal({
 
 // Boîte de réception WhatsApp (remplit toute la hauteur de la carte qui la
 // contient, voir pages/WhatsAppPage).
-export default function WhatsAppInbox() {
+export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment }) {
   const me = getSession()?.user;
   const isAdmin = me?.role === "ADMIN";
 
@@ -308,7 +311,15 @@ export default function WhatsAppInbox() {
   const lastMessageIdRef = useRef<string | null>(null);
   const preserveScrollRef = useRef<number | null>(null);
 
-  const active = conversations.find((item) => item.id === activeId) || null;
+  // La conversation ouverte doit appartenir à la messagerie affichée.
+  const active = conversations.find((item) => item.id === activeId && segmentOf(item) === segment) || null;
+
+  // Changer de messagerie referme la conversation ouverte.
+  useEffect(() => {
+    setActiveId(null);
+    setMobileChat(false);
+    setFilter("all");
+  }, [segment]);
 
   const loadList = useCallback(async () => {
     try {
@@ -439,7 +450,13 @@ export default function WhatsAppInbox() {
     await loadList();
   }
 
-  const visible = conversations.filter((item) => {
+  // Chaque messagerie ne montre que ses conversations : « inscrits » = liées à
+  // un compte étudiant, « non inscrits » = les autres. Quand un prospect
+  // s'inscrit avec son code, sa conversation passe toute seule côté inscrits.
+  const inSegment = conversations.filter((item) => segmentOf(item) === segment);
+  const otherUnread = conversations.filter((item) => segmentOf(item) !== segment).reduce((sum, item) => sum + item.unread, 0);
+
+  const visible = inSegment.filter((item) => {
     if (filter === "unread") return item.unread > 0;
     if (filter === "unassigned") return !item.ownerId;
     return true;
@@ -462,6 +479,29 @@ export default function WhatsAppInbox() {
               <h1 className="flex items-center gap-2 font-display text-xl font-extrabold text-white">
                 <MessageCircle className="h-5 w-5" /> WhatsApp
               </h1>
+              {/* Bascule entre les deux messageries (en plus du menu de la barre de navigation). */}
+              <div className="mt-3 grid grid-cols-2 gap-1 rounded-full bg-black/15 p-1" role="tablist" aria-label="Messagerie WhatsApp">
+                {WHATSAPP_SEGMENTS.map((item) => {
+                  const selected = item.id === segment;
+                  return (
+                    <Link
+                      key={item.id}
+                      to={`/whatsapp/${item.path}`}
+                      role="tab"
+                      aria-selected={selected}
+                      className={cn(
+                        "flex items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-bold transition",
+                        selected ? "bg-white text-emerald-700 shadow" : "text-white/85 hover:bg-white/15"
+                      )}
+                    >
+                      {item.short}
+                      {!selected && otherUnread > 0 && item.id !== segment && (
+                        <span className="rounded-full bg-emerald-400 px-1.5 text-[10px] font-extrabold leading-4 text-white">{otherUnread}</span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
               <label className="mt-3 flex items-center gap-2 rounded-full bg-white/15 px-3 py-2 backdrop-blur">
                 <Search className="h-4 w-4 text-white/70" />
                 <input
@@ -533,7 +573,11 @@ export default function WhatsAppInbox() {
               ))}
               {listLoaded && !visible.length && (
                 <p className="px-5 py-10 text-center text-sm text-muted">
-                  {conversations.length ? "Aucune conversation pour ce filtre." : "Aucune conversation WhatsApp pour le moment."}
+                  {inSegment.length
+                    ? "Aucune conversation pour ce filtre."
+                    : segment === "registered"
+                      ? "Aucun étudiant inscrit n'a encore écrit sur WhatsApp."
+                      : "Aucune conversation avec une personne non inscrite pour le moment."}
                 </p>
               )}
             </div>

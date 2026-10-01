@@ -96,6 +96,13 @@ async function register(body) {
     error.status = 400;
     throw error;
   }
+  // Personne ne s'inscrit sans le code envoyé par son conseiller : c'est lui
+  // qui rattache l'étudiant à son conseiller et à son pays.
+  if (!String(body.salesCode || "").trim()) {
+    const error = new Error("Un code d'inscription est obligatoire. Demandez-le à votre conseiller SM Travel.");
+    error.status = 400;
+    throw error;
+  }
   if (await users.findByEmail(parsed.email)) {
     const error = new Error("Un compte existe déjà avec cet email.");
     error.status = 409;
@@ -115,11 +122,7 @@ async function register(body) {
   const user = await users.createUser({ ...account, salt, hash, role: "STUDENT", emailVerified: false });
   await students.ensureProfile(user.id);
   await students.setPhone(user.id, phone);
-  // Un code Sales est optionnel : s'il est absent, le mécanisme d'attribution
-  // existant (manuel/auto par charge) continue de s'appliquer normalement.
-  if (body.salesCode) {
-    await salesCodeService.applyCodeToNewStudent(user.id, body.salesCode);
-  }
+  await salesCodeService.applyCodeToNewStudent(user.id, body.salesCode);
   // Ce numéro a déjà écrit au WhatsApp de l'agence : la conversation est
   // liée tout de suite au nouveau compte.
   await whatsappService.linkStudentByPhone(user.id, phone);

@@ -71,9 +71,27 @@ export async function assignWhatsAppOwner(contactId: string, salesId: string | n
   });
 }
 
+// Deux messageries : les étudiants déjà inscrits (conversation liée à un compte)
+// et les prospects (pas encore inscrits, ex. contacts à qui un code a été envoyé).
+export type WhatsAppSegment = "registered" | "prospects";
+
+export const WHATSAPP_SEGMENTS: { id: WhatsAppSegment; path: string; label: string; short: string }[] = [
+  { id: "registered", path: "inscrits", label: "Étudiants inscrits", short: "Inscrits" },
+  { id: "prospects", path: "prospects", label: "Non inscrits", short: "Non inscrits" }
+];
+
+export function segmentFromPath(path: string | undefined): WhatsAppSegment | null {
+  return WHATSAPP_SEGMENTS.find((s) => s.path === path)?.id ?? null;
+}
+
+export function segmentOf(conversation: { studentId: string | null }): WhatsAppSegment {
+  return conversation.studentId ? "registered" : "prospects";
+}
+
+export type WhatsAppUnread = { unread: number; registered: number; prospects: number };
+
 export async function fetchWhatsAppUnread() {
-  const data = await request<{ unread: number }>("/api/whatsapp/unread-count");
-  return data.unread;
+  return request<WhatsAppUnread>("/api/whatsapp/unread-count");
 }
 
 export function formatWhatsAppPhone(phone: string) {

@@ -24,7 +24,6 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
   // Lien reçu par WhatsApp (/register?code=SM-XXXXXX) : code déjà rempli.
   const [searchParams] = useSearchParams();
   const presetCode = (searchParams.get("code") || "").trim().toUpperCase();
-  const [hasCode, setHasCode] = useState(Boolean(presetCode));
   const [phone, setPhone] = useState<PhoneValue>(EMPTY_PHONE);
   const [loginAnim, setLoginAnim] = useState<"idle" | "success" | "fail">("idle");
 
@@ -59,6 +58,11 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
     const form = new FormData(event.currentTarget);
     try {
       const salesCode = String(form.get("salesCode") || "").trim();
+      if (!salesCode) {
+        setError(t("Le code reçu de votre conseiller est obligatoire pour vous inscrire.", "The code from your advisor is required to sign up."));
+        setLoading(false);
+        return;
+      }
       const session = await register({
         prenom: String(form.get("prenom") || ""),
         nom: String(form.get("nom") || ""),
@@ -67,7 +71,7 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
         phone: internationalPhone,
         password: String(form.get("password") || ""),
         passwordConfirm: String(form.get("passwordConfirm") || ""),
-        salesCode: salesCode || undefined
+        salesCode
       });
       navigate(postLoginPath(session));
     } catch (err) {
@@ -179,28 +183,22 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
                 <input name="passwordConfirm" type="password" placeholder={t("Confirmer le mot de passe", "Confirm password")} required minLength={8} autoComplete="new-password" />
               </div>
 
-              <label className="flex items-center gap-2 py-1 text-xs font-semibold" style={{ color: "var(--as-ink)" }}>
+              {/* Le code envoyé par le conseiller est obligatoire : sans lui, pas d'inscription. */}
+              <div className="as-input-field">
+                <span className="as-icon"><KeyRound size={18} /></span>
                 <input
-                  type="checkbox"
-                  checked={hasCode}
-                  onChange={(e) => setHasCode(e.target.checked)}
-                  className="h-3.5 w-3.5 accent-[var(--as-brand)]"
+                  name="salesCode"
+                  type="text"
+                  required
+                  defaultValue={presetCode}
+                  placeholder={t("Code du conseiller", "Advisor code")}
+                  aria-label={t("Code d'inscription reçu de votre conseiller", "Registration code from your advisor")}
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  style={{ textTransform: "uppercase" }}
                 />
-                {t("J'ai reçu un code de mon conseiller", "I received a code from my advisor")}
-              </label>
-              {hasCode && (
-                <div className="as-input-field">
-                  <span className="as-icon"><KeyRound size={18} /></span>
-                  <input
-                    name="salesCode"
-                    type="text"
-                    defaultValue={presetCode}
-                    placeholder={t("Code (ex: SM-X7K29P)", "Code (e.g. SM-X7K29P)")}
-                    autoComplete="off"
-                    style={{ textTransform: "uppercase" }}
-                  />
-                </div>
-              )}
+              </div>
 
               {error && isSignUp && <p className="as-error">{error}</p>}
               <button type="submit" className="as-btn" disabled={loading}>

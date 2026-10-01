@@ -61,7 +61,7 @@ async function assignOwner(req, res) {
 
 async function unreadCount(req, res) {
   try {
-    res.json({ unread: await whatsappService.unreadCount(req.auth) });
+    res.json(await whatsappService.unreadCount(req.auth));
   } catch (error) {
     handle(res, error);
   }

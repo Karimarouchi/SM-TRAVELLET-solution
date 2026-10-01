@@ -14,7 +14,8 @@ import NotificationBell from "@/components/NotificationBell";
 
 type NavLinkItem = { label: string; href?: string; external?: boolean; children?: { label: string; href: string }[] };
 
-const WHATSAPP_HREF = "/whatsapp";
+const WHATSAPP_REGISTERED_HREF = "/whatsapp/inscrits";
+const WHATSAPP_PROSPECTS_HREF = "/whatsapp/prospects";
 
 function CountBadge({ count }: { count: number }) {
   if (count <= 0) return null;
@@ -26,7 +27,15 @@ function CountBadge({ count }: { count: number }) {
 }
 
 function linksForRole(role: string | undefined, permissions: string[], t: (fr: string, en: string) => string): NavLinkItem[] {
-  const whatsapp: NavLinkItem = { label: "WhatsApp", href: WHATSAPP_HREF };
+  // Deux messageries : les personnes déjà inscrites (compte créé avec un code)
+  // et celles qui ne le sont pas encore.
+  const whatsapp: NavLinkItem = {
+    label: "WhatsApp",
+    children: [
+      { label: t("Étudiants inscrits", "Registered students"), href: WHATSAPP_REGISTERED_HREF },
+      { label: t("Non inscrits", "Not registered"), href: WHATSAPP_PROSPECTS_HREF }
+    ]
+  };
   const visaDocs: NavLinkItem = { label: t("Documents visa", "Visa documents"), href: "/admin/visa-documents" };
   const hasVisaDocsPermission = permissions.includes("MANAGE_VISA_DOCUMENTS");
   if (role === "ADMIN") {
@@ -76,7 +85,7 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
 
 const Navbar1 = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [waUnread, setWaUnread] = useState(0);
+  const [waUnread, setWaUnread] = useState({ registered: 0, prospects: 0 });
   const location = useLocation();
   const navigate = useNavigate();
   const role = getSession()?.user.role;
@@ -84,13 +93,14 @@ const Navbar1 = () => {
   const { lang, setLang, t } = useLanguage();
   const links = linksForRole(role, permissions, t);
   const currentPath = location.pathname + location.search;
-  const childCount = (href: string) => (href === WHATSAPP_HREF ? waUnread : 0);
+  const childCount = (href: string) =>
+    href === WHATSAPP_REGISTERED_HREF ? waUnread.registered : href === WHATSAPP_PROSPECTS_HREF ? waUnread.prospects : 0;
 
   React.useEffect(() => {
     if (role !== "ADMIN" && role !== "SALES") return;
     function refresh() {
       fetchWhatsAppUnread()
-        .then(setWaUnread)
+        .then((data) => setWaUnread({ registered: data.registered, prospects: data.prospects }))
         .catch(() => undefined);
     }
     refresh();

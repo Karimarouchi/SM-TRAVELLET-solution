@@ -53,7 +53,9 @@ export default function App() {
           <Route path="/conseiller/codes" element={<SalesCodesPage />} />
           <Route path="/conseiller/etudiants/:id" element={<StudentDetailPage />} />
           <Route path="/rdv" element={<RdvDossiersPage />} />
-          <Route path="/whatsapp" element={<WhatsAppPage />} />
+          {/* /whatsapp seul (anciens liens, notifications) ouvre la messagerie des non inscrits. */}
+          <Route path="/whatsapp" element={<Navigate to="/whatsapp/prospects" replace />} />
+          <Route path="/whatsapp/:segment" element={<WhatsAppPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/archive" element={<ArchivePage />} />
         </Route>

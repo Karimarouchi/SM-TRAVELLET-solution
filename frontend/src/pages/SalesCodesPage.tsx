@@ -43,7 +43,8 @@ function WhatsAppContactPicker({
     if (!open) return;
     const timer = window.setTimeout(() => {
       fetchWhatsAppConversations(query)
-        .then((list) => setResults(list.slice(0, 8)))
+        // Un code d'inscription n'a de sens que pour quelqu'un qui n'est pas encore inscrit.
+        .then((list) => setResults(list.filter((contact) => !contact.studentId).slice(0, 8)))
         .catch(() => setResults([]));
     }, 250);
     return () => window.clearTimeout(timer);

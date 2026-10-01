@@ -233,17 +233,22 @@ async function markRead(contactId, userId) {
 async function unreadCount({ userId, ownerId }) {
   const result = await query(
     `${CONVERSATIONS_CTE}
-     SELECT COALESCE(SUM(
-       (SELECT COUNT(*) FROM whatsapp_messages m
-        WHERE m.contact_id = c.id AND m.direction = 'in'
-          AND m.created_at > COALESCE(r.last_read_at, 'epoch'::timestamptz))
-     ), 0)::int AS unread
+     SELECT
+       COALESCE(SUM(u.n) FILTER (WHERE c.student_id IS NOT NULL), 0)::int AS registered,
+       COALESCE(SUM(u.n) FILTER (WHERE c.student_id IS NULL), 0)::int AS prospects
      FROM conv c
      LEFT JOIN whatsapp_reads r ON r.contact_id = c.id AND r.user_id = $1
+     CROSS JOIN LATERAL (
+       SELECT COUNT(*) AS n FROM whatsapp_messages m
+       WHERE m.contact_id = c.id AND m.direction = 'in'
+         AND m.created_at > COALESCE(r.last_read_at, 'epoch'::timestamptz)
+     ) u
      WHERE ($2::uuid IS NULL OR c.owner_id = $2)`,
     [userId, ownerId]
   );
-  return result.rows[0].unread;
+  const { registered, prospects } = result.rows[0];
+  // « Inscrits » = conversation liée à un compte étudiant ; « prospects » = les autres.
+  return { unread: registered + prospects, registered, prospects };
 }
 
 async function reassignAllFromSales(fromSalesId, toSalesId) {
