@@ -94,6 +94,7 @@ app.post("/api/auth/register", authController.register);
 app.post("/api/auth/login", authBruteForceLimiter, authController.login);
 app.post("/api/auth/logout", authController.logout);
 app.post("/api/auth/forgot-password", authBruteForceLimiter, authController.forgotPassword);
+app.post("/api/auth/verify-reset-code", authBruteForceLimiter, authController.verifyResetCode);
 app.post("/api/auth/reset-password", authBruteForceLimiter, authController.resetPassword);
 app.get("/api/auth/me", requireAuth, authController.me);
 app.post("/api/auth/change-password", requireAuth, authController.changePassword);

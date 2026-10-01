@@ -110,6 +110,19 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
                 <span className="as-icon"><Lock size={18} /></span>
                 <input name="password" type="password" placeholder={t("Mot de passe", "Password")} required autoComplete="current-password" />
               </div>
+              <div className="as-forgot-row">
+                <button
+                  type="button"
+                  className="as-forgot"
+                  onClick={(event) => {
+                    // L'email déjà saisi est repris sur la page suivante.
+                    const typed = (event.currentTarget.form?.elements.namedItem("email") as HTMLInputElement | null)?.value || "";
+                    navigate("/forgot-password", { state: { email: typed.trim() } });
+                  }}
+                >
+                  {t("Mot de passe oublié ?", "Forgot password?")}
+                </button>
+              </div>
               {error && !isSignUp && <p className="as-error">{error}</p>}
               <button
                 type="submit"

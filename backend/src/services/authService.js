@@ -207,25 +207,98 @@ async function changePassword(userId, currentPassword, nextPassword) {
   return { ok: true };
 }
 
-async function forgotPassword(email) {
-  const user = await users.findByEmail(String(email || "").trim().toLowerCase());
-  if (!user) return { ok: true };
-  const token = crypto.randomBytes(24).toString("hex");
-  const expires = new Date(Date.now() + 1000 * 60 * 30);
-  await users.setResetToken(user.id, token, expires);
-  if (process.env.NODE_ENV === "production") {
-    // TODO: brancher un envoi d'email réel (SMTP/SendGrid/etc.) avant la mise en production.
-    // Le token ne doit jamais apparaître dans les logs serveur en production.
-  } else {
-    console.log(`Reset password pour ${user.email} : ${token}`);
-  }
-  return { ok: true, message: "Si un compte existe, un lien de réinitialisation a été généré." };
+const RESET_CODE_TTL_MS = 1000 * 60 * 15;
+const RESET_TOKEN_TTL_MS = 1000 * 60 * 10;
+const RESET_COOLDOWN_MS = 1000 * 60;
+const RESET_MAX_ATTEMPTS = 5;
+const RESET_REPLY = {
+  ok: true,
+  message: "Si un compte existe avec cette adresse, un email contenant un code de vérification vient d'être envoyé."
+};
+
+function resetError(message) {
+  const error = new Error(message);
+  error.status = 400;
+  return error;
 }
 
+// Ni le code ni le jeton ne sont JAMAIS stockés tels quels : seule leur
+// empreinte SHA-256 l'est (le code est lié à l'identifiant du compte, pour
+// qu'un même code donne deux empreintes différentes).
+const sha256 = (value) => crypto.createHash("sha256").update(String(value)).digest("hex");
+const hashResetCode = (userId, code) => sha256(`${userId}:${code}`);
+const hashResetToken = (token) => sha256(token);
+
+// Étape 1 — envoie un code à 8 chiffres par email. La réponse est identique
+// que le compte existe ou non (on ne révèle pas quelles adresses sont
+// inscrites), et l'envoi se fait en arrière-plan pour que le temps de réponse
+// ne le révèle pas non plus.
+async function forgotPassword(email) {
+  const address = String(email || "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) return RESET_REPLY;
+
+  const user = await users.findByEmail(address);
+  if (!user || user.is_active === false) return RESET_REPLY;
+
+  // Anti-spam : pas de nouvel email si un code vient d'être envoyé (il vit 15
+  // min, donc « créé il y a moins d'une minute » = expire dans plus de 14 min).
+  const expiresAt = user.password_reset_code_expires ? new Date(user.password_reset_code_expires).getTime() : 0;
+  if (expiresAt - Date.now() > RESET_CODE_TTL_MS - RESET_COOLDOWN_MS) return RESET_REPLY;
+
+  const code = generateVerificationCode();
+  await users.setResetCode(user.id, hashResetCode(user.id, code), new Date(Date.now() + RESET_CODE_TTL_MS));
+  emailService.sendPasswordResetEmail(user.email, user.prenom, code).catch((error) => {
+    logger.error("Échec de l'envoi de l'email de réinitialisation", { message: error.message });
+  });
+  return RESET_REPLY;
+}
+
+// Étape 2 — vérifie le code. Le message d'erreur est toujours le même (code
+// faux, expiré, compte inconnu ou essais épuisés) pour ne rien révéler. Après
+// 5 erreurs le code est détruit : 10^8 combinaisons ne se devinent pas à 5 essais.
+async function verifyResetCode(email, code) {
+  const invalid = () => resetError("Code incorrect ou expiré. Vérifiez le code reçu par email, ou demandez-en un nouveau.");
+  const address = String(email || "").trim().toLowerCase();
+  const entered = String(code || "").trim();
+  const user = address ? await users.findByEmail(address) : null;
+
+  if (
+    !user ||
+    user.is_active === false ||
+    !user.password_reset_code_hash ||
+    !user.password_reset_code_expires ||
+    new Date(user.password_reset_code_expires).getTime() < Date.now() ||
+    user.password_reset_attempts >= RESET_MAX_ATTEMPTS ||
+    !/^\d{8}$/.test(entered)
+  ) {
+    // Un code mal formé compte aussi comme un essai quand une demande est en cours.
+    if (user && user.password_reset_code_hash && user.password_reset_attempts < RESET_MAX_ATTEMPTS) {
+      const attempts = await users.incrementResetAttempts(user.id);
+      if (attempts >= RESET_MAX_ATTEMPTS) await users.clearResetToken(user.id);
+    }
+    throw invalid();
+  }
+
+  const expected = Buffer.from(user.password_reset_code_hash, "hex");
+  const actual = Buffer.from(hashResetCode(user.id, entered), "hex");
+  if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) {
+    const attempts = await users.incrementResetAttempts(user.id);
+    if (attempts >= RESET_MAX_ATTEMPTS) await users.clearResetToken(user.id);
+    throw invalid();
+  }
+
+  // Code juste : il est consommé, un jeton à usage unique autorise le changement.
+  const token = crypto.randomBytes(32).toString("hex");
+  await users.consumeResetCodeAndSetToken(user.id, hashResetToken(token), new Date(Date.now() + RESET_TOKEN_TTL_MS));
+  return { ok: true, resetToken: token };
+}
+
+// Étape 3 — choisit le nouveau mot de passe, avec le jeton obtenu à l'étape 2.
 async function resetPassword(token, password) {
-  const user = await users.findByResetToken(String(token || ""));
+  const raw = String(token || "");
+  const user = /^[0-9a-f]{64}$/i.test(raw) ? await users.findByResetToken(hashResetToken(raw)) : null;
   if (!user) {
-    const error = new Error("Lien de réinitialisation invalide ou expiré.");
+    const error = new Error("Cette étape a expiré. Recommencez la demande de mot de passe oublié.");
     error.status = 400;
     throw error;
   }
@@ -236,8 +309,9 @@ async function resetPassword(token, password) {
   }
   const { salt, hash } = hashPassword(password);
   await users.updatePassword(user.id, salt, hash);
+  // Le jeton ne sert qu'une fois.
   await users.clearResetToken(user.id);
   return { ok: true };
 }
 
-module.exports = { register, login, me, changePassword, forgotPassword, resetPassword, verifyEmail, resendVerificationCode };
+module.exports = { register, login, me, changePassword, forgotPassword, verifyResetCode, resetPassword, verifyEmail, resendVerificationCode };

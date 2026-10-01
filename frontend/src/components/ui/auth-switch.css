@@ -282,6 +282,31 @@
   font-weight: 400;
 }
 
+/* « Mot de passe oublié ? » : simple lien aligné sous le champ mot de passe. */
+.auth-switch-root .as-forgot-row {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 0.6rem 0;
+}
+
+.auth-switch-root .as-forgot {
+  background: none;
+  border: none;
+  padding: 4px 2px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--as-brand);
+  cursor: pointer;
+}
+
+.auth-switch-root .as-forgot:hover,
+.auth-switch-root .as-forgot:focus-visible {
+  text-decoration: underline;
+}
+
 .auth-switch-root .as-error {
   color: #dc2626;
   font-size: 0.8rem;

@@ -8,6 +8,7 @@ import AcceleratorPage from "@/pages/AcceleratorPage";
 import DocumentsPage from "@/pages/DocumentsPage";
 import OnboardingPage from "@/pages/OnboardingPage";
 import VerifyEmailPage from "@/pages/VerifyEmailPage";
+import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
 import AdminPage from "@/pages/AdminPage";
 import AdminSalesPage from "@/pages/AdminSalesPage";
 import AdminUsersPage from "@/pages/AdminUsersPage";
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/register" element={<AuthSwitch defaultMode="register" />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route element={<AppLayout />}>
           <Route path="/espace" element={<EspacePage />} />
           <Route path="/profil" element={<ProfilePage />} />

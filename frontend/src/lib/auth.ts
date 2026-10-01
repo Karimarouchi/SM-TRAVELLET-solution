@@ -622,6 +622,29 @@ export async function login(email: string, password: string) {
   return data;
 }
 
+// Mot de passe oublié : 1) un code est envoyé par email  2) on le vérifie
+// (on reçoit un jeton à usage unique)  3) on choisit le nouveau mot de passe.
+export async function forgotPassword(email: string) {
+  return request<{ ok: boolean; message: string }>("/api/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email })
+  });
+}
+
+export async function verifyResetCode(email: string, code: string) {
+  return request<{ ok: boolean; resetToken: string }>("/api/auth/verify-reset-code", {
+    method: "POST",
+    body: JSON.stringify({ email, code })
+  });
+}
+
+export async function resetPassword(token: string, password: string) {
+  return request<{ ok: boolean }>("/api/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, password })
+  });
+}
+
 export async function register(payload: RegisterPayload) {
   const data = await request<AuthSession>("/api/auth/register", {
     method: "POST",

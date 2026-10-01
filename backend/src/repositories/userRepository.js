@@ -61,12 +61,45 @@ async function findByResetToken(token) {
   return result.rows[0] || null;
 }
 
+// Efface TOUT l'état de réinitialisation (code, essais, jeton) : après un
+// changement réussi, ou quand le code est épuisé.
 async function clearResetToken(id) {
   await query(
-    "UPDATE users SET password_reset_token = NULL, password_reset_expires = NULL WHERE id = $1",
+    `UPDATE users SET password_reset_token = NULL, password_reset_expires = NULL,
+       password_reset_code_hash = NULL, password_reset_code_expires = NULL, password_reset_attempts = 0
+     WHERE id = $1`,
     [id]
   );
 }
+
+// Nouveau code : remet les essais à zéro et annule un éventuel jeton précédent.
+async function setResetCode(id, codeHash, expires) {
+  await query(
+    `UPDATE users SET password_reset_code_hash = $2, password_reset_code_expires = $3, password_reset_attempts = 0,
+       password_reset_token = NULL, password_reset_expires = NULL
+     WHERE id = $1`,
+    [id, codeHash, expires]
+  );
+}
+
+async function incrementResetAttempts(id) {
+  const result = await query(
+    "UPDATE users SET password_reset_attempts = password_reset_attempts + 1 WHERE id = $1 RETURNING password_reset_attempts",
+    [id]
+  );
+  return result.rows[0]?.password_reset_attempts ?? 0;
+}
+
+// Code validé : il est consommé, et un jeton à usage unique prend le relais.
+async function consumeResetCodeAndSetToken(id, tokenHash, expires) {
+  await query(
+    `UPDATE users SET password_reset_code_hash = NULL, password_reset_code_expires = NULL, password_reset_attempts = 0,
+       password_reset_token = $2, password_reset_expires = $3
+     WHERE id = $1`,
+    [id, tokenHash, expires]
+  );
+}
+
 
 async function listByRole(role) {
   const result = await query(
@@ -182,6 +215,9 @@ module.exports = {
   setResetToken,
   findByResetToken,
   clearResetToken,
+  setResetCode,
+  incrementResetAttempts,
+  consumeResetCodeAndSetToken,
   listByRole,
   updateIdentity,
   updateAvatar,

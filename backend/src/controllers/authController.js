@@ -49,6 +49,14 @@ async function forgotPassword(req, res) {
   }
 }
 
+async function verifyResetCode(req, res) {
+  try {
+    res.json(await authService.verifyResetCode(req.body.email, req.body.code));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function resetPassword(req, res) {
   try {
     res.json(await authService.resetPassword(req.body.token, req.body.password));
@@ -73,4 +81,4 @@ async function resendVerification(req, res) {
   }
 }
 
-module.exports = { register, login, me, logout, changePassword, forgotPassword, resetPassword, verifyEmail, resendVerification };
+module.exports = { register, login, me, logout, changePassword, forgotPassword, verifyResetCode, resetPassword, verifyEmail, resendVerification };
