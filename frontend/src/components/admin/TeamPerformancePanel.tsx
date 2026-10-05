@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { BarChart3, ChevronRight, MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import PendingConversationsList from "./PendingConversationsList";
 import { PeriodSelector, StatTile, StatusChip, WhatsAppFunnelBars, WorkHoursNote, convertedHint, durationHint, percent } from "./performance-ui";
 
 type Column = { label: string; value: (s: StaffPerformance) => string | number; warn?: (s: StaffPerformance) => boolean };
@@ -100,6 +101,7 @@ export default function TeamPerformancePanel() {
   const [period, setPeriod] = useState<PerformancePeriod>("30");
   const [data, setData] = useState<TeamPerformance | null>(null);
   const [error, setError] = useState("");
+  const [showPending, setShowPending] = useState(false);
 
   useEffect(() => {
     setError("");
@@ -145,8 +147,11 @@ export default function TeamPerformancePanel() {
                   value={wa.pendingNow}
                   hint="conversations qui attendent une réponse maintenant"
                   tone={wa.pendingNow ? "warning" : "default"}
+                  onClick={() => setShowPending((open) => !open)}
+                  expanded={showPending}
                 />
               </div>
+              {showPending && <PendingConversationsList items={wa.pending} />}
               {wa.unassigned > 0 && (
                 <div className="mt-3">
                   <StatusChip count={wa.unassigned} label={wa.unassigned > 1 ? "conversations sans conseiller" : "conversation sans conseiller"} />

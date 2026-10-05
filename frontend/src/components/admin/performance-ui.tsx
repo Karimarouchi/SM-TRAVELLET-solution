@@ -46,16 +46,43 @@ export function WorkHoursNote({ workHours }: { workHours: PerfWorkHours }) {
 }
 
 // Chiffre clé : grand nombre, libellé, précision en dessous.
-export function StatTile({ label, value, hint, tone = "default" }: { label: string; value: ReactNode; hint?: ReactNode; tone?: "default" | "warning" }) {
+export function StatTile({
+  label,
+  value,
+  hint,
+  tone = "default",
+  onClick,
+  expanded
+}: {
+  label: string;
+  value: ReactNode;
+  hint?: ReactNode;
+  tone?: "default" | "warning";
+  /** Rend la carte cliquable (ex. ouvrir la liste détaillée). */
+  onClick?: () => void;
+  expanded?: boolean;
+}) {
+  const Wrapper = onClick ? "button" : "div";
   return (
-    <div className={cn("min-w-0 rounded-2xl border bg-white p-4", tone === "warning" ? "border-amber-200" : "border-line")}>
+    <Wrapper
+      {...(onClick ? { type: "button" as const, onClick, "aria-expanded": expanded } : {})}
+      className={cn(
+        "min-w-0 rounded-2xl border bg-white p-4 text-left",
+        tone === "warning" ? "border-amber-200" : "border-line",
+        onClick && "cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand",
+        onClick && expanded && "ring-2 ring-amber-300"
+      )}
+    >
       <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-muted">
         {tone === "warning" && <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" aria-hidden />}
         <span className="break-words">{label}</span>
       </p>
       <p className="mt-1 font-display text-2xl font-extrabold leading-tight text-dark">{value}</p>
       {hint ? <p className="mt-0.5 text-[11px] leading-snug text-muted">{hint}</p> : null}
-    </div>
+      {onClick && (
+        <p className="mt-1.5 text-[11px] font-bold text-brand">{expanded ? "Masquer la liste ▲" : "Voir la liste ▼"}</p>
+      )}
+    </Wrapper>
   );
 }
 

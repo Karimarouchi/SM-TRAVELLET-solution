@@ -35,7 +35,7 @@ import {
 } from "lucide-react";
 import { KeyboardEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 const MAX_LENGTH = 4096;
 const LIST_POLL_MS = 10_000;
@@ -311,6 +311,21 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastMessageIdRef = useRef<string | null>(null);
   const preserveScrollRef = useRef<number | null>(null);
+
+  // Lien direct (?open=<id>, depuis le Dashboard) : ouvre cette conversation une
+  // fois la liste chargée, puis nettoie l'adresse.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedId = searchParams.get("open");
+  useEffect(() => {
+    if (!requestedId || !listLoaded) return;
+    const target = conversations.find((item) => item.id === requestedId && segmentOf(item) === segment);
+    if (target) {
+      setActiveId(target.id);
+      setMobileChat(true);
+    }
+    setSearchParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedId, listLoaded, conversations.length]);
 
   // La conversation ouverte doit appartenir à la messagerie affichée.
   const active = conversations.find((item) => item.id === activeId && segmentOf(item) === segment) || null;

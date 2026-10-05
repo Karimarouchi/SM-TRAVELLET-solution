@@ -456,6 +456,19 @@ export type WhatsAppFunnel = {
   conversionRate: number | null;
 };
 
+// Conversation qui attend une réponse (Dashboard) : à quel conseiller, depuis quand, où l'ouvrir.
+export type PendingConversation = {
+  contactId: string;
+  name: string;
+  phone: string;
+  ownerId: string | null;
+  ownerName: string;
+  segment: "inscrits" | "prospects";
+  since: string;
+  waitingLabel: string;
+  waitingMinutes: number;
+};
+
 export type PerfContactItem = { contactId: string; name: string; phone: string; lastMessageAt?: string | null; since?: string; waitingLabel?: string };
 export type PerfDossierItem = { name: string; step: string; waitingLabel: string };
 
@@ -504,7 +517,13 @@ export type PerfWorkHours = { days: number[]; start: string; end: string; timezo
 export type TeamPerformance = {
   period: PerformancePeriod;
   workHours: PerfWorkHours;
-  whatsapp: WhatsAppFunnel & { unassigned: number; firstReply: PerfDuration; reply: PerfDuration; pendingNow: number };
+  whatsapp: WhatsAppFunnel & {
+    unassigned: number;
+    firstReply: PerfDuration;
+    reply: PerfDuration;
+    pendingNow: number;
+    pending: PendingConversation[];
+  };
   staff: StaffPerformance[];
 };
 

@@ -123,6 +123,7 @@ async function computeReport(period) {
   const teamFirstReply = [];
   const teamReply = [];
   const pendingByOwner = new Map();
+  const pendingAll = [];
   let teamPending = 0;
   for (const turn of turns) {
     const conversation = conversationById.get(turn.contactId);
@@ -130,6 +131,17 @@ async function computeReport(period) {
       // En attente de réponse maintenant (quelle que soit la période).
       const waiting = minutes(turn.startedAt, now);
       teamPending += 1;
+      pendingAll.push({
+        contactId: turn.contactId,
+        name: conversation ? contactLabel(conversation) : "",
+        phone: conversation?.phone || "",
+        ownerId: conversation?.owner_id || null,
+        // Messagerie où ouvrir la conversation : inscrits (liée à un compte) ou non inscrits.
+        segment: conversation?.student_id ? "inscrits" : "prospects",
+        since: new Date(turn.startedAt).toISOString(),
+        waitingLabel: formatMinutes(waiting),
+        waitingMinutes: waiting
+      });
       push(pendingByOwner, conversation?.owner_id, {
         contactId: turn.contactId,
         name: conversation ? contactLabel(conversation) : "",
@@ -304,6 +316,7 @@ async function computeReport(period) {
     return { ...base, sales, rdv };
   });
 
+  const staffById = new Map(staffRows.map((u) => [u.id, u]));
   return {
     period: key,
     workHours: {
@@ -318,7 +331,11 @@ async function computeReport(period) {
       unassigned: periodConversations.filter((c) => !c.owner_id).length,
       firstReply: duration(teamFirstReply),
       reply: duration(teamReply),
-      pendingNow: teamPending
+      pendingNow: teamPending,
+      // Conversations à traiter, les plus anciennes d'abord, avec leur conseiller.
+      pending: pendingAll
+        .map((item) => ({ ...item, ownerName: item.ownerId ? fullName(staffById.get(item.ownerId)?.prenom, staffById.get(item.ownerId)?.nom) || "Conseiller" : "" }))
+        .sort((a, b) => b.waitingMinutes - a.waitingMinutes)
     },
     staff
   };
