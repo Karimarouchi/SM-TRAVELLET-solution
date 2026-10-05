@@ -1,6 +1,7 @@
 import { FancySelect } from "@/components/ui/fancy-select";
 import UniversityPicker from "@/components/UniversityPicker";
-import { fetchPublicCountries, fetchPublicUniversities, getSession, saveOnboarding, type Country, type PublicUniversity } from "@/lib/auth";
+import { addMyUniversityChoice, fetchPublicCountries, fetchPublicUniversities, getSession, saveOnboarding, type Country, type PublicUniversity } from "@/lib/auth";
+import ExtraWishesField, { extraWishProblem, type ExtraWish } from "@/components/ExtraWishesField";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "motion/react";
 import { ReactNode, useEffect, useState } from "react";
@@ -325,6 +326,8 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [countries, setCountries] = useState<Country[]>([]);
   const [universities, setUniversities] = useState<PublicUniversity[]>([]);
+  // Vœux supplémentaires (autres facultés / filières), ajoutés après l'enregistrement du dossier.
+  const [extraWishes, setExtraWishes] = useState<ExtraWish[]>([]);
   const lockedFields = new Set(session?.profile?.lockedFields || []);
   const destinations = countries.map((c) => c.name);
 
@@ -402,8 +405,18 @@ export default function OnboardingPage() {
     setFormError("");
   }
 
+  function extraWishesError() {
+    return extraWishes.map(extraWishProblem).find(Boolean) || "";
+  }
+
   function goNext() {
     const nextErrors = validateStep(step, form);
+    const wishError = step === 2 ? extraWishesError() : "";
+    if (wishError) {
+      setErrors(nextErrors);
+      setFormError(wishError);
+      return;
+    }
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors);
       setFormError("Corrigez les champs indiqués avant de continuer.");
@@ -448,6 +461,28 @@ export default function OnboardingPage() {
         passportExpiresOn: form.hasPassport === "yes" ? form.passportExpiresOn : "",
         visaAlreadyRequested: form.visaAlreadyRequested === "yes"
       });
+      // Autres facultés : une candidature par vœu complet (le vœu principal est
+      // déjà créé par l'enregistrement). Un échec ici ne bloque pas l'onboarding :
+      // l'étudiant retrouve sa liste dans « Mes candidatures ».
+      for (const wish of extraWishes) {
+        if (extraWishProblem(wish) || !wish.university.trim()) continue;
+        const sameAsPrimary =
+          wish.university.trim().toLowerCase() === form.targetUniversity.trim().toLowerCase() &&
+          wish.field.trim().toLowerCase() === form.targetField.trim().toLowerCase();
+        if (sameAsPrimary) continue;
+        const country = countries.find((c) => c.name === wish.country);
+        if (!country) continue;
+        const listed = universities.find((u) => u.countryName === wish.country && u.name.toLowerCase() === wish.university.trim().toLowerCase());
+        try {
+          await addMyUniversityChoice({
+            countryId: country.id,
+            fieldOfStudy: wish.field.trim(),
+            ...(listed ? { universityId: listed.id } : { universityName: wish.university.trim() })
+          });
+        } catch {
+          /* ignoré : visible ensuite dans « Mes candidatures » */
+        }
+      }
       navigate("/espace");
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Impossible d’enregistrer le dossier.");
@@ -672,6 +707,16 @@ export default function OnboardingPage() {
                       />
                     </Field>
                   </div>
+                  <ExtraWishesField
+                    wishes={extraWishes}
+                    onChange={(next) => {
+                      setExtraWishes(next);
+                      setFormError("");
+                    }}
+                    countries={form.preferredCountries}
+                    universities={universities}
+                    hasPrimary={Boolean(form.targetUniversity.trim())}
+                  />
                 </div>
               )}
 

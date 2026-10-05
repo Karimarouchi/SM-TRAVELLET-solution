@@ -2,6 +2,7 @@ import { FancySelect } from "@/components/ui/fancy-select";
 import UniversityPicker from "@/components/UniversityPicker";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { PhoneField, isValidInternational, parsePhone, toInternational, type PhoneValue } from "@/components/ui/phone-field";
+import UniversityChoicesPanel from "@/components/UniversityChoicesPanel";
 import { fetchMe, fetchPublicCountries, fetchPublicUniversities, getSession, mediaUrl, saveOnboarding, updateIdentity, uploadAvatar, type AuthUser, type Country, type PublicUniversity } from "@/lib/auth";
 import {
   COUNTRIES,
@@ -625,6 +626,8 @@ export default function ProfilePage() {
             );
           })}
         </div>
+
+        {user.role === "STUDENT" && <UniversityChoicesPanel />}
 
         <AnimatePresence>
           {message && (
