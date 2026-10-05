@@ -1,6 +1,7 @@
 import { FancySelect } from "@/components/ui/fancy-select";
 import {
   PAYMENT_METHOD_LABELS,
+  PAYMENT_REFERENCE_LABELS,
   createSalesCode,
   fetchCountryPricing,
   fetchMySalesCodes,
@@ -190,6 +191,10 @@ export default function SalesCodesPage() {
       setError(t("Confirmez l'encaissement de la tranche 1 et choisissez le mode de paiement.", "Confirm the first instalment was collected and choose the payment method."));
       return;
     }
+    if (needsPayment && payMethod && PAYMENT_REFERENCE_LABELS[payMethod] && !payReference.trim()) {
+      setError(`${PAYMENT_REFERENCE_LABELS[payMethod]} ${t("obligatoire.", "required.")}`);
+      return;
+    }
     setSaving(true);
     setError("");
     setWarning("");
@@ -210,10 +215,10 @@ export default function SalesCodesPage() {
       } else {
         setSuccess(
           created.whatsappSent
-            ? `Code ${created.code} généré et envoyé sur WhatsApp à ${created.whatsappContactLabel} ✓`
-            : t(`Code ${created.code} généré ✓`, `Code ${created.code} generated ✓`)
+            ? `Code ${created.code} généré et envoyé sur WhatsApp à ${created.whatsappContactLabel} ✓${created.paymentReceipt ? ` · Reçu n° ${created.paymentReceipt}` : ""}`
+            : t(`Code ${created.code} généré ✓${created.paymentReceipt ? ` · Reçu n° ${created.paymentReceipt}` : ""}`, `Code ${created.code} generated ✓${created.paymentReceipt ? ` · Receipt no. ${created.paymentReceipt}` : ""}`)
         );
-        setTimeout(() => setSuccess(""), 6000);
+        setTimeout(() => setSuccess(""), created.paymentReceipt ? 20000 : 6000);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : t("Erreur lors de la génération du code.", "Error while generating the code."));
@@ -314,14 +319,21 @@ export default function SalesCodesPage() {
                   options={(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((m) => ({ value: m, label: PAYMENT_METHOD_LABELS[m] }))}
                   placeholder={t("Mode de paiement", "Payment method")}
                 />
-                <input
-                  type="text"
-                  value={payReference}
-                  onChange={(e) => setPayReference(e.target.value)}
-                  maxLength={120}
-                  placeholder={t("Référence (reçu, virement…) · optionnel", "Reference (receipt, transfer…) · optional")}
-                  className="w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm outline-none focus:border-brand"
-                />
+                {payMethod && PAYMENT_REFERENCE_LABELS[payMethod] ? (
+                  <input
+                    type="text"
+                    value={payReference}
+                    onChange={(e) => setPayReference(e.target.value)}
+                    maxLength={40}
+                    aria-label={PAYMENT_REFERENCE_LABELS[payMethod]}
+                    placeholder={`${PAYMENT_REFERENCE_LABELS[payMethod]} *`}
+                    className="w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm outline-none focus:border-brand"
+                  />
+                ) : (
+                  <p className="flex items-center rounded-xl border border-dashed border-amber-300 bg-white/60 px-3 py-2.5 text-xs text-amber-900">
+                    {t("Un numéro de reçu automatique (ex. 001-2026) est attribué à l'encaissement.", "An automatic receipt number (e.g. 001-2026) is assigned to the payment.")}
+                  </p>
+                )}
               </div>
             </div>
           )}

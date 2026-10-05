@@ -23,11 +23,11 @@ async function findBySales(salesId) {
 async function create({ code, salesId, countryId, prefillCurrentStudyLevel, prefillTargetLevel, prefillPhone, expiresAt, whatsappContactId, payment }) {
   const result = await query(
     `INSERT INTO sales_codes (code, sales_id, country_id, prefill_current_study_level, prefill_target_level, prefill_phone, expires_at, whatsapp_contact_id,
-                              payment_currency, payment_tranche1, payment_tranche2, payment_method, payment_reference, payment_paid_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+                              payment_currency, payment_tranche1, payment_tranche2, payment_method, payment_reference, payment_paid_at, payment_receipt, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW())
      RETURNING *`,
     [code, salesId, countryId, prefillCurrentStudyLevel, prefillTargetLevel, prefillPhone, expiresAt, whatsappContactId || null,
-      payment?.currency || null, payment ? payment.tranche1 : null, payment ? payment.tranche2 : null, payment?.method || null, payment?.reference || null, payment?.paidAt || null]
+      payment?.currency || null, payment ? payment.tranche1 : null, payment ? payment.tranche2 : null, payment?.method || null, payment?.reference || null, payment?.paidAt || null, payment?.receiptNumber || null]
   );
   return result.rows[0];
 }

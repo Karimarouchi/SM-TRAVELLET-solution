@@ -1,6 +1,7 @@
 import { FancySelect } from "@/components/ui/fancy-select";
 import {
   PAYMENT_METHOD_LABELS,
+  PAYMENT_REFERENCE_LABELS,
   cancelStudentPayment,
   fetchPublicCountries,
   fetchStudentPayments,
@@ -87,6 +88,7 @@ export default function StudentPaymentsPanel({ studentId, onChanged }: { student
     setError("");
     if (!countryId) return setError("Choisissez le pays concerné.");
     if (!method) return setError("Choisissez le mode de paiement.");
+    if (PAYMENT_REFERENCE_LABELS[method] && !reference.trim()) return setError(`${PAYMENT_REFERENCE_LABELS[method]} obligatoire.`);
     setBusy(true);
     try {
       const next = await recordStudentPayment(studentId, {
@@ -95,7 +97,7 @@ export default function StudentPaymentsPanel({ studentId, onChanged }: { student
         method,
         amount: amount.trim() ? Number(amount.replace(",", ".")) : undefined,
         paidAt: paidAt || undefined,
-        reference: reference.trim() || undefined
+        reference: PAYMENT_REFERENCE_LABELS[method] ? reference.trim() : undefined
       });
       setSummary(next);
       reset();
@@ -195,16 +197,22 @@ export default function StudentPaymentsPanel({ studentId, onChanged }: { student
               />
             </div>
             <div>
-              <label className="mb-1 block text-[11px] font-bold text-mid">Référence (reçu, n° de virement…)</label>
-              <input
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                maxLength={120}
-                className="w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-              />
+              <label className="mb-1 block text-[11px] font-bold text-mid">
+                {method && PAYMENT_REFERENCE_LABELS[method] ? `${PAYMENT_REFERENCE_LABELS[method]} *` : "Référence"}
+              </label>
+              {method && PAYMENT_REFERENCE_LABELS[method] ? (
+                <input
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                  maxLength={40}
+                  className="w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                />
+              ) : (
+                <p className="rounded-xl border border-dashed border-line bg-white/60 px-3 py-2.5 text-xs text-muted">Reçu numéroté automatiquement (ex. 001-2026)</p>
+              )}
             </div>
           </div>
-          <p className="text-[11px] text-muted">Montant vide = tout le reste dû de la tranche. Date vide = aujourd'hui.</p>
+          <p className="text-[11px] text-muted">Montant vide = tout le reste dû de la tranche. Date vide = aujourd'hui. Chèque : numéro du chèque ; virement : code du virement.</p>
           {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
           <div className="flex justify-end gap-2">
             <button type="button" onClick={reset} className="rounded-xl border border-line bg-white px-4 py-2 text-xs font-bold text-muted hover:bg-slate-50">Annuler</button>
@@ -264,7 +272,9 @@ export default function StudentPaymentsPanel({ studentId, onChanged }: { student
                     </p>
                   </div>
                   <p className="mt-0.5">
-                    {payment.reference ? `Réf. ${payment.reference} · ` : ""}
+                    {payment.receiptNumber ? <span className="font-bold text-brand">Reçu {payment.receiptNumber}</span> : null}
+                    {payment.receiptNumber ? " · " : ""}
+                    {payment.reference ? `${payment.referenceLabel || "Réf."} ${payment.reference} · ` : ""}
                     Saisi par {payment.recordedByName || (payment.recordedByRole === "SALES" ? "le conseiller" : "l'administrateur")}
                   </p>
                   {payment.status === "CANCELLED" && <p className="mt-0.5 font-semibold text-red-600">Annulé : {payment.cancelReason}</p>}

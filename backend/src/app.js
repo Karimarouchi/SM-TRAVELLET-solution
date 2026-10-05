@@ -175,6 +175,7 @@ app.post("/api/admin/backup/restore", requireAuth, requireRoles("ADMIN"), backup
 // paiements d'un étudiant (admin ou conseiller de l'étudiant).
 app.get("/api/admin/finance/overview", requireAuth, requireRoles("ADMIN"), paymentController.overview);
 app.get("/api/admin/finance/plans", requireAuth, requireRoles("ADMIN"), paymentController.listPlans);
+app.get("/api/admin/finance/payments", requireAuth, requireRoles("ADMIN"), paymentController.listJournal);
 app.get("/api/admin/finance/pricing", requireAuth, requireRoles("ADMIN"), paymentController.listPricing);
 app.put("/api/admin/finance/pricing/:countryId", requireAuth, requireRoles("ADMIN"), paymentController.setPricing);
 app.delete("/api/admin/finance/pricing/:countryId", requireAuth, requireRoles("ADMIN"), paymentController.removePricing);

@@ -33,6 +33,7 @@ function codeDto(row) {
     prefillCurrentStudyLevel: row.prefill_current_study_level,
     prefillTargetLevel: row.prefill_target_level,
     prefillPhone: row.prefill_phone,
+    paymentReceipt: row.payment_receipt || null,
     whatsappContactId: row.whatsapp_contact_id || null,
     whatsappContactLabel: row.whatsapp_contact_id
       ? row.whatsapp_profile_name || (row.whatsapp_phone ? `+${row.whatsapp_phone}` : "WhatsApp")

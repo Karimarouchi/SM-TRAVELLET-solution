@@ -54,9 +54,23 @@ function dateOnly(value) {
   return String(value).slice(0, 10);
 }
 
-function normalizeReference(raw) {
-  const reference = String(raw || "").trim().slice(0, 120);
-  return reference || null;
+// Numéro du chèque / code du virement : obligatoire selon le mode, pour pouvoir
+// retrouver le paiement. Espèces et carte n'ont pas de référence à saisir : le
+// numéro de reçu automatique suffit.
+const REFERENCE_LABELS = { CHEQUE: "Numéro du chèque", TRANSFER: "Code du virement" };
+
+async function normalizeMethodReference(method, raw) {
+  if (!REFERENCE_LABELS[method]) return null;
+  const reference = String(raw || "").trim().replace(/\s+/g, " ");
+  if (!reference) throw fail(`${REFERENCE_LABELS[method]} obligatoire.`, 400);
+  if (!/^[A-Za-z0-9][A-Za-z0-9 \-/.]{2,39}$/.test(reference)) {
+    throw fail(`${REFERENCE_LABELS[method]} invalide (3 à 40 caractères : lettres, chiffres, - / .).`, 400);
+  }
+  const duplicate = await paymentRepo.findActiveByMethodReference(method, reference);
+  if (duplicate) {
+    throw fail(`Ce ${method === "CHEQUE" ? "numéro de chèque" : "code de virement"} est déjà enregistré (reçu ${duplicate.receipt_number || "en attente"}).`, 409);
+  }
+  return reference;
 }
 
 // ── Tarifs ──
@@ -149,7 +163,11 @@ function paymentDto(row) {
     method: row.method,
     methodLabel: METHOD_LABELS[row.method] || row.method,
     paidAt: dateOnly(row.paid_at),
+    receiptNumber: row.receipt_number,
     reference: row.reference,
+    referenceLabel: REFERENCE_LABELS[row.method] || null,
+    studentId: row.student_id,
+    studentName: row.student_prenom ? `${row.student_prenom} ${row.student_nom || ""}`.trim() : undefined,
     recordedByName: row.by_prenom ? `${row.by_prenom} ${row.by_nom || ""}`.trim() : null,
     recordedByRole: row.recorded_by_role,
     status: row.status,
@@ -200,6 +218,7 @@ async function recordPayment(auth, studentId, payload) {
   if (![1, 2].includes(tranche)) throw fail("Choisissez la tranche (1 ou 2).", 400);
   if (!payload.countryId) throw fail("Choisissez le pays concerné.", 400);
   const method = normalizeMethod(payload.method);
+  const reference = await normalizeMethodReference(method, payload.reference);
   const plan = await ensurePlan(studentId, payload.countryId);
   const state = trancheState(tranche === 1 ? plan.tranche1_due : plan.tranche2_due, tranche === 1 ? plan.paid1 : plan.paid2);
   if (state.complete) throw fail(`La tranche ${tranche} est déjà entièrement payée.`, 409);
@@ -218,7 +237,7 @@ async function recordPayment(auth, studentId, payload) {
     currency: plan.currency,
     method,
     paidAt: normalizeDate(payload.paidAt),
-    reference: normalizeReference(payload.reference),
+    reference,
     recordedBy: auth.sub,
     recordedByRole: roles.includes("ADMIN") ? "ADMIN" : "SALES"
   });
@@ -249,13 +268,18 @@ async function prepareCodePayment(countryId, payment) {
       throw fail(`Confirmez l'encaissement de la tranche 1 (${formatAmount(pricing.tranche1_amount, pricing.currency)}) pour générer le code.`, 400);
     }
   }
+  const paying = cents(pricing.tranche1_amount) > 0;
+  const method = paying ? normalizeMethod(payment.method) : null;
+  const reference = paying ? await normalizeMethodReference(method, payment.reference) : null;
   return {
     currency: pricing.currency,
     tranche1: money(pricing.tranche1_amount),
     tranche2: money(pricing.tranche2_amount),
-    method: cents(pricing.tranche1_amount) > 0 ? normalizeMethod(payment.method) : null,
-    reference: normalizeReference(payment?.reference),
-    paidAt: normalizeDate(payment?.paidAt)
+    method,
+    reference,
+    paidAt: normalizeDate(payment?.paidAt),
+    // Le reçu est numéroté dès l'encaissement, pour être remis au client.
+    receiptNumber: paying ? await paymentRepo.nextReceiptNumber() : null
   };
 }
 
@@ -280,6 +304,7 @@ async function applyCodePayment(studentId, claimed) {
       method: claimed.payment_method,
       paidAt: dateOnly(claimed.payment_paid_at) || dateOnly(claimed.created_at),
       reference: claimed.payment_reference,
+      receiptNumber: claimed.payment_receipt,
       recordedBy: claimed.sales_id,
       recordedByRole: "SALES"
     });
@@ -307,6 +332,18 @@ async function assertVisaPaid(application) {
   if (salesId) await notificationService.notify(salesId, { ...payload, link: `/conseiller/etudiants/${application.student_id}` });
   await notificationService.notifyAdmins({ ...payload, link: `/admin/finance?student=${application.student_id}` });
   throw fail(`${who} n'a pas réglé son paiement : il reste ${remaining} à payer (tranche 2) avant de déposer le dossier visa.`, 409);
+}
+
+// Journal des paiements (admin) : recherche par reçu, chèque, virement ou étudiant.
+async function listJournal(filters = {}) {
+  let rows = (await paymentRepo.listJournal()).map(paymentDto);
+  if (METHODS.includes(String(filters.method || "").toUpperCase())) rows = rows.filter((p) => p.method === String(filters.method).toUpperCase());
+  if (filters.status === "ACTIVE" || filters.status === "CANCELLED") rows = rows.filter((p) => p.status === filters.status);
+  const q = String(filters.q || "").trim().toLowerCase();
+  if (q) {
+    rows = rows.filter((p) => [p.receiptNumber, p.reference, p.studentName, p.countryName].some((v) => String(v || "").toLowerCase().includes(q)));
+  }
+  return rows;
 }
 
 // ── Tableau de bord Finance (admin) ──
@@ -371,5 +408,6 @@ module.exports = {
   applyCodePayment,
   assertVisaPaid,
   overview,
-  listPlans
+  listPlans,
+  listJournal
 };

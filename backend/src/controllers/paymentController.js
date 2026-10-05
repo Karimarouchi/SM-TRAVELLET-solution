@@ -20,6 +20,14 @@ async function listPlans(req, res) {
   }
 }
 
+async function listJournal(req, res) {
+  try {
+    res.json(await paymentService.listJournal(req.query || {}));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function listPricing(_req, res) {
   try {
     res.json(await paymentService.listPricing());
@@ -76,4 +84,4 @@ async function cancel(req, res) {
   }
 }
 
-module.exports = { overview, listPlans, listPricing, getPricing, setPricing, removePricing, studentSummary, record, cancel };
+module.exports = { overview, listPlans, listJournal, listPricing, getPricing, setPricing, removePricing, studentSummary, record, cancel };

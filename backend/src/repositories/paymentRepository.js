@@ -92,14 +92,59 @@ async function findPayment(id) {
   return result.rows[0] || null;
 }
 
-async function createPayment({ planId, studentId, tranche, amount, currency, method, paidAt, reference, recordedBy, recordedByRole }) {
+// Numéro de reçu : 001-2026, 002-2026… (compteur annuel, jamais réutilisé).
+async function nextReceiptNumber() {
+  const year = new Date().getFullYear();
   const result = await query(
-    `INSERT INTO student_payments (plan_id, student_id, tranche, amount, currency, method, paid_at, reference, recorded_by, recorded_by_role)
-     VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7::date, CURRENT_DATE), $8, $9, $10)
+    `INSERT INTO payment_receipt_counters (year, last_number) VALUES ($1, 1)
+     ON CONFLICT (year) DO UPDATE SET last_number = payment_receipt_counters.last_number + 1
+     RETURNING last_number`,
+    [year]
+  );
+  return `${String(result.rows[0].last_number).padStart(3, "0")}-${year}`;
+}
+
+async function createPayment({ planId, studentId, tranche, amount, currency, method, paidAt, reference, receiptNumber, recordedBy, recordedByRole }) {
+  const receipt = receiptNumber || (await nextReceiptNumber());
+  const result = await query(
+    `INSERT INTO student_payments (plan_id, student_id, tranche, amount, currency, method, paid_at, reference, receipt_number, recorded_by, recorded_by_role)
+     VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7::date, CURRENT_DATE), $8, $9, $10, $11)
      RETURNING *`,
-    [planId, studentId, tranche, amount, currency, method, paidAt || null, reference || null, recordedBy || null, recordedByRole]
+    [planId, studentId, tranche, amount, currency, method, paidAt || null, reference || null, receipt, recordedBy || null, recordedByRole]
   );
   return result.rows[0];
+}
+
+// Un même chèque / code de virement ne doit être enregistré qu'une fois.
+async function findActiveByMethodReference(method, reference) {
+  const result = await query(
+    `SELECT p.receipt_number FROM student_payments p
+     WHERE p.status = 'ACTIVE' AND p.method = $1 AND LOWER(p.reference) = LOWER($2) LIMIT 1`,
+    [method, reference]
+  );
+  if (result.rows[0]) return result.rows[0];
+  const pending = await query(
+    `SELECT payment_receipt AS receipt_number FROM sales_codes
+     WHERE payment_method = $1 AND LOWER(payment_reference) = LOWER($2) LIMIT 1`,
+    [method, reference]
+  );
+  return pending.rows[0] || null;
+}
+
+// Journal de tous les paiements (admin) : le plus récent d'abord.
+async function listJournal() {
+  const result = await query(
+    `SELECT p.*, c.name AS country_name, u.prenom AS student_prenom, u.nom AS student_nom,
+            b.prenom AS by_prenom, b.nom AS by_nom
+     FROM student_payments p
+     JOIN payment_plans pp ON pp.id = p.plan_id
+     JOIN countries c ON c.id = pp.country_id
+     JOIN users u ON u.id = p.student_id
+     LEFT JOIN users b ON b.id = p.recorded_by
+     ORDER BY p.created_at DESC
+     LIMIT 1000`
+  );
+  return result.rows;
 }
 
 async function cancelPayment(id, { cancelledBy, reason }) {
@@ -134,6 +179,9 @@ module.exports = {
   listPaymentsForStudent,
   findPayment,
   createPayment,
+  nextReceiptNumber,
+  findActiveByMethodReference,
+  listJournal,
   cancelPayment,
   collectedTotals
 };

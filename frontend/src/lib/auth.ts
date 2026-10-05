@@ -602,6 +602,8 @@ export type SalesCode = {
   usedAt: string | null;
   expiresAt: string | null;
   createdAt: string;
+  /** Reçu automatique de la tranche 1 encaissée à la création du code. */
+  paymentReceipt?: string | null;
 };
 
 export type SalesCodePayload = {
@@ -1691,12 +1693,24 @@ export type StudentPayment = {
   method: PaymentMethod;
   methodLabel: string;
   paidAt: string;
+  /** Reçu automatique (001-2026). */
+  receiptNumber: string | null;
+  /** Numéro du chèque ou code du virement (absent pour espèces et carte). */
   reference: string | null;
+  referenceLabel: string | null;
+  studentId?: string;
+  studentName?: string;
   recordedByName: string | null;
   recordedByRole: string;
   status: "ACTIVE" | "CANCELLED";
   cancelReason: string | null;
   createdAt: string;
+};
+
+/** Mode de paiement qui demande un numéro à saisir, avec son libellé. */
+export const PAYMENT_REFERENCE_LABELS: Partial<Record<PaymentMethod, string>> = {
+  CHEQUE: "Numéro du chèque",
+  TRANSFER: "Code du virement"
 };
 
 export type StudentPaymentsSummary = { plans: PaymentPlan[]; payments: StudentPayment[]; canCancel: boolean };
@@ -1753,6 +1767,12 @@ export async function fetchStudentPayments(studentId: string): Promise<StudentPa
 
 export async function recordStudentPayment(studentId: string, payload: RecordPaymentPayload): Promise<StudentPaymentsSummary> {
   return request<StudentPaymentsSummary>(`/api/students/${studentId}/payments`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function fetchPaymentJournal(filters: { q?: string; method?: string; status?: string } = {}): Promise<StudentPayment[]> {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => value && params.set(key, value));
+  return request<StudentPayment[]>(`/api/admin/finance/payments?${params.toString()}`);
 }
 
 export async function cancelStudentPayment(paymentId: string, reason: string): Promise<StudentPaymentsSummary> {
