@@ -3,6 +3,8 @@ const countryRepo = require("../repositories/countryRepository");
 const studentRepo = require("../repositories/studentRepository");
 const userRepo = require("../repositories/userRepository");
 const notificationService = require("./notificationService");
+const emailService = require("./emailService");
+const logger = require("../logger");
 const { canAccessStudent, authRoles } = require("../security/rbac");
 
 // Deux tranches par pays : 1 = inscription (à la création du code), 2 = avant le
@@ -229,7 +231,7 @@ async function recordPayment(auth, studentId, payload) {
     throw fail(`Le montant dépasse le reste dû pour la tranche ${tranche} (${formatAmount(state.remaining, plan.currency)}).`, 400);
   }
 
-  await paymentRepo.createPayment({
+  const created = await paymentRepo.createPayment({
     planId: plan.id,
     studentId,
     tranche,
@@ -241,7 +243,34 @@ async function recordPayment(auth, studentId, payload) {
     recordedBy: auth.sub,
     recordedByRole: roles.includes("ADMIN") ? "ADMIN" : "SALES"
   });
+  await sendReceiptEmail(studentId, created);
   return summaryForStudent(auth, studentId);
+}
+
+// Reçu envoyé par e-mail à l'étudiant (un échec d'envoi ne bloque jamais le paiement).
+async function sendReceiptEmail(studentId, payment) {
+  try {
+    const student = await userRepo.findById(studentId);
+    if (!student?.email) return;
+    const plan = await paymentRepo.findPlanById(payment.plan_id);
+    if (!plan) return;
+    const planInfo = planDto(plan);
+    await emailService.sendPaymentReceiptEmail(student.email, student.prenom, {
+      receiptNumber: payment.receipt_number,
+      amountLabel: formatAmount(payment.amount, payment.currency),
+      trancheLabel: Number(payment.tranche) === 1 ? "Tranche 1 · inscription" : "Tranche 2 · visa",
+      countryName: plan.country_name,
+      dateLabel: new Date(`${dateOnly(payment.paid_at)}T12:00:00`).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }),
+      methodLabel: METHOD_LABELS[payment.method] || payment.method,
+      referenceLabel: REFERENCE_LABELS[payment.method] || null,
+      reference: payment.reference,
+      totalLabel: formatAmount(planInfo.total, plan.currency),
+      paidLabel: formatAmount(planInfo.paidTotal, plan.currency),
+      remainingLabel: planInfo.remainingTotal > 0 ? formatAmount(planInfo.remainingTotal, plan.currency) : "Aucun : paiement soldé"
+    });
+  } catch (error) {
+    logger.error("Échec de l'envoi du reçu de paiement", { message: error.message });
+  }
 }
 
 // Annulation (admin) : le paiement reste visible dans l'historique.
@@ -295,7 +324,7 @@ async function applyCodePayment(studentId, claimed) {
     tranche2Due: claimed.payment_tranche2
   });
   if (cents(claimed.payment_tranche1) > 0) {
-    await paymentRepo.createPayment({
+    const created = await paymentRepo.createPayment({
       planId: plan.id,
       studentId,
       tranche: 1,
@@ -308,6 +337,8 @@ async function applyCodePayment(studentId, claimed) {
       recordedBy: claimed.sales_id,
       recordedByRole: "SALES"
     });
+    // Le reçu de la tranche 1 part dès que le compte de l'étudiant existe.
+    await sendReceiptEmail(studentId, created);
   }
 }
 

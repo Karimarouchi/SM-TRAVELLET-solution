@@ -329,12 +329,14 @@ export default function SalesCodesPage() {
                     placeholder={`${PAYMENT_REFERENCE_LABELS[payMethod]} *`}
                     className="w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm outline-none focus:border-brand"
                   />
-                ) : (
-                  <p className="flex items-center rounded-xl border border-dashed border-amber-300 bg-white/60 px-3 py-2.5 text-xs text-amber-900">
-                    {t("Un numéro de reçu automatique (ex. 001-2026) est attribué à l'encaissement.", "An automatic receipt number (e.g. 001-2026) is assigned to the payment.")}
-                  </p>
-                )}
+                ) : null}
               </div>
+              <p className="mt-2 text-[11px] text-amber-800">
+                {t(
+                  "Un numéro de reçu automatique (ex. 001-2026) est attribué à chaque encaissement, quel que soit le mode, et le reçu est envoyé par e-mail à l'étudiant à son inscription.",
+                  "An automatic receipt number (e.g. 001-2026) is assigned to every payment, whatever the method, and the receipt is emailed to the student when they register."
+                )}
+              </p>
             </div>
           )}
           <div>

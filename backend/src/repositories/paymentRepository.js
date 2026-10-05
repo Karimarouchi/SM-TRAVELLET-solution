@@ -61,6 +61,11 @@ async function findPlan(studentId, countryId) {
   return result.rows[0] || null;
 }
 
+async function findPlanById(id) {
+  const result = await query(`${PLAN_SELECT} WHERE pp.id = $1`, [id]);
+  return result.rows[0] || null;
+}
+
 async function createPlan({ studentId, countryId, currency, tranche1Due, tranche2Due }) {
   const result = await query(
     `INSERT INTO payment_plans (student_id, country_id, currency, tranche1_due, tranche2_due)
@@ -175,6 +180,7 @@ module.exports = {
   listPlans,
   listPlansForStudent,
   findPlan,
+  findPlanById,
   createPlan,
   listPaymentsForStudent,
   findPayment,

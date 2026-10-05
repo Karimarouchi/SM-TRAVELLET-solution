@@ -208,11 +208,11 @@ export default function StudentPaymentsPanel({ studentId, onChanged }: { student
                   className="w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
                 />
               ) : (
-                <p className="rounded-xl border border-dashed border-line bg-white/60 px-3 py-2.5 text-xs text-muted">Reçu numéroté automatiquement (ex. 001-2026)</p>
+                <p className="rounded-xl border border-dashed border-line bg-white/60 px-3 py-2.5 text-xs text-muted">Aucune référence à saisir</p>
               )}
             </div>
           </div>
-          <p className="text-[11px] text-muted">Montant vide = tout le reste dû de la tranche. Date vide = aujourd'hui. Chèque : numéro du chèque ; virement : code du virement.</p>
+          <p className="text-[11px] text-muted">Montant vide = tout le reste dû de la tranche. Date vide = aujourd'hui. Chèque : numéro du chèque ; virement : code du virement. Chaque paiement reçoit un numéro de reçu automatique (ex. 001-2026), envoyé par e-mail à l'étudiant.</p>
           {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
           <div className="flex justify-end gap-2">
             <button type="button" onClick={reset} className="rounded-xl border border-line bg-white px-4 py-2 text-xs font-bold text-muted hover:bg-slate-50">Annuler</button>
