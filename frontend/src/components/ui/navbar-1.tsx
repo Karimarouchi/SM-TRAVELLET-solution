@@ -14,6 +14,7 @@ import NotificationBell from "@/components/NotificationBell";
 
 type NavLinkItem = { label: string; href?: string; external?: boolean; children?: { label: string; href: string }[] };
 
+const WHATSAPP_HREF = "/whatsapp";
 const WHATSAPP_REGISTERED_HREF = "/whatsapp/inscrits";
 const WHATSAPP_PROSPECTS_HREF = "/whatsapp/prospects";
 
@@ -29,13 +30,8 @@ function CountBadge({ count }: { count: number }) {
 function linksForRole(role: string | undefined, permissions: string[], t: (fr: string, en: string) => string): NavLinkItem[] {
   // Deux messageries : les personnes déjà inscrites (compte créé avec un code)
   // et celles qui ne le sont pas encore.
-  const whatsapp: NavLinkItem = {
-    label: "WhatsApp",
-    children: [
-      { label: t("Étudiants inscrits", "Registered students"), href: WHATSAPP_REGISTERED_HREF },
-      { label: t("Non inscrits", "Not registered"), href: WHATSAPP_PROSPECTS_HREF }
-    ]
-  };
+  // Un seul lien : le passage « inscrits / non inscrits » se fait dans la messagerie.
+  const whatsapp: NavLinkItem = { label: "WhatsApp", href: WHATSAPP_HREF };
   const visaDocs: NavLinkItem = { label: t("Documents visa", "Visa documents"), href: "/admin/visa-documents" };
   const hasVisaDocsPermission = permissions.includes("MANAGE_VISA_DOCUMENTS");
   if (role === "ADMIN") {
@@ -94,7 +90,7 @@ const Navbar1 = () => {
   const links = linksForRole(role, permissions, t);
   const currentPath = location.pathname + location.search;
   const childCount = (href: string) =>
-    href === WHATSAPP_REGISTERED_HREF ? waUnread.registered : href === WHATSAPP_PROSPECTS_HREF ? waUnread.prospects : 0;
+    href === WHATSAPP_HREF ? waUnread.registered + waUnread.prospects : href === WHATSAPP_REGISTERED_HREF ? waUnread.registered : href === WHATSAPP_PROSPECTS_HREF ? waUnread.prospects : 0;
 
   React.useEffect(() => {
     if (role !== "ADMIN" && role !== "SALES") return;
@@ -126,7 +122,7 @@ const Navbar1 = () => {
   }, [isOpen]);
 
   const mobileLinkClass = (href: string) =>
-    cn("inline-flex items-center gap-2 text-base font-medium", currentPath === href || location.pathname === href ? "text-brand" : "text-gray-900");
+    cn("inline-flex items-center gap-2 text-base font-medium", currentPath === href || location.pathname === href || (href === WHATSAPP_HREF && location.pathname.startsWith(WHATSAPP_HREF)) ? "text-brand" : "text-gray-900");
 
   async function handleLogout() {
     await logout();
@@ -152,7 +148,7 @@ const Navbar1 = () => {
 
         <nav className="hidden min-w-0 items-center gap-6 lg:flex xl:gap-7">
           {links.map((item) => {
-            const active = !item.external && item.href && location.pathname === item.href;
+            const active = !item.external && item.href && (item.href === WHATSAPP_HREF ? location.pathname.startsWith(WHATSAPP_HREF) : location.pathname === item.href);
             const isChildActive = item.children?.some(child => currentPath === child.href);
             const className = `text-sm font-medium transition-colors ${
               active || isChildActive ? "text-brand" : "text-gray-900 hover:text-brand"
