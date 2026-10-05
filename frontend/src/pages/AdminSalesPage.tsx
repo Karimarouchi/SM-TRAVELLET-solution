@@ -24,7 +24,7 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import { BarChart3, Coins, GraduationCap, LayoutGrid, List, Mail, MapPinOff, Phone, Plus, ShieldCheck, Trophy, UserCog, Users, Users2, X, ArrowRightLeft } from "lucide-react";
 import { DragEvent, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import AdminAssignment from "@/pages/AdminAssignment";
 import CommissionsPanel from "@/components/admin/CommissionsPanel";
 
@@ -528,7 +528,7 @@ function RdvAssignmentBoard({
   }
 
   return (
-    <div className="mt-8">
+    <div id="attribution-visa" className="mt-8 scroll-mt-28">
       <h2 className="font-display text-2xl font-extrabold">Attribution des dossiers visa</h2>
       <p className="text-sm text-muted">
         <span className="hidden lg:inline">Glissez les dossiers acceptés vers un Responsable Visa.</span>
@@ -881,8 +881,15 @@ function RdvTab({ onNewRdv, onOpenAccess }: { onNewRdv: () => void; onOpenAccess
 }
 
 export default function AdminSalesPage() {
-  const [tab, setTab] = useState<"sales" | "rdv" | "commissions">("sales");
+  // Le Dashboard renvoie ici avec ?tab=rdv&focus=attribution-visa (ou focus=affectation) :
+  // on ouvre le bon onglet puis on fait défiler jusqu'à la zone à régler.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const [tab, setTab] = useState<"sales" | "rdv" | "commissions">(
+    requestedTab === "rdv" || requestedTab === "commissions" ? requestedTab : "sales"
+  );
   const [board, setBoard] = useState<AssignmentBoard | null>(null);
+  const focus = searchParams.get("focus");
   const [error, setError] = useState("");
   const [accessModal, setAccessModal] = useState<{ id: string; name: string } | null>(null);
   const [newRdvModal, setNewRdvModal] = useState(false);
@@ -901,6 +908,26 @@ export default function AdminSalesPage() {
     { id: "rdv" as const, label: "Responsables Visa", icon: UserCog },
     { id: "commissions" as const, label: "Commissions", icon: Coins }
   ];
+
+  // Défilement vers la zone demandée, une fois la page chargée (les zones se
+  // dessinent après leurs données). L'adresse est ensuite nettoyée.
+  useEffect(() => {
+    if (!focus) return;
+    let tries = 0;
+    const timer = window.setInterval(() => {
+      const target = document.getElementById(focus);
+      tries += 1;
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        window.clearInterval(timer);
+        setSearchParams({}, { replace: true });
+      } else if (tries > 20) {
+        window.clearInterval(timer);
+      }
+    }, 150);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus, tab, board]);
 
   return (
     <main className="mx-auto max-w-[1400px] px-4 sm:px-6 pb-16">

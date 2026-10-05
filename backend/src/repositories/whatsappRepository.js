@@ -111,13 +111,13 @@ async function findLeastLoadedActiveSales() {
   return result.rows[0] || null;
 }
 
-async function insertMessage({ contactId, waMessageId, direction, type, body, status, sentBy, createdAt }) {
+async function insertMessage({ contactId, waMessageId, direction, type, body, status, sentBy, sentAs, createdAt }) {
   const result = await query(
-    `INSERT INTO whatsapp_messages (contact_id, wa_message_id, direction, type, body, status, sent_by, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, NOW()))
+    `INSERT INTO whatsapp_messages (contact_id, wa_message_id, direction, type, body, status, sent_by, sent_as_id, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, NOW()))
      ON CONFLICT (wa_message_id) DO NOTHING
      RETURNING *`,
-    [contactId, waMessageId || null, direction, type, body, status, sentBy || null, createdAt || null]
+    [contactId, waMessageId || null, direction, type, body, status, sentBy || null, sentAs || null, createdAt || null]
   );
   return result.rows[0] || null;
 }
@@ -193,10 +193,13 @@ async function listConversations({ userId, ownerId, search, contactId = null }) 
 async function listMessages(contactId, { before, limit }) {
   const result = await query(
     `SELECT m.id, m.direction, m.type, m.body, m.status, m.error, m.created_at,
-            u.prenom AS sender_prenom, u.nom AS sender_nom,
+            -- Auteur AFFICHÉ : le conseiller au nom de qui l'admin a répondu, sinon l'expéditeur réel.
+            COALESCE(sa.prenom, u.prenom) AS sender_prenom, COALESCE(sa.nom, u.nom) AS sender_nom,
+            (m.sent_as_id IS NOT NULL AND m.sent_as_id IS DISTINCT FROM m.sent_by) AS sent_by_admin,
             m.hidden_at, h.prenom AS hidden_prenom, h.nom AS hidden_nom
      FROM whatsapp_messages m
      LEFT JOIN users u ON u.id = m.sent_by
+     LEFT JOIN users sa ON sa.id = m.sent_as_id
      LEFT JOIN users h ON h.id = m.hidden_by
      WHERE m.contact_id = $1 AND ($2::timestamptz IS NULL OR m.created_at < $2)
      ORDER BY m.created_at DESC

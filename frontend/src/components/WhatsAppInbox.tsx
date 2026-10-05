@@ -20,6 +20,7 @@ import {
   ArrowLeft,
   Check,
   CheckCheck,
+  ChevronDown,
   Clock,
   ExternalLink,
   EyeOff,
@@ -32,7 +33,7 @@ import {
   UserCog,
   X
 } from "lucide-react";
-import { KeyboardEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { KeyboardEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 
@@ -412,7 +413,7 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
     try {
       const message = await sendWhatsAppMessage(activeId, body);
       setText("");
-      setThread((previous) => [...previous, { ...message, senderName: `${me?.prenom || ""} ${me?.nom || ""}`.trim() }]);
+      setThread((previous) => [...previous, message]);
       loadList();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de l'envoi.");
@@ -467,6 +468,72 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
     { id: "unread" as const, label: "Non lues" },
     ...(isAdmin ? [{ id: "unassigned" as const, label: "Non attribuées" }] : [])
   ];
+
+  // Admin, messagerie « inscrits » : les discussions sont regroupées par
+  // conseiller (celui à qui l'étudiant est rattaché), « sans conseiller » à la fin.
+  const groupByOwner = isAdmin && segment === "registered";
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggleGroup = (key: string) =>
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  const groups = useMemo(() => {
+    const map = new Map<string, { key: string; ownerId: string | null; name: string; items: WhatsAppConversation[]; unread: number }>();
+    for (const item of visible) {
+      const key = item.ownerId || "none";
+      const group = map.get(key) || { key, ownerId: item.ownerId, name: item.ownerName || "Sans conseiller", items: [], unread: 0 };
+      group.items.push(item);
+      group.unread += item.unread;
+      map.set(key, group);
+    }
+    return [...map.values()].sort((a, b) => (a.ownerId ? 0 : 1) - (b.ownerId ? 0 : 1) || a.name.localeCompare(b.name, "fr"));
+  }, [visible]);
+
+  const renderRow = (item: WhatsAppConversation) => (
+    <button
+      key={item.id}
+      type="button"
+      onClick={() => openConversation(item.id)}
+      className={cn(
+        "flex w-full items-center gap-3 border-b border-line/60 px-4 py-3 text-left transition hover:bg-emerald-50",
+        item.id === activeId && "bg-emerald-50"
+      )}
+    >
+      <UserAvatar name={displayName(item)} />
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center justify-between gap-2">
+          <span className={cn("truncate text-sm", item.unread ? "font-extrabold text-dark" : "font-semibold text-mid")}>
+            {displayName(item)}
+          </span>
+          <span className={cn("shrink-0 text-[11px]", item.unread ? "font-bold text-emerald-600" : "text-muted")}>
+            {listTime(item.lastMessageAt)}
+          </span>
+        </span>
+        <span className="mt-0.5 flex items-center gap-2">
+          <span className={cn("block flex-1 truncate text-xs", item.unread ? "font-semibold text-dark" : "text-muted")}>
+            {item.lastHidden ? (
+              <span className="inline-flex items-center gap-1 italic"><EyeOff className="h-3 w-3" /> Message masqué</span>
+            ) : (
+              <>{item.lastDirection === "out" && "Vous : "}{item.lastBody}</>
+            )}
+          </span>
+          {item.unread > 0 && (
+            <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] font-bold text-white">
+              {item.unread}
+            </span>
+          )}
+        </span>
+        {/* En liste groupée, le conseiller est déjà dans l'en-tête du groupe. */}
+        {isAdmin && !groupByOwner && (
+          <span className={cn("mt-1 block truncate text-[10px] font-semibold", item.ownerName ? "text-brand/70" : "text-amber-600")}>
+            {item.ownerName ? `→ ${item.ownerName}` : "Non attribuée"}
+          </span>
+        )}
+      </span>
+    </button>
+  );
 
   if (!me) return null;
 
@@ -529,48 +596,33 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
             </div>
 
             <div className="flex-1 overflow-y-auto">
-              {visible.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => openConversation(item.id)}
-                  className={cn(
-                    "flex w-full items-center gap-3 border-b border-line/60 px-4 py-3 text-left transition hover:bg-emerald-50",
-                    item.id === activeId && "bg-emerald-50"
-                  )}
-                >
-                  <UserAvatar name={displayName(item)} />
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center justify-between gap-2">
-                      <span className={cn("truncate text-sm", item.unread ? "font-extrabold text-dark" : "font-semibold text-mid")}>
-                        {displayName(item)}
-                      </span>
-                      <span className={cn("shrink-0 text-[11px]", item.unread ? "font-bold text-emerald-600" : "text-muted")}>
-                        {listTime(item.lastMessageAt)}
-                      </span>
-                    </span>
-                    <span className="mt-0.5 flex items-center gap-2">
-                      <span className={cn("block flex-1 truncate text-xs", item.unread ? "font-semibold text-dark" : "text-muted")}>
-                        {item.lastHidden ? (
-                          <span className="inline-flex items-center gap-1 italic"><EyeOff className="h-3 w-3" /> Message masqué</span>
-                        ) : (
-                          <>{item.lastDirection === "out" && "Vous : "}{item.lastBody}</>
-                        )}
-                      </span>
-                      {item.unread > 0 && (
-                        <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] font-bold text-white">
-                          {item.unread}
-                        </span>
-                      )}
-                    </span>
-                    {isAdmin && (
-                      <span className={cn("mt-1 block truncate text-[10px] font-semibold", item.ownerName ? "text-brand/70" : "text-amber-600")}>
-                        {item.ownerName ? `→ ${item.ownerName}` : "Non attribuée"}
-                      </span>
-                    )}
-                  </span>
-                </button>
-              ))}
+              {groupByOwner
+                ? groups.map((group) => {
+                    const open = !collapsed.has(group.key) || search.trim() !== "";
+                    return (
+                      <div key={group.key}>
+                        {/* En-tête de conseiller : nom, nombre de discussions, non-lus. Un clic replie le groupe. */}
+                        <button
+                          type="button"
+                          onClick={() => toggleGroup(group.key)}
+                          aria-expanded={open}
+                          className="sticky top-0 z-[1] flex w-full items-center gap-2 border-b border-line bg-slate-100/95 px-4 py-2 text-left backdrop-blur"
+                        >
+                          <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted transition-transform", !open && "-rotate-90")} />
+                          <UserAvatar name={group.name} size="sm" className="h-6 w-6 text-[9px]" />
+                          <span className={cn("min-w-0 flex-1 truncate text-xs font-extrabold", group.ownerId ? "text-dark" : "text-amber-700")}>{group.name}</span>
+                          <span className="shrink-0 text-[11px] font-semibold text-muted">
+                            {group.items.length} discussion{group.items.length > 1 ? "s" : ""}
+                          </span>
+                          {group.unread > 0 && (
+                            <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] font-bold text-white">{group.unread}</span>
+                          )}
+                        </button>
+                        {open && group.items.map(renderRow)}
+                      </div>
+                    );
+                  })
+                : visible.map(renderRow)}
               {listLoaded && !visible.length && (
                 <p className="px-5 py-10 text-center text-sm text-muted">
                   {inSegment.length
@@ -707,7 +759,10 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
                             )}
                           >
                             {mine && item.senderName && (
-                              <p className="mb-0.5 text-[11px] font-semibold text-[#008069]">{item.senderName}</p>
+                              <p className="mb-0.5 text-[11px] font-semibold text-[#008069]">
+                                {item.senderName}
+                                {item.sentByAdmin && <span className="ml-1 font-medium text-[#667781]">· envoyé par l'admin</span>}
+                              </p>
                             )}
                             {isMedia ? (
                               <p className="flex items-start gap-1.5 italic text-[#667781]">
@@ -731,6 +786,15 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
                   })}
                 </div>
 
+                {/* L'admin qui répond dans la discussion d'un conseiller écrit AU NOM de ce conseiller. */}
+                {isAdmin && active.ownerId && active.ownerId !== me.id && active.windowOpen && (
+                  <div className="flex items-start gap-2 bg-emerald-50 px-4 py-1.5 text-[12px] leading-snug text-emerald-900">
+                    <UserCog className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>
+                      Vous répondez au nom de <strong>{active.ownerName}</strong> : la discussion apparaîtra comme envoyée par ce conseiller.
+                    </span>
+                  </div>
+                )}
                 {!active.windowOpen && (
                   <div className="flex items-start gap-2 bg-[#fff8e1] px-4 py-2 text-[12px] leading-snug text-amber-900">
                     <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -742,7 +806,6 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
                 )}
                 {error && <p className="bg-[#f0f2f5] px-4 pt-2 text-xs text-red-500">{error}</p>}
 
-                {!isAdmin ? (
                 <div
                   className="flex items-end gap-2 bg-[#f0f2f5] px-2 pt-2 md:px-3"
                   style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
@@ -771,9 +834,6 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
                     <Send className="h-[18px] w-[18px]" />
                   </button>
                 </div>
-                ) : (
-                  <p className="bg-[#f0f2f5] px-4 py-3 text-xs text-muted">Lecture seule : seuls les conseillers peuvent envoyer un message WhatsApp.</p>
-                )}
               </>
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center bg-[#f7f5f2] px-8 text-center">

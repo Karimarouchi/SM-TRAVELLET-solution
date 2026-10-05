@@ -199,9 +199,12 @@ function mapConversation(row) {
   };
 }
 
-function mapMessage(row) {
+// forAdmin : seul l'admin voit qu'un message a été envoyé par lui au nom d'un
+// conseiller ; les conseillers voient simplement le nom affiché.
+function mapMessage(row, { forAdmin = false } = {}) {
   const hidden = Boolean(row.hidden_at);
   return {
+    sentByAdmin: forAdmin ? Boolean(row.sent_by_admin) : undefined,
     id: row.id,
     direction: row.direction,
     type: row.type,
@@ -238,7 +241,7 @@ async function getMessages(auth, contactId, { before, limit }) {
   const beforeDate = before && !Number.isNaN(Date.parse(before)) ? new Date(before) : null;
   const rows = await repo.listMessages(contactId, { before: beforeDate, limit: pageSize });
   if (!beforeDate) await repo.markRead(contactId, auth.sub);
-  return { messages: rows.map(mapMessage), hasMore: rows.length === pageSize };
+  return { messages: rows.map((row) => mapMessage(row, { forAdmin: isAdmin(auth) })), hasMore: rows.length === pageSize };
 }
 
 // Meta ne permet pas de supprimer un message envoyé : on le masque seulement
@@ -266,8 +269,9 @@ function metaErrorToHttp(metaError) {
 }
 
 async function sendText(auth, contactId, text) {
-  if (!authRoles(auth).includes("SALES")) {
-    throw fail("Seul un conseiller peut envoyer un message WhatsApp.", 403);
+  // Conseillers et admin (qui supervise et peut répondre à la place d'un conseiller).
+  if (!authRoles(auth).some((role) => role === "SALES" || role === "ADMIN")) {
+    throw fail("Seuls les conseillers et l'admin peuvent envoyer un message WhatsApp.", 403);
   }
   const body = String(text || "").trim();
   if (!body) throw fail("Le message est vide.", 400);
@@ -313,11 +317,16 @@ async function sendText(auth, contactId, text) {
     type: "text",
     body,
     status: "sent",
-    sentBy: auth.sub
+    sentBy: auth.sub,
+    // L'admin qui répond dans la conversation d'un conseiller écrit au nom de ce
+    // conseiller (l'auteur réel reste en base). Sur WhatsApp l'étudiant ne voit
+    // de toute façon que le numéro de l'agence, jamais un nom d'employé.
+    sentAs: isAdmin(auth) && conversation.owner_id && conversation.owner_id !== auth.sub ? conversation.owner_id : null
   });
   await repo.touchOutbound(contactId);
   await repo.markRead(contactId, auth.sub);
-  return mapMessage(inserted);
+  const sentRow = (await repo.listMessages(contactId, { before: null, limit: 5 })).find((m) => m.id === inserted.id) || inserted;
+  return mapMessage(sentRow, { forAdmin: isAdmin(auth) });
 }
 
 async function linkStudent(auth, contactId, studentId) {

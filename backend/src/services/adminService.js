@@ -270,7 +270,10 @@ async function getDashboard(query = {}) {
         ? `Visa obtenu pour ${success.country_name} !` 
         : `Accepté à ${success.university_name} !`,
       sinceDays: daysSince(success.updated_at),
-      tone: "success"
+      tone: "success",
+      // Bonne nouvelle : rien à régler, on ouvre la fiche de l'étudiant.
+      link: `/conseiller/etudiants/${success.student_id}`,
+      actionLabel: "Voir le dossier"
     });
   }
 
@@ -286,7 +289,10 @@ async function getDashboard(query = {}) {
       sales: "—",
       problem: `Accepté à ${app.university_name} (${app.country_name}) — aucun RDV assigné pour le visa`,
       sinceDays: daysSince(app.decision_at || app.updated_at),
-      tone: "danger"
+      tone: "danger",
+      // « Attribution des dossiers visa » (Équipe > Responsables Visa).
+      link: "/admin/sales?tab=rdv&focus=attribution-visa",
+      actionLabel: "Attribuer un RDV"
     });
   }
 
@@ -299,7 +305,10 @@ async function getDashboard(query = {}) {
         sales: "—",
         problem: "Étudiant sans conseiller",
         sinceDays: daysSince(student.onboardingCompletedAt || student.createdAt),
-        tone: "danger"
+        tone: "danger",
+        // Tableau d'affectation (Équipe) : on y donne un conseiller à l'étudiant.
+        link: "/admin/sales?focus=affectation",
+        actionLabel: "Affecter un conseiller"
       });
     }
   }
@@ -312,7 +321,10 @@ async function getDashboard(query = {}) {
         sales: `${item.prenom} ${item.nom}`,
         problem: "Conseiller inactif avec des dossiers",
         sinceDays: 0,
-        tone: "danger"
+        tone: "danger",
+        // Le bouton « transférer » de sa colonne déplace tout son travail.
+        link: "/admin/sales?focus=affectation",
+        actionLabel: "Transférer ses dossiers"
       });
     }
   }
@@ -325,7 +337,9 @@ async function getDashboard(query = {}) {
       sales: "Tous",
       problem: `Charge inégale : ${Math.min(...loads)} à ${Math.max(...loads)} étudiants`,
       sinceDays: 0,
-      tone: "warning"
+      tone: "warning",
+      link: "/admin/sales?focus=affectation",
+      actionLabel: "Rééquilibrer"
     });
   }
   alerts.sort((a, b) => b.sinceDays - a.sinceDays);

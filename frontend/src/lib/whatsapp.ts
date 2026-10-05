@@ -30,6 +30,8 @@ export type WhatsAppMessage = {
   status: WhatsAppStatus;
   error: string | null;
   senderName: string | null;
+  // Admin seulement : ce message a été envoyé par l'admin, au nom du conseiller affiché.
+  sentByAdmin?: boolean;
   createdAt: string;
 };
 

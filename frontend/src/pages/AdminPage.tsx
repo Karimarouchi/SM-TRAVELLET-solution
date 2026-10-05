@@ -16,6 +16,7 @@ import {
 import StudentsPipelineBoard from "@/components/admin/StudentsPipelineBoard";
 import TeamPerformancePanel from "@/components/admin/TeamPerformancePanel";
 import {
+  ArrowRight,
   CheckCircle2,
   GraduationCap,
   TrendingUp,
@@ -27,7 +28,7 @@ import {
   PlaneTakeoff
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 // ── Sparkline seeds (fixed so they look natural) ──────────────────────────────
 const SPARK_SEEDS: Record<string, number[]> = {
@@ -93,6 +94,17 @@ const AVATAR_COLORS = [
   "from-rose-500 to-pink-600",
   "from-amber-500 to-orange-600",
 ];
+
+// Une alerte avec une page de correction est un lien ; sinon une simple carte.
+function AlertCard({ to, label, className, style, children }: { to?: string; label: string; className: string; style?: React.CSSProperties; children: React.ReactNode }) {
+  return to ? (
+    <Link to={to} aria-label={label} className={className} style={style}>
+      {children}
+    </Link>
+  ) : (
+    <div className={className} style={style}>{children}</div>
+  );
+}
 
 function PerformanceList({
   title,
@@ -414,10 +426,13 @@ export default function AdminPage() {
               let Icon = isSuccess ? (alert.problem.includes("Visa") ? PlaneTakeoff : GraduationCap) : (isDanger ? AlertTriangle : AlertCircle);
               
               return (
-                <div
+                <AlertCard
                   key={alert.id}
+                  to={alert.link}
+                  label={`${alert.student} : ${alert.problem}. ${alert.actionLabel || "Ouvrir"}`}
                   className={cn(
                     "group relative flex items-start gap-4 overflow-hidden rounded-2xl border p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]",
+                    alert.link && "cursor-pointer",
                     isDanger && "border-red-100 bg-gradient-to-r from-red-50 to-white hover:border-red-200",
                     isWarning && "border-amber-100 bg-gradient-to-r from-amber-50 to-white hover:border-amber-200",
                     isSuccess && "border-brand/20 bg-gradient-to-r from-brand/5 to-white hover:border-brand/30",
@@ -470,8 +485,16 @@ export default function AdminPage() {
                     )}>
                       {alert.problem}
                     </span>
+                    {alert.link && (
+                      <span className={cn(
+                        "mt-2 flex items-center gap-1 text-[11px] font-bold",
+                        isDanger ? "text-red-700" : isWarning ? "text-amber-700" : "text-brand",
+                      )}>
+                        {alert.actionLabel || "Ouvrir"} <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-1" />
+                      </span>
+                    )}
                   </div>
-                </div>
+                </AlertCard>
               );
             })}
 

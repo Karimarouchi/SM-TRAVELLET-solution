@@ -178,6 +178,9 @@ export type AdminDashboard = {
     problem: string;
     sinceDays: number;
     tone: "danger" | "warning" | "success";
+    // Page où régler l'alerte et libellé du bouton d'action.
+    link?: string;
+    actionLabel?: string;
   }>;
   destinations: Array<{ name: string; count: number; percent: number }>;
   salesPerformance: Array<{
