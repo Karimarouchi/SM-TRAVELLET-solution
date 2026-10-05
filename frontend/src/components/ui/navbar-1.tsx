@@ -41,7 +41,6 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
   if (role === "ADMIN") {
     return [
       { label: t("Dashboard", "Dashboard"), href: "/admin" },
-      { label: t("Sales", "Sales"), href: "/admin/sales" },
       { label: t("Finance", "Finance"), href: "/admin/finance" },
       { label: t("Utilisateurs", "Users"), href: "/admin/users" },
       {

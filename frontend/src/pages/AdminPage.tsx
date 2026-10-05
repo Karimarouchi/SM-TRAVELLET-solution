@@ -525,7 +525,7 @@ export default function AdminPage() {
           completedLabel="complets"
           emptyLabel="Aucun conseiller pour le moment."
           items={data?.salesPerformance || []}
-          onViewAll={() => navigate("/admin/sales")}
+          onViewAll={() => navigate("/admin/users?tab=conseillers")}
         />
         <PerformanceList
           title="Équipe RDV"
@@ -534,7 +534,7 @@ export default function AdminPage() {
           completedLabel="visas obtenus"
           emptyLabel="Aucun Responsable Dossier Visa pour le moment."
           items={data?.rdvPerformance || []}
-          onViewAll={() => navigate("/admin/sales")}
+          onViewAll={() => navigate("/admin/users?tab=rdv")}
         />
       </div>
     </main>

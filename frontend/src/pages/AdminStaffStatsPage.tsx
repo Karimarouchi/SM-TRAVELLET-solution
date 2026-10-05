@@ -183,8 +183,8 @@ export default function AdminStaffStatsPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
-      <Link to="/admin/sales" className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-mid shadow-sm transition hover:text-brand">
-        <ArrowLeft className="h-3.5 w-3.5" /> Équipe
+      <Link to="/admin/users?tab=conseillers" className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-mid shadow-sm transition hover:text-brand">
+        <ArrowLeft className="h-3.5 w-3.5" /> Utilisateurs
       </Link>
 
       <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-6 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)] sm:p-8">

@@ -1,8 +1,9 @@
 import { fetchStudentsOverview, setStudentActive, type StudentOverview } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { Ban, CheckCircle2, Search, Trash2, Unlock } from "lucide-react";
+import { Ban, CheckCircle2, GraduationCap, Search, Trash2, Unlock, UserCog, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { TeamSection } from "@/pages/AdminSalesPage";
 import StudentsPipelineBoard, { StageBadge } from "@/components/admin/StudentsPipelineBoard";
 import DeleteStudentModal from "@/components/admin/DeleteStudentModal";
 import { PassportBadge } from "@/components/PassportBadge";
@@ -141,7 +142,28 @@ function StudentsTable({
   );
 }
 
+type UsersTab = "etudiants" | "conseillers" | "rdv";
+
+const USERS_TABS: Array<{ id: UsersTab; label: string; icon: typeof Users }> = [
+  { id: "etudiants", label: "Étudiants", icon: GraduationCap },
+  { id: "conseillers", label: "Conseillers", icon: Users },
+  { id: "rdv", label: "Responsables Visa", icon: UserCog }
+];
+
+function tabFromParam(value: string | null): UsersTab {
+  return value === "conseillers" || value === "rdv" ? value : "etudiants";
+}
+
 export default function AdminUsersPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = tabFromParam(searchParams.get("tab"));
+  const [tab, setTab] = useState<UsersTab>(requestedTab);
+  // Un lien du Dashboard peut changer l'onglet sans recharger la page.
+  useEffect(() => { setTab(requestedTab); }, [requestedTab]);
+  const switchTab = (next: UsersTab) => {
+    setTab(next);
+    setSearchParams(next === "etudiants" ? {} : { tab: next }, { replace: true });
+  };
   const [students, setStudents] = useState<StudentOverview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -192,10 +214,12 @@ export default function AdminUsersPage() {
             <p className="text-sm text-white/80">Espace administrateur</p>
             <h1 className="mt-1 font-display text-3xl font-extrabold">Utilisateurs</h1>
             <p className="mt-2 max-w-2xl text-sm text-white/85">
-              Vue d'ensemble des étudiants, leur avancement réel dans le pipeline (candidature + visa), et le statut de leur compte.
+              {tab === "etudiants"
+                ? "Vue d'ensemble des étudiants, leur avancement réel dans le pipeline (candidature + visa), et le statut de leur compte."
+                : "Conseillers et responsables dossier visa : comptes, rôles, permissions et répartition des étudiants."}
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className={cn("flex gap-3", tab !== "etudiants" && "hidden")}>
             <div className="rounded-2xl bg-white/15 px-4 py-3 text-center">
               <p className="font-display text-2xl font-extrabold">{students.length}</p>
               <p className="text-[11px] uppercase tracking-wide text-white/80">Étudiants</p>
@@ -206,8 +230,28 @@ export default function AdminUsersPage() {
             </div>
           </div>
         </div>
+
+        <div className="relative mt-6 grid grid-cols-3 gap-1 rounded-xl bg-white/10 p-1 backdrop-blur sm:inline-flex sm:items-center">
+          {USERS_TABS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => switchTab(item.id)}
+              className={cn(
+                "flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 text-center text-[11px] font-bold leading-tight transition sm:flex-row sm:gap-1.5 sm:px-4 sm:text-xs",
+                tab === item.id ? "bg-white text-brand shadow" : "text-white/80 hover:text-white"
+              )}
+            >
+              <item.icon className="h-3.5 w-3.5 shrink-0" /> {item.label}
+            </button>
+          ))}
+        </div>
       </section>
 
+      {tab !== "etudiants" ? (
+        <TeamSection tab={tab === "rdv" ? "rdv" : "sales"} />
+      ) : (
+      <>
       {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
       {notice && <p role="status" className="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{notice}</p>}
 
@@ -246,6 +290,9 @@ export default function AdminUsersPage() {
         <div className="mt-2">
           <StudentsTable students={filtered} busyId={busyId} onToggleBlock={toggleBlock} onDelete={setDeleteTarget} />
         </div>
+      )}
+
+      </>
       )}
 
       {deleteTarget && (

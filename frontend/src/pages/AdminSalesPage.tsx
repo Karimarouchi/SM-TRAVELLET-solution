@@ -879,14 +879,13 @@ function RdvTab({ onNewRdv, onOpenAccess }: { onNewRdv: () => void; onOpenAccess
   );
 }
 
-export default function AdminSalesPage() {
-  // Le Dashboard renvoie ici avec ?tab=rdv&focus=attribution-visa (ou focus=affectation) :
-  // on ouvre le bon onglet puis on fait défiler jusqu'à la zone à régler.
+// Conseillers et responsables dossier visa : section de la page Utilisateurs.
+// Le Dashboard renvoie ici avec ?tab=rdv&focus=attribution-visa (ou
+// ?tab=conseillers&focus=affectation) : on fait défiler jusqu'à la zone à régler.
+export function TeamSection({ tab }: { tab: "sales" | "rdv" }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const requestedTab = searchParams.get("tab");
-  const [tab, setTab] = useState<"sales" | "rdv">(requestedTab === "rdv" ? "rdv" : "sales");
-  const [board, setBoard] = useState<AssignmentBoard | null>(null);
   const focus = searchParams.get("focus");
+  const [board, setBoard] = useState<AssignmentBoard | null>(null);
   const [error, setError] = useState("");
   const [accessModal, setAccessModal] = useState<{ id: string; name: string } | null>(null);
   const [newRdvModal, setNewRdvModal] = useState(false);
@@ -900,13 +899,8 @@ export default function AdminSalesPage() {
 
   useEffect(() => { reload(); }, []);
 
-  const TABS = [
-    { id: "sales" as const, label: "Conseillers", icon: Users },
-    { id: "rdv" as const, label: "Responsables Visa", icon: UserCog }
-  ];
-
   // Défilement vers la zone demandée, une fois la page chargée (les zones se
-  // dessinent après leurs données). L'adresse est ensuite nettoyée.
+  // dessinent après leurs données), puis l'adresse est nettoyée du « focus ».
   useEffect(() => {
     if (!focus) return;
     let tries = 0;
@@ -916,7 +910,11 @@ export default function AdminSalesPage() {
       if (target) {
         target.scrollIntoView({ behavior: "smooth", block: "start" });
         window.clearInterval(timer);
-        setSearchParams({}, { replace: true });
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete("focus");
+          return next;
+        }, { replace: true });
       } else if (tries > 20) {
         window.clearInterval(timer);
       }
@@ -925,35 +923,8 @@ export default function AdminSalesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus, tab, board]);
 
-  // Anciens liens vers l'onglet Commissions : elles sont maintenant dans Finance.
-  if (requestedTab === "commissions") return <Navigate to="/admin/finance?tab=commissions" replace />;
-
   return (
-    <main className="mx-auto max-w-[1400px] px-4 sm:px-6 pb-16">
-      <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-6 sm:p-8 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)]">
-        <p className="text-sm text-white/80">Espace administrateur</p>
-        <h1 className="mt-1 font-display text-3xl font-extrabold">Équipe</h1>
-        <p className="mt-3 max-w-2xl text-sm text-white/85">
-          Conseillers, responsables dossier visa, rôles, permissions et répartition des étudiants.
-        </p>
-
-        <div className="relative mt-6 grid grid-cols-2 gap-1 rounded-xl bg-white/10 p-1 backdrop-blur sm:inline-flex sm:items-center">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              className={cn(
-                "flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 text-center text-[11px] font-bold leading-tight transition sm:flex-row sm:gap-1.5 sm:px-4 sm:text-xs",
-                tab === t.id ? "bg-white text-brand shadow" : "text-white/80 hover:text-white"
-              )}
-            >
-              <t.icon className="h-3.5 w-3.5 shrink-0" /> {t.label}
-            </button>
-          ))}
-        </div>
-      </section>
-
+    <>
       {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
       {tab === "sales" && <SalesTab board={board} onOpenAccess={(id, name) => setAccessModal({ id, name })} onChanged={reload} />}
@@ -963,8 +934,18 @@ export default function AdminSalesPage() {
         <AccessModal userId={accessModal.id} name={accessModal.name} onClose={() => setAccessModal(null)} onSaved={reload} />
       )}
       {newRdvModal && (
-        <NewRdvModal onClose={() => setNewRdvModal(false)} onCreated={() => { setTab("rdv"); setRdvRefreshKey((k) => k + 1); }} />
+        <NewRdvModal onClose={() => setNewRdvModal(false)} onCreated={() => setRdvRefreshKey((k) => k + 1)} />
       )}
-    </main>
+    </>
   );
+}
+
+// Ancienne adresse /admin/sales : tout se fait maintenant dans Utilisateurs.
+export default function AdminSalesRedirect() {
+  const [searchParams] = useSearchParams();
+  const tab = searchParams.get("tab");
+  if (tab === "commissions") return <Navigate to="/admin/finance?tab=commissions" replace />;
+  const next = new URLSearchParams(searchParams);
+  next.set("tab", tab === "rdv" ? "rdv" : "conseillers");
+  return <Navigate to={`/admin/users?${next.toString()}`} replace />;
 }
