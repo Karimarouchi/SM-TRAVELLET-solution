@@ -1,6 +1,7 @@
 const nodemailer = require("nodemailer");
 const env = require("../config/env");
 const settingsRepository = require("../repositories/settingsRepository");
+const { renderEmail, highlightBlock, rowsBlock, calloutBlock, esc, escLines, appUrl } = require("./emailTemplates");
 
 // Expéditeur des emails (nom, adresse, mot de passe d'application SMTP) —
 // réglable par l'admin depuis Paramètres, pas codé en dur : changer
@@ -70,51 +71,20 @@ async function resolveSender() {
   };
 }
 
+// ── Gabarits des e-mails (mise en page commune : emailTemplates.js) ──
+
+const SIGNATURE_NOTE = "Si vous n'êtes pas à l'origine de cette demande, ignorez simplement cet e-mail.";
+
 function verificationEmailHtml(prenom, code) {
-  return `
-  <div style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:32px 0;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 10px 30px rgba(76,29,149,0.12);">
-            <tr>
-              <td style="background:linear-gradient(135deg,#4c1d95 0%,#6d28d9 55%,#8b5cf6 100%);padding:32px 32px 28px;text-align:center;">
-                <div style="font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:0.5px;">SM Travel</div>
-                <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">Espace client</p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:32px 32px 8px;">
-                <h1 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Bonjour ${prenom},</h1>
-                <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#475569;">
-                  Merci de vous être inscrit·e sur SM Travel. Pour activer votre compte, saisissez le code de vérification ci-dessous dans l'application.
-                </p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 32px 24px;text-align:center;">
-                <div style="display:inline-block;padding:16px 28px;border-radius:16px;background-color:#ede9fe;border:1px solid #ddd6fe;">
-                  <span style="font-size:32px;font-weight:800;letter-spacing:8px;color:#4c1d95;font-family:Arial,Helvetica,sans-serif;">${code}</span>
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 32px 32px;">
-                <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;">
-                  Ce code est valable 15 minutes. Si vous n'êtes pas à l'origine de cette demande, ignorez simplement cet email.
-                </p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:20px 32px;background-color:#f8fafc;text-align:center;border-top:1px solid #e2e8f0;">
-                <p style="margin:0;font-size:11px;color:#94a3b8;">SM Travel · Accompagnement études &amp; visas à l'étranger</p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </div>`;
+  return renderEmail({
+    preheader: `Votre code de vérification SM Travel : ${code}`,
+    headerLabel: "Espace client",
+    badge: { label: "Vérification", tone: "info" },
+    title: `Bienvenue ${prenom} !`,
+    introHtml: "Merci de vous être inscrit·e sur SM Travel. Pour activer votre compte, saisissez le code ci-dessous dans l'application.",
+    blocks: [highlightBlock({ label: "Votre code", value: code, spaced: true })],
+    noteHtml: `Ce code est valable <strong>15 minutes</strong>. ${esc(SIGNATURE_NOTE)}`
+  });
 }
 
 async function sendVerificationEmail(to, prenom, code) {
@@ -129,50 +99,22 @@ async function sendVerificationEmail(to, prenom, code) {
 }
 
 function passwordResetEmailHtml(prenom, code) {
-  return `
-  <div style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:32px 0;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 10px 30px rgba(76,29,149,0.12);">
-            <tr>
-              <td style="background:linear-gradient(135deg,#4c1d95 0%,#6d28d9 55%,#8b5cf6 100%);padding:32px 32px 28px;text-align:center;">
-                <div style="font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:0.5px;">SM Travel</div>
-                <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">Mot de passe oublié</p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:32px 32px 8px;">
-                <h1 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Bonjour ${prenom},</h1>
-                <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#475569;">
-                  Vous avez demandé à réinitialiser votre mot de passe SM Travel. Saisissez le code ci-dessous dans l'application pour choisir un nouveau mot de passe.
-                </p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 32px 24px;text-align:center;">
-                <div style="display:inline-block;padding:16px 28px;border-radius:16px;background-color:#ede9fe;border:1px solid #ddd6fe;">
-                  <span style="font-size:32px;font-weight:800;letter-spacing:8px;color:#4c1d95;font-family:Arial,Helvetica,sans-serif;">${code}</span>
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 32px 32px;">
-                <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;">
-                  Ce code est valable 15 minutes. Ne le communiquez à personne : SM Travel ne vous le demandera jamais. Si vous n'êtes pas à l'origine de cette demande, ignorez cet email : votre mot de passe actuel reste valable.
-                </p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:20px 32px;background-color:#f8fafc;text-align:center;border-top:1px solid #e2e8f0;">
-                <p style="margin:0;font-size:11px;color:#94a3b8;">SM Travel · Accompagnement études &amp; visas à l'étranger</p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </div>`;
+  return renderEmail({
+    preheader: `Votre code de réinitialisation : ${code}`,
+    headerLabel: "Sécurité du compte",
+    badge: { label: "Mot de passe oublié", tone: "warning" },
+    title: `Bonjour ${prenom}`,
+    introHtml: "Vous avez demandé à réinitialiser votre mot de passe. Saisissez le code ci-dessous dans l'application pour en choisir un nouveau.",
+    blocks: [
+      highlightBlock({ label: "Code de réinitialisation", value: code, spaced: true, tone: "warning" }),
+      calloutBlock({
+        tone: "warning",
+        title: "Ne partagez jamais ce code",
+        html: "SM Travel ne vous le demandera jamais, ni par téléphone ni par message."
+      })
+    ],
+    noteHtml: `Ce code est valable <strong>15 minutes</strong>. Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail : votre mot de passe actuel reste valable.`
+  });
 }
 
 async function sendPasswordResetEmail(to, prenom, code) {
@@ -187,53 +129,24 @@ async function sendPasswordResetEmail(to, prenom, code) {
 }
 
 function interviewEmailHtml(prenom, { universityName, countryName, dateLabel, type, link, instructions }) {
-  return `
-  <div style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:32px 0;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 10px 30px rgba(76,29,149,0.12);">
-            <tr>
-              <td style="background:linear-gradient(135deg,#4c1d95 0%,#6d28d9 55%,#8b5cf6 100%);padding:32px 32px 28px;text-align:center;">
-                <div style="font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:0.5px;">SM Travel</div>
-                <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">Entretien avec l'université</p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:32px 32px 8px;">
-                <h1 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Bonjour ${prenom},</h1>
-                <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#475569;">
-                  Un entretien a été planifié dans le cadre de votre candidature pour <strong>${universityName}</strong> (${countryName}). Merci de bien noter la date ci-dessous.
-                </p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 32px 24px;">
-                <div style="border-radius:16px;background-color:#ede9fe;border:1px solid #ddd6fe;padding:18px 20px;">
-                  <p style="margin:0 0 6px;font-size:13px;color:#4c1d95;font-weight:700;">${dateLabel}</p>
-                  <p style="margin:0;font-size:13px;color:#4c1d95;">${type === "ONLINE" ? "Entretien en ligne" : "Entretien en présentiel"}</p>
-                  ${link ? `<p style="margin:10px 0 0;font-size:13px;"><a href="${link}" style="color:#6d28d9;font-weight:700;">Lien de l'entretien</a></p>` : ""}
-                  ${instructions ? `<p style="margin:10px 0 0;font-size:13px;color:#475569;">${instructions}</p>` : ""}
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 32px 32px;">
-                <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;">
-                  Retrouvez le détail de votre dossier et échangez avec votre conseiller directement depuis votre espace SM Travel.
-                </p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:20px 32px;background-color:#f8fafc;text-align:center;border-top:1px solid #e2e8f0;">
-                <p style="margin:0;font-size:11px;color:#94a3b8;">SM Travel · Accompagnement études &amp; visas à l'étranger</p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </div>`;
+  const online = type === "ONLINE";
+  return renderEmail({
+    preheader: `Entretien ${universityName} : ${dateLabel}`,
+    headerLabel: "Candidature universitaire",
+    badge: { label: "Entretien planifié", tone: "info" },
+    title: `Bonjour ${prenom}, votre entretien est planifié`,
+    introHtml: `Un entretien a été planifié dans le cadre de votre candidature pour <strong>${esc(universityName)}</strong>${countryName ? ` (${esc(countryName)})` : ""}. Notez bien la date ci-dessous.`,
+    blocks: [
+      rowsBlock([
+        ["Université", universityName],
+        ["Pays", countryName],
+        ["Date et heure", dateLabel, { strong: true }],
+        ["Format", online ? "En ligne" : "En présentiel"]
+      ]),
+      instructions ? calloutBlock({ tone: "info", title: "Consignes", html: escLines(instructions) }) : ""
+    ],
+    cta: online && link ? { label: "Rejoindre l'entretien", url: link } : undefined
+  });
 }
 
 async function sendInterviewEmail(to, prenom, details) {
@@ -248,52 +161,24 @@ async function sendInterviewEmail(to, prenom, details) {
 }
 
 function visaMeetingEmailHtml(prenom, { headerLabel, introText, dateLabel, type, link, location, instructions }) {
-  return `
-  <div style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:32px 0;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 10px 30px rgba(76,29,149,0.12);">
-            <tr>
-              <td style="background:linear-gradient(135deg,#4c1d95 0%,#6d28d9 55%,#8b5cf6 100%);padding:32px 32px 28px;text-align:center;">
-                <div style="font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:0.5px;">SM Travel</div>
-                <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">${headerLabel}</p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:32px 32px 8px;">
-                <h1 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Bonjour ${prenom},</h1>
-                <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#475569;">${introText}</p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 32px 24px;">
-                <div style="border-radius:16px;background-color:#ede9fe;border:1px solid #ddd6fe;padding:18px 20px;">
-                  <p style="margin:0 0 6px;font-size:13px;color:#4c1d95;font-weight:700;">${dateLabel}</p>
-                  ${type ? `<p style="margin:0;font-size:13px;color:#4c1d95;">${type === "ONLINE" ? "Réunion en ligne" : "Réunion en présentiel"}</p>` : ""}
-                  ${link ? `<p style="margin:10px 0 0;font-size:13px;"><a href="${link}" style="color:#6d28d9;font-weight:700;">Lien de la réunion</a></p>` : ""}
-                  ${location && !link ? `<p style="margin:10px 0 0;font-size:13px;color:#475569;">${location}</p>` : ""}
-                  ${instructions ? `<p style="margin:10px 0 0;font-size:13px;color:#475569;">${instructions}</p>` : ""}
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 32px 32px;">
-                <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;">
-                  Retrouvez le détail de votre dossier visa directement depuis votre espace SM Travel.
-                </p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:20px 32px;background-color:#f8fafc;text-align:center;border-top:1px solid #e2e8f0;">
-                <p style="margin:0;font-size:11px;color:#94a3b8;">SM Travel · Accompagnement études &amp; visas à l'étranger</p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </div>`;
+  const online = type === "ONLINE";
+  return renderEmail({
+    preheader: `${headerLabel} : ${dateLabel}`,
+    headerLabel: "Dossier visa",
+    badge: { label: headerLabel, tone: "info" },
+    title: `Bonjour ${prenom}`,
+    introHtml: esc(introText),
+    blocks: [
+      rowsBlock([
+        ["Date et heure", dateLabel, { strong: true }],
+        type ? ["Format", online ? "Réunion en ligne" : "Réunion en présentiel"] : null,
+        location && !link ? ["Lieu", location] : null
+      ].filter(Boolean)),
+      instructions ? calloutBlock({ tone: "info", title: "Consignes", html: escLines(instructions) }) : ""
+    ],
+    cta: link ? { label: "Rejoindre la réunion", url: link } : undefined,
+    noteHtml: "Retrouvez le détail de votre dossier visa directement depuis votre espace SM Travel."
+  });
 }
 
 async function sendVisaPrepMeetingEmail(to, prenom, { dateLabel, type, location, instructions }) {
@@ -331,110 +216,109 @@ async function sendVisaEmbassyAppointmentEmail(to, prenom, { dateLabel }) {
   });
 }
 
-// Alerte technique générique (ex: sauvegarde en échec/en retard) — sobre,
-// pas de gabarit marketing, destinée à un admin/opérateur, pas à un client.
-async function sendAlertEmail(to, subject, message) {
+// Alerte destinée à l'équipe (dossier bloqué, sauvegarde en échec…).
+// options : title, tone ("warning" | "danger"), rows [[libellé, valeur]],
+// actionText, link (adresse dans l'application), linkLabel.
+function alertEmailHtml(subject, message, options = {}) {
+  const tone = options.tone || "danger";
+  const rows = options.rows || [];
+  return renderEmail({
+    preheader: options.title || subject,
+    headerLabel: "Alerte plateforme",
+    audience: "staff",
+    badge: { label: tone === "danger" ? "Alerte" : "À traiter", tone },
+    title: options.title || subject,
+    introHtml: options.intro ? esc(options.intro) : "",
+    blocks: [
+      rows.length ? rowsBlock(rows) : "",
+      message || options.actionText
+        ? calloutBlock({
+            tone,
+            title: options.actionText ? "Action requise" : undefined,
+            html: options.actionText ? esc(options.actionText) : `<span style="font-family:Consolas,'Courier New',monospace;font-size:13px;">${escLines(message)}</span>`
+          })
+        : ""
+    ],
+    cta: options.link ? { label: options.linkLabel || "Ouvrir dans SM Travel", url: appUrl(options.link), tone } : undefined
+  });
+}
+
+// Alerte technique générique (ex. sauvegarde en échec/en retard) et alertes
+// métier structurées (dossier bloqué) : même gabarit.
+async function sendAlertEmail(to, subject, message, options = {}) {
   const sender = await resolveSender();
   await sender.transporter.sendMail({
     from: sender.from(" — Alertes"),
     to,
     subject: `[ALERTE] ${subject}`,
     text: message,
-    html: `<div style="font-family:monospace;white-space:pre-wrap;padding:16px;border:1px solid #e2e8f0;border-radius:8px;color:#0f172a;">${message.replace(/\n/g, "<br/>")}</div>`
+    html: alertEmailHtml(subject, message, options)
   });
 }
 
-function escapeHtml(value) {
-  return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+// Décision d'une université (acceptation ou refus) pour une filière précise.
+function applicationDecisionEmailHtml(prenom, { accepted, universityName, fieldOfStudy, countryName, reason }) {
+  return renderEmail({
+    preheader: accepted ? `Candidature acceptée : ${universityName}` : `Réponse à votre candidature : ${universityName}`,
+    headerLabel: "Candidature universitaire",
+    badge: { label: accepted ? "Candidature acceptée" : "Candidature refusée", tone: accepted ? "success" : "danger" },
+    title: accepted ? `Félicitations ${prenom} !` : `Bonjour ${prenom}`,
+    introHtml: accepted
+      ? `Bonne nouvelle : votre candidature à <strong>${esc(universityName)}</strong> a été <strong>acceptée</strong>. Votre conseiller va maintenant vous accompagner pour préparer votre dossier visa.`
+      : `Nous avons le regret de vous informer que votre candidature à <strong>${esc(universityName)}</strong> a été <strong>refusée</strong> par l'université. Votre conseiller reste à votre disposition pour étudier avec vous une autre option.`,
+    blocks: [
+      rowsBlock([
+        ["Université", universityName],
+        ["Filière", fieldOfStudy],
+        ["Pays", countryName],
+        ["Décision", accepted ? "Acceptée" : "Refusée", { strong: true }]
+      ], { accent: accepted ? "#059669" : "#dc2626" }),
+      !accepted && reason ? calloutBlock({ tone: "danger", title: "Motif communiqué", html: escLines(reason) }) : ""
+    ],
+    cta: { label: accepted ? "Préparer mon visa" : "Voir mes candidatures", url: appUrl("/espace"), tone: accepted ? "success" : "info" }
+  });
 }
 
-// Décision d'une université (acceptation ou refus) pour une filière précise.
-async function sendApplicationDecisionEmail(to, prenom, { accepted, universityName, fieldOfStudy, countryName, reason }) {
+async function sendApplicationDecisionEmail(to, prenom, details) {
+  const { accepted, universityName, fieldOfStudy, countryName, reason } = details;
   const target = fieldOfStudy ? `${universityName} (${fieldOfStudy})` : universityName;
   const sender = await resolveSender();
-  const verdict = accepted ? "acceptée" : "refusée";
-  const intro = accepted
-    ? `Bonne nouvelle : votre candidature à <strong>${escapeHtml(target)}</strong>${countryName ? ` (${escapeHtml(countryName)})` : ""} a été <strong>acceptée</strong>. Votre conseiller va maintenant vous accompagner pour préparer votre dossier visa.`
-    : `Nous avons le regret de vous informer que votre candidature à <strong>${escapeHtml(target)}</strong>${countryName ? ` (${escapeHtml(countryName)})` : ""} a été <strong>refusée</strong> par l'université. Votre conseiller reste à votre disposition pour étudier avec vous une autre option.`;
   await sender.transporter.sendMail({
     from: sender.from(),
     to,
     subject: accepted ? `Félicitations — candidature acceptée : ${target}` : `Candidature refusée : ${target}`,
-    html: visaMeetingEmailHtml(prenom, {
-      headerLabel: accepted ? "Candidature acceptée" : "Réponse à votre candidature",
-      introText: intro,
-      dateLabel: accepted ? `Acceptée : ${escapeHtml(target)}` : `Refusée : ${escapeHtml(target)}`,
-      instructions: !accepted && reason ? `Motif communiqué : ${escapeHtml(reason)}` : null
-    }).replace("Retrouvez le détail de votre dossier visa directement depuis votre espace SM Travel.", "Retrouvez le détail de vos candidatures directement depuis votre espace SM Travel."),
-    text: `Bonjour ${prenom}, votre candidature à ${target}${countryName ? ` (${countryName})` : ""} a été ${verdict}.${!accepted && reason ? ` Motif : ${reason}.` : ""}`
+    html: applicationDecisionEmailHtml(prenom, details),
+    text: `Bonjour ${prenom}, votre candidature à ${target}${countryName ? ` (${countryName})` : ""} a été ${accepted ? "acceptée" : "refusée"}.${!accepted && reason ? ` Motif : ${reason}.` : ""}`
   });
 }
 
 // Reçu de paiement : envoyé à l'étudiant à chaque paiement enregistré.
 function paymentReceiptEmailHtml(prenom, d) {
-  const row = (label, value) =>
-    value
-      ? `<tr><td style="padding:7px 0;font-size:13px;color:#64748b;">${escapeHtml(label)}</td><td style="padding:7px 0;font-size:13px;color:#0f172a;font-weight:700;text-align:right;">${escapeHtml(value)}</td></tr>`
-      : "";
-  return `
-  <div style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:32px 0;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 10px 30px rgba(76,29,149,0.12);">
-            <tr>
-              <td style="background:linear-gradient(135deg,#4c1d95 0%,#6d28d9 55%,#8b5cf6 100%);padding:32px 32px 28px;text-align:center;">
-                <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:0.5px;">SM Travel</div>
-                <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">Reçu de paiement</p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:32px 32px 8px;">
-                <h1 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Bonjour ${escapeHtml(prenom)},</h1>
-                <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#475569;">Nous avons bien enregistré votre paiement. Conservez ce reçu : le numéro ci-dessous permet de le retrouver à tout moment.</p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 32px 8px;">
-                <div style="border-radius:16px;background-color:#ede9fe;border:1px solid #ddd6fe;padding:16px 20px;text-align:center;">
-                  <p style="margin:0;font-size:12px;color:#4c1d95;">Reçu n°</p>
-                  <p style="margin:4px 0 0;font-size:26px;font-weight:800;color:#4c1d95;letter-spacing:1px;">${escapeHtml(d.receiptNumber)}</p>
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:8px 32px 8px;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
-                  ${row("Montant payé", d.amountLabel)}
-                  ${row("Pour", d.trancheLabel)}
-                  ${row("Destination", d.countryName)}
-                  ${row("Date", d.dateLabel)}
-                  ${row("Mode de paiement", d.methodLabel)}
-                  ${row(d.referenceLabel || "Référence", d.reference)}
-                </table>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:8px 32px 24px;">
-                <div style="border-top:1px solid #e2e8f0;padding-top:14px;">
-                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
-                    ${row("Prix total", d.totalLabel)}
-                    ${row("Déjà payé", d.paidLabel)}
-                    ${row("Reste à payer", d.remainingLabel)}
-                  </table>
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:20px 32px;background-color:#f8fafc;text-align:center;border-top:1px solid #e2e8f0;">
-                <p style="margin:0;font-size:11px;color:#94a3b8;">SM Travel · Accompagnement études &amp; visas à l'étranger</p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </div>`;
+  const settled = /soldé/i.test(d.remainingLabel || "");
+  return renderEmail({
+    preheader: `Reçu n° ${d.receiptNumber} : ${d.amountLabel}`,
+    headerLabel: "Reçu de paiement",
+    badge: { label: "Paiement reçu", tone: "success" },
+    title: `Merci ${prenom}`,
+    introHtml: "Nous avons bien enregistré votre paiement. Conservez ce reçu : son numéro permet de le retrouver à tout moment.",
+    blocks: [
+      highlightBlock({ label: "Reçu n°", value: d.receiptNumber, tone: "success" }),
+      rowsBlock([
+        ["Montant payé", d.amountLabel, { strong: true }],
+        ["Pour", d.trancheLabel],
+        ["Destination", d.countryName],
+        ["Date", d.dateLabel],
+        ["Mode de paiement", d.methodLabel],
+        d.reference ? [d.referenceLabel || "Référence", d.reference] : null
+      ].filter(Boolean)),
+      rowsBlock([
+        ["Prix total", d.totalLabel],
+        ["Déjà payé", d.paidLabel],
+        ["Reste à payer", d.remainingLabel, { strong: !settled }]
+      ]),
+      settled ? calloutBlock({ tone: "success", title: "Paiement soldé", html: "Merci, vous n'avez plus rien à régler pour ce dossier." }) : ""
+    ]
+  });
 }
 
 async function sendPaymentReceiptEmail(to, prenom, details) {
@@ -448,4 +332,27 @@ async function sendPaymentReceiptEmail(to, prenom, details) {
   });
 }
 
-module.exports = { sendPaymentReceiptEmail, sendApplicationDecisionEmail, verifySmtp, guessSmtpHost, sendPasswordResetEmail, sendVerificationEmail, sendInterviewEmail, sendAlertEmail, sendVisaPrepMeetingEmail, sendVisaEmbassyAppointmentEmail };
+// Aperçus (pages HTML de test) : utilisé par les scripts de vérification visuelle.
+const templates = {
+  verification: verificationEmailHtml,
+  passwordReset: passwordResetEmailHtml,
+  interview: interviewEmailHtml,
+  visaMeeting: visaMeetingEmailHtml,
+  alert: alertEmailHtml,
+  applicationDecision: applicationDecisionEmailHtml,
+  paymentReceipt: paymentReceiptEmailHtml
+};
+
+module.exports = {
+  templates,
+  sendPaymentReceiptEmail,
+  sendApplicationDecisionEmail,
+  verifySmtp,
+  guessSmtpHost,
+  sendPasswordResetEmail,
+  sendVerificationEmail,
+  sendInterviewEmail,
+  sendAlertEmail,
+  sendVisaPrepMeetingEmail,
+  sendVisaEmbassyAppointmentEmail
+};

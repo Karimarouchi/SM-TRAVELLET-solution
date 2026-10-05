@@ -54,7 +54,23 @@ async function runCheck() {
         link: `/conseiller/etudiants/${row.id}`
       });
       await Promise.all(
-        [...recipients].map((to) => emailService.sendAlertEmail(to, `Dossier bloqué — ${studentName}`, message))
+        [...recipients].map((to) =>
+          emailService.sendAlertEmail(to, `Dossier bloqué — ${studentName}`, message, {
+            title: `Dossier bloqué : ${studentName}`,
+            tone: "warning",
+            intro: `Ce dossier n'avance plus depuis ${daysStalled} jour${daysStalled > 1 ? "s" : ""}.`,
+            rows: [
+              ["Étudiant", studentName],
+              ["E-mail", row.email],
+              ["Étape actuelle", "Sans candidature"],
+              ["Bloqué depuis", `${daysStalled} jour${daysStalled > 1 ? "s" : ""}`, { strong: true }],
+              ["Conseiller assigné", salesLabel]
+            ],
+            actionText: "Une candidature universitaire doit être créée pour ce dossier.",
+            link: `/conseiller/etudiants/${row.id}`,
+            linkLabel: "Ouvrir le dossier"
+          })
+        )
       );
       await students.markStalledAlertSent(row.id);
     } catch (error) {

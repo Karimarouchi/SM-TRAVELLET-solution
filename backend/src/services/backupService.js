@@ -205,7 +205,13 @@ async function alertBackupFailure(message) {
   });
   if (env.backup.alertEmail) {
     await emailService
-      .sendAlertEmail(env.backup.alertEmail, "La sauvegarde Supabase a échoué", String(message))
+      .sendAlertEmail(env.backup.alertEmail, "La sauvegarde Supabase a échoué", String(message), {
+        title: "La sauvegarde automatique a échoué",
+        tone: "danger",
+        intro: "La dernière sauvegarde de la base de données n'a pas abouti. Vérifiez la configuration puis relancez-la.",
+        link: "/admin/settings",
+        linkLabel: "Ouvrir les paramètres"
+      })
       .catch((error) => logger.error("Échec de l'email d'alerte de sauvegarde", { message: error.message }));
   }
 }
