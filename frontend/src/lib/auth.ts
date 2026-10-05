@@ -1765,6 +1765,11 @@ export async function fetchStudentPayments(studentId: string): Promise<StudentPa
   return request<StudentPaymentsSummary>(`/api/students/${studentId}/payments`);
 }
 
+// Paiements de l'étudiant connecté (lecture seule).
+export async function fetchMyPayments(): Promise<StudentPaymentsSummary> {
+  return request<StudentPaymentsSummary>("/api/students/me/payments");
+}
+
 export async function recordStudentPayment(studentId: string, payload: RecordPaymentPayload): Promise<StudentPaymentsSummary> {
   return request<StudentPaymentsSummary>(`/api/students/${studentId}/payments`, { method: "POST", body: JSON.stringify(payload) });
 }

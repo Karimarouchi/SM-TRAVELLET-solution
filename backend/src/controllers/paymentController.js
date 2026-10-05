@@ -68,6 +68,14 @@ async function studentSummary(req, res) {
   }
 }
 
+async function mySummary(req, res) {
+  try {
+    res.json(await paymentService.summaryForStudent(req.auth, req.auth.sub));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function record(req, res) {
   try {
     res.status(201).json(await paymentService.recordPayment(req.auth, req.params.id, req.body || {}));
@@ -84,4 +92,4 @@ async function cancel(req, res) {
   }
 }
 
-module.exports = { overview, listPlans, listJournal, listPricing, getPricing, setPricing, removePricing, studentSummary, record, cancel };
+module.exports = { overview, listPlans, listJournal, listPricing, getPricing, setPricing, removePricing, studentSummary, mySummary, record, cancel };

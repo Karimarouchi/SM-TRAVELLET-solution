@@ -180,6 +180,7 @@ app.get("/api/admin/finance/pricing", requireAuth, requireRoles("ADMIN"), paymen
 app.put("/api/admin/finance/pricing/:countryId", requireAuth, requireRoles("ADMIN"), paymentController.setPricing);
 app.delete("/api/admin/finance/pricing/:countryId", requireAuth, requireRoles("ADMIN"), paymentController.removePricing);
 app.get("/api/finance/pricing/:countryId", requireAuth, requireRoles("SALES", "ADMIN"), paymentController.getPricing);
+app.get("/api/students/me/payments", requireAuth, requireRoles("STUDENT"), paymentController.mySummary);
 app.get("/api/students/:id/payments", requireAuth, requireRoles("SALES", "ADMIN"), paymentController.studentSummary);
 app.post("/api/students/:id/payments", requireAuth, requireRoles("SALES", "ADMIN"), paymentController.record);
 app.patch("/api/payments/:id/cancel", requireAuth, requireRoles("ADMIN"), paymentController.cancel);
