@@ -357,6 +357,9 @@ async function saveOnboarding(userId, body) {
   }
   if (phoneChanged) await whatsappService.linkStudentByPhone(userId, fields.phone);
 
+  // L'université visée dans la fiche devient le premier vœu de candidature.
+  await require("./universityChoiceService").ensureInitialChoice(userId).catch(() => undefined);
+
   // Passeport à renouveler (expiré ou < 24 mois) : l'admin et le conseiller déjà
   // en charge sont prévenus, une seule fois par date saisie. Un conseiller
   // attribué à l'instant (auto-attribution) l'apprend via sa notification

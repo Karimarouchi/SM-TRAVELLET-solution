@@ -1,6 +1,8 @@
 const documentRepo = require("../repositories/documentRequirementRepository");
 const countryRepo = require("../repositories/countryRepository");
 const userRoleRepo = require("../repositories/userRoleRepository");
+const universityRepo = require("../repositories/countryUniversityRepository");
+const choiceRepo = require("../repositories/universityChoiceRepository");
 const { authRoles } = require("../security/rbac");
 
 const ACCEPTED_FILE_TYPES = ["IMAGE", "PDF", "IMAGE_PDF"];
@@ -11,6 +13,7 @@ function documentDto(row) {
   return {
     id: row.id,
     countryId: row.country_id,
+    universityId: row.university_id || null,
     name: row.name,
     description: row.description,
     required: row.required,
@@ -69,6 +72,72 @@ async function assertPermission(auth, category, countryId) {
   throw fail("Permission refusée pour cette action.", 403);
 }
 
+// Documents propres à une université : l'admin (ou MANAGE_COUNTRIES) les gère
+// pour toutes ; un conseiller seulement pour une université hors conventions
+// où il suit au moins un étudiant (ceux des universités conventionnées sont
+// définis par l'admin).
+async function assertUniversityPermission(auth, university) {
+  const roles = authRoles(auth);
+  if (roles.includes("ADMIN")) return;
+  const permissions = Array.isArray(auth?.permissions) ? auth.permissions : [];
+  if (permissions.includes("MANAGE_COUNTRIES")) return;
+  if (roles.includes("SALES")) {
+    if (university.source === "ADMIN") {
+      throw fail("Les documents d'une université conventionnée sont définis par l'administrateur.", 403);
+    }
+    if (await choiceRepo.salesManagesUniversity(auth.sub, university.id)) return;
+  }
+  throw fail("Permission refusée pour cette action.", 403);
+}
+
+async function assertUniversityExists(universityId) {
+  const university = await universityRepo.findById(universityId);
+  if (!university) throw fail("Université introuvable.", 404);
+  return university;
+}
+
+async function listByUniversity(auth, universityId) {
+  const university = await assertUniversityExists(universityId);
+  const roles = authRoles(auth);
+  if (roles.includes("SALES") && !roles.includes("ADMIN")) {
+    if (university.source !== "ADMIN" && !(await choiceRepo.salesManagesUniversity(auth.sub, university.id))) {
+      throw fail("Permission refusée pour cette action.", 403);
+    }
+  }
+  const rows = await documentRepo.findByUniversity(universityId);
+  return rows.map(documentDto);
+}
+
+async function createForUniversity(auth, universityId, payload) {
+  const university = await assertUniversityExists(universityId);
+  await assertUniversityPermission(auth, university);
+  const name = normalizeName(payload.name);
+
+  if (await documentRepo.findByCountryAndName(university.country_id, name, "DOSSIER", universityId)) {
+    throw fail("Un document avec ce nom existe déjà pour cette université.", 409);
+  }
+  const row = await documentRepo.create({
+    countryId: university.country_id,
+    universityId,
+    name,
+    description: payload.description ? String(payload.description).trim() : null,
+    required: payload.required !== undefined ? Boolean(payload.required) : true,
+    displayOrder: Number(payload.displayOrder) || 0,
+    acceptedFileTypes: normalizeAcceptedFileTypes(payload.acceptedFileTypes),
+    category: "DOSSIER"
+  });
+  return documentDto(row);
+}
+
+// Contrôle d'accès d'un document existant, selon son périmètre.
+async function assertDocumentPermission(auth, existing) {
+  if (existing.university_id) {
+    await assertUniversityPermission(auth, await assertUniversityExists(existing.university_id));
+  } else {
+    await assertPermission(auth, existing.category, existing.country_id);
+  }
+}
+
 async function assertCountryExists(countryId) {
   const country = await countryRepo.findById(countryId);
   if (!country) throw fail("Pays introuvable.", 404);
@@ -107,14 +176,14 @@ async function updateDocument(auth, id, payload) {
   const existing = await documentRepo.findById(id);
   if (!existing) throw fail("Document requis introuvable.", 404);
 
-  const category = payload.category !== undefined ? normalizeCategory(payload.category) : existing.category;
-  await assertPermission(auth, existing.category, existing.country_id);
+  const category = existing.university_id ? "DOSSIER" : payload.category !== undefined ? normalizeCategory(payload.category) : existing.category;
+  await assertDocumentPermission(auth, existing);
   if (category !== existing.category) await assertPermission(auth, category, existing.country_id);
 
   const name = payload.name !== undefined ? normalizeName(payload.name) : existing.name;
 
   if (name !== existing.name || category !== existing.category) {
-    const owner = await documentRepo.findByCountryAndName(existing.country_id, name, category);
+    const owner = await documentRepo.findByCountryAndName(existing.country_id, name, category, existing.university_id);
     if (owner && owner.id !== id) throw fail("Un document requis avec ce nom existe déjà pour ce pays.", 409);
   }
 
@@ -132,7 +201,7 @@ async function updateDocument(auth, id, payload) {
 async function setActive(auth, id, active) {
   const existing = await documentRepo.findById(id);
   if (!existing) throw fail("Document requis introuvable.", 404);
-  await assertPermission(auth, existing.category, existing.country_id);
+  await assertDocumentPermission(auth, existing);
   const row = await documentRepo.setActive(id, Boolean(active));
   return documentDto(row);
 }
@@ -140,7 +209,7 @@ async function setActive(auth, id, active) {
 async function removeDocument(auth, id) {
   const existing = await documentRepo.findById(id);
   if (!existing) throw fail("Document requis introuvable.", 404);
-  await assertPermission(auth, existing.category, existing.country_id);
+  await assertDocumentPermission(auth, existing);
 
   const usageCount = await documentRepo.countStudentDocuments(id);
   if (usageCount > 0) {
@@ -155,6 +224,8 @@ async function removeDocument(auth, id) {
 }
 
 module.exports = {
+  listByUniversity,
+  createForUniversity,
   listByCountry,
   createDocument,
   updateDocument,

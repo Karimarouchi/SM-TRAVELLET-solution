@@ -9,6 +9,7 @@ import {
   FileText,
   FolderOpen,
   Globe2,
+  GraduationCap,
   Plane,
   Upload,
   XCircle
@@ -55,7 +56,7 @@ function DocumentRow({ doc, onUploaded }: { doc: StudentDocumentChecklistItem; o
       setUploading(true);
       setError("");
       try {
-        const updated = await uploadMyDocument(doc.name, reader.result as string, file.name);
+        const updated = await uploadMyDocument(doc.name, reader.result as string, file.name, doc.universityId);
         onUploaded(updated);
       } catch (err) {
         setError(err instanceof Error ? err.message : t("Échec de l'envoi.", "Upload failed."));
@@ -84,11 +85,17 @@ function DocumentRow({ doc, onUploaded }: { doc: StudentDocumentChecklistItem; o
             </p>
             {doc.description && <p className="mt-0.5 text-xs text-muted">{doc.description}</p>}
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              {doc.countries.map((c) => (
-                <span key={c} className="inline-flex items-center gap-1 rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-semibold text-brand">
-                  <Globe2 className="h-2.5 w-2.5" /> {c}
+              {doc.universityName ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
+                  <GraduationCap className="h-2.5 w-2.5" /> {doc.universityName}
                 </span>
-              ))}
+              ) : (
+                doc.countries.map((c) => (
+                  <span key={c} className="inline-flex items-center gap-1 rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-semibold text-brand">
+                    <Globe2 className="h-2.5 w-2.5" /> {c}
+                  </span>
+                ))
+              )}
               <span className="text-[10px] text-muted">· {typeLabel(doc.acceptedFileTypes, t)}</span>
             </div>
           </div>
@@ -156,7 +163,7 @@ export default function DocumentsPage() {
   useEffect(() => { load(); }, []);
 
   const handleUploaded = (updated: StudentDocumentChecklistItem) => {
-    setDocuments((prev) => prev.map((d) => (d.name === updated.name ? updated : d)));
+    setDocuments((prev) => prev.map((d) => (d.name === updated.name && (d.universityId || null) === (updated.universityId || null) ? updated : d)));
   };
 
   const handleVisaUploaded = (updated: VisaDocumentChecklistItem) => {
@@ -254,8 +261,16 @@ export default function DocumentsPage() {
           </div>
         ) : (
           <div className="mt-6 space-y-3">
-            {documents.map((doc) => (
-              <DocumentRow key={doc.name} doc={doc} onUploaded={handleUploaded} />
+            {documents.map((doc, index) => (
+              <div key={`${doc.universityId || "pays"}:${doc.name}`}>
+                {doc.universityName && doc.universityName !== documents[index - 1]?.universityName && (
+                  <p className="mb-2 mt-4 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wide text-violet-700">
+                    <GraduationCap className="h-3.5 w-3.5" aria-hidden />
+                    {t(`Spécifique à ${doc.universityName}`, `Specific to ${doc.universityName}`)}
+                  </p>
+                )}
+                <DocumentRow doc={doc} onUploaded={handleUploaded} />
+              </div>
             ))}
           </div>
         )

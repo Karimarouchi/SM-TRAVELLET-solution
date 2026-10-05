@@ -881,6 +881,8 @@ export type DocumentCategory = "DOSSIER" | "VISA";
 export type DocumentRequirement = {
   id: string;
   countryId: string;
+  /** Renseigné pour un document propre à une université (sinon commun au pays). */
+  universityId?: string | null;
   name: string;
   description: string | null;
   required: boolean;
@@ -1033,6 +1035,8 @@ export type CountryUniversity = {
   countryId: string;
   name: string;
   active: boolean;
+  /** true = université conventionnée (documents définis par l'admin). */
+  partner?: boolean;
   displayOrder: number;
   createdAt?: string;
   updatedAt?: string;
@@ -1101,6 +1105,9 @@ export type StudentDocumentStatus = "PENDING" | "SUBMITTED" | "VALIDATED" | "REJ
 
 export type StudentDocumentChecklistItem = {
   name: string;
+  /** Document propre à une université (absent = commun au pays). */
+  universityId?: string | null;
+  universityName?: string | null;
   description: string | null;
   required: boolean;
   acceptedFileTypes: AcceptedFileType;
@@ -1120,11 +1127,12 @@ export async function fetchMyDocuments(): Promise<StudentDocumentChecklistItem[]
 export async function uploadMyDocument(
   name: string,
   file: string,
-  originalFilename?: string
+  originalFilename?: string,
+  universityId?: string | null
 ): Promise<StudentDocumentChecklistItem> {
   return request<StudentDocumentChecklistItem>("/api/students/me/documents", {
     method: "POST",
-    body: JSON.stringify({ name, file, originalFilename })
+    body: JSON.stringify({ name, file, originalFilename, universityId: universityId || undefined })
   });
 }
 
@@ -1202,6 +1210,8 @@ export type UniversityApplication = {
   countryName: string;
   universityId: string;
   universityName: string;
+  choiceId?: string | null;
+  fieldOfStudy?: string;
   programmeId: string | null;
   programmeTitle: string | null;
   salesId: string | null;
@@ -1463,12 +1473,92 @@ export async function reviewStudentDocument(
   studentId: string,
   name: string,
   status: "VALIDATED" | "REJECTED",
-  reason?: string
+  reason?: string,
+  universityId?: string | null
 ): Promise<StudentDocumentChecklistItem> {
   return request<StudentDocumentChecklistItem>(`/api/students/${studentId}/documents/review`, {
     method: "PATCH",
-    body: JSON.stringify({ name, status, reason })
+    body: JSON.stringify({ name, status, reason, universityId: universityId || undefined })
   });
+}
+
+// ==========================================
+// CANDIDATURES MULTIPLES (jusqu'à 3 en même temps)
+// ==========================================
+export type UniversityChoice = {
+  id: string;
+  studentId: string;
+  countryId: string;
+  countryName: string;
+  universityId: string;
+  universityName: string;
+  /** Université conventionnée (documents définis par l'admin). */
+  partner: boolean;
+  fieldOfStudy: string;
+  addedByRole: string;
+  applicationId: string | null;
+  applicationStatus: string | null;
+  specificDocsCount: number;
+};
+
+export type UniversityChoicesSummary = { limit: number; used: number; choices: UniversityChoice[] };
+
+export type UniversityPickerItem = { id: string; countryId: string; name: string; partner: boolean };
+
+export type UniversityChoicePayload = {
+  countryId: string;
+  universityId?: string;
+  universityName?: string;
+  fieldOfStudy: string;
+};
+
+export async function fetchMyUniversityChoices(): Promise<UniversityChoicesSummary> {
+  return request<UniversityChoicesSummary>("/api/students/me/university-choices");
+}
+
+export async function addMyUniversityChoice(payload: UniversityChoicePayload): Promise<UniversityChoicesSummary> {
+  return request<UniversityChoicesSummary>("/api/students/me/university-choices", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function fetchStudentUniversityChoices(studentId: string): Promise<UniversityChoicesSummary> {
+  return request<UniversityChoicesSummary>(`/api/students/${studentId}/university-choices`);
+}
+
+export async function addStudentUniversityChoice(studentId: string, payload: UniversityChoicePayload): Promise<UniversityChoicesSummary> {
+  return request<UniversityChoicesSummary>(`/api/students/${studentId}/university-choices`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function removeUniversityChoice(choiceId: string): Promise<UniversityChoicesSummary> {
+  return request<UniversityChoicesSummary>(`/api/university-choices/${choiceId}`, { method: "DELETE" });
+}
+
+export async function fetchUniversityPicker(countryId: string): Promise<UniversityPickerItem[]> {
+  return request<UniversityPickerItem[]>(`/api/countries/${countryId}/university-picker`);
+}
+
+// Documents propres à une université (admin : toutes ; conseiller : hors conventions).
+export async function fetchUniversityDocuments(universityId: string): Promise<DocumentRequirement[]> {
+  return request<DocumentRequirement[]>(`/api/universities/${universityId}/documents`);
+}
+
+export async function createUniversityDocument(universityId: string, payload: DocumentRequirementPayload): Promise<DocumentRequirement> {
+  return request<DocumentRequirement>(`/api/universities/${universityId}/documents`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function updateUniversityDocument(id: string, payload: DocumentRequirementPayload): Promise<DocumentRequirement> {
+  return request<DocumentRequirement>(`/api/university-documents/${id}`, { method: "PUT", body: JSON.stringify(payload) });
+}
+
+export async function setUniversityDocumentActive(id: string, active: boolean): Promise<DocumentRequirement> {
+  return request<DocumentRequirement>(`/api/university-documents/${id}/active`, { method: "PATCH", body: JSON.stringify({ active }) });
+}
+
+export async function deleteUniversityDocument(id: string): Promise<{ success: boolean; id: string }> {
+  return request<{ success: boolean; id: string }>(`/api/university-documents/${id}`, { method: "DELETE" });
+}
+
+export async function setUniversityPartner(id: string, partner: boolean): Promise<CountryUniversity> {
+  return request<CountryUniversity>(`/api/admin/universities/${id}/partner`, { method: "PATCH", body: JSON.stringify({ partner }) });
 }
 
 // ==========================================

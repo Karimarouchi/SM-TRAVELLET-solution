@@ -35,12 +35,12 @@ async function findActiveForStudent(studentId) {
   return result.rows;
 }
 
-async function create({ studentId, countryId, universityId, programmeId, salesId }) {
+async function create({ studentId, countryId, universityId, programmeId, salesId, choiceId, fieldOfStudy }) {
   const result = await query(
-    `INSERT INTO university_applications (student_id, country_id, university_id, programme_id, sales_id, status, updated_at)
-     VALUES ($1, $2, $3, $4, $5, 'READY_TO_APPLY', NOW())
+    `INSERT INTO university_applications (student_id, country_id, university_id, programme_id, sales_id, choice_id, field_of_study, status, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, 'READY_TO_APPLY', NOW())
      RETURNING *`,
-    [studentId, countryId, universityId, programmeId || null, salesId || null]
+    [studentId, countryId, universityId, programmeId || null, salesId || null, choiceId || null, fieldOfStudy || ""]
   );
   return result.rows[0];
 }

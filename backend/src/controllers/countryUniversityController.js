@@ -30,6 +30,14 @@ async function create(req, res) {
   }
 }
 
+async function setPartner(req, res) {
+  try {
+    res.json(await universityService.setPartner(req.params.id, req.body.partner));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function update(req, res) {
   try {
     res.json(await universityService.updateUniversity(req.params.id, req.body));
@@ -60,5 +68,6 @@ module.exports = {
   create,
   update,
   setActive,
+  setPartner,
   remove
 };

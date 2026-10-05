@@ -9,6 +9,22 @@ async function listByCountry(req, res) {
   }
 }
 
+async function listByUniversity(req, res) {
+  try {
+    res.json(await documentService.listByUniversity(req.auth, req.params.id));
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message || "Erreur serveur." });
+  }
+}
+
+async function createForUniversity(req, res) {
+  try {
+    res.status(201).json(await documentService.createForUniversity(req.auth, req.params.id, req.body || {}));
+  } catch (error) {
+    res.status(error.status || 400).json({ error: error.message || "Requête invalide." });
+  }
+}
+
 async function create(req, res) {
   try {
     const document = await documentService.createDocument(req.auth, req.params.countryId, req.body);
@@ -46,6 +62,8 @@ async function remove(req, res) {
 }
 
 module.exports = {
+  listByUniversity,
+  createForUniversity,
   listByCountry,
   create,
   update,

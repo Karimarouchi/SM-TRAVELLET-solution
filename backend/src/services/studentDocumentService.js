@@ -3,6 +3,7 @@ const path = require("path");
 const studentDocRepo = require("../repositories/studentDocumentRepository");
 const studentRepo = require("../repositories/studentRepository");
 const appRepo = require("../repositories/universityApplicationRepository");
+const choiceRepo = require("../repositories/universityChoiceRepository");
 const userRepo = require("../repositories/userRepository");
 const notificationService = require("./notificationService");
 const { canAccessStudent, authRoles } = require("../security/rbac");
@@ -73,6 +74,8 @@ function mergedDto(name, group, studentDocsByReqId) {
   const representative = group.map((g) => studentDocsByReqId.get(g.id)).find(Boolean) || null;
   return {
     name,
+    universityId: group[0].university_id || null,
+    universityName: group[0].university_name || null,
     description: group[0].description,
     required: group.some((g) => g.required),
     acceptedFileTypes: intersectAcceptedFileTypes(group),
@@ -86,23 +89,48 @@ function mergedDto(name, group, studentDocsByReqId) {
   };
 }
 
+// Documents propres aux universités que l'étudiant vise en ce moment.
+async function universityRequirementsFor(studentUserId) {
+  const choices = await choiceRepo.listActiveForStudent(studentUserId);
+  const universityIds = [...new Set(choices.map((c) => c.university_id))];
+  return studentDocRepo.findActiveRequirementsByUniversityIds(universityIds);
+}
+
+// Documents d'un même nom, dans le bon périmètre : communs au pays
+// (universityId absent) ou propres à une université visée.
+async function requirementGroup(studentUserId, profile, name, universityId) {
+  if (universityId) {
+    const requirements = await universityRequirementsFor(studentUserId);
+    return requirements.filter((r) => r.name === name && r.university_id === universityId);
+  }
+  const requirements = await studentDocRepo.findActiveRequirementsByCountryNames(profile?.preferred_countries || []);
+  return requirements.filter((r) => r.name === name);
+}
+
 async function getChecklist(studentUserId) {
   const profile = await studentRepo.findByUserId(studentUserId);
   const preferredCountries = profile?.preferred_countries || [];
   if (!preferredCountries.length) return [];
 
-  const requirements = await studentDocRepo.findActiveRequirementsByCountryNames(preferredCountries);
-  if (!requirements.length) return [];
+  const countryRequirements = await studentDocRepo.findActiveRequirementsByCountryNames(preferredCountries);
+  const universityRequirements = await universityRequirementsFor(studentUserId);
+  if (!countryRequirements.length && !universityRequirements.length) return [];
 
-  const reqIds = requirements.map((r) => r.id);
+  const reqIds = [...countryRequirements, ...universityRequirements].map((r) => r.id);
   const existing = await studentDocRepo.findStudentDocumentsByRequirementIds(studentUserId, reqIds);
   const byReqId = new Map(existing.map((d) => [d.document_requirement_id, d]));
 
-  const groups = groupByName(requirements);
-  return Array.from(groups.entries()).map(([name, group]) => mergedDto(name, group, byReqId));
+  const items = Array.from(groupByName(countryRequirements).entries()).map(([name, group]) => mergedDto(name, group, byReqId));
+  // Un document propre à une université n'est jamais fusionné avec un autre.
+  for (const r of universityRequirements) items.push(mergedDto(r.name, [r], byReqId));
+  return items;
 }
 
-async function uploadDocument(studentUserId, name, fileBase64, originalFilename) {
+function findItem(checklist, name, universityId) {
+  return checklist.find((d) => d.name === name && (d.universityId || null) === (universityId || null));
+}
+
+async function uploadDocument(studentUserId, name, fileBase64, originalFilename, universityId = null) {
   const trimmedName = String(name || "").trim();
   if (!trimmedName) throw fail("Nom de document manquant.", 400);
   if (!fileBase64 || typeof fileBase64 !== "string") throw fail("Aucun fichier fourni.", 400);
@@ -111,8 +139,7 @@ async function uploadDocument(studentUserId, name, fileBase64, originalFilename)
   const preferredCountries = profile?.preferred_countries || [];
   if (!preferredCountries.length) throw fail("Aucun pays préféré sélectionné.", 400);
 
-  const requirements = await studentDocRepo.findActiveRequirementsByCountryNames(preferredCountries);
-  const group = requirements.filter((r) => r.name === trimmedName);
+  const group = await requirementGroup(studentUserId, profile, trimmedName, universityId || null);
   if (!group.length) throw fail("Ce document ne fait pas partie de votre checklist actuelle.", 404);
 
   const match = fileBase64.match(/^data:(image\/(png|jpeg|jpg|webp)|application\/pdf);base64,/);
@@ -158,7 +185,7 @@ async function uploadDocument(studentUserId, name, fileBase64, originalFilename)
   }
 
   const checklist = await getChecklist(studentUserId);
-  return checklist.find((d) => d.name === trimmedName);
+  return findItem(checklist, trimmedName, universityId);
 }
 
 async function getChecklistFor(auth, studentId) {
@@ -171,7 +198,7 @@ async function getChecklistFor(auth, studentId) {
 
 // Validation / rejet par Sales (assigné) ou Admin. S'applique à tous les
 // document_requirements fusionnés sous ce nom (mêmes règles que l'upload).
-async function reviewDocument(auth, studentId, name, status, reason) {
+async function reviewDocument(auth, studentId, name, status, reason, universityId = null) {
   if (auth.role !== "SALES" && auth.role !== "ADMIN") {
     throw fail("Seul un conseiller ou un administrateur peut valider un document.", 403);
   }
@@ -189,8 +216,7 @@ async function reviewDocument(auth, studentId, name, status, reason) {
   }
 
   const trimmedName = String(name || "").trim();
-  const requirements = await studentDocRepo.findActiveRequirementsByCountryNames(profile.preferred_countries || []);
-  const group = requirements.filter((r) => r.name === trimmedName);
+  const group = await requirementGroup(studentId, profile, trimmedName, universityId || null);
   if (!group.length) throw fail("Document introuvable pour ce dossier.", 404);
 
   const existing = await studentDocRepo.findStudentDocumentsByRequirementIds(studentId, group.map((g) => g.id));
@@ -209,7 +235,7 @@ async function reviewDocument(auth, studentId, name, status, reason) {
   await notificationService.notify(studentId, status === "REJECTED"
     ? {
         type: "DOCUMENT_REJECTED",
-        title: `Document refusé : ${trimmedName}`,
+        title: `Document refusé : ${trimmedName}${group[0].university_name ? ` (${group[0].university_name})` : ""}`,
         body: `${trimmedReason}. Merci de le redéposer dans votre espace Documents.`,
         link: "/documents"
       }
@@ -229,7 +255,7 @@ async function reviewDocument(auth, studentId, name, status, reason) {
   }
 
   const checklist = await getChecklist(studentId);
-  return checklist.find((d) => d.name === trimmedName);
+  return findItem(checklist, trimmedName, universityId);
 }
 
 // -------------------------------------------------------------------------

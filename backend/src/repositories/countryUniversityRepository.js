@@ -2,7 +2,7 @@ const { query } = require("../../db");
 
 async function findByCountry(countryId) {
   const result = await query(
-    `SELECT id, country_id, name, active, display_order, created_at, updated_at
+    `SELECT id, country_id, name, active, source, display_order, created_at, updated_at
      FROM country_universities
      WHERE country_id = $1
      ORDER BY display_order ASC, name ASC`,
@@ -37,22 +37,24 @@ async function findByCountryAndName(countryId, name) {
   return result.rows[0] || null;
 }
 
-async function create({ countryId, name, displayOrder = 0, active = true }) {
+// source : ADMIN = conventionnée (définie par l'admin), STUDENT = ajoutée par un
+// étudiant ou un conseiller (saisie libre, non conventionnée).
+async function create({ countryId, name, displayOrder = 0, active = true, source = "ADMIN" }) {
   const result = await query(
-    `INSERT INTO country_universities (country_id, name, display_order, active, updated_at)
-     VALUES ($1, $2, $3, $4, NOW())
+    `INSERT INTO country_universities (country_id, name, display_order, active, source, updated_at)
+     VALUES ($1, $2, $3, $4, $5, NOW())
      RETURNING *`,
-    [countryId, name, displayOrder, active !== false]
+    [countryId, name, displayOrder, active !== false, source]
   );
   return result.rows[0];
 }
 
-async function findOrCreate({ countryId, name, active = true }) {
+async function findOrCreate({ countryId, name, active = true, source = "ADMIN" }) {
   const trimmed = String(name || "").trim();
   const existing = await findByCountryAndName(countryId, trimmed);
   if (existing) return existing;
   try {
-    return await create({ countryId, name: trimmed, active });
+    return await create({ countryId, name: trimmed, active, source });
   } catch (error) {
     const raced = await findByCountryAndName(countryId, trimmed);
     if (raced) return raced;
@@ -79,6 +81,19 @@ async function setActive(id, active) {
   return result.rows[0] || null;
 }
 
+// Liste proposée quand on ajoute une université : conventionnées actives +
+// universités déjà saisies par d'autres (leurs documents sont connus).
+async function findPickerByCountry(countryId) {
+  const result = await query(
+    `SELECT id, country_id, name, source
+     FROM country_universities
+     WHERE country_id = $1 AND ((source = 'ADMIN' AND active = true) OR source = 'STUDENT')
+     ORDER BY (source = 'ADMIN') DESC, display_order ASC, name ASC`,
+    [countryId]
+  );
+  return result.rows;
+}
+
 async function remove(id) {
   const result = await query(`DELETE FROM country_universities WHERE id = $1 RETURNING id`, [id]);
   return (result.rowCount ?? 0) > 0;
@@ -87,6 +102,7 @@ async function remove(id) {
 module.exports = {
   findByCountry,
   findActiveByCountryIds,
+  findPickerByCountry,
   findById,
   findByCountryAndName,
   findOrCreate,

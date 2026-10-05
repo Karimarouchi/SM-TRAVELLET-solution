@@ -8,7 +8,7 @@ async function findActiveRequirementsByCountryNames(names) {
             c.id AS country_id, c.name AS country_name, c.display_order AS country_display_order
      FROM document_requirements dr
      JOIN countries c ON c.id = dr.country_id
-     WHERE dr.active = true AND c.active = true AND dr.category = 'DOSSIER' AND LOWER(c.name) = ANY($1::text[])
+     WHERE dr.active = true AND c.active = true AND dr.category = 'DOSSIER' AND dr.university_id IS NULL AND LOWER(c.name) = ANY($1::text[])
      ORDER BY c.display_order ASC, dr.display_order ASC, dr.name ASC`,
     [lower]
   );
@@ -66,8 +66,38 @@ async function findRequiredActiveStatusesForCountry(countryId, studentId) {
     `SELECT dr.id, COALESCE(sd.status, 'PENDING') AS status
      FROM document_requirements dr
      LEFT JOIN student_documents sd ON sd.document_requirement_id = dr.id AND sd.student_id = $2
-     WHERE dr.country_id = $1 AND dr.required = true AND dr.active = true AND dr.category = 'DOSSIER'`,
+     WHERE dr.country_id = $1 AND dr.required = true AND dr.active = true AND dr.category = 'DOSSIER' AND dr.university_id IS NULL`,
     [countryId, studentId]
+  );
+  return result.rows;
+}
+
+// Documents spécifiques aux universités visées : une ligne par document et par
+// université (jamais fusionnés entre universités).
+async function findActiveRequirementsByUniversityIds(universityIds) {
+  if (!universityIds.length) return [];
+  const result = await query(
+    `SELECT dr.id, dr.name, dr.description, dr.required, dr.accepted_file_types, dr.display_order,
+            dr.university_id, cu.name AS university_name,
+            c.id AS country_id, c.name AS country_name
+     FROM document_requirements dr
+     JOIN country_universities cu ON cu.id = dr.university_id
+     JOIN countries c ON c.id = dr.country_id
+     WHERE dr.active = true AND dr.category = 'DOSSIER' AND dr.university_id = ANY($1::uuid[])
+     ORDER BY cu.name ASC, dr.display_order ASC, dr.name ASC`,
+    [universityIds]
+  );
+  return result.rows;
+}
+
+// Statut des documents obligatoires propres à UNE université pour un étudiant.
+async function findRequiredActiveStatusesForUniversity(universityId, studentId) {
+  const result = await query(
+    `SELECT dr.id, COALESCE(sd.status, 'PENDING') AS status
+     FROM document_requirements dr
+     LEFT JOIN student_documents sd ON sd.document_requirement_id = dr.id AND sd.student_id = $2
+     WHERE dr.university_id = $1 AND dr.required = true AND dr.active = true AND dr.category = 'DOSSIER'`,
+    [universityId, studentId]
   );
   return result.rows;
 }
@@ -81,7 +111,7 @@ async function findActiveVisaRequirementsByCountryId(countryId) {
             c.id AS country_id, c.name AS country_name
      FROM document_requirements dr
      JOIN countries c ON c.id = dr.country_id
-     WHERE dr.active = true AND c.active = true AND dr.category = 'VISA' AND dr.country_id = $1
+     WHERE dr.active = true AND c.active = true AND dr.category = 'VISA' AND dr.university_id IS NULL AND dr.country_id = $1
      ORDER BY dr.display_order ASC, dr.name ASC`,
     [countryId]
   );
@@ -94,7 +124,7 @@ async function findRequiredActiveVisaStatusesForCountry(countryId, studentId) {
     `SELECT dr.id, COALESCE(sd.status, 'PENDING') AS status
      FROM document_requirements dr
      LEFT JOIN student_documents sd ON sd.document_requirement_id = dr.id AND sd.student_id = $2
-     WHERE dr.country_id = $1 AND dr.required = true AND dr.active = true AND dr.category = 'VISA'`,
+     WHERE dr.country_id = $1 AND dr.required = true AND dr.active = true AND dr.category = 'VISA' AND dr.university_id IS NULL`,
     [countryId, studentId]
   );
   return result.rows;
@@ -122,6 +152,8 @@ async function findFileForAccess(storedFilename, userId) {
 module.exports = {
   findFileForAccess,
   findActiveRequirementsByCountryNames,
+  findActiveRequirementsByUniversityIds,
+  findRequiredActiveStatusesForUniversity,
   findRequiredActiveStatusesForCountry,
   findStudentDocumentsByRequirementIds,
   upsertForRequirementIds,

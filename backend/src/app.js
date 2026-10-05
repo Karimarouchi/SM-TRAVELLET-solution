@@ -21,6 +21,7 @@ const studentDocumentController = require("./controllers/studentDocumentControll
 const salesCodeController = require("./controllers/salesCodeController");
 const countryUniversityController = require("./controllers/countryUniversityController");
 const universityApplicationController = require("./controllers/universityApplicationController");
+const universityChoiceController = require("./controllers/universityChoiceController");
 const backupController = require("./controllers/backupController");
 const commissionController = require("./controllers/commissionController");
 const archiveController = require("./controllers/archiveController");
@@ -112,6 +113,18 @@ app.post("/api/students/avis", requireAuth, requireRoles("STUDENT"), avisControl
 app.get("/api/documents/files/:filename", requireAuth, studentDocumentController.file);
 app.get("/api/students/me/documents", requireAuth, requireRoles("STUDENT"), studentDocumentController.list);
 app.post("/api/students/me/documents", requireAuth, requireRoles("STUDENT"), studentDocumentController.upload);
+app.get("/api/students/me/university-choices", requireAuth, requireRoles("STUDENT"), universityChoiceController.listMine);
+app.post("/api/students/me/university-choices", requireAuth, requireRoles("STUDENT"), universityChoiceController.addMine);
+app.get("/api/students/:id/university-choices", requireAuth, requireRoles("SALES", "ADMIN"), universityChoiceController.listForStudent);
+app.post("/api/students/:id/university-choices", requireAuth, requireRoles("SALES", "ADMIN"), universityChoiceController.addForStudent);
+app.delete("/api/university-choices/:id", requireAuth, requireRoles("STUDENT", "SALES", "ADMIN"), universityChoiceController.remove);
+app.get("/api/countries/:countryId/university-picker", requireAuth, requireRoles("STUDENT", "SALES", "ADMIN"), universityChoiceController.picker);
+// Documents propres à une université (admin : toutes ; conseiller : universités hors conventions de ses étudiants).
+app.get("/api/universities/:id/documents", requireAuth, requireRolesOrPermissions(["SALES", "ADMIN"], ["MANAGE_COUNTRIES"]), documentRequirementController.listByUniversity);
+app.post("/api/universities/:id/documents", requireAuth, requireRolesOrPermissions(["SALES", "ADMIN"], ["MANAGE_COUNTRIES"]), documentRequirementController.createForUniversity);
+app.put("/api/university-documents/:id", requireAuth, requireRolesOrPermissions(["SALES", "ADMIN"], ["MANAGE_COUNTRIES"]), documentRequirementController.update);
+app.patch("/api/university-documents/:id/active", requireAuth, requireRolesOrPermissions(["SALES", "ADMIN"], ["MANAGE_COUNTRIES"]), documentRequirementController.setActive);
+app.delete("/api/university-documents/:id", requireAuth, requireRolesOrPermissions(["SALES", "ADMIN"], ["MANAGE_COUNTRIES"]), documentRequirementController.remove);
 app.get("/api/students/:id/documents", requireAuth, requireRoles("SALES", "ADMIN"), studentDocumentController.listForStudent);
 app.patch("/api/students/:id/documents/review", requireAuth, requireRoles("SALES", "ADMIN"), studentDocumentController.review);
 app.get("/api/students/me/visa-documents", requireAuth, requireRoles("STUDENT"), studentDocumentController.myVisaChecklist);
@@ -211,6 +224,7 @@ app.patch("/api/admin/countries/:id/active", requireAuth, requirePermission("MAN
 app.get("/api/admin/countries/:countryId/universities", requireAuth, requirePermission("MANAGE_COUNTRIES"), countryUniversityController.listByCountry);
 app.post("/api/admin/countries/:countryId/universities", requireAuth, requirePermission("MANAGE_COUNTRIES"), countryUniversityController.create);
 app.put("/api/admin/universities/:id", requireAuth, requirePermission("MANAGE_COUNTRIES"), countryUniversityController.update);
+app.patch("/api/admin/universities/:id/partner", requireAuth, requirePermission("MANAGE_COUNTRIES"), countryUniversityController.setPartner);
 app.patch("/api/admin/universities/:id/active", requireAuth, requirePermission("MANAGE_COUNTRIES"), countryUniversityController.setActive);
 app.delete("/api/admin/universities/:id", requireAuth, requirePermission("MANAGE_COUNTRIES"), countryUniversityController.remove);
 

@@ -2,18 +2,30 @@ const { query } = require("../../db");
 
 async function findByCountry(countryId) {
   const result = await query(
-    `SELECT id, country_id, name, description, required, active, display_order, accepted_file_types, category, created_at, updated_at
+    `SELECT id, country_id, university_id, name, description, required, active, display_order, accepted_file_types, category, created_at, updated_at
      FROM document_requirements
-     WHERE country_id = $1
+     WHERE country_id = $1 AND university_id IS NULL
      ORDER BY category ASC, display_order ASC, name ASC`,
     [countryId]
   );
   return result.rows;
 }
 
+// Documents spécifiques à une université (en plus de ceux du pays).
+async function findByUniversity(universityId) {
+  const result = await query(
+    `SELECT id, country_id, university_id, name, description, required, active, display_order, accepted_file_types, category, created_at, updated_at
+     FROM document_requirements
+     WHERE university_id = $1
+     ORDER BY display_order ASC, name ASC`,
+    [universityId]
+  );
+  return result.rows;
+}
+
 async function findById(id) {
   const result = await query(
-    `SELECT id, country_id, name, description, required, active, display_order, accepted_file_types, category, created_at, updated_at
+    `SELECT id, country_id, university_id, name, description, required, active, display_order, accepted_file_types, category, created_at, updated_at
      FROM document_requirements
      WHERE id = $1`,
     [id]
@@ -21,20 +33,22 @@ async function findById(id) {
   return result.rows[0] || null;
 }
 
-async function findByCountryAndName(countryId, name, category = "DOSSIER") {
+// universityId null = document du pays ; sinon document propre à l'université.
+async function findByCountryAndName(countryId, name, category = "DOSSIER", universityId = null) {
   const result = await query(
-    `SELECT id FROM document_requirements WHERE country_id = $1 AND name = $2 AND category = $3`,
-    [countryId, name, category]
+    `SELECT id FROM document_requirements
+     WHERE country_id = $1 AND name = $2 AND category = $3 AND university_id IS NOT DISTINCT FROM $4::uuid`,
+    [countryId, name, category, universityId]
   );
   return result.rows[0] || null;
 }
 
-async function create({ countryId, name, description, required = true, displayOrder = 0, acceptedFileTypes = "IMAGE_PDF", category = "DOSSIER" }) {
+async function create({ countryId, universityId = null, name, description, required = true, displayOrder = 0, acceptedFileTypes = "IMAGE_PDF", category = "DOSSIER" }) {
   const result = await query(
-    `INSERT INTO document_requirements (country_id, name, description, required, display_order, accepted_file_types, category, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-     RETURNING id, country_id, name, description, required, active, display_order, accepted_file_types, category, created_at, updated_at`,
-    [countryId, name, description, required, displayOrder, acceptedFileTypes, category]
+    `INSERT INTO document_requirements (country_id, university_id, name, description, required, display_order, accepted_file_types, category, updated_at)
+     VALUES ($1, $8, $2, $3, $4, $5, $6, $7, NOW())
+     RETURNING id, country_id, university_id, name, description, required, active, display_order, accepted_file_types, category, created_at, updated_at`,
+    [countryId, name, description, required, displayOrder, acceptedFileTypes, category, universityId]
   );
   return result.rows[0];
 }
@@ -50,7 +64,7 @@ async function update(id, { name, description, required, displayOrder, acceptedF
          category = $6,
          updated_at = NOW()
      WHERE id = $7
-     RETURNING id, country_id, name, description, required, active, display_order, accepted_file_types, category, created_at, updated_at`,
+     RETURNING id, country_id, university_id, name, description, required, active, display_order, accepted_file_types, category, created_at, updated_at`,
     [name, description, required, displayOrder, acceptedFileTypes, category, id]
   );
   return result.rows[0] || null;
@@ -62,7 +76,7 @@ async function setActive(id, active) {
      SET active = $1,
          updated_at = NOW()
      WHERE id = $2
-     RETURNING id, country_id, name, description, required, active, display_order, accepted_file_types, category, created_at, updated_at`,
+     RETURNING id, country_id, university_id, name, description, required, active, display_order, accepted_file_types, category, created_at, updated_at`,
     [active, id]
   );
   return result.rows[0] || null;
@@ -83,6 +97,7 @@ async function remove(id) {
 
 module.exports = {
   findByCountry,
+  findByUniversity,
   findById,
   findByCountryAndName,
   create,

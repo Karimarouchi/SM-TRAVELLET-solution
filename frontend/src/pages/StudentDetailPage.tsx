@@ -18,6 +18,7 @@ import { openProtectedFile } from "@/lib/auth";
 import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import ApplicationTimeline from "@/components/admin/ApplicationTimeline";
+import UniversityChoicesPanel from "@/components/UniversityChoicesPanel";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -107,12 +108,19 @@ export default function StudentDetailPage() {
   }, [id]);
 
   const handleReviewed = (updated: StudentDocumentChecklistItem) => {
-    setDocuments((prev) => prev.map((d) => (d.name === updated.name ? updated : d)));
+    setDocuments((prev) => prev.map((d) => (d.name === updated.name && (d.universityId || null) === (updated.universityId || null) ? updated : d)));
+  };
+
+  // Un vœu ajouté ou retiré change la checklist et les candidatures.
+  const reloadAfterChoice = () => {
+    if (!id) return;
+    fetchStudentDocuments(id).then(setDocuments).catch(() => undefined);
+    loadApplications();
   };
 
   // reviewStudentDocument nécessite l'id étudiant : on le fournit via une closure locale
-  const reviewFor = (name: string, status: "VALIDATED" | "REJECTED", reason?: string) =>
-    id ? reviewStudentDocument(id, name, status, reason) : Promise.reject(new Error(t("Étudiant inconnu.", "Unknown student.")));
+  const reviewFor = (name: string, status: "VALIDATED" | "REJECTED", reason?: string, universityId?: string | null) =>
+    id ? reviewStudentDocument(id, name, status, reason, universityId) : Promise.reject(new Error(t("Étudiant inconnu.", "Unknown student.")));
 
   if (loading) {
     return (
@@ -222,11 +230,13 @@ export default function StudentDetailPage() {
                 </p>
               ) : (
                 documents.map((doc) => (
-                  <DocumentReviewRow key={doc.name} doc={doc} reviewFor={reviewFor} onReviewed={handleReviewed} />
+                  <DocumentReviewRow key={`${doc.universityId || "pays"}:${doc.name}`} doc={doc} reviewFor={reviewFor} onReviewed={handleReviewed} />
                 ))
               )}
             </div>
           </section>
+
+          {id && <UniversityChoicesPanel studentId={id} onChanged={reloadAfterChoice} />}
 
           {/* Candidatures universitaires */}
           <section className="mt-6">
@@ -322,7 +332,7 @@ function DocumentReviewRow({
   onReviewed
 }: {
   doc: StudentDocumentChecklistItem;
-  reviewFor: (name: string, status: "VALIDATED" | "REJECTED", reason?: string) => Promise<StudentDocumentChecklistItem>;
+  reviewFor: (name: string, status: "VALIDATED" | "REJECTED", reason?: string, universityId?: string | null) => Promise<StudentDocumentChecklistItem>;
   onReviewed: (d: StudentDocumentChecklistItem) => void;
 }) {
   const { t } = useLanguage();
@@ -336,7 +346,7 @@ function DocumentReviewRow({
     setBusy(true);
     setError("");
     try {
-      const updated = await reviewFor(doc.name, "VALIDATED");
+      const updated = await reviewFor(doc.name, "VALIDATED", undefined, doc.universityId);
       onReviewed(updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("Erreur.", "Error."));
@@ -349,7 +359,7 @@ function DocumentReviewRow({
     setBusy(true);
     setError("");
     try {
-      const updated = await reviewFor(doc.name, "REJECTED", reason.trim());
+      const updated = await reviewFor(doc.name, "REJECTED", reason.trim(), doc.universityId);
       onReviewed(updated);
       setRejecting(false);
       setReason("");
@@ -371,11 +381,17 @@ function DocumentReviewRow({
               {doc.required && <span className="ml-1.5 text-red-500">*</span>}
             </p>
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              {doc.countries.map((c) => (
-                <span key={c} className="inline-flex items-center gap-1 rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-semibold text-brand">
-                  <Globe2 className="h-2.5 w-2.5" /> {c}
+              {doc.universityName ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
+                  <GraduationCap className="h-2.5 w-2.5" /> {doc.universityName}
                 </span>
-              ))}
+              ) : (
+                doc.countries.map((c) => (
+                  <span key={c} className="inline-flex items-center gap-1 rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-semibold text-brand">
+                    <Globe2 className="h-2.5 w-2.5" /> {c}
+                  </span>
+                ))
+              )}
             </div>
             {doc.fileUrl && (
               <button

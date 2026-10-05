@@ -27,8 +27,8 @@ async function list(req, res) {
 
 async function upload(req, res) {
   try {
-    const { name, file, originalFilename } = req.body;
-    const doc = await studentDocumentService.uploadDocument(req.auth.sub, name, file, originalFilename);
+    const { name, file, originalFilename, universityId } = req.body;
+    const doc = await studentDocumentService.uploadDocument(req.auth.sub, name, file, originalFilename, universityId);
     res.json(doc);
   } catch (error) {
     res.status(error.status || 400).json({ error: error.message || "Requête invalide." });
@@ -46,8 +46,8 @@ async function listForStudent(req, res) {
 
 async function review(req, res) {
   try {
-    const { name, status, reason } = req.body;
-    const doc = await studentDocumentService.reviewDocument(req.auth, req.params.id, name, status, reason);
+    const { name, status, reason, universityId } = req.body;
+    const doc = await studentDocumentService.reviewDocument(req.auth, req.params.id, name, status, reason, universityId);
     res.json(doc);
   } catch (error) {
     res.status(error.status || 400).json({ error: error.message || "Requête invalide." });

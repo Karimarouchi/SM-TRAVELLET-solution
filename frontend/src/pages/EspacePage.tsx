@@ -1,3 +1,4 @@
+import UniversityChoicesPanel from "@/components/UniversityChoicesPanel";
 import DocumentsSummaryCard from "@/components/DocumentsSummaryCard";
 import {
   completeApplicationInterview,
@@ -359,6 +360,8 @@ export default function EspacePage() {
           <p className="mt-2 text-sm text-muted">{t("Un parcours guidé pour accélérer votre projet d’études.", "A guided path to speed up your study project.")}</p>
         </Link>
       </div>
+
+      <UniversityChoicesPanel onChanged={loadApplications} />
 
       {/* Donner un avis section */}
       <section className="mt-8 rounded-[24px] border border-line bg-white p-6 sm:p-8 shadow-sm">

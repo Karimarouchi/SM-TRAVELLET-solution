@@ -2,6 +2,8 @@ const appRepo = require("../repositories/universityApplicationRepository");
 const countryRepo = require("../repositories/countryRepository");
 const universityRepo = require("../repositories/countryUniversityRepository");
 const countryUniversityService = require("./countryUniversityService");
+const choiceRepo = require("../repositories/universityChoiceRepository");
+const choiceService = require("./universityChoiceService");
 const studentDocRepo = require("../repositories/studentDocumentRepository");
 const studentRepo = require("../repositories/studentRepository");
 const userRepo = require("../repositories/userRepository");
@@ -28,6 +30,8 @@ function dto(row) {
     countryName: row.country_name,
     universityId: row.university_id,
     universityName: row.university_name,
+    choiceId: row.choice_id || null,
+    fieldOfStudy: row.field_of_study || "",
     programmeId: row.programme_id,
     programmeTitle: row.programme_title || null,
     salesId: row.sales_id,
@@ -65,17 +69,19 @@ async function recordHistory(applicationId, studentId, oldStatus, newStatus, cha
   await appRepo.addHistory({ applicationId, studentId, oldStatus, newStatus, changedBy, comment });
 }
 
-// Appelée après chaque validation de document (studentDocumentService).
-// Pour chaque pays préféré de l'étudiant dont TOUS les documents obligatoires
-// et actifs sont VALIDATED, crée automatiquement une candidature
-// READY_TO_APPLY (si aucune candidature active n'existe déjà pour ce pays)
-// et fait passer le dossier global en phase UNIVERSITY_APPLICATION.
-// N'écrase jamais une candidature existante.
+// Appelée après chaque validation de document (studentDocumentService) et
+// après l'ajout d'un vœu. Une candidature READY_TO_APPLY naît d'un vœu quand
+// TOUS les documents obligatoires du pays (communs, déposés une seule fois)
+// ET ceux propres à l'université sont VALIDATED ; le dossier global passe alors
+// en phase UNIVERSITY_APPLICATION. N'écrase jamais une candidature existante.
 async function checkAndAdvanceReadyToApply(studentId) {
   const profile = await studentRepo.findByUserId(studentId);
   if (!profile) return;
   const preferredCountries = profile.preferred_countries || [];
   if (!preferredCountries.length) return;
+
+  await choiceService.ensureInitialChoice(studentId);
+  const choices = await choiceRepo.listActiveForStudent(studentId);
 
   let anyReady = false;
 
@@ -100,24 +106,23 @@ async function checkAndAdvanceReadyToApply(studentId) {
       });
     }
 
-    const activeApplications = await appRepo.findActiveForStudent(studentId);
-    const alreadyHasApplicationForCountry = activeApplications.some((a) => a.country_id === country.id);
-    if (alreadyHasApplicationForCountry) continue;
+    // Un vœu sans candidature devient « prêt à postuler » quand les documents
+    // propres à son université sont aussi validés.
+    for (const choice of choices.filter((c) => c.country_id === country.id && !c.application_id)) {
+      const specific = await studentDocRepo.findRequiredActiveStatusesForUniversity(choice.university_id, studentId);
+      if (!specific.every((s) => s.status === "VALIDATED")) continue;
 
-    // Résout l'université choisie par l'étudiant (target_university, saisi à
-    // l'onboarding depuis la liste Admin) pour ce pays précis.
-    if (!profile.target_university) continue;
-    const university = await universityRepo.findOrCreate({ countryId: country.id, name: profile.target_university, active: false });
-    if (!university) continue;
-
-    const created = await appRepo.create({
-      studentId,
-      countryId: country.id,
-      universityId: university.id,
-      salesId: profile.assigned_sales_id
-    });
-    await recordHistory(created.id, studentId, null, "READY_TO_APPLY", null, "Documents validés — dossier prêt à postuler (automatique).");
-    await autoAssignRdvForApply(created);
+      const created = await appRepo.create({
+        studentId,
+        countryId: country.id,
+        universityId: choice.university_id,
+        salesId: profile.assigned_sales_id,
+        choiceId: choice.id,
+        fieldOfStudy: choice.field_of_study
+      });
+      await recordHistory(created.id, studentId, null, "READY_TO_APPLY", null, `Documents validés — dossier prêt à postuler (${choice.university_name}${choice.field_of_study ? `, ${choice.field_of_study}` : ""}).`);
+      await autoAssignRdvForApply(created);
+    }
   }
 
   if (anyReady && profile.dossier_stage === "DOCUMENTS") {
@@ -349,6 +354,56 @@ async function markApplied(auth, applicationId, payload) {
   return dto({ ...updated, country_name: (await countryRepo.findById(updated.country_id))?.name });
 }
 
+// Décision de l'université pour UNE filière : l'étudiant (notification + e-mail),
+// son conseiller et les admins sont prévenus dès que le RDV l'enregistre.
+async function announceDecision(application, { accepted, reason }) {
+  const [student, university, country, profile] = await Promise.all([
+    userRepo.findById(application.student_id),
+    universityRepo.findById(application.university_id),
+    countryRepo.findById(application.country_id),
+    studentRepo.findByUserId(application.student_id)
+  ]);
+  const who = student ? `${student.prenom} ${student.nom}` : "Un étudiant";
+  const universityName = university?.name || "l'université";
+  const fieldOfStudy = application.field_of_study || "";
+  const target = fieldOfStudy ? `${universityName} (${fieldOfStudy})` : universityName;
+  const verdict = accepted ? "accepté" : "refusé";
+
+  await notificationService.notify(application.student_id, {
+    type: accepted ? "APPLICATION_ACCEPTED" : "APPLICATION_REJECTED",
+    title: accepted ? `Candidature acceptée : ${target}` : `Candidature refusée : ${target}`,
+    body: accepted
+      ? "Félicitations ! Préparez maintenant vos documents visa avec votre conseiller."
+      : `${reason ? `Motif : ${reason}. ` : ""}Votre conseiller peut vous proposer une autre université.`,
+    link: "/espace"
+  });
+
+  const staffPayload = {
+    type: accepted ? "APPLICATION_ACCEPTED" : "APPLICATION_REJECTED",
+    title: `${who} ${verdict} : ${target}`,
+    body: accepted
+      ? `L'université a accepté l'étudiant${country?.name ? ` (${country.name})` : ""}. Validez les documents visa, puis le dossier reviendra au RDV.`
+      : `L'université a refusé la candidature${country?.name ? ` (${country.name})` : ""}.${reason ? ` Motif : ${reason}.` : ""}`
+  };
+  const salesId = application.sales_id || profile?.assigned_sales_id || null;
+  if (salesId) await notificationService.notify(salesId, { ...staffPayload, link: `/conseiller/etudiants/${application.student_id}` });
+  await notificationService.notifyAdmins({ ...staffPayload, link: `/admin/students/${application.student_id}` });
+
+  try {
+    if (student?.email) {
+      await emailService.sendApplicationDecisionEmail(student.email, student.prenom, {
+        accepted,
+        universityName,
+        fieldOfStudy,
+        countryName: country?.name || "",
+        reason
+      });
+    }
+  } catch (err) {
+    logger.error("Échec de l'envoi de l'email de décision", { message: err.message, stack: err.stack });
+  }
+}
+
 // Notification à l'étudiant : la première phrase du texte sert de titre,
 // la suite de détail.
 async function notifyStudent(application, text) {
@@ -470,7 +525,7 @@ async function markAccepted(auth, applicationId, payload) {
     notes: payload.comment ? String(payload.comment).trim() : application.notes
   });
   await recordHistory(applicationId, application.student_id, application.status, "ACCEPTED", auth.sub, payload.comment || "Étudiant accepté par l’université.");
-  await notifyStudent(application, "Félicitations, votre candidature a été acceptée ! Préparez maintenant vos documents visa avec votre conseiller.", auth.sub);
+  await announceDecision(application, { accepted: true });
 
   await studentRepo.setDossierStage(application.student_id, "VISA");
 
@@ -482,15 +537,6 @@ async function markAccepted(auth, applicationId, payload) {
       role: "RDV",
       stage: "ACCEPTED",
       applicationId
-    });
-  }
-
-  if (application.sales_id) {
-    await notificationService.notify(application.sales_id, {
-      type: "VISA_DOCUMENTS_READY",
-      title: "Documents visa à préparer",
-      body: "L'université a accepté l'étudiant. Validez les documents visa, puis le dossier reviendra au RDV.",
-      link: `/conseiller/etudiants/${application.student_id}`
     });
   }
 
@@ -517,7 +563,7 @@ async function markRejected(auth, applicationId, reason) {
     decision_reason: trimmed
   });
   await recordHistory(applicationId, application.student_id, application.status, "REJECTED", auth.sub, trimmed);
-  await notifyStudent(application, `Votre candidature a été refusée par l'université. Motif : ${trimmed}`, auth.sub);
+  await announceDecision(application, { accepted: false, reason: trimmed });
   return dto({ ...updated, country_name: (await countryRepo.findById(updated.country_id))?.name });
 }
 
@@ -549,12 +595,30 @@ async function reapply(auth, applicationId, payload) {
   const university = await resolveUniversity(previous.country_id, payload);
   if (!university) throw fail("Choisissez ou saisissez une université.", 400);
 
+  // L'ancien vœu (refusé) est clos ; la nouvelle université devient un nouveau vœu.
+  const fieldOfStudy = String(payload.fieldOfStudy || previous.field_of_study || "").trim();
+  if (previous.choice_id) await choiceRepo.withdraw(previous.choice_id);
+  let choice = null;
+  try {
+    choice = await choiceRepo.create({
+      studentId: previous.student_id,
+      countryId: previous.country_id,
+      universityId: university.id,
+      fieldOfStudy,
+      addedBy: auth.sub,
+      addedByRole: authRoles(auth).includes("ADMIN") ? "ADMIN" : "RDV"
+    });
+  } catch (error) {
+    if (error.code !== "23505") throw error;
+  }
   const created = await appRepo.create({
     studentId: previous.student_id,
     countryId: previous.country_id,
     universityId: university.id,
     programmeId: payload.programmeId || null,
-    salesId: previous.sales_id
+    salesId: previous.sales_id,
+    choiceId: choice ? choice.id : null,
+    fieldOfStudy
   });
   await recordHistory(
     created.id,

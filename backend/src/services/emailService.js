@@ -344,4 +344,30 @@ async function sendAlertEmail(to, subject, message) {
   });
 }
 
-module.exports = { verifySmtp, guessSmtpHost, sendPasswordResetEmail, sendVerificationEmail, sendInterviewEmail, sendAlertEmail, sendVisaPrepMeetingEmail, sendVisaEmbassyAppointmentEmail };
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+
+// Décision d'une université (acceptation ou refus) pour une filière précise.
+async function sendApplicationDecisionEmail(to, prenom, { accepted, universityName, fieldOfStudy, countryName, reason }) {
+  const target = fieldOfStudy ? `${universityName} (${fieldOfStudy})` : universityName;
+  const sender = await resolveSender();
+  const verdict = accepted ? "acceptée" : "refusée";
+  const intro = accepted
+    ? `Bonne nouvelle : votre candidature à <strong>${escapeHtml(target)}</strong>${countryName ? ` (${escapeHtml(countryName)})` : ""} a été <strong>acceptée</strong>. Votre conseiller va maintenant vous accompagner pour préparer votre dossier visa.`
+    : `Nous avons le regret de vous informer que votre candidature à <strong>${escapeHtml(target)}</strong>${countryName ? ` (${escapeHtml(countryName)})` : ""} a été <strong>refusée</strong> par l'université. Votre conseiller reste à votre disposition pour étudier avec vous une autre option.`;
+  await sender.transporter.sendMail({
+    from: sender.from(),
+    to,
+    subject: accepted ? `Félicitations — candidature acceptée : ${target}` : `Candidature refusée : ${target}`,
+    html: visaMeetingEmailHtml(prenom, {
+      headerLabel: accepted ? "Candidature acceptée" : "Réponse à votre candidature",
+      introText: intro,
+      dateLabel: accepted ? `Acceptée : ${escapeHtml(target)}` : `Refusée : ${escapeHtml(target)}`,
+      instructions: !accepted && reason ? `Motif communiqué : ${escapeHtml(reason)}` : null
+    }).replace("Retrouvez le détail de votre dossier visa directement depuis votre espace SM Travel.", "Retrouvez le détail de vos candidatures directement depuis votre espace SM Travel."),
+    text: `Bonjour ${prenom}, votre candidature à ${target}${countryName ? ` (${countryName})` : ""} a été ${verdict}.${!accepted && reason ? ` Motif : ${reason}.` : ""}`
+  });
+}
+
+module.exports = { sendApplicationDecisionEmail, verifySmtp, guessSmtpHost, sendPasswordResetEmail, sendVerificationEmail, sendInterviewEmail, sendAlertEmail, sendVisaPrepMeetingEmail, sendVisaEmbassyAppointmentEmail };

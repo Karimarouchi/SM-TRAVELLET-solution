@@ -4,6 +4,7 @@ import {
   fetchAdminCountries,
   fetchCountryUniversities,
   setUniversityActive,
+  setUniversityPartner,
   updateCountryUniversity,
   type Country,
   type CountryUniversity
@@ -11,6 +12,7 @@ import {
 import {
   ChevronDown,
   ChevronUp,
+  FileText,
   GraduationCap,
   Pencil,
   Plus,
@@ -18,6 +20,7 @@ import {
   Trash2,
   X
 } from "lucide-react";
+import UniversityDocumentsEditor from "@/components/UniversityDocumentsEditor";
 import { useEffect, useState } from "react";
 
 type UniFormData = { name: string };
@@ -110,6 +113,17 @@ export default function CountriesUniversitiesPanel() {
       alert(err instanceof Error ? err.message : "Erreur lors de l'enregistrement.");
     } finally {
       setSavingCountryId(null);
+    }
+  };
+
+  const [docsOpenId, setDocsOpenId] = useState<string | null>(null);
+
+  const handleTogglePartner = async (countryId: string, uni: CountryUniversity) => {
+    try {
+      await setUniversityPartner(uni.id, !uni.partner);
+      await loadUniversities(countryId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Échec du changement de statut.");
     }
   };
 
@@ -244,9 +258,30 @@ export default function CountriesUniversitiesPanel() {
                                           Désactivée
                                         </span>
                                       )}
+                                      <span
+                                        className={`ml-1.5 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
+                                          uni.partner ? "bg-violet-50 text-violet-700" : "bg-amber-50 text-amber-700"
+                                        }`}
+                                      >
+                                        {uni.partner ? "Conventionnée" : "Hors conventions"}
+                                      </span>
                                     </p>
                                   </div>
-                                  <div className="flex shrink-0 items-center gap-1.5">
+                                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => setDocsOpenId(docsOpenId === uni.id ? null : uni.id)}
+                                      className="inline-flex items-center gap-1 rounded-lg border border-brand/30 bg-brand/5 px-2 py-1 text-[10px] font-bold text-brand hover:bg-brand/10"
+                                    >
+                                      <FileText className="h-3 w-3" /> Documents
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleTogglePartner(c.id, uni)}
+                                      className="rounded-lg px-2 py-1 text-[10px] font-bold border border-line text-muted hover:bg-slate-50"
+                                    >
+                                      {uni.partner ? "Retirer des conventions" : "Rendre conventionnée"}
+                                    </button>
                                     <button
                                       type="button"
                                       onClick={() => handleToggleActive(c.id, uni)}
@@ -269,6 +304,11 @@ export default function CountriesUniversitiesPanel() {
                                       <Trash2 className="h-3 w-3" />
                                     </button>
                                   </div>
+                                </div>
+                              )}
+                              {docsOpenId === uni.id && editingId !== uni.id && (
+                                <div className="mt-3">
+                                  <UniversityDocumentsEditor universityId={uni.id} universityName={uni.name} />
                                 </div>
                               )}
                             </div>

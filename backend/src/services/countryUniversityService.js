@@ -14,6 +14,7 @@ function dto(row) {
     countryId: row.country_id,
     name: row.name,
     active: row.active,
+    partner: row.source === "ADMIN",
     displayOrder: row.display_order,
     createdAt: row.created_at,
     updatedAt: row.updated_at
@@ -76,6 +77,14 @@ async function updateUniversity(id, payload) {
   return dto(row);
 }
 
+// Une université saisie par un étudiant peut être rendue conventionnée (et
+// inversement) : ses documents deviennent alors définis par l'admin.
+async function setPartner(id, partner) {
+  const existing = await universityRepo.findById(id);
+  if (!existing) throw fail("Université introuvable.", 404);
+  return dto(await universityRepo.setPartner(id, Boolean(partner)));
+}
+
 async function setActive(id, active) {
   const existing = await universityRepo.findById(id);
   if (!existing) throw fail("Université introuvable.", 404);
@@ -96,6 +105,7 @@ module.exports = {
   createUniversity,
   updateUniversity,
   setActive,
+  setPartner,
   removeUniversity,
   sanitizeName: normalizeName
 };
