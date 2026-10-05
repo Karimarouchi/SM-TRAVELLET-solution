@@ -21,12 +21,11 @@ import {
 } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import { BarChart3, Coins, GraduationCap, LayoutGrid, List, Mail, MapPinOff, Phone, Plus, ShieldCheck, Trophy, UserCog, Users, Users2, X, ArrowRightLeft } from "lucide-react";
+import { BarChart3, GraduationCap, LayoutGrid, List, Mail, MapPinOff, Phone, Plus, ShieldCheck, Trophy, UserCog, Users, Users2, X, ArrowRightLeft } from "lucide-react";
 import { DragEvent, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import AdminAssignment from "@/pages/AdminAssignment";
-import CommissionsPanel from "@/components/admin/CommissionsPanel";
 
 const RDV_STATUS_META: Record<string, { label: string; color: string }> = {
   READY_TO_APPLY: { label: "Prêt à postuler", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
@@ -885,9 +884,7 @@ export default function AdminSalesPage() {
   // on ouvre le bon onglet puis on fait défiler jusqu'à la zone à régler.
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
-  const [tab, setTab] = useState<"sales" | "rdv" | "commissions">(
-    requestedTab === "rdv" || requestedTab === "commissions" ? requestedTab : "sales"
-  );
+  const [tab, setTab] = useState<"sales" | "rdv">(requestedTab === "rdv" ? "rdv" : "sales");
   const [board, setBoard] = useState<AssignmentBoard | null>(null);
   const focus = searchParams.get("focus");
   const [error, setError] = useState("");
@@ -905,8 +902,7 @@ export default function AdminSalesPage() {
 
   const TABS = [
     { id: "sales" as const, label: "Conseillers", icon: Users },
-    { id: "rdv" as const, label: "Responsables Visa", icon: UserCog },
-    { id: "commissions" as const, label: "Commissions", icon: Coins }
+    { id: "rdv" as const, label: "Responsables Visa", icon: UserCog }
   ];
 
   // Défilement vers la zone demandée, une fois la page chargée (les zones se
@@ -929,6 +925,9 @@ export default function AdminSalesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus, tab, board]);
 
+  // Anciens liens vers l'onglet Commissions : elles sont maintenant dans Finance.
+  if (requestedTab === "commissions") return <Navigate to="/admin/finance?tab=commissions" replace />;
+
   return (
     <main className="mx-auto max-w-[1400px] px-4 sm:px-6 pb-16">
       <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-6 sm:p-8 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)]">
@@ -938,7 +937,7 @@ export default function AdminSalesPage() {
           Conseillers, responsables dossier visa, rôles, permissions et répartition des étudiants.
         </p>
 
-        <div className="relative mt-6 grid grid-cols-3 gap-1 rounded-xl bg-white/10 p-1 backdrop-blur sm:inline-flex sm:items-center">
+        <div className="relative mt-6 grid grid-cols-2 gap-1 rounded-xl bg-white/10 p-1 backdrop-blur sm:inline-flex sm:items-center">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -959,7 +958,6 @@ export default function AdminSalesPage() {
 
       {tab === "sales" && <SalesTab board={board} onOpenAccess={(id, name) => setAccessModal({ id, name })} onChanged={reload} />}
       {tab === "rdv" && <RdvTab key={rdvRefreshKey} onNewRdv={() => setNewRdvModal(true)} onOpenAccess={(id, name) => setAccessModal({ id, name })} />}
-      {tab === "commissions" && <CommissionsPanel />}
 
       {accessModal && (
         <AccessModal userId={accessModal.id} name={accessModal.name} onClose={() => setAccessModal(null)} onSaved={reload} />

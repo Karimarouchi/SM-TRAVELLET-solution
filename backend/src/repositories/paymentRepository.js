@@ -1,0 +1,139 @@
+const { query } = require("../../db");
+
+// ── Tarifs par pays ──
+async function listPricing() {
+  const result = await query(
+    `SELECT c.id AS country_id, c.name AS country_name, c.code, c.display_order,
+            cp.currency, cp.tranche1_amount, cp.tranche2_amount, cp.updated_at
+     FROM countries c
+     LEFT JOIN country_pricing cp ON cp.country_id = c.id
+     WHERE c.active = TRUE
+     ORDER BY c.display_order ASC, c.name ASC`
+  );
+  return result.rows;
+}
+
+async function findPricing(countryId) {
+  const result = await query("SELECT * FROM country_pricing WHERE country_id = $1", [countryId]);
+  return result.rows[0] || null;
+}
+
+async function upsertPricing({ countryId, currency, tranche1, tranche2, updatedBy }) {
+  const result = await query(
+    `INSERT INTO country_pricing (country_id, currency, tranche1_amount, tranche2_amount, updated_by, updated_at)
+     VALUES ($1, $2, $3, $4, $5, NOW())
+     ON CONFLICT (country_id) DO UPDATE
+       SET currency = $2, tranche1_amount = $3, tranche2_amount = $4, updated_by = $5, updated_at = NOW()
+     RETURNING *`,
+    [countryId, currency, tranche1, tranche2, updatedBy]
+  );
+  return result.rows[0];
+}
+
+async function removePricing(countryId) {
+  await query("DELETE FROM country_pricing WHERE country_id = $1", [countryId]);
+}
+
+// ── Plans ──
+const PLAN_SELECT = `
+  SELECT pp.*, u.prenom AS student_prenom, u.nom AS student_nom, c.name AS country_name,
+         sp.assigned_sales_id, sp.dossier_stage, su.prenom AS sales_prenom, su.nom AS sales_nom,
+         COALESCE((SELECT SUM(p.amount) FROM student_payments p WHERE p.plan_id = pp.id AND p.tranche = 1 AND p.status = 'ACTIVE'), 0) AS paid1,
+         COALESCE((SELECT SUM(p.amount) FROM student_payments p WHERE p.plan_id = pp.id AND p.tranche = 2 AND p.status = 'ACTIVE'), 0) AS paid2
+  FROM payment_plans pp
+  JOIN users u ON u.id = pp.student_id
+  JOIN countries c ON c.id = pp.country_id
+  LEFT JOIN student_profiles sp ON sp.user_id = pp.student_id
+  LEFT JOIN users su ON su.id = sp.assigned_sales_id`;
+
+async function listPlans() {
+  const result = await query(`${PLAN_SELECT} ORDER BY pp.created_at DESC`);
+  return result.rows;
+}
+
+async function listPlansForStudent(studentId) {
+  const result = await query(`${PLAN_SELECT} WHERE pp.student_id = $1 ORDER BY pp.created_at ASC`, [studentId]);
+  return result.rows;
+}
+
+async function findPlan(studentId, countryId) {
+  const result = await query(`${PLAN_SELECT} WHERE pp.student_id = $1 AND pp.country_id = $2`, [studentId, countryId]);
+  return result.rows[0] || null;
+}
+
+async function createPlan({ studentId, countryId, currency, tranche1Due, tranche2Due }) {
+  const result = await query(
+    `INSERT INTO payment_plans (student_id, country_id, currency, tranche1_due, tranche2_due)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (student_id, country_id) DO UPDATE SET student_id = EXCLUDED.student_id
+     RETURNING *`,
+    [studentId, countryId, currency, tranche1Due, tranche2Due]
+  );
+  return result.rows[0];
+}
+
+// ── Paiements ──
+async function listPaymentsForStudent(studentId) {
+  const result = await query(
+    `SELECT p.*, c.name AS country_name, u.prenom AS by_prenom, u.nom AS by_nom
+     FROM student_payments p
+     JOIN payment_plans pp ON pp.id = p.plan_id
+     JOIN countries c ON c.id = pp.country_id
+     LEFT JOIN users u ON u.id = p.recorded_by
+     WHERE p.student_id = $1
+     ORDER BY p.created_at DESC`,
+    [studentId]
+  );
+  return result.rows;
+}
+
+async function findPayment(id) {
+  const result = await query("SELECT * FROM student_payments WHERE id = $1", [id]);
+  return result.rows[0] || null;
+}
+
+async function createPayment({ planId, studentId, tranche, amount, currency, method, paidAt, reference, recordedBy, recordedByRole }) {
+  const result = await query(
+    `INSERT INTO student_payments (plan_id, student_id, tranche, amount, currency, method, paid_at, reference, recorded_by, recorded_by_role)
+     VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7::date, CURRENT_DATE), $8, $9, $10)
+     RETURNING *`,
+    [planId, studentId, tranche, amount, currency, method, paidAt || null, reference || null, recordedBy || null, recordedByRole]
+  );
+  return result.rows[0];
+}
+
+async function cancelPayment(id, { cancelledBy, reason }) {
+  const result = await query(
+    `UPDATE student_payments SET status = 'CANCELLED', cancelled_at = NOW(), cancelled_by = $2, cancel_reason = $3
+     WHERE id = $1 AND status = 'ACTIVE' RETURNING *`,
+    [id, cancelledBy, reason]
+  );
+  return result.rows[0] || null;
+}
+
+// Encaissements actifs (totaux du tableau de bord Finance).
+async function collectedTotals() {
+  const result = await query(
+    `SELECT currency,
+            COALESCE(SUM(amount), 0) AS total,
+            COALESCE(SUM(amount) FILTER (WHERE paid_at >= date_trunc('month', CURRENT_DATE)), 0) AS month
+     FROM student_payments WHERE status = 'ACTIVE' GROUP BY currency`
+  );
+  return result.rows;
+}
+
+module.exports = {
+  listPricing,
+  findPricing,
+  upsertPricing,
+  removePricing,
+  listPlans,
+  listPlansForStudent,
+  findPlan,
+  createPlan,
+  listPaymentsForStudent,
+  findPayment,
+  createPayment,
+  cancelPayment,
+  collectedTotals
+};

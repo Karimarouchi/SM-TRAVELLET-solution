@@ -19,6 +19,7 @@ import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import ApplicationTimeline from "@/components/admin/ApplicationTimeline";
 import UniversityChoicesPanel from "@/components/UniversityChoicesPanel";
+import StudentPaymentsPanel from "@/components/StudentPaymentsPanel";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -235,6 +236,8 @@ export default function StudentDetailPage() {
               )}
             </div>
           </section>
+
+          {id && (role === "SALES" || role === "ADMIN") && <StudentPaymentsPanel studentId={id} />}
 
           {id && <UniversityChoicesPanel studentId={id} onChanged={reloadAfterChoice} />}
 

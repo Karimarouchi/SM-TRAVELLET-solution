@@ -22,6 +22,7 @@ const salesCodeController = require("./controllers/salesCodeController");
 const countryUniversityController = require("./controllers/countryUniversityController");
 const universityApplicationController = require("./controllers/universityApplicationController");
 const universityChoiceController = require("./controllers/universityChoiceController");
+const paymentController = require("./controllers/paymentController");
 const backupController = require("./controllers/backupController");
 const commissionController = require("./controllers/commissionController");
 const archiveController = require("./controllers/archiveController");
@@ -170,6 +171,17 @@ app.get("/api/admin/backup/restore-status", requireAuth, requireRoles("ADMIN"), 
 app.post("/api/admin/backup/restore", requireAuth, requireRoles("ADMIN"), backupController.restore);
 
 // Commissions Sales/RDV — configuration des taux et registre des gains
+// Finance : tarifs par pays, tableau de bord et liste des plans (admin) ;
+// paiements d'un étudiant (admin ou conseiller de l'étudiant).
+app.get("/api/admin/finance/overview", requireAuth, requireRoles("ADMIN"), paymentController.overview);
+app.get("/api/admin/finance/plans", requireAuth, requireRoles("ADMIN"), paymentController.listPlans);
+app.get("/api/admin/finance/pricing", requireAuth, requireRoles("ADMIN"), paymentController.listPricing);
+app.put("/api/admin/finance/pricing/:countryId", requireAuth, requireRoles("ADMIN"), paymentController.setPricing);
+app.delete("/api/admin/finance/pricing/:countryId", requireAuth, requireRoles("ADMIN"), paymentController.removePricing);
+app.get("/api/finance/pricing/:countryId", requireAuth, requireRoles("SALES", "ADMIN"), paymentController.getPricing);
+app.get("/api/students/:id/payments", requireAuth, requireRoles("SALES", "ADMIN"), paymentController.studentSummary);
+app.post("/api/students/:id/payments", requireAuth, requireRoles("SALES", "ADMIN"), paymentController.record);
+app.patch("/api/payments/:id/cancel", requireAuth, requireRoles("ADMIN"), paymentController.cancel);
 app.get("/api/admin/commission-rules", requireAuth, requireRoles("ADMIN"), commissionController.listRules);
 app.post("/api/admin/commission-rules", requireAuth, requireRoles("ADMIN"), commissionController.upsertRule);
 app.patch("/api/admin/commission-rules/:id/active", requireAuth, requireRoles("ADMIN"), commissionController.setRuleActive);

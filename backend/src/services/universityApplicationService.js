@@ -4,6 +4,7 @@ const universityRepo = require("../repositories/countryUniversityRepository");
 const countryUniversityService = require("./countryUniversityService");
 const choiceRepo = require("../repositories/universityChoiceRepository");
 const choiceService = require("./universityChoiceService");
+const paymentService = require("./paymentService");
 const studentDocRepo = require("../repositories/studentDocumentRepository");
 const studentRepo = require("../repositories/studentRepository");
 const userRepo = require("../repositories/userRepository");
@@ -813,6 +814,8 @@ async function markVisaSubmitted(auth, applicationId) {
   if (notValidated.length) {
     throw fail("Tous les documents visa obligatoires doivent être validés avant de déposer le dossier.", 400);
   }
+  // Paiement : la tranche visa doit être réglée avant le dépôt.
+  await paymentService.assertVisaPaid(application);
 
   const updated = await appRepo.update(applicationId, { visa_status: "SUBMITTED", visa_submitted_at: new Date() });
   await recordHistory(applicationId, application.student_id, "VISA_PREPARATION", "VISA_SUBMITTED", auth.sub, "Dossier visa déposé.");

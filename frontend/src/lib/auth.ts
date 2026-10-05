@@ -611,6 +611,8 @@ export type SalesCodePayload = {
   prefillPhone?: string;
   expiresAt?: string;
   whatsappContactId?: string;
+  /** Tranche 1 (inscription) encaissée : obligatoire quand le pays a un tarif. */
+  payment?: { confirmed: boolean; method: PaymentMethod; reference?: string };
 };
 
 export async function fetchMySalesCodes(): Promise<SalesCode[]> {
@@ -1628,4 +1630,131 @@ export async function submitStudentAvis(payload: { rating: number; content: stri
     method: "POST",
     body: JSON.stringify(payload)
   });
+}
+
+// ==========================================
+// FINANCE : tarifs par pays, plans de paiement (2 tranches), paiements
+// ==========================================
+export type Currency = "TND" | "EUR";
+export type PaymentMethod = "CASH" | "TRANSFER" | "CARD" | "CHEQUE";
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  CASH: "Espèces",
+  TRANSFER: "Virement",
+  CARD: "Carte",
+  CHEQUE: "Chèque"
+};
+
+export function formatMoney(amount: number, currency: Currency | string): string {
+  const symbol = currency === "EUR" ? "€" : "DT";
+  return `${amount.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} ${symbol}`;
+}
+
+export type CountryPricing = {
+  countryId: string;
+  countryName: string;
+  code: string;
+  configured: boolean;
+  currency: Currency;
+  tranche1: number | null;
+  tranche2: number | null;
+};
+
+export type TrancheState = { due: number; paid: number; remaining: number; complete: boolean };
+
+export type PaymentPlan = {
+  id: string;
+  studentId: string;
+  studentName: string;
+  countryId: string;
+  countryName: string;
+  currency: Currency;
+  salesId: string | null;
+  salesName: string | null;
+  dossierStage: string | null;
+  tranche1: TrancheState;
+  tranche2: TrancheState;
+  total: number;
+  paidTotal: number;
+  remainingTotal: number;
+  status: "PAID" | "PARTIAL" | "UNPAID";
+  late: boolean;
+};
+
+export type StudentPayment = {
+  id: string;
+  planId: string;
+  countryName: string;
+  tranche: 1 | 2;
+  amount: number;
+  currency: Currency;
+  method: PaymentMethod;
+  methodLabel: string;
+  paidAt: string;
+  reference: string | null;
+  recordedByName: string | null;
+  recordedByRole: string;
+  status: "ACTIVE" | "CANCELLED";
+  cancelReason: string | null;
+  createdAt: string;
+};
+
+export type StudentPaymentsSummary = { plans: PaymentPlan[]; payments: StudentPayment[]; canCancel: boolean };
+
+export type RecordPaymentPayload = {
+  countryId: string;
+  tranche: 1 | 2;
+  amount?: number;
+  method: PaymentMethod;
+  paidAt?: string;
+  reference?: string;
+};
+
+type CurrencyBucket = { collected: number; remaining: number };
+export type FinanceOverview = {
+  collected: Partial<Record<Currency, { total: number; month: number }>>;
+  remaining: Partial<Record<Currency, number>>;
+  lateCount: number;
+  planCount: number;
+  byCountry: Array<{ name: string; byCurrency: Partial<Record<Currency, CurrencyBucket>> }>;
+  bySales: Array<{ name: string; byCurrency: Partial<Record<Currency, CurrencyBucket>> }>;
+};
+
+export async function fetchFinanceOverview(): Promise<FinanceOverview> {
+  return request<FinanceOverview>("/api/admin/finance/overview");
+}
+
+export async function fetchFinancePlans(filters: { status?: string; countryId?: string; salesId?: string; q?: string } = {}): Promise<PaymentPlan[]> {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => value && params.set(key, value));
+  return request<PaymentPlan[]>(`/api/admin/finance/plans?${params.toString()}`);
+}
+
+export async function fetchFinancePricing(): Promise<CountryPricing[]> {
+  return request<CountryPricing[]>("/api/admin/finance/pricing");
+}
+
+export async function saveFinancePricing(countryId: string, payload: { currency: Currency; tranche1: number; tranche2: number }): Promise<CountryPricing> {
+  return request<CountryPricing>(`/api/admin/finance/pricing/${countryId}`, { method: "PUT", body: JSON.stringify(payload) });
+}
+
+export async function removeFinancePricing(countryId: string): Promise<CountryPricing> {
+  return request<CountryPricing>(`/api/admin/finance/pricing/${countryId}`, { method: "DELETE" });
+}
+
+// Tarif d'un pays (conseiller : pour confirmer la tranche 1 à la création d'un code).
+export async function fetchCountryPricing(countryId: string): Promise<CountryPricing> {
+  return request<CountryPricing>(`/api/finance/pricing/${countryId}`);
+}
+
+export async function fetchStudentPayments(studentId: string): Promise<StudentPaymentsSummary> {
+  return request<StudentPaymentsSummary>(`/api/students/${studentId}/payments`);
+}
+
+export async function recordStudentPayment(studentId: string, payload: RecordPaymentPayload): Promise<StudentPaymentsSummary> {
+  return request<StudentPaymentsSummary>(`/api/students/${studentId}/payments`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function cancelStudentPayment(paymentId: string, reason: string): Promise<StudentPaymentsSummary> {
+  return request<StudentPaymentsSummary>(`/api/payments/${paymentId}/cancel`, { method: "PATCH", body: JSON.stringify({ reason }) });
 }

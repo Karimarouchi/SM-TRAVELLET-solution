@@ -5,6 +5,7 @@ const studentRepo = require("../repositories/studentRepository");
 const commissionService = require("./commissionService");
 const notificationService = require("./notificationService");
 const whatsappService = require("./whatsappService");
+const paymentService = require("./paymentService");
 const env = require("../config/env");
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sans caractères ambigus (0/O, 1/I)
@@ -89,6 +90,9 @@ async function createCode(auth, payload) {
   if (!country) throw fail("Pays introuvable.", 404);
   if (!country.active) throw fail("Ce pays est désactivé.", 400);
 
+  // Tranche 1 (inscription) : le conseiller confirme l'avoir encaissée.
+  const payment = await paymentService.prepareCodePayment(country.id, payload.payment);
+
   let expiresAt = null;
   if (payload.expiresAt) {
     const date = new Date(payload.expiresAt);
@@ -107,7 +111,8 @@ async function createCode(auth, payload) {
       prefillTargetLevel: payload.prefillTargetLevel ? String(payload.prefillTargetLevel).trim() : null,
       prefillPhone: payload.prefillPhone ? String(payload.prefillPhone).trim() : contact ? `+${contact.phone}` : null,
       expiresAt,
-      whatsappContactId: contact?.id
+      whatsappContactId: contact?.id,
+      payment
     });
     const dto = codeDto({
       ...row,
@@ -166,6 +171,7 @@ async function applyCodeToNewStudent(userId, rawCode) {
     phone: claimed.prefill_phone
   });
   await notificationService.notifyStudentAssigned(claimed.sales_id, userId);
+  await paymentService.applyCodePayment(userId, claimed).catch(() => undefined);
   if (claimed.whatsapp_contact_id) {
     await whatsappService.attachStudentFromCode(claimed.whatsapp_contact_id, userId);
   }

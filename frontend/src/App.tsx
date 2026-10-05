@@ -11,6 +11,7 @@ import VerifyEmailPage from "@/pages/VerifyEmailPage";
 import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
 import AdminPage from "@/pages/AdminPage";
 import AdminSalesPage from "@/pages/AdminSalesPage";
+import AdminFinancePage from "@/pages/AdminFinancePage";
 import AdminUsersPage from "@/pages/AdminUsersPage";
 import AdminSettingsPage from "@/pages/AdminSettingsPage";
 import AdminStaffStatsPage from "@/pages/AdminStaffStatsPage";
@@ -44,6 +45,7 @@ export default function App() {
           <Route path="/accelerateur" element={<AcceleratorPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/admin/sales" element={<AdminSalesPage />} />
+          <Route path="/admin/finance" element={<AdminFinancePage />} />
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
           <Route path="/admin/equipe/:id" element={<AdminStaffStatsPage />} />

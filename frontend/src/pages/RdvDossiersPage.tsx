@@ -362,6 +362,8 @@ export default function RdvDossiersPage() {
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur.");
+      // Le message (ex. paiement de l'étudiant non réglé) est affiché en haut de page.
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
       setBusyId(null);
     }
@@ -377,7 +379,11 @@ export default function RdvDossiersPage() {
         </p>
       </section>
 
-      {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
+      {error && (
+        <div role="alert" className="mt-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> {error}
+        </div>
+      )}
 
       <MyCommissionsCard />
 

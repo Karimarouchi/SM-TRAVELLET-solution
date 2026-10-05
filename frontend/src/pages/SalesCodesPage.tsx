@@ -1,16 +1,21 @@
 import { FancySelect } from "@/components/ui/fancy-select";
 import {
+  PAYMENT_METHOD_LABELS,
   createSalesCode,
+  fetchCountryPricing,
   fetchMySalesCodes,
   fetchPublicCountries,
+  formatMoney,
   getSession,
   type Country,
+  type CountryPricing,
+  type PaymentMethod,
   type SalesCode
 } from "@/lib/auth";
 import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { fetchWhatsAppConversations, formatWhatsAppPhone, type WhatsAppConversation } from "@/lib/whatsapp";
-import { AlertTriangle, CheckCircle2, ClipboardCopy, Globe2, MessageCircle, Plus, Search, Sparkles, X } from "lucide-react";
+import { AlertTriangle, Banknote, CheckCircle2, ClipboardCopy, Globe2, MessageCircle, Plus, Search, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 type FormData = {
@@ -144,6 +149,11 @@ export default function SalesCodesPage() {
   const [contact, setContact] = useState<WhatsAppConversation | null>(null);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  // Tranche 1 (inscription) : le conseiller confirme l'avoir encaissée.
+  const [pricing, setPricing] = useState<CountryPricing | null>(null);
+  const [paid, setPaid] = useState(false);
+  const [payMethod, setPayMethod] = useState<PaymentMethod | "">("");
+  const [payReference, setPayReference] = useState("");
 
   const load = () => {
     setLoading(true);
@@ -158,7 +168,17 @@ export default function SalesCodesPage() {
     fetchPublicCountries().then(setCountries).catch(() => setCountries([]));
   }, []);
 
+  useEffect(() => {
+    setPaid(false);
+    setPayMethod("");
+    setPayReference("");
+    setPricing(null);
+    if (form.countryId) fetchCountryPricing(form.countryId).then(setPricing).catch(() => setPricing(null));
+  }, [form.countryId]);
+
   if (!session?.user) return null;
+
+  const needsPayment = Boolean(pricing?.configured && (pricing.tranche1 || 0) > 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,11 +186,16 @@ export default function SalesCodesPage() {
       setError(t("Choisissez un pays.", "Choose a country."));
       return;
     }
+    if (needsPayment && (!paid || !payMethod)) {
+      setError(t("Confirmez l'encaissement de la tranche 1 et choisissez le mode de paiement.", "Confirm the first instalment was collected and choose the payment method."));
+      return;
+    }
     setSaving(true);
     setError("");
     setWarning("");
     try {
       const created = await createSalesCode({
+        payment: needsPayment ? { confirmed: true, method: payMethod as PaymentMethod, reference: payReference.trim() || undefined } : undefined,
         countryId: form.countryId,
         prefillCurrentStudyLevel: form.prefillCurrentStudyLevel || undefined,
         prefillTargetLevel: form.prefillTargetLevel || undefined,
@@ -269,6 +294,37 @@ export default function SalesCodesPage() {
               placeholder={t("Choisir un pays", "Choose a country")}
             />
           </div>
+          {needsPayment && pricing && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 sm:col-span-2">
+              <p className="flex items-center gap-2 text-sm font-bold text-amber-900">
+                <Banknote className="h-4 w-4" aria-hidden />
+                {t("Paiement de l'inscription (tranche 1)", "Registration payment (instalment 1)")} : {formatMoney(pricing.tranche1 || 0, pricing.currency)}
+              </p>
+              <p className="mt-0.5 text-[11px] text-amber-800">
+                {t(`Prix total ${pricing.countryName} : ${formatMoney((pricing.tranche1 || 0) + (pricing.tranche2 || 0), pricing.currency)} · la tranche 2 (${formatMoney(pricing.tranche2 || 0, pricing.currency)}) sera à régler avant le dépôt du visa.`, `Total price ${pricing.countryName}: ${formatMoney((pricing.tranche1 || 0) + (pricing.tranche2 || 0), pricing.currency)} · instalment 2 (${formatMoney(pricing.tranche2 || 0, pricing.currency)}) is due before the visa filing.`)}
+              </p>
+              <label className="mt-3 flex items-start gap-2 text-sm font-semibold text-dark">
+                <input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} className="mt-0.5 h-4 w-4 accent-violet-600" />
+                {t("J'ai encaissé la tranche 1 auprès du client", "I have collected instalment 1 from the client")}
+              </label>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <FancySelect
+                  value={payMethod}
+                  onChange={(v) => setPayMethod(v as PaymentMethod)}
+                  options={(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((m) => ({ value: m, label: PAYMENT_METHOD_LABELS[m] }))}
+                  placeholder={t("Mode de paiement", "Payment method")}
+                />
+                <input
+                  type="text"
+                  value={payReference}
+                  onChange={(e) => setPayReference(e.target.value)}
+                  maxLength={120}
+                  placeholder={t("Référence (reçu, virement…) · optionnel", "Reference (receipt, transfer…) · optional")}
+                  className="w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm outline-none focus:border-brand"
+                />
+              </div>
+            </div>
+          )}
           <div>
             <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-muted">
               {t("Téléphone (optionnel)", "Phone (optional)")}
