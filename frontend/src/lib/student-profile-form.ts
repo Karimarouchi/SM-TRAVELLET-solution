@@ -110,7 +110,7 @@ export function profileToForm(profile: StudentProfile | null): ProfileForm {
     targetField: profile?.targetField || "",
     targetIntake: profile?.targetIntake || "",
     targetUniversity: profile?.targetUniversity || "",
-    annualBudget: profile?.annualBudget || "",
+    annualBudget: profile?.annualBudget ? String(Number(profile.annualBudget)) : "",
     fundingMode: profile?.fundingMode || "",
     languageLevelFrench: profile?.languageLevelFrench || "",
     languageLevelEnglish: profile?.languageLevelEnglish || "",
