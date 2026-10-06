@@ -1003,7 +1003,15 @@ async function listMineForRdv(auth) {
     throw fail("Action réservée au Responsable Dossier Visa.", 403);
   }
   const rows = await appRepo.listForRdv(auth.sub);
-  return rows.map((r) => ({ ...dto(r), studentName: `${r.student_prenom} ${r.student_nom}`.trim(), studentEmail: r.student_email }));
+  return Promise.all(
+    rows.map(async (r) => ({
+      ...dto(r),
+      studentName: `${r.student_prenom} ${r.student_nom}`.trim(),
+      studentEmail: r.student_email,
+      // Tranche visa non réglée : le dépôt du visa sera refusé tant qu'elle reste due.
+      visaPaymentDue: r.visa_status === "PREPARATION" ? await paymentService.visaPaymentDue(r.student_id, r.country_id) : null
+    }))
+  );
 }
 
 module.exports = {

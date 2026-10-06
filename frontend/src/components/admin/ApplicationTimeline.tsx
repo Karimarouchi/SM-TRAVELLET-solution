@@ -75,6 +75,8 @@ export default function ApplicationTimeline({
 }
 
 function ApplicationCard({ app, canAct, onChanged }: { app: UniversityApplication; canAct: boolean; onChanged: () => void }) {
+  // La liste du RDV mélange plusieurs étudiants : leur nom est joint à chaque candidature.
+  const studentName = (app as UniversityApplication & { studentName?: string }).studentName;
   const [modal, setModal] = useState<null | "apply" | "interview" | "reject" | "reapply" | "meet">(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -99,7 +101,8 @@ function ApplicationCard({ app, canAct, onChanged }: { app: UniversityApplicatio
         <div className="flex items-start gap-2">
           <GraduationCap className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
           <div>
-            <p className="text-sm font-bold text-dark">{app.universityName}</p>
+            {studentName && <p className="mb-0.5 text-[11px] font-bold uppercase tracking-wide text-brand">{studentName}</p>}
+            <p className="text-sm font-bold text-dark">{app.universityName}{app.fieldOfStudy ? ` · ${app.fieldOfStudy}` : ""}</p>
             <p className="text-xs text-muted">{app.countryName}{app.programmeTitle ? ` · ${app.programmeTitle}` : ""}</p>
           </div>
         </div>

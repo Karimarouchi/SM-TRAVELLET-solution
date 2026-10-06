@@ -4,11 +4,15 @@ import {
   fetchStudentApplicationHistory,
   fetchStudentDetail,
   fetchStudentDocuments,
+  fetchStudentPayments,
+  formatMoney,
   getSession,
   reviewApplicationVisaDocument,
   reviewStudentDocument,
   type ApplicationHistoryEntry,
   type AuthUser,
+  type PaymentPlan,
+  type PipelineStageKey,
   type StudentDocumentChecklistItem,
   type StudentProfile,
   type UniversityApplication,
@@ -20,9 +24,16 @@ import { cn } from "@/lib/utils";
 import ApplicationTimeline from "@/components/admin/ApplicationTimeline";
 import UniversityChoicesPanel from "@/components/UniversityChoicesPanel";
 import StudentPaymentsPanel from "@/components/StudentPaymentsPanel";
+import { StageBadge } from "@/components/admin/StudentsPipelineBoard";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import {
+  AlertTriangle,
   ArrowLeft,
+  ArrowRight,
   CheckCircle2,
+  MessageCircle,
+  Phone,
+  Sparkles,
   Clock,
   FileText,
   GraduationCap,
@@ -35,7 +46,7 @@ import {
   UserRound,
   XCircle
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { PassportBadge } from "@/components/PassportBadge";
 import { monthsLeft, parseExpiry } from "@/lib/passport";
@@ -58,6 +69,54 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+type Alert = { key: string; tone: "danger" | "warning" | "info"; text: string; target: string };
+
+const ALERT_STYLES: Record<Alert["tone"], string> = {
+  danger: "border-red-200 bg-red-50 text-red-700",
+  warning: "border-amber-200 bg-amber-50 text-amber-800",
+  info: "border-violet-200 bg-violet-50 text-violet-700"
+};
+
+// Étape du pipeline d'un étudiant (même règle que la liste du conseiller).
+function stageOf(onboardingCompleted: boolean, applications: UniversityApplication[]): PipelineStageKey {
+  if (!onboardingCompleted) return "onboarding";
+  const latest = applications.find((a) => a.status !== "CLOSED");
+  if (!latest) return "no_application";
+  if (latest.status === "REJECTED") return "rejected";
+  if (latest.status === "ACCEPTED") {
+    if (latest.visaStatus === "ACCEPTED") return "completed";
+    if (latest.visaStatus === "REJECTED") return "visa_rejected";
+    if (latest.visaStatus === "SUBMITTED") return "visa_submitted";
+    if (latest.visaStatus === "PREPARATION") return "visa_preparation";
+    return "accepted";
+  }
+  if (["INTERVIEW_REQUIRED", "INTERVIEW_SCHEDULED", "INTERVIEW_COMPLETED"].includes(latest.status)) return "interview";
+  if (latest.status === "WAITING_UNIVERSITY_RESPONSE") return "waiting_response";
+  if (latest.status === "APPLIED") return "applied";
+  return "ready_to_apply";
+}
+
+function scrollToSection(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function ContactButton({ href, icon: Icon, label, tone }: { href: string; icon: typeof Mail; label: string; tone: string }) {
+  return (
+    <a href={href} target={href.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer" className={cn("inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition", tone)}>
+      <Icon className="h-4 w-4" aria-hidden /> {label}
+    </a>
+  );
+}
+
+function InfoGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="mb-2 text-[11px] font-extrabold uppercase tracking-wider text-brand">{title}</p>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3">{children}</div>
+    </div>
+  );
+}
+
 export default function StudentDetailPage() {
   const { t } = useLanguage();
   const { id } = useParams<{ id: string }>();
@@ -76,6 +135,7 @@ export default function StudentDetailPage() {
   const passportMonthsLeft = passportExpiry ? monthsLeft(passportExpiry) : null;
   const [activeTab, setActiveTab] = useState<"overview" | "history">("overview");
   const [visaDocs, setVisaDocs] = useState<VisaDocumentChecklistItem[]>([]);
+  const [plans, setPlans] = useState<PaymentPlan[]>([]);
   const visaApp = applications.find((a) => a.status === "ACCEPTED" && !a.visaStatus);
 
   const loadApplications = () => {
@@ -93,8 +153,14 @@ export default function StudentDetailPage() {
     fetchApplicationVisaDocuments(accepted.id).then(setVisaDocs).catch(() => undefined);
   }, [applications]);
 
+  const reloadPayments = () => {
+    if (!id || (role !== "SALES" && role !== "ADMIN")) return;
+    fetchStudentPayments(id).then((data) => setPlans(data.plans)).catch(() => undefined);
+  };
+
   useEffect(() => {
     if (!id) return;
+    reloadPayments();
     Promise.all([fetchStudentDetail(id), fetchStudentDocuments(id), fetchStudentApplications(id), fetchStudentApplicationHistory(id)])
       .then(([detail, docs, apps, hist]) => {
         setUser(detail.user);
@@ -123,6 +189,24 @@ export default function StudentDetailPage() {
   const reviewFor = (name: string, status: "VALIDATED" | "REJECTED", reason?: string, universityId?: string | null) =>
     id ? reviewStudentDocument(id, name, status, reason, universityId) : Promise.reject(new Error(t("Étudiant inconnu.", "Unknown student.")));
 
+  const stage = useMemo(() => stageOf(Boolean(profile?.onboardingCompleted), applications), [profile, applications]);
+  const docsToReview = documents.filter((d) => d.status === "SUBMITTED").length;
+  const docsRejected = documents.filter((d) => d.status === "REJECTED").length;
+  const docsValidated = documents.filter((d) => d.status === "VALIDATED").length;
+  const alerts = useMemo<Alert[]>(() => {
+    const list: Alert[] = [];
+    if (docsToReview) list.push({ key: "docs", tone: "warning", text: t(`${docsToReview} document${docsToReview > 1 ? "s" : ""} à valider`, `${docsToReview} document(s) to review`), target: "documents" });
+    const visaToReview = visaDocs.filter((d) => d.status === "SUBMITTED").length;
+    if (visaToReview) list.push({ key: "visa-docs", tone: "warning", text: t(`${visaToReview} document${visaToReview > 1 ? "s" : ""} visa à valider`, `${visaToReview} visa document(s) to review`), target: "visa-documents" });
+    const late = plans.find((p) => p.late);
+    if (late) list.push({ key: "payment", tone: "danger", text: t(`Paiement en retard : reste ${formatMoney(late.remainingTotal, late.currency)}`, `Payment overdue: ${formatMoney(late.remainingTotal, late.currency)} left`), target: "paiements" });
+    if (profile?.passportStatus === "EXPIRED") list.push({ key: "passport", tone: "danger", text: t("Passeport expiré", "Passport expired"), target: "profil" });
+    else if (profile?.passportStatus === "EXPIRING") list.push({ key: "passport", tone: "warning", text: t("Passeport à renouveler", "Passport to renew"), target: "profil" });
+    if (docsRejected) list.push({ key: "rejected", tone: "info", text: t(`${docsRejected} document${docsRejected > 1 ? "s" : ""} refusé${docsRejected > 1 ? "s" : ""} : en attente de l'étudiant`, `${docsRejected} rejected document(s): waiting for the student`), target: "documents" });
+    if (stage === "accepted") list.push({ key: "visa-prep", tone: "info", text: t("Accepté : préparer les documents visa", "Accepted: prepare visa documents"), target: "visa-documents" });
+    return list;
+  }, [docsToReview, docsRejected, visaDocs, plans, profile, stage, t]);
+
   if (loading) {
     return (
       <main className="mx-auto max-w-4xl px-4 sm:px-6 pb-16 pt-10 text-center">
@@ -139,49 +223,63 @@ export default function StudentDetailPage() {
     );
   }
 
+  const phoneDigits = (profile.phone || "").replace(/\D/g, "");
+  const fullName = `${user.prenom} ${user.nom}`.trim();
+  const passportOk = profile.passportStatus === "VALID";
+
   return (
-    <main className="mx-auto max-w-4xl px-4 sm:px-6 pb-16">
+    <main className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
       <button
         type="button"
         onClick={() => navigate(-1)}
-        className="mb-4 mt-2 inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-muted shadow-sm hover:text-brand transition"
+        className="mb-4 mt-2 inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-muted shadow-sm transition hover:text-brand"
       >
         <ArrowLeft className="h-3.5 w-3.5" /> {t("Retour", "Back")}
       </button>
 
-      <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-6 sm:p-8 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)]">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/15 text-xl font-bold">
-              {user.prenom[0]}{user.nom[0]}
-            </div>
-            <div>
-              <h1 className="font-display text-2xl font-extrabold">{user.prenom} {user.nom}</h1>
-              <p className="mt-1 flex items-center gap-1.5 text-sm text-white/85"><Mail className="h-3.5 w-3.5" /> {user.email}</p>
+      {/* ── En-tête du dossier ─────────────────────────────────────── */}
+      <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-6 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)] sm:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-5">
+          <div className="flex min-w-0 items-center gap-4">
+            <UserAvatar name={fullName} src={user.avatarUrl} size="xl" className="ring-4 ring-white/25" />
+            <div className="min-w-0">
+              <h1 className="truncate font-display text-2xl font-extrabold sm:text-3xl">{fullName}</h1>
+              <p className="mt-1 flex items-center gap-1.5 truncate text-sm text-white/85"><Mail className="h-3.5 w-3.5 shrink-0" /> {user.email}</p>
+              <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-white px-1 py-0.5"><StageBadge stage={stage} /></span>
+                {profile.preferredCountries.length > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold"><Globe2 className="h-3 w-3" aria-hidden /> {profile.preferredCountries.join(", ")}</span>
+                )}
+              </div>
             </div>
           </div>
+          <div className="flex flex-wrap gap-2">
+            {phoneDigits && <ContactButton href={`https://wa.me/${phoneDigits}`} icon={MessageCircle} label="WhatsApp" tone="bg-emerald-500 text-white hover:bg-emerald-600" />}
+            {phoneDigits && <ContactButton href={`tel:+${phoneDigits}`} icon={Phone} label={t("Appeler", "Call")} tone="bg-white/15 text-white ring-1 ring-white/25 hover:bg-white/25" />}
+            <ContactButton href={`mailto:${user.email}`} icon={Mail} label={t("E-mail", "Email")} tone="bg-white/15 text-white ring-1 ring-white/25 hover:bg-white/25" />
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+          {[
+            { label: t("Documents", "Documents"), value: docsToReview ? `${docsToReview} ${t("à valider", "to review")}` : `${docsValidated} ${t("validé" + (docsValidated > 1 ? "s" : ""), "approved")}`, warn: docsToReview > 0, target: "documents" },
+            { label: t("Passeport", "Passport"), value: passportOk ? t("Valide", "Valid") : profile.passportStatus === "EXPIRING" ? t("À renouveler", "To renew") : profile.passportStatus === "EXPIRED" ? t("Expiré", "Expired") : t("À renseigner", "To fill"), warn: !passportOk, target: "profil" },
+            { label: t("Paiement", "Payment"), value: plans.length ? (plans.every((p) => p.status === "PAID") ? t("Soldé", "Settled") : plans.some((p) => p.late) ? t("En retard", "Overdue") : t("En cours", "In progress")) : "—", warn: plans.some((p) => p.late), target: "paiements" },
+            { label: t("Candidatures", "Applications"), value: `${applications.filter((a) => a.status !== "CLOSED").length}`, warn: false, target: "candidatures" }
+          ].map((chip) => (
+            <button key={chip.label} type="button" onClick={() => scrollToSection(chip.target)} className="rounded-2xl bg-white/12 px-4 py-3 text-left ring-1 ring-white/20 transition hover:bg-white/20">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">{chip.label}</p>
+              <p className={cn("mt-0.5 text-sm font-extrabold", chip.warn ? "text-amber-200" : "text-white")}>{chip.value}</p>
+            </button>
+          ))}
         </div>
 
         {/* Bascule : Vue d'ensemble / Historique complet */}
         <div className="relative mt-5 inline-flex items-center gap-1 rounded-xl bg-white/10 p-1 backdrop-blur">
-          <button
-            type="button"
-            onClick={() => setActiveTab("overview")}
-            className={cn(
-              "flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition",
-              activeTab === "overview" ? "bg-white text-brand shadow" : "text-white/80 hover:text-white"
-            )}
-          >
+          <button type="button" onClick={() => setActiveTab("overview")} className={cn("flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition", activeTab === "overview" ? "bg-white text-brand shadow" : "text-white/80 hover:text-white")}>
             <LayoutGrid className="h-3.5 w-3.5" /> {t("Vue d'ensemble", "Overview")}
           </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("history")}
-            className={cn(
-              "flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition",
-              activeTab === "history" ? "bg-white text-brand shadow" : "text-white/80 hover:text-white"
-            )}
-          >
+          <button type="button" onClick={() => setActiveTab("history")} className={cn("flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition", activeTab === "history" ? "bg-white text-brand shadow" : "text-white/80 hover:text-white")}>
             <History className="h-3.5 w-3.5" /> {t("Historique complet", "Full history")}
           </button>
         </div>
@@ -189,97 +287,125 @@ export default function StudentDetailPage() {
 
       {activeTab === "overview" ? (
         <>
-          {/* Profil */}
-          <section className="mt-6 rounded-[24px] border border-line bg-white p-6 shadow-sm">
-            <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark">
-              <UserRound className="h-5 w-5 text-brand" /> {t("Profil", "Profile")}
-            </h2>
-            <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
-              <InfoRow label={t("Téléphone", "Phone")} value={profile.phone} />
-              <InfoRow label={t("Nationalité", "Nationality")} value={profile.nationality} />
-              <InfoRow label={t("Pays de résidence", "Country of residence")} value={profile.residenceCountry} />
-              <InfoRow label={t("Ville", "City")} value={profile.city} />
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted">{t("Passeport", "Passport")}</p>
-                {profile.passportNumber ? (
-                  <p className="mt-0.5 break-words font-mono text-sm font-semibold tracking-wide text-dark">{profile.passportNumber}</p>
-                ) : null}
-                <p className="mt-1">
-                  <PassportBadge status={profile.passportStatus} expiresOn={profile.passportExpiresOn} monthsLeft={passportMonthsLeft} showDate />
-                </p>
-              </div>
-              <InfoRow label={t("Niveau actuel", "Current level")} value={profile.currentStudyLevel} />
-              <InfoRow label={t("Dernier diplôme", "Last diploma")} value={profile.lastDiploma} />
-              <InfoRow label={t("Pays préférés", "Preferred countries")} value={profile.preferredCountries.join(", ")} />
-              <InfoRow label={t("Niveau recherché", "Target level")} value={profile.targetLevel} />
-              <InfoRow label={t("Formation souhaitée", "Desired program")} value={profile.targetField} />
-              <InfoRow label={t("Budget annuel", "Annual budget")} value={profile.annualBudget ? `${profile.annualBudget} €` : ""} />
-              <InfoRow label={t("Niveau français", "French level")} value={profile.languageLevelFrench} />
-              <InfoRow label={t("Niveau anglais", "English level")} value={profile.languageLevelEnglish} />
-            </div>
-          </section>
-
-          {/* Documents */}
-          <section className="mt-6">
-            <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark">
-              <FileText className="h-5 w-5 text-brand" /> {t("Documents", "Documents")} ({documents.length})
-            </h2>
-            <div className="mt-3 space-y-3">
-              {documents.length === 0 ? (
-                <p className="rounded-2xl border border-dashed border-line bg-white p-6 text-sm text-muted">
-                  {t("Aucun document requis pour l'instant (l'étudiant n'a pas encore choisi de pays).", "No documents required yet (the student hasn't chosen a country yet).")}
-                </p>
-              ) : (
-                documents.map((doc) => (
-                  <DocumentReviewRow key={`${doc.universityId || "pays"}:${doc.name}`} doc={doc} reviewFor={reviewFor} onReviewed={handleReviewed} />
-                ))
-              )}
-            </div>
-          </section>
-
-          {id && (role === "SALES" || role === "ADMIN") && <StudentPaymentsPanel studentId={id} />}
-
-          {id && <UniversityChoicesPanel studentId={id} onChanged={reloadAfterChoice} />}
-
-          {/* Candidatures universitaires */}
-          <section className="mt-6">
-            <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark">
-              <GraduationCap className="h-5 w-5 text-brand" /> {t("Candidatures universitaires", "University applications")} ({applications.length})
-            </h2>
-            <div className="mt-3">
-              <ApplicationTimeline applications={applications} canAct={canActUniversity} onChanged={loadApplications} />
-            </div>
-          </section>
-
-          {visaApp && (role === "SALES" || role === "ADMIN") && (
-            <section className="mt-6">
-              <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark">
-                <FileText className="h-5 w-5 text-brand" /> {t("Documents visa", "Visa documents")}
-              </h2>
-              <p className="mt-1 text-xs text-muted">
-                {t("Validez tous les documents visa obligatoires : le dossier revient ensuite automatiquement au même RDV (ou au moins chargé s'il n'est plus actif).", "Approve every required visa document: the file then returns automatically to the same visa officer (or the least loaded if they are inactive).")}
-              </p>
-              <div className="mt-3 space-y-2">
-                {visaDocs.length === 0 ? (
-                  <p className="rounded-2xl border border-dashed border-line bg-white p-6 text-sm text-muted">
-                    {t("Aucun document visa configuré pour ce pays, ou l'étudiant n'a pas encore déposé de fichier.", "No visa document configured for this country, or the student has not uploaded a file yet.")}
-                  </p>
-                ) : (
-                  visaDocs.map((doc) => (
-                    <VisaSalesReviewRow
-                      key={doc.requirementId}
-                      applicationId={visaApp.id}
-                      doc={doc}
-                      onReviewed={(updated) => {
-                        setVisaDocs((prev) => prev.map((d) => (d.requirementId === updated.requirementId ? updated : d)));
-                        loadApplications();
-                      }}
-                    />
-                  ))
-                )}
+          {/* À traiter */}
+          {alerts.length > 0 && (
+            <section className="mt-6 rounded-2xl border border-line bg-white p-4 shadow-sm" aria-label={t("À traiter", "To handle")}>
+              <p className="mb-2.5 flex items-center gap-2 text-sm font-extrabold text-dark"><Sparkles className="h-4 w-4 text-brand" aria-hidden /> {t("À traiter sur ce dossier", "To handle on this file")}</p>
+              <div className="flex flex-wrap gap-2">
+                {alerts.map((alert) => (
+                  <button key={alert.key} type="button" onClick={() => scrollToSection(alert.target)} className={cn("inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold transition hover:shadow-sm", ALERT_STYLES[alert.tone])}>
+                    {alert.tone === "danger" && <AlertTriangle className="h-3 w-3" aria-hidden />} {alert.text} <ArrowRight className="h-3 w-3 opacity-60" aria-hidden />
+                  </button>
+                ))}
               </div>
             </section>
           )}
+
+          <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+            {/* Colonne de travail */}
+            <div className="min-w-0 space-y-6">
+              <section id="documents" className="scroll-mt-24">
+                <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark">
+                  <FileText className="h-5 w-5 text-brand" /> {t("Documents", "Documents")} ({documents.length})
+                </h2>
+                <div className="mt-3 space-y-3">
+                  {documents.length === 0 ? (
+                    <p className="rounded-2xl border border-dashed border-line bg-white p-6 text-sm text-muted">
+                      {t("Aucun document requis pour l'instant (l'étudiant n'a pas encore choisi de pays).", "No documents required yet (the student hasn't chosen a country yet).")}
+                    </p>
+                  ) : (
+                    documents.map((doc) => (
+                      <DocumentReviewRow key={`${doc.universityId || "pays"}:${doc.name}`} doc={doc} reviewFor={reviewFor} onReviewed={handleReviewed} />
+                    ))
+                  )}
+                </div>
+              </section>
+
+              {visaApp && (role === "SALES" || role === "ADMIN") && (
+                <section id="visa-documents" className="scroll-mt-24">
+                  <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark">
+                    <FileText className="h-5 w-5 text-brand" /> {t("Documents visa", "Visa documents")}
+                  </h2>
+                  <p className="mt-1 text-xs text-muted">
+                    {t("Validez tous les documents visa obligatoires : le dossier revient ensuite automatiquement au même RDV (ou au moins chargé s'il n'est plus actif).", "Approve every required visa document: the file then returns automatically to the same visa officer (or the least loaded if they are inactive).")}
+                  </p>
+                  <div className="mt-3 space-y-2">
+                    {visaDocs.length === 0 ? (
+                      <p className="rounded-2xl border border-dashed border-line bg-white p-6 text-sm text-muted">
+                        {t("Aucun document visa configuré pour ce pays, ou l'étudiant n'a pas encore déposé de fichier.", "No visa document configured for this country, or the student has not uploaded a file yet.")}
+                      </p>
+                    ) : (
+                      visaDocs.map((doc) => (
+                        <VisaSalesReviewRow
+                          key={doc.requirementId}
+                          applicationId={visaApp.id}
+                          doc={doc}
+                          onReviewed={(updated) => {
+                            setVisaDocs((prev) => prev.map((d) => (d.requirementId === updated.requirementId ? updated : d)));
+                            loadApplications();
+                          }}
+                        />
+                      ))
+                    )}
+                  </div>
+                </section>
+              )}
+
+              <section id="candidatures" className="scroll-mt-24">
+                <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark">
+                  <GraduationCap className="h-5 w-5 text-brand" /> {t("Candidatures universitaires", "University applications")} ({applications.length})
+                </h2>
+                <div className="mt-3">
+                  <ApplicationTimeline applications={applications} canAct={canActUniversity} onChanged={loadApplications} />
+                </div>
+              </section>
+
+              {id && <div className="[&>section]:mt-0"><UniversityChoicesPanel studentId={id} onChanged={reloadAfterChoice} /></div>}
+            </div>
+
+            {/* Colonne latérale : profil et paiements */}
+            <aside className="min-w-0 space-y-6">
+              <section id="profil" className="scroll-mt-24 rounded-[24px] border border-line bg-white p-5 shadow-sm">
+                <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark">
+                  <UserRound className="h-5 w-5 text-brand" /> {t("Profil", "Profile")}
+                </h2>
+                <div className="mt-4 space-y-5">
+                  <InfoGroup title={t("Contact", "Contact")}>
+                    <InfoRow label={t("Téléphone", "Phone")} value={profile.phone} />
+                    <InfoRow label={t("Ville", "City")} value={profile.city} />
+                    <InfoRow label={t("Nationalité", "Nationality")} value={profile.nationality} />
+                    <InfoRow label={t("Résidence", "Residence")} value={profile.residenceCountry} />
+                  </InfoGroup>
+                  <InfoGroup title={t("Passeport", "Passport")}>
+                    <div className="col-span-2 min-w-0">
+                      {profile.passportNumber ? <p className="break-words font-mono text-sm font-semibold tracking-wide text-dark">{profile.passportNumber}</p> : null}
+                      <p className="mt-1">
+                        <PassportBadge status={profile.passportStatus} expiresOn={profile.passportExpiresOn} monthsLeft={passportMonthsLeft} showDate />
+                      </p>
+                    </div>
+                  </InfoGroup>
+                  <InfoGroup title={t("Projet d'études", "Study project")}>
+                    <InfoRow label={t("Pays préférés", "Preferred countries")} value={profile.preferredCountries.join(", ")} />
+                    <InfoRow label={t("Niveau recherché", "Target level")} value={profile.targetLevel} />
+                    <InfoRow label={t("Formation", "Program")} value={profile.targetField} />
+                    <InfoRow label={t("Budget annuel", "Annual budget")} value={profile.annualBudget ? `${Number(profile.annualBudget)} €` : ""} />
+                  </InfoGroup>
+                  <InfoGroup title={t("Parcours et langues", "Background and languages")}>
+                    <InfoRow label={t("Niveau actuel", "Current level")} value={profile.currentStudyLevel} />
+                    <InfoRow label={t("Dernier diplôme", "Last diploma")} value={profile.lastDiploma} />
+                    <InfoRow label={t("Français", "French")} value={profile.languageLevelFrench} />
+                    <InfoRow label={t("Anglais", "English")} value={profile.languageLevelEnglish} />
+                  </InfoGroup>
+                </div>
+              </section>
+
+              {id && (role === "SALES" || role === "ADMIN") && (
+                <div id="paiements" className="scroll-mt-24 [&>section]:mt-0">
+                  <StudentPaymentsPanel studentId={id} onChanged={reloadPayments} compact />
+                </div>
+              )}
+            </aside>
+          </div>
         </>
       ) : (
         <FullHistoryTimeline history={history} />

@@ -23,6 +23,7 @@ const countryUniversityController = require("./controllers/countryUniversityCont
 const universityApplicationController = require("./controllers/universityApplicationController");
 const universityChoiceController = require("./controllers/universityChoiceController");
 const paymentController = require("./controllers/paymentController");
+const salesDashboardController = require("./controllers/salesDashboardController");
 const backupController = require("./controllers/backupController");
 const commissionController = require("./controllers/commissionController");
 const archiveController = require("./controllers/archiveController");
@@ -162,6 +163,7 @@ app.post("/api/archive/purge", requireAuth, requireRoles("ADMIN"), archiveContro
 
 app.get("/api/sales/me", requireAuth, requireRoles("SALES", "ADMIN"), salesController.me);
 app.get("/api/sales", requireAuth, requireRoles("SALES", "ADMIN"), salesController.list);
+app.get("/api/sales/me/overview", requireAuth, requireRoles("SALES"), salesDashboardController.overview);
 app.get("/api/sales/me/codes", requireAuth, requireRoles("SALES"), salesCodeController.list);
 app.post("/api/sales/me/codes", requireAuth, requireRoles("SALES"), salesCodeController.create);
 

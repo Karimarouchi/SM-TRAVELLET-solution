@@ -49,14 +49,14 @@ export default function MyCommissionsCard() {
             <Coins className="h-5 w-5" />
           </span>
           <span className="min-w-0 text-left">
-            <span className="block truncate font-display text-base font-bold text-dark sm:text-lg">{t("Mes commissions", "My commissions")}</span>
+            <span className="block font-display text-base font-bold leading-tight text-dark sm:text-lg">{t("Mes commissions", "My commissions")}</span>
             <span className="block text-xs text-muted">
               {earnings.length} {t(`gain${earnings.length !== 1 ? "s" : ""} enregistré${earnings.length !== 1 ? "s" : ""}`, `earning${earnings.length !== 1 ? "s" : ""} recorded`)}
             </span>
           </span>
         </button>
         <span className="flex shrink-0 items-center gap-2">
-          <span aria-hidden={!revealed} className={`whitespace-nowrap font-display text-lg font-extrabold text-brand transition sm:text-xl ${blur}`}>{total.toFixed(2)} DT</span>
+          <span aria-hidden={!revealed} className={`whitespace-nowrap font-display text-base font-extrabold text-brand transition sm:text-lg ${blur}`}>{total.toFixed(2)} DT</span>
           <button
             type="button"
             onClick={() => setRevealed((v) => !v)}

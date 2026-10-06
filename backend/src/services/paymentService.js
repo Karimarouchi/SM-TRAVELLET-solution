@@ -342,6 +342,16 @@ async function applyCodePayment(studentId, claimed) {
   }
 }
 
+// Tranche visa restant à payer pour un dossier (null si rien n'est dû ou si
+// l'étudiant n'a pas de plan) : sert à avertir le RDV avant même qu'il clique.
+async function visaPaymentDue(studentId, countryId) {
+  const plan = await paymentRepo.findPlan(studentId, countryId);
+  if (!plan) return null;
+  const t2 = trancheState(plan.tranche2_due, plan.paid2);
+  if (t2.complete) return null;
+  return { remaining: t2.remaining, currency: plan.currency };
+}
+
 // ── Blocage du dépôt visa ──
 // Un étudiant qui n'a pas de plan (inscrit avant cette fonction, ou pays sans
 // tarif) n'est jamais bloqué.
@@ -438,6 +448,7 @@ module.exports = {
   prepareCodePayment,
   applyCodePayment,
   assertVisaPaid,
+  visaPaymentDue,
   overview,
   listPlans,
   listJournal

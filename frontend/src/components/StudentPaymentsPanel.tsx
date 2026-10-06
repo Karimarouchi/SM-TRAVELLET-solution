@@ -43,7 +43,7 @@ function TrancheBox({ title, hint, state, currency }: { title: string; hint: str
 
 // Paiements d'un étudiant : tranches par pays, enregistrement (admin ou
 // conseiller de l'étudiant) et historique. L'admin peut annuler un paiement.
-export default function StudentPaymentsPanel({ studentId, onChanged }: { studentId: string; onChanged?: () => void }) {
+export default function StudentPaymentsPanel({ studentId, onChanged, compact = false }: { studentId: string; onChanged?: () => void; compact?: boolean }) {
   const [summary, setSummary] = useState<StudentPaymentsSummary | null>(null);
   const [countries, setCountries] = useState<Country[]>([]);
   const [error, setError] = useState("");
@@ -249,7 +249,7 @@ export default function StudentPaymentsPanel({ studentId, onChanged }: { student
                   <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800">Reste {formatMoney(p.remainingTotal, p.currency)}</span>
                 )}
               </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className={cn("mt-3 grid gap-3", !compact && "sm:grid-cols-2")}>
                 <TrancheBox title="Tranche 1 · inscription" hint="Payée à la création du code" state={p.tranche1} currency={p.currency} />
                 <TrancheBox title="Tranche 2 · visa" hint="À régler avant le dépôt du visa" state={p.tranche2} currency={p.currency} />
               </div>

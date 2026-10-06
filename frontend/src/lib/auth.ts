@@ -1389,7 +1389,10 @@ export async function scheduleVisaEmbassyAppointment(applicationId: string, date
   });
 }
 
-export type RdvMyApplication = UniversityApplication & { studentName: string; studentEmail: string };
+/** Tranche visa encore due : le dépôt du visa est bloqué tant qu'elle n'est pas payée. */
+export type VisaPaymentDue = { remaining: number; currency: Currency };
+
+export type RdvMyApplication = UniversityApplication & { studentName: string; studentEmail: string; visaPaymentDue?: VisaPaymentDue | null };
 
 export async function fetchMyRdvApplications(): Promise<RdvMyApplication[]> {
   return request<RdvMyApplication[]>("/api/rdv/me/applications");
@@ -1782,4 +1785,44 @@ export async function fetchPaymentJournal(filters: { q?: string; method?: string
 
 export async function cancelStudentPayment(paymentId: string, reason: string): Promise<StudentPaymentsSummary> {
   return request<StudentPaymentsSummary>(`/api/payments/${paymentId}/cancel`, { method: "PATCH", body: JSON.stringify({ reason }) });
+}
+
+// ==========================================
+// ESPACE CONSEILLER : vue d'ensemble de ses étudiants
+// ==========================================
+export type SalesAttentionItem = { key: string; tone: "danger" | "warning" | "info"; weight: number; text: string };
+
+export type SalesOverviewStudent = {
+  id: string;
+  prenom: string;
+  nom: string;
+  email: string;
+  phone: string;
+  city: string;
+  avatarUrl: string;
+  isActive: boolean;
+  createdAt: string | null;
+  preferredCountries: string[];
+  targetField: string;
+  onboardingCompleted: boolean;
+  stage: PipelineStageKey;
+  docs: { toReview: number; rejected: number; validated: number };
+  passport: { status: PassportStatus; expiresOn: string; monthsLeft: number | null };
+  payment: { late: boolean; status: "PAID" | "PARTIAL" | "UNPAID"; remaining: Array<{ currency: Currency; amount: number }> } | null;
+  choices: number;
+  application: { id: string; status: string; visaStatus: string | null; universityName: string; fieldOfStudy: string; countryName: string } | null;
+  nextInterviewAt: string | null;
+  attention: SalesAttentionItem[];
+  score: number;
+};
+
+export type SalesOverview = {
+  stages: Array<{ key: string; label: string }>;
+  stageCounts: Record<string, number>;
+  kpis: { students: number; needAttention: number; docsToReview: number; paymentsLate: number; inProgress: number; visasObtained: number };
+  students: SalesOverviewStudent[];
+};
+
+export async function fetchSalesOverview(): Promise<SalesOverview> {
+  return request<SalesOverview>("/api/sales/me/overview");
 }
