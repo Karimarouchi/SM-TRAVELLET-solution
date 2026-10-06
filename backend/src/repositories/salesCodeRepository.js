@@ -14,6 +14,8 @@ async function findBySales(salesId) {
      LEFT JOIN users u ON u.id = sc.used_by_student_id
      LEFT JOIN whatsapp_contacts wc ON wc.id = sc.whatsapp_contact_id
      WHERE sc.sales_id = $1
+       -- Un code utilisé reste visible 24 h puis disparaît de la liste du conseiller.
+       AND (sc.used = FALSE OR sc.used_at > NOW() - INTERVAL '24 hours')
      ORDER BY sc.created_at DESC`,
     [salesId]
   );

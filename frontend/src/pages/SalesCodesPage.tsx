@@ -435,6 +435,7 @@ export default function SalesCodesPage() {
 
           <section className="mt-8">
             <h2 className="font-display text-lg font-bold text-dark">{t("Codes utilisés", "Used codes")} ({used.length})</h2>
+            <p className="mt-1 text-xs text-muted">{t("Un code utilisé reste affiché 24 h, puis il disparaît de cette liste.", "A used code stays listed for 24 h, then disappears from this list.")}</p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               {used.map((c) => (
                 <article key={c.id} className="rounded-2xl border border-line bg-white p-4 opacity-80">
