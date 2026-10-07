@@ -360,7 +360,8 @@ export default function AdminPage() {
             ) : null}
           </div>
 
-          <div className="mt-5 space-y-3">
+          {/* Environ 3 alertes visibles : le reste se découvre en faisant défiler la liste. */}
+          <div className="-mx-2 mt-5 max-h-[432px] space-y-3 overflow-y-auto px-2 py-1 pr-3">
             {(data?.alerts || []).map((alert, idx) => {
               const isDanger = alert.tone === "danger";
               const isSuccess = alert.tone === "success";
