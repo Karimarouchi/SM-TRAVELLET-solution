@@ -102,6 +102,31 @@ function Funnel({ wa }: { wa: TeamPerformance["whatsapp"] }) {
   );
 }
 
+// Charge de travail (part des dossiers de l'équipe) et dossiers terminés, issues du dashboard.
+type Load = { id: string; share: number; completed: number };
+
+function LoadBar({ load }: { load?: Load }) {
+  if (!load) return null;
+  const color = load.share > 35 ? "from-rose-500 to-rose-400" : load.share > 20 ? "from-amber-500 to-amber-400" : "from-emerald-500 to-emerald-400";
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-[11px]">
+        <span className="font-semibold text-dark">Charge de travail</span>
+        <span className="font-bold text-dark">{load.share}%</span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+        <motion.div
+          className={cn("h-full rounded-full bg-gradient-to-r", color)}
+          initial={{ width: 0 }}
+          whileInView={{ width: `${Math.max(load.share ? 3 : 0, Math.min(load.share, 100))}%` }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.9, ease: "easeOut" }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ── Cartes employés ──────────────────────────────────────────────────────────
 function MiniStat({ icon: Icon, label, value, warn }: { icon: typeof Clock; label: string; value: ReactNode; warn?: boolean }) {
   return (
@@ -155,7 +180,7 @@ function PersonShell({ person, rank, period, index, accent, children, footer }: 
   );
 }
 
-function SalesCard({ person, rank, period, index }: { person: StaffPerformance; rank: number | null; period: PerformancePeriod; index: number }) {
+function SalesCard({ person, rank, period, index, load }: { person: StaffPerformance; rank: number | null; period: PerformancePeriod; index: number; load?: Load }) {
   const s = person.sales!;
   const wa = s.whatsapp;
   return (
@@ -166,7 +191,9 @@ function SalesCard({ person, rank, period, index }: { person: StaffPerformance; 
       index={index}
       accent="from-violet-500 to-fuchsia-400"
       footer={
-        <div>
+        <div className="space-y-3">
+          <LoadBar load={load} />
+          <div>
           <div className="mb-1 flex items-center justify-between text-[11px]">
             <span className="font-semibold text-dark">Codes d'inscription</span>
             <span className="text-muted">{s.codes.used} utilisé{s.codes.used > 1 ? "s" : ""} / {s.codes.created} créé{s.codes.created > 1 ? "s" : ""}</span>
@@ -179,6 +206,7 @@ function SalesCard({ person, rank, period, index }: { person: StaffPerformance; 
               viewport={{ once: true }}
               transition={{ duration: 0.9, ease: "easeOut" }}
             />
+          </div>
           </div>
         </div>
       }
@@ -208,12 +236,13 @@ function SalesCard({ person, rank, period, index }: { person: StaffPerformance; 
         <MiniStat icon={Send} label="Dossier → RDV" value={s.handoff.label} />
         <MiniStat icon={Flame} label="Mi-parcours" value={s.halfwayDossiers} warn={s.halfwayDossiers > 0} />
         <MiniStat icon={TrendingUp} label="Docs validés" value={s.documentsValidated} />
+        <MiniStat icon={Crown} label="Dossiers complets" value={load ? load.completed : "—"} />
       </div>
     </PersonShell>
   );
 }
 
-function RdvCard({ person, rank, period, index }: { person: StaffPerformance; rank: number | null; period: PerformancePeriod; index: number }) {
+function RdvCard({ person, rank, period, index, load }: { person: StaffPerformance; rank: number | null; period: PerformancePeriod; index: number; load?: Load }) {
   const r = person.rdv!;
   return (
     <PersonShell
@@ -223,11 +252,14 @@ function RdvCard({ person, rank, period, index }: { person: StaffPerformance; ra
       index={index}
       accent="from-sky-500 to-emerald-400"
       footer={
+        <div className="space-y-3">
+        <LoadBar load={load} />
         <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
           <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700">{r.accepted} acceptée{r.accepted > 1 ? "s" : ""}</span>
           <span className="rounded-full bg-rose-50 px-2.5 py-1 text-rose-600">{r.rejected} refusée{r.rejected > 1 ? "s" : ""}</span>
           <span className="rounded-full bg-sky-50 px-2.5 py-1 text-sky-700">{r.visaAccepted} visa{r.visaAccepted > 1 ? "s" : ""} obtenu{r.visaAccepted > 1 ? "s" : ""}</span>
           {r.visaRejected > 0 && <span className="rounded-full bg-rose-50 px-2.5 py-1 text-rose-600">{r.visaRejected} visa refusé{r.visaRejected > 1 ? "s" : ""}</span>}
+        </div>
         </div>
       }
     >
@@ -274,7 +306,7 @@ function Team({ title, icon: Icon, count, children }: { title: string; icon: typ
   );
 }
 
-export default function TeamPerformancePanel() {
+export default function TeamPerformancePanel({ salesLoad = [], rdvLoad = [] }: { salesLoad?: Load[]; rdvLoad?: Load[] }) {
   const [period, setPeriod] = useState<PerformancePeriod>("30");
   const [data, setData] = useState<TeamPerformance | null>(null);
   const [error, setError] = useState("");
@@ -390,14 +422,14 @@ export default function TeamPerformancePanel() {
           {sales.length > 0 && (
             <Team title="Conseillers" icon={Users} count={sales.length}>
               {sales.map((s, i) => (
-                <SalesCard key={s.id} person={s} rank={rankOf(i, s.sales!.whatsapp.conversations)} period={period} index={i} />
+                <SalesCard key={s.id} person={s} rank={rankOf(i, s.sales!.whatsapp.conversations)} period={period} index={i} load={salesLoad.find((l) => l.id === s.id)} />
               ))}
             </Team>
           )}
           {rdv.length > 0 && (
             <Team title="Responsables Visa" icon={UserCheck} count={rdv.length}>
               {rdv.map((s, i) => (
-                <RdvCard key={s.id} person={s} rank={rankOf(i, s.rdv!.dossiers)} period={period} index={i} />
+                <RdvCard key={s.id} person={s} rank={rankOf(i, s.rdv!.dossiers)} period={period} index={i} load={rdvLoad.find((l) => l.id === s.id)} />
               ))}
             </Team>
           )}

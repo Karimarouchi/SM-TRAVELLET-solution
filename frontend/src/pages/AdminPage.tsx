@@ -21,7 +21,6 @@ import {
   CheckCircle2,
   GraduationCap,
   TrendingUp,
-  UserRound,
   Users,
   AlertTriangle,
   AlertCircle,
@@ -76,26 +75,6 @@ function YoYBadge({ year }: { year: number }) {
   );
 }
 
-// ── Performance list (réutilisée pour l'équipe Sales et l'équipe RDV) ─────────
-type PerformanceItem = {
-  id: string;
-  prenom: string;
-  nom: string;
-  email: string;
-  isActive: boolean;
-  students: number;
-  completed: number;
-  share: number;
-};
-
-const AVATAR_COLORS = [
-  "from-violet-500 to-purple-600",
-  "from-sky-500 to-blue-600",
-  "from-emerald-500 to-teal-600",
-  "from-rose-500 to-pink-600",
-  "from-amber-500 to-orange-600",
-];
-
 // Une alerte avec une page de correction est un lien ; sinon une simple carte.
 function AlertCard({ to, label, className, style, children }: { to?: string; label: string; className: string; style?: React.CSSProperties; children: React.ReactNode }) {
   return to ? (
@@ -104,132 +83,6 @@ function AlertCard({ to, label, className, style, children }: { to?: string; lab
     </Link>
   ) : (
     <div className={className} style={style}>{children}</div>
-  );
-}
-
-function PerformanceList({
-  title,
-  subtitle,
-  studentsLabel,
-  completedLabel,
-  emptyLabel,
-  items,
-  onViewAll
-}: {
-  title: string;
-  subtitle: string;
-  studentsLabel: string;
-  completedLabel: string;
-  emptyLabel: string;
-  items: PerformanceItem[];
-  onViewAll: () => void;
-}) {
-  return (
-    <section className="rounded-[24px] border border-line bg-white p-4 sm:p-6">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="font-display text-xl font-bold text-dark">{title}</h2>
-          <p className="mt-0.5 text-xs text-muted">{subtitle}</p>
-        </div>
-        <button
-          type="button"
-          onClick={onViewAll}
-          className="shrink-0 rounded-xl bg-brand-light px-3 py-1.5 text-[11px] font-bold text-brand transition hover:bg-brand hover:text-white"
-        >
-          Voir tout →
-        </button>
-      </div>
-
-      <div className="mt-5 space-y-3">
-        {items.map((item, idx) => {
-          const initials = `${item.prenom?.[0] ?? ""}${item.nom?.[0] ?? ""}`.toUpperCase();
-          const avatarGrad = AVATAR_COLORS[idx % AVATAR_COLORS.length];
-          const medals = ["🥇", "🥈", "🥉"];
-          const medal = medals[idx] ?? null;
-          const shareColor =
-            item.share > 35 ? "bg-red-400" : item.share > 20 ? "bg-amber-400" : "bg-emerald-400";
-
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={onViewAll}
-              className="group relative w-full overflow-hidden rounded-2xl border border-line bg-white p-4 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-brand/30"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-slate-50 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-              <div className="relative z-10 flex items-center gap-3">
-                {/* Avatar */}
-                <div className={cn(
-                  "relative flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br text-[15px] font-black text-white shadow-md transition-transform group-hover:scale-110",
-                  avatarGrad,
-                )}>
-                  {initials}
-                  {medal && (
-                    <span className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm text-sm">
-                      {medal}
-                    </span>
-                  )}
-                </div>
-
-                {/* Name + email */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-display text-sm font-bold text-dark">
-                      {item.prenom} {item.nom}
-                    </span>
-                    <span className={cn(
-                      "rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
-                      item.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-muted",
-                    )}>
-                      {item.isActive ? "● Actif" : "○ Inactif"}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 truncate text-[11px] text-muted">{item.email}</p>
-                </div>
-
-                {/* Stats chips */}
-                <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
-                  <div className="text-center">
-                    <p className="font-display text-lg font-extrabold text-dark leading-none">{item.students}</p>
-                    <p className="text-[9px] font-semibold uppercase tracking-wide text-muted">{studentsLabel}</p>
-                  </div>
-                  <div className="h-8 w-px bg-line" />
-                  <div className="text-center">
-                    <p className="font-display text-lg font-extrabold text-brand leading-none">{item.completed}</p>
-                    <p className="text-[9px] font-semibold uppercase tracking-wide text-muted">{completedLabel}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Load bar */}
-              <div className="mt-3">
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">
-                    Charge
-                    {/* Téléphone : les compteurs, masqués à droite faute de place, passent ici. */}
-                    <span className="normal-case tracking-normal sm:hidden"> · {item.students} {studentsLabel} · {item.completed} {completedLabel}</span>
-                  </span>
-                  <span className="text-[11px] font-bold text-dark">{item.share}%</span>
-                </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-                  <div
-                    className={cn("h-full rounded-full transition-all duration-700", shareColor)}
-                    style={{ width: `${Math.min(item.share, 100)}%` }}
-                  />
-                </div>
-              </div>
-            </button>
-          );
-        })}
-
-        {!items.length && (
-          <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-line bg-slate-50 py-10">
-            <UserRound className="h-8 w-8 text-muted" />
-            <p className="text-sm text-muted">{emptyLabel}</p>
-          </div>
-        )}
-      </div>
-    </section>
   );
 }
 
@@ -458,29 +311,7 @@ export default function AdminPage() {
       </div>
 
       {/* ── Statistiques WhatsApp et délais, par employé ─────────────────── */}
-      <TeamPerformancePanel />
-
-      {/* ── Performance des deux équipes, classées séparément ────────────── */}
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <PerformanceList
-          title="Équipe Sales"
-          subtitle="Charge réelle par conseiller."
-          studentsLabel="étudiants"
-          completedLabel="complets"
-          emptyLabel="Aucun conseiller pour le moment."
-          items={data?.salesPerformance || []}
-          onViewAll={() => navigate("/admin/users?tab=conseillers")}
-        />
-        <PerformanceList
-          title="Équipe RDV"
-          subtitle="Dossiers visa réels par responsable."
-          studentsLabel="dossiers"
-          completedLabel="visas obtenus"
-          emptyLabel="Aucun Responsable Dossier Visa pour le moment."
-          items={data?.rdvPerformance || []}
-          onViewAll={() => navigate("/admin/users?tab=rdv")}
-        />
-      </div>
+      <TeamPerformancePanel salesLoad={data?.salesPerformance} rdvLoad={data?.rdvPerformance} />
 
       {/* ── Indicateurs clés : décisions, délais, finances, commissions ──── */}
       <AdminInsightsSection />
