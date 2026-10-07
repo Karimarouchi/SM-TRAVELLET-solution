@@ -7,11 +7,14 @@ async function findById(id) {
 
 async function listForStudent(studentId) {
   const result = await query(
-    `SELECT ua.*, c.name AS country_name, cu.name AS university_name, p.title AS programme_title
+    `SELECT ua.*, c.name AS country_name, cu.name AS university_name, p.title AS programme_title,
+            rdv.prenom AS rdv_prenom, rdv.nom AS rdv_nom, rdv.email AS rdv_email, rp.phone AS rdv_phone
      FROM university_applications ua
      JOIN countries c ON c.id = ua.country_id
      JOIN country_universities cu ON cu.id = ua.university_id
      LEFT JOIN programmes p ON p.id = ua.programme_id
+     LEFT JOIN users rdv ON rdv.id = ua.assigned_rdv_id
+     LEFT JOIN sales_profiles rp ON rp.user_id = ua.assigned_rdv_id
      WHERE ua.student_id = $1
      ORDER BY ua.created_at DESC`,
     [studentId]

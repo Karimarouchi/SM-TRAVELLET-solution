@@ -1247,6 +1247,9 @@ export type UniversityApplication = {
   programmeTitle: string | null;
   salesId: string | null;
   assignedRdvId: string | null;
+  assignedRdvName?: string | null;
+  assignedRdvEmail?: string | null;
+  assignedRdvPhone?: string | null;
   status: ApplicationStatus;
   appliedAt: string | null;
   applicationReference: string | null;

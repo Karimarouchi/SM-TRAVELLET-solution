@@ -116,6 +116,9 @@ function ApplicationCard({ app, canAct, onChanged }: { app: UniversityApplicatio
         </span>
       </div>
 
+      {app.assignedRdvName && app.status !== "CLOSED" && (
+        <p className="mt-2 text-xs text-muted">Suivie par le RDV <span className="font-semibold text-dark">{app.assignedRdvName}</span></p>
+      )}
       {app.appliedAt && (
         <p className="mt-2 text-xs text-muted">Déposée le {fmt(app.appliedAt)}{app.applicationReference ? ` · Réf. ${app.applicationReference}` : ""}</p>
       )}

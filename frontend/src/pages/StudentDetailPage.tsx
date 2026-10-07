@@ -35,6 +35,7 @@ import {
   ChevronDown,
   MessageCircle,
   Phone,
+  Plane,
   Sparkles,
   Clock,
   FileText,
@@ -272,6 +273,18 @@ export default function StudentDetailPage() {
     );
   }
 
+  // RDV (responsable visa) en relation avec l'étudiant, avec les candidatures qu'il suit.
+  const rdvContacts = (() => {
+    const map = new Map<string, { id: string; name: string; email: string | null; phone: string | null; universities: string[] }>();
+    for (const app of applications) {
+      if (!app.assignedRdvId || !app.assignedRdvName || app.status === "CLOSED") continue;
+      const entry = map.get(app.assignedRdvId) || { id: app.assignedRdvId, name: app.assignedRdvName, email: app.assignedRdvEmail || null, phone: app.assignedRdvPhone || null, universities: [] };
+      entry.universities.push(app.universityName);
+      map.set(app.assignedRdvId, entry);
+    }
+    return [...map.values()];
+  })();
+  const openApplications = applications.filter((a) => a.status !== "CLOSED");
   const phoneDigits = (profile.phone || "").replace(/\D/g, "");
   const fullName = `${user.prenom} ${user.nom}`.trim();
   const passportOk = profile.passportStatus === "VALID";
@@ -296,6 +309,9 @@ export default function StudentDetailPage() {
               <p className="mt-1 flex items-center gap-1.5 truncate text-sm text-white/85"><Mail className="h-3.5 w-3.5 shrink-0" /> {user.email}</p>
               <div className="mt-2.5 flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-white px-1 py-0.5"><StageBadge stage={stage} /></span>
+                {rdvContacts.length > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold"><Plane className="h-3 w-3" aria-hidden /> RDV : {rdvContacts.map((r) => r.name).join(", ")}</span>
+                )}
                 {profile.preferredCountries.length > 0 && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold"><Globe2 className="h-3 w-3" aria-hidden /> {profile.preferredCountries.join(", ")}</span>
                 )}
@@ -428,6 +444,45 @@ export default function StudentDetailPage() {
 
             {/* Colonne latérale : profil et paiements */}
             <aside className="min-w-0 space-y-6">
+              {openApplications.length > 0 && (
+                <section id="rdv" className="scroll-mt-24 rounded-[24px] border border-line bg-white p-5 shadow-sm">
+                  <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark">
+                    <Plane className="h-5 w-5 text-brand" /> {t("Responsable visa (RDV)", "Visa officer (RDV)")}
+                  </h2>
+                  {rdvContacts.length === 0 ? (
+                    <p className="mt-2 text-xs text-muted">
+                      {t("Aucun RDV assigné pour l'instant : il est choisi automatiquement dès que les documents sont validés.", "No visa officer assigned yet: one is picked automatically as soon as the documents are approved.")}
+                    </p>
+                  ) : (
+                    <ul className="mt-3 space-y-3">
+                      {rdvContacts.map((rdv) => (
+                        <li key={rdv.id} className="rounded-2xl bg-slate-50 p-3">
+                          <div className="flex items-center gap-2.5">
+                            <UserAvatar name={rdv.name} size="sm" className="h-9 w-9 shrink-0 text-xs" />
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-bold text-dark">{rdv.name}</p>
+                              <p className="truncate text-[11px] text-muted">{t("Suit", "Handles")} : {rdv.universities.join(", ")}</p>
+                            </div>
+                          </div>
+                          <div className="mt-2.5 flex flex-wrap gap-2">
+                            {rdv.email && (
+                              <a href={`mailto:${rdv.email}`} className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-bold text-mid ring-1 ring-line transition hover:text-brand">
+                                <Mail className="h-3 w-3" /> {rdv.email}
+                              </a>
+                            )}
+                            {rdv.phone && (
+                              <a href={`tel:${rdv.phone}`} className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-bold text-mid ring-1 ring-line transition hover:text-brand">
+                                <Phone className="h-3 w-3" /> {rdv.phone}
+                              </a>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              )}
+
               <section id="profil" className="scroll-mt-24 rounded-[24px] border border-line bg-white p-5 shadow-sm">
                 <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark">
                   <UserRound className="h-5 w-5 text-brand" /> {t("Profil", "Profile")}
