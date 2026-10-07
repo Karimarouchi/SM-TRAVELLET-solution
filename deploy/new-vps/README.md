@@ -1,6 +1,6 @@
 # Nouveau serveur — www.smtravel.fr
 
-Même méthode que d'habitude : **Docker** pour l'application (API, application React, PostgreSQL) et **un fichier nginx** dans `/etc/nginx` pour le site.
+Même méthode que d'habitude : **Docker** pour tout le site (API, vitrine + application React, PostgreSQL) et **un fichier nginx** dans `/etc/nginx` qui route les conteneurs.
 
 ## 1. Installer ce qui manque sur le serveur vide (une seule fois)
 
@@ -56,23 +56,24 @@ docker compose --profile production ps
 curl -s http://127.0.0.1:3002/api/health
 ```
 
-## 4. Le site vitrine et le fichier nginx
+## 4. Le fichier nginx
+
+Tout le site est dans Docker : le conteneur **frontend** sert la vitrine (`/`) et l'application (`/app/`), le conteneur **backend** sert `/api/` et `/uploads/`. Le fichier nginx de l'hôte ne fait que router ces deux conteneurs (aucun dossier de site à gérer).
 
 ```bash
-# Copie de la vitrine (à refaire quand le site vitrine change)
-mkdir -p /var/www/smtravel
-cp -r index.html paiement.html tailwind.css robots.txt sitemap.xml IMAGE js css SONG \
-      mentions-legales politique-confidentialite politique-cookies \
-      politique-annulation-remboursement conditions-generales-de-vente /var/www/smtravel/
-
-# Fichier nginx
-cp deploy/new-vps/nginx-smtravel.conf /etc/nginx/sites-available/smtravel
-ln -s /etc/nginx/sites-available/smtravel /etc/nginx/sites-enabled/smtravel
+cp /var/www/SM-TRAVELLET-solution/deploy/new-vps/nginx-smtravel.conf /etc/nginx/sites-available/smtravel
+ln -sf /etc/nginx/sites-available/smtravel /etc/nginx/sites-enabled/smtravel
 rm -f /etc/nginx/sites-enabled/default
 nginx -t && systemctl reload nginx
 ```
 
-Le site répond alors en HTTP sur l'adresse IP / le nom une fois le DNS changé.
+Test (avant de changer le DNS) :
+
+```bash
+curl -sI -H "Host: www.smtravel.fr" http://127.0.0.1/ | head -1          # 200 : vitrine
+curl -sI -H "Host: www.smtravel.fr" http://127.0.0.1/app/ | head -1      # 200 : application
+curl -s  -H "Host: www.smtravel.fr" http://127.0.0.1/api/health           # {"ok":true,...}
+```
 
 ## 5. DNS (Hostinger)
 
@@ -110,7 +111,7 @@ docker compose up -d --force-recreate backend frontend
 docker compose logs --tail=60 backend
 ```
 
-Si le site vitrine a changé : refaire la copie de l'étape 4 (`cp -r …`).
+L'image `frontend` contient la vitrine : un changement du site vitrine (`index.html`, images…) se met en ligne avec la même commande. Si le fichier `deploy/new-vps/nginx-smtravel.conf` change, recopiez-le (étape 4).
 
 ## Après la première connexion
 

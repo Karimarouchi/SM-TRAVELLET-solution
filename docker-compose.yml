@@ -61,7 +61,10 @@ services:
   frontend:
     profiles: ["production"]
     build:
-      context: ./frontend
+      # Racine du projet : l'image contient aussi le site vitrine (voir
+      # frontend/Dockerfile), servi à « / » par ce conteneur.
+      context: .
+      dockerfile: frontend/Dockerfile
       args:
         # URL publique de l'API backend, à définir dans le .env racine avant
         # le build (ex: VITE_API_URL=https://api.smtravel.fr) — c'est une
