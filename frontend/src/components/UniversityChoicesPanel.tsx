@@ -1,5 +1,4 @@
 import { confirmDialog } from "@/components/ui/dialog-host";
-import UniversityDocumentsEditor from "@/components/UniversityDocumentsEditor";
 import { FancySelect } from "@/components/ui/fancy-select";
 import {
   addMyUniversityChoice,
@@ -55,7 +54,6 @@ export default function UniversityChoicesPanel({ studentId, onChanged }: { stude
   const [universityId, setUniversityId] = useState("");
   const [customName, setCustomName] = useState("");
   const [field, setField] = useState("");
-  const [docsOpen, setDocsOpen] = useState<string | null>(null);
 
   const load = () =>
     (studentId ? fetchStudentUniversityChoices(studentId) : fetchMyUniversityChoices())
@@ -258,21 +256,12 @@ export default function UniversityChoicesPanel({ studentId, onChanged }: { stude
                 {missingDocs && (
                   <p className="mt-2 rounded-lg bg-amber-50 px-3 py-1.5 text-[11px] font-semibold text-amber-800">
                     {staff
-                      ? t("Université hors conventions : définissez ses documents spécifiques (ou aucun).", "Non-partner university: define its specific documents (or none).")
+                      ? t("Université hors conventions : ajoutez ses documents spécifiques dans le bloc au-dessus de la liste des documents (ou aucun).", "Non-partner university: add its specific documents in the block above the documents list (or none).")
                       : t("Université hors conventions : votre conseiller définira les documents spécifiques demandés.", "Non-partner university: your advisor will define the specific documents required.")}
                   </p>
                 )}
 
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {staff && !choice.partner && (
-                    <button
-                      type="button"
-                      onClick={() => setDocsOpen(docsOpen === choice.id ? null : choice.id)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-brand/30 bg-brand/5 px-3 py-1.5 text-[11px] font-bold text-brand hover:bg-brand/10"
-                    >
-                      <FileText className="h-3 w-3" /> {docsOpen === choice.id ? t("Masquer les documents", "Hide documents") : t("Documents de l'université", "University documents")}
-                    </button>
-                  )}
                   {removable && (
                     <button
                       type="button"
@@ -284,11 +273,6 @@ export default function UniversityChoicesPanel({ studentId, onChanged }: { stude
                   )}
                 </div>
 
-                {staff && !choice.partner && docsOpen === choice.id && (
-                  <div className="mt-3">
-                    <UniversityDocumentsEditor universityId={choice.universityId} universityName={choice.universityName} onChanged={load} />
-                  </div>
-                )}
               </div>
             );
           })
