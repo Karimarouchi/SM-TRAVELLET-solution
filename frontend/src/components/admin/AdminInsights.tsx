@@ -334,8 +334,8 @@ export default function AdminInsightsSection() {
               </p>
             </div>
             {withoutRdv > 0 && (
-              <Link to="/admin/users?tab=rdv" className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3.5 py-2 text-xs font-bold text-white transition hover:opacity-90">
-                <Clock className="h-3.5 w-3.5" /> Gérer les RDV
+              <Link to="/admin/users?tab=rdv&focus=attribution-visa" className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3.5 py-2 text-xs font-bold text-white transition hover:opacity-90">
+                <Clock className="h-3.5 w-3.5" /> Attribuer un RDV
               </Link>
             )}
           </div>

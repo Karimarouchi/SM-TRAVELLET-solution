@@ -247,24 +247,7 @@ async function getDashboard(query = {}) {
     });
   }
 
-  // Dossiers acceptés mais bloqués faute de RDV assigné : le visa ne peut
-  // pas avancer tant qu'un RDV n'est pas affecté au dossier. L'admin peut
-  // agir directement (assigner un RDV depuis la fiche étudiant).
-  const stuckVisas = await universityApplications.findAcceptedWithoutRdv();
-  for (const app of stuckVisas) {
-    alerts.push({
-      id: `no-rdv-${app.id}`,
-      studentId: app.student_id,
-      student: `${app.student_prenom} ${app.student_nom}`,
-      sales: "—",
-      problem: `Accepté à ${app.university_name} (${app.country_name}) — aucun RDV assigné pour le visa`,
-      sinceDays: daysSince(app.decision_at || app.updated_at),
-      tone: "danger",
-      // « Attribution des dossiers visa » (Équipe > Responsables Visa).
-      link: "/admin/users?tab=rdv&focus=attribution-visa",
-      actionLabel: "Attribuer un RDV"
-    });
-  }
+  // « Acceptés sans RDV » : suivi par la carte du Dashboard (Indicateurs clés), plus d'alerte en doublon.
 
   for (const student of all.filter(matches)) {
     if (student.onboardingCompleted && !student.assignedSalesId) {

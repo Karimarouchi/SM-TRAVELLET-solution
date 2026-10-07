@@ -10,8 +10,6 @@ import {
   ConversionFunnelChart,
   DestinationsPieChart,
   GrowthAreaChart,
-  PipelineRadialChart,
-  Sparkline,
 } from "@/components/admin/AdminCharts";
 import AdminInsightsSection from "@/components/admin/AdminInsights";
 import StudentsPipelineBoard from "@/components/admin/StudentsPipelineBoard";
@@ -21,21 +19,13 @@ import {
   CheckCircle2,
   GraduationCap,
   TrendingUp,
-  Users,
   AlertTriangle,
   AlertCircle,
   Sparkles,
   PlaneTakeoff
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-
-// ── Sparkline seeds (fixed so they look natural) ──────────────────────────────
-const SPARK_SEEDS: Record<string, number[]> = {
-  students:           [12, 14, 13, 16, 18, 20, 22, 21, 25, 28, 30, 32],
-  visasObtainedMonth: [1,  2,  1,  3,  2,  4,  3,  5,  4,  6,  5,  7],
-  stalledDossiers:    [4,  3,  5,  4,  6,  5,  4,  5,  3,  4,  3,  2],
-};
+import { Link } from "react-router-dom";
 
 // ── Chart section card wrapper ────────────────────────────────────────────────
 function ChartCard({
@@ -88,17 +78,13 @@ function AlertCard({ to, label, className, style, children }: { to?: string; lab
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function AdminPage() {
-  const navigate = useNavigate();
   const [data, setData] = useState<AdminDashboard | null>(null);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
     fetchAdminDashboard({ period: "all", salesId: "", destination: "", status: "" })
       .then((payload) => { setData(payload); setError(""); })
       .catch((err) => setError(err instanceof Error ? err.message : "Impossible de charger le dashboard."))
-      .finally(() => setLoading(false));
   }, []);
 
   const [pipelineStudents, setPipelineStudents] = useState<StudentOverview[]>([]);
@@ -131,14 +117,6 @@ export default function AdminPage() {
 
   const maxDest = Math.max(1, ...(data?.destinations.map((item) => item.count) || [1]));
 
-  const kpis = data
-    ? [
-        { key: "students",           label: "Étudiants",              icon: Users,         ...data.kpis.students,           onClick: () => navigate("/admin/users") },
-        { key: "visasObtainedMonth", label: "Visas obtenus ce mois",   icon: PlaneTakeoff,  ...data.kpis.visasObtainedMonth, onClick: () => navigate("/archive") },
-        { key: "stalledDossiers",    label: "Dossiers bloqués",        icon: AlertTriangle, ...data.kpis.stalledDossiers,    onClick: () => navigate("/admin/users") },
-      ]
-    : [];
-
   return (
     <main className="mx-auto max-w-[1400px] px-4 sm:px-6 pb-16">
 
@@ -153,42 +131,6 @@ export default function AdminPage() {
 
       {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
-      {/* ── KPI cards with sparklines ────────────────────────────────────── */}
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {kpis.map((item) => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.key}
-              type="button"
-              onClick={item.onClick}
-              className="group rounded-[24px] border border-line bg-white p-5 text-left transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-lg"
-            >
-              <span className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted">{item.label}</span>
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-light transition group-hover:bg-brand/20">
-                  <Icon className="h-4 w-4 text-brand" />
-                </span>
-              </span>
-              <div className="mt-3 flex items-end justify-between">
-                <div>
-                  <strong className="block font-display text-3xl font-extrabold text-dark">
-                    {loading ? "…" : item.value}
-                  </strong>
-                  <span className="mt-1 block text-xs text-brand">{item.hint}</span>
-                </div>
-                {!loading && (
-                  <Sparkline
-                    data={SPARK_SEEDS[item.key] ?? []}
-                    color={item.key === "stalledDossiers" ? "#f43f5e" : "#6d28d9"}
-                  />
-                )}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
       {/* ── Pipeline des étudiants (candidature + visa) ──────────────────── */}
       <section className="mt-6 rounded-[24px] border border-line bg-white p-6">
         <h2 className="font-display text-xl font-bold text-dark">Pipeline des étudiants</h2>
@@ -197,6 +139,9 @@ export default function AdminPage() {
           <StudentsPipelineBoard students={pipelineStudents} busyId={pipelineBusyId} onToggleBlock={togglePipelineBlock} />
         </div>
       </section>
+
+      {/* ── Indicateurs clés : décisions, délais, finances, commissions ──── */}
+      <AdminInsightsSection />
 
       {/* ── Actions prioritaires ─────────────────────────────────────────── */}
       <div className="mt-4">
@@ -313,10 +258,8 @@ export default function AdminPage() {
       {/* ── Statistiques WhatsApp et délais, par employé ─────────────────── */}
       <TeamPerformancePanel salesLoad={data?.salesPerformance} rdvLoad={data?.rdvPerformance} />
 
-      {/* ── Indicateurs clés : décisions, délais, finances, commissions ──── */}
-      <AdminInsightsSection />
 
-      {/* ── Entonnoir de conversion & croissance réelle ──────────────────── */}
+      {/* ── Parcours des étudiants : entonnoir et destinations ─────────────── */}
       <div className="mt-6 grid gap-4 xl:grid-cols-2">
         <ChartCard
           title="Entonnoir de conversion"
@@ -329,18 +272,6 @@ export default function AdminPage() {
         >
           <ConversionFunnelChart funnel={funnel} />
         </ChartCard>
-
-        <ChartCard
-          title="Croissance mensuelle"
-          subtitle="Nombre réel d'inscriptions cumulées, mois par mois."
-          badge={<YoYBadge year={currentYear} />}
-        >
-          <GrowthAreaChart data={data?.monthlyGrowth ?? []} currentYear={currentYear} />
-        </ChartCard>
-      </div>
-
-      {/* ── Destinations & Pipeline ──────────────────────────────────────── */}
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <ChartCard
           title="Destinations demandées"
           subtitle="Répartition géographique des choix des étudiants à l'onboarding."
@@ -365,12 +296,16 @@ export default function AdminPage() {
             </div>
           )}
         </ChartCard>
+      </div>
 
+      {/* ── Croissance ──────────────────────────────────────────────────── */}
+      <div className="mt-4">
         <ChartCard
-          title="Pipeline des dossiers"
-          subtitle="Répartition en pourcentage des dossiers par étape de traitement."
+          title="Croissance mensuelle"
+          subtitle="Nombre réel d'inscriptions cumulées, mois par mois."
+          badge={<YoYBadge year={currentYear} />}
         >
-          <PipelineRadialChart pipeline={data?.pipeline ?? []} />
+          <GrowthAreaChart data={data?.monthlyGrowth ?? []} currentYear={currentYear} />
         </ChartCard>
       </div>
     </main>
