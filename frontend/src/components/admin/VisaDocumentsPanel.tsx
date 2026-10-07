@@ -160,7 +160,7 @@ export default function VisaDocumentsPanel() {
   };
 
   const handleDeleteDocument = async (countryId: string, doc: DocumentRequirement) => {
-    if ((await confirmDialog(`Supprimer le document visa "${doc.name}" ?`, { tone: "danger", confirmLabel: "Supprimer" }))) return;
+    if (!(await confirmDialog(`Supprimer le document visa "${doc.name}" ?`, { tone: "danger", confirmLabel: "Supprimer" }))) return;
     try {
       await deleteCountryDocument(doc.id);
       notify(`"${doc.name}" supprimé.`);

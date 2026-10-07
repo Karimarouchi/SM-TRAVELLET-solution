@@ -138,7 +138,7 @@ export default function CountriesUniversitiesPanel() {
   };
 
   const handleDelete = async (countryId: string, uni: CountryUniversity) => {
-    if ((await confirmDialog(`Supprimer "${uni.name}" ?`, { tone: "danger", confirmLabel: "Supprimer" }))) return;
+    if (!(await confirmDialog(`Supprimer "${uni.name}" ?`, { tone: "danger", confirmLabel: "Supprimer" }))) return;
     try {
       await deleteCountryUniversity(uni.id);
       notify(`"${uni.name}" supprimée.`);

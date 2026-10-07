@@ -106,7 +106,7 @@ export default function UniversityChoicesPanel({ studentId, onChanged }: { stude
   };
 
   const remove = async (choice: UniversityChoice) => {
-    if ((await confirmDialog(t(`Retirer « ${choice.universityName} » (${choice.fieldOfStudy}) ?`, `Remove "${choice.universityName}" (${choice.fieldOfStudy})?`), { tone: "danger", confirmLabel: t("Retirer", "Remove") }))) return;
+    if (!(await confirmDialog(t(`Retirer « ${choice.universityName} » (${choice.fieldOfStudy}) ?`, `Remove "${choice.universityName}" (${choice.fieldOfStudy})?`), { tone: "danger", confirmLabel: t("Retirer", "Remove") }))) return;
     try {
       setSummary(await removeUniversityChoice(choice.id));
       onChanged?.();

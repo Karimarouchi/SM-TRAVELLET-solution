@@ -17,7 +17,8 @@ import {
   type PaymentPlan
 } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, BadgeCheck, Banknote, ChevronDown, ChevronUp, Coins, LayoutDashboard, Receipt, Search, Tag } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Banknote, CheckCircle2, ChevronDown, ChevronUp, Coins, Globe, Info, LayoutDashboard, Layers, Receipt, Save, Search, Tag, Trash2, Wallet } from "lucide-react";
+import { motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
@@ -247,30 +248,32 @@ function Payments({ initialStudent }: { initialStudent: string | null }) {
   );
 }
 
-function PricingRow({ row, onSaved }: { row: CountryPricing; onSaved: (next: CountryPricing) => void }) {
+const parseAmount = (value: string) => Number(value.replace(/\s/g, "").replace(",", ".")) || 0;
+const PRESETS = [500, 1000, 1500, 2000];
+
+function PricingCard({ row, onSaved, index }: { row: CountryPricing; onSaved: (next: CountryPricing) => void; index: number }) {
   const [currency, setCurrency] = useState<Currency>(row.currency);
   const [tranche1, setTranche1] = useState(row.tranche1 === null ? "" : String(row.tranche1));
   const [tranche2, setTranche2] = useState(row.tranche2 === null ? "" : String(row.tranche2));
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
-  const total = (Number(tranche1.replace(",", ".")) || 0) + (Number(tranche2.replace(",", ".")) || 0);
+  const t1 = parseAmount(tranche1);
+  const t2 = parseAmount(tranche2);
+  const total = t1 + t2;
   const symbol = currency === "EUR" ? "€" : "DT";
+  const dirty = !row.configured || currency !== row.currency || t1 !== (row.tranche1 ?? 0) || t2 !== (row.tranche2 ?? 0);
+  const canSave = dirty && total > 0 && !busy;
 
   const save = async () => {
     setBusy(true);
     setError("");
-    setMessage("");
     try {
-      const next = await saveFinancePricing(row.countryId, {
-        currency,
-        tranche1: Number(tranche1.replace(",", ".")) || 0,
-        tranche2: Number(tranche2.replace(",", ".")) || 0
-      });
+      const next = await saveFinancePricing(row.countryId, { currency, tranche1: t1, tranche2: t2 });
       onSaved(next);
-      setMessage("Enregistré ✓");
-      window.setTimeout(() => setMessage(""), 3000);
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2500);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Enregistrement impossible.");
     } finally {
@@ -279,8 +282,9 @@ function PricingRow({ row, onSaved }: { row: CountryPricing; onSaved: (next: Cou
   };
 
   const remove = async () => {
-    if ((await confirmDialog(`Supprimer le tarif de ${row.countryName} ? Les étudiants déjà engagés gardent leur tarif ; les nouveaux codes ne demanderont plus de paiement.`, { tone: "danger", confirmLabel: "Supprimer" }))) return;
+    if (!(await confirmDialog(`Supprimer le tarif de ${row.countryName} ? Les étudiants déjà engagés gardent leur tarif ; les nouveaux codes ne demanderont plus de paiement.`, { tone: "danger", confirmLabel: "Supprimer" }))) return;
     setBusy(true);
+    setError("");
     try {
       const next = await removeFinancePricing(row.countryId);
       onSaved(next);
@@ -293,79 +297,203 @@ function PricingRow({ row, onSaved }: { row: CountryPricing; onSaved: (next: Cou
     }
   };
 
-  const input = "w-full rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
-
-  return (
-    <div className="rounded-2xl border border-line bg-white p-4 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="flex items-center gap-2 text-sm font-bold text-dark">
-          <span className="inline-flex h-7 w-10 items-center justify-center rounded-lg bg-brand/10 text-[11px] font-bold text-brand">{row.code}</span>
-          {row.countryName}
-        </p>
-        {row.configured ? (
-          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">Tarif défini</span>
-        ) : (
-          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-500">Pas de tarif · aucun paiement exigé</span>
-        )}
+  const amountField = (label: string, hint: string, value: string, set: (v: string) => void) => (
+    <div>
+      <label className="mb-1 flex items-baseline justify-between gap-2 text-[11px] font-bold uppercase tracking-wide text-muted">
+        <span>{label}</span>
+        <span className="font-medium normal-case tracking-normal">{hint}</span>
+      </label>
+      <div className="relative">
+        <input
+          value={value}
+          onChange={(e) => set(e.target.value.replace(/[^\d.,\s]/g, ""))}
+          inputMode="decimal"
+          placeholder="0"
+          className="w-full rounded-xl border border-line bg-slate-50 py-2.5 pl-3 pr-12 font-display text-lg font-extrabold text-dark outline-none transition focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/20"
+        />
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted">{symbol}</span>
       </div>
-      <div className="mt-3 grid gap-3 sm:grid-cols-4">
-        <div>
-          <label className="mb-1 block text-[11px] font-bold text-mid">Monnaie</label>
-          <FancySelect value={currency} onChange={(v) => setCurrency(v as Currency)} options={[{ value: "TND", label: "DT (dinar)" }, { value: "EUR", label: "€ (euro)" }]} />
-        </div>
-        <div>
-          <label className="mb-1 block text-[11px] font-bold text-mid">Tranche 1 · inscription ({symbol})</label>
-          <input value={tranche1} onChange={(e) => setTranche1(e.target.value)} inputMode="decimal" placeholder="ex. 1000" className={input} />
-        </div>
-        <div>
-          <label className="mb-1 block text-[11px] font-bold text-mid">Tranche 2 · visa ({symbol})</label>
-          <input value={tranche2} onChange={(e) => setTranche2(e.target.value)} inputMode="decimal" placeholder="ex. 1000" className={input} />
-        </div>
-        <div className="flex flex-col justify-end">
-          <p className="mb-1 text-[11px] font-bold text-mid">Prix total</p>
-          <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm font-extrabold text-dark">{formatMoney(total, currency)}</p>
-        </div>
-      </div>
-      {error && <p className="mt-2 rounded-lg bg-red-50 px-3 py-1.5 text-xs text-red-600">{error}</p>}
-      <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
-        {message && <span className="text-xs font-bold text-emerald-700">{message}</span>}
-        {row.configured && (
-          <button type="button" disabled={busy} onClick={remove} className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-100 disabled:opacity-60">
-            Supprimer le tarif
+      <div className="mt-1.5 flex flex-wrap gap-1">
+        {PRESETS.map((amount) => (
+          <button key={amount} type="button" onClick={() => set(String(amount))} className="rounded-full border border-line px-2 py-0.5 text-[10px] font-bold text-mid transition hover:border-brand hover:text-brand">
+            {amount}
           </button>
-        )}
-        <button type="button" disabled={busy || total <= 0} onClick={save} className="rounded-lg bg-brand px-4 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-60">
-          Enregistrer
-        </button>
+        ))}
       </div>
     </div>
+  );
+
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay: Math.min(index, 8) * 0.04 }}
+      className={cn("relative flex min-w-0 flex-col overflow-hidden rounded-[22px] border bg-white p-5 shadow-sm transition-shadow hover:shadow-lg", dirty && row.configured ? "border-amber-300" : "border-line")}
+    >
+      <div className={cn("absolute inset-x-0 top-0 h-1 bg-gradient-to-r", row.configured ? "from-emerald-500 to-emerald-300" : "from-slate-300 to-slate-200")} />
+
+      <div className="flex items-center gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-violet-500 text-xs font-extrabold text-white shadow-sm">{row.code}</span>
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate font-display text-lg font-bold text-dark">{row.countryName}</h3>
+          {row.configured ? (
+            <p className="text-[11px] font-bold text-emerald-600">Tarif défini · {formatMoney((row.tranche1 ?? 0) + (row.tranche2 ?? 0), row.currency)}</p>
+          ) : (
+            <p className="text-[11px] font-semibold text-muted">Aucun tarif · aucun paiement exigé</p>
+          )}
+        </div>
+        <div className="inline-flex shrink-0 rounded-full border border-line bg-slate-50 p-0.5" role="group" aria-label="Monnaie">
+          {(["TND", "EUR"] as Currency[]).map((c) => (
+            <button key={c} type="button" onClick={() => setCurrency(c)} aria-pressed={currency === c} className={cn("rounded-full px-3 py-1 text-xs font-bold transition", currency === c ? "bg-brand text-white shadow" : "text-mid hover:text-brand")}>
+              {c === "EUR" ? "€" : "DT"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        {amountField("Tranche 1", "à l'inscription", tranche1, setTranche1)}
+        {amountField("Tranche 2", "avant le visa", tranche2, setTranche2)}
+      </div>
+
+      {/* Aperçu : répartition des deux tranches et prix total */}
+      <div className="mt-5 rounded-2xl bg-gradient-to-br from-violet-50 to-white p-4">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Prix total pour l'étudiant</p>
+            <p className="font-display text-2xl font-extrabold leading-tight text-dark">{formatMoney(total, currency)}</p>
+          </div>
+          {total > 0 && (
+            <p className="text-right text-[11px] text-muted">
+              <span className="font-bold text-brand">{Math.round((t1 / total) * 100)}%</span> puis <span className="font-bold text-sky-600">{Math.round((t2 / total) * 100)}%</span>
+            </p>
+          )}
+        </div>
+        <div className="mt-3 flex h-2.5 overflow-hidden rounded-full bg-slate-100">
+          <motion.div className="h-full bg-brand" animate={{ width: total ? `${(t1 / total) * 100}%` : "0%" }} transition={{ duration: 0.4 }} />
+          <motion.div className="h-full bg-sky-400" animate={{ width: total ? `${(t2 / total) * 100}%` : "0%" }} transition={{ duration: 0.4 }} />
+        </div>
+        <div className="mt-2 flex justify-between text-[10px] font-semibold text-muted">
+          <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-brand" /> Inscription {formatMoney(t1, currency)}</span>
+          <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-sky-400" /> Visa {formatMoney(t2, currency)}</span>
+        </div>
+      </div>
+
+      {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-1.5 text-xs text-red-600">{error}</p>}
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="min-h-[1.25rem] text-xs font-bold">
+          {saved ? (
+            <span className="inline-flex items-center gap-1 text-emerald-600"><CheckCircle2 className="h-3.5 w-3.5" /> Enregistré</span>
+          ) : dirty && row.configured ? (
+            <span className="inline-flex items-center gap-1 text-amber-600"><AlertTriangle className="h-3.5 w-3.5" /> Modifications non enregistrées</span>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-2">
+          {row.configured && (
+            <button type="button" disabled={busy} onClick={remove} aria-label={`Supprimer le tarif de ${row.countryName}`} title="Supprimer le tarif" className="rounded-xl bg-red-50 p-2 text-red-500 transition hover:bg-red-500 hover:text-white disabled:opacity-60">
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+          <button type="button" disabled={!canSave} onClick={save} className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">
+            <Save className="h-3.5 w-3.5" /> {busy ? "Enregistrement…" : row.configured ? "Enregistrer" : "Définir le tarif"}
+          </button>
+        </div>
+      </div>
+    </motion.article>
   );
 }
 
 function Pricing() {
   const [rows, setRows] = useState<CountryPricing[] | null>(null);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "set" | "unset">("all");
 
   useEffect(() => {
     fetchFinancePricing().then(setRows).catch((err) => setError(err instanceof Error ? err.message : "Chargement impossible."));
   }, []);
 
+  const configured = (rows || []).filter((r) => r.configured);
+  const averages = (["TND", "EUR"] as Currency[])
+    .map((c) => {
+      const list = configured.filter((r) => r.currency === c);
+      return list.length ? { currency: c, average: list.reduce((s, r) => s + (r.tranche1 ?? 0) + (r.tranche2 ?? 0), 0) / list.length } : null;
+    })
+    .filter(Boolean) as Array<{ currency: Currency; average: number }>;
+
+  const visible = (rows || []).filter((r) => {
+    if (filter === "set" && !r.configured) return false;
+    if (filter === "unset" && r.configured) return false;
+    const q = search.trim().toLowerCase();
+    return !q || r.countryName.toLowerCase().includes(q) || r.code.toLowerCase().includes(q);
+  });
+
   return (
-    <div className="mt-6">
-      <p className="rounded-2xl border border-line bg-white p-4 text-sm text-mid">
-        Fixez le prix de chaque pays en <strong>2 tranches</strong> : la tranche 1 est encaissée à l'inscription (le conseiller la confirme en créant le code), la tranche 2 avant le dépôt du visa.
-        Le tarif est figé pour chaque étudiant à son inscription : modifier un prix ne change pas les étudiants déjà engagés.
-      </p>
-      {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
-      <div className="mt-4 space-y-3">
-        {!rows ? (
-          <div className="mx-auto mt-10 h-8 w-8 animate-spin rounded-full border-2 border-line border-t-brand" />
-        ) : (
-          rows.map((row) => (
-            <PricingRow key={`${row.countryId}:${row.configured}`} row={row} onSaved={(next) => setRows((prev) => (prev || []).map((r) => (r.countryId === next.countryId ? next : r)))} />
-          ))
-        )}
+    <div className="mt-6 space-y-5">
+      {/* Résumé + principe */}
+      <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
+        <div className="rounded-[22px] border border-line bg-white p-5 shadow-sm">
+          <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark"><Layers className="h-5 w-5 text-brand" /> Comment fonctionne le tarif</h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl bg-violet-50 p-4">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-brand">Tranche 1 · inscription</p>
+              <p className="mt-1 text-xs text-mid">Encaissée à l'inscription : le conseiller la confirme en créant le code.</p>
+            </div>
+            <div className="rounded-2xl bg-sky-50 p-4">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-sky-600">Tranche 2 · visa</p>
+              <p className="mt-1 text-xs text-mid">Encaissée avant le dépôt du dossier visa : sans elle, le dépôt est bloqué.</p>
+            </div>
+          </div>
+          <p className="mt-3 flex items-start gap-1.5 text-[11px] text-muted"><Info className="mt-0.5 h-3.5 w-3.5 shrink-0" /> Le tarif est figé pour chaque étudiant à son inscription : modifier un prix ne change pas les étudiants déjà engagés.</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-[22px] border border-line bg-white p-4 shadow-sm">
+            <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-muted"><Globe className="h-3.5 w-3.5" /> Pays avec tarif</p>
+            <p className="mt-2 font-display text-3xl font-extrabold leading-none text-dark">{configured.length}<span className="text-lg text-muted"> / {rows?.length ?? 0}</span></p>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
+              <motion.div className="h-full rounded-full bg-emerald-500" animate={{ width: rows?.length ? `${(configured.length / rows.length) * 100}%` : "0%" }} transition={{ duration: 0.6 }} />
+            </div>
+          </div>
+          <div className="rounded-[22px] border border-line bg-white p-4 shadow-sm">
+            <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-muted"><Wallet className="h-3.5 w-3.5" /> Prix moyen</p>
+            {averages.length === 0 ? (
+              <p className="mt-2 text-sm text-muted">—</p>
+            ) : (
+              <div className="mt-2 space-y-0.5">
+                {averages.map((a) => <p key={a.currency} className="font-display text-xl font-extrabold leading-tight text-dark">{formatMoney(Math.round(a.average), a.currency)}</p>)}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
+
+      {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
+
+      {/* Recherche + filtres */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative min-w-[220px] flex-1 sm:max-w-xs">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Chercher un pays…" className="w-full rounded-xl border border-line bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20" />
+        </div>
+        <div className="inline-flex rounded-full border border-line bg-white p-0.5 shadow-sm">
+          {([["all", "Tous"], ["set", "Avec tarif"], ["unset", "Sans tarif"]] as const).map(([id, label]) => (
+            <button key={id} type="button" onClick={() => setFilter(id)} className={cn("rounded-full px-3.5 py-1.5 text-xs font-bold transition", filter === id ? "bg-brand text-white" : "text-mid hover:text-brand")}>{label}</button>
+          ))}
+        </div>
+      </div>
+
+      {!rows ? (
+        <div className="mx-auto mt-10 h-8 w-8 animate-spin rounded-full border-2 border-line border-t-brand" />
+      ) : visible.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-line bg-white p-8 text-center text-sm text-muted">Aucun pays ne correspond.</p>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {visible.map((row, i) => (
+            <PricingCard key={`${row.countryId}:${row.configured}`} row={row} index={i} onSaved={(next) => setRows((prev) => (prev || []).map((r) => (r.countryId === next.countryId ? next : r)))} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -31,6 +31,7 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
+  ChevronDown,
   MessageCircle,
   Phone,
   Sparkles,
@@ -98,7 +99,51 @@ function stageOf(onboardingCompleted: boolean, applications: UniversityApplicati
 }
 
 function scrollToSection(id: string) {
-  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  // Une section repliée s'ouvre d'abord, puis la page défile jusqu'à elle.
+  window.dispatchEvent(new CustomEvent("open-section", { detail: id }));
+  window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+}
+
+// Section repliée par défaut : l'admin / le conseiller l'ouvre quand il en a besoin.
+function CollapsibleSection({ id, icon, title, summary, children }: { id: string; icon: React.ReactNode; title: string; summary?: React.ReactNode; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const handler = (event: Event) => {
+      if ((event as CustomEvent<string>).detail === id) setOpen(true);
+    };
+    window.addEventListener("open-section", handler);
+    return () => window.removeEventListener("open-section", handler);
+  }, [id]);
+  return (
+    <section id={id} className="scroll-mt-24">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-3 rounded-2xl border border-line bg-white px-4 py-3.5 text-left shadow-sm transition hover:border-brand/40 hover:shadow-md"
+      >
+        <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="flex items-center gap-2 font-display text-lg font-bold text-dark">{icon} {title}</span>
+          {summary}
+        </span>
+        <ChevronDown className={cn("h-5 w-5 shrink-0 text-muted transition-transform duration-200", open && "rotate-180")} aria-hidden />
+      </button>
+      {open && <div className="mt-3">{children}</div>}
+    </section>
+  );
+}
+
+function DocSummary({ docs }: { docs: Array<{ status: string }> }) {
+  const validated = docs.filter((d) => d.status === "VALIDATED").length;
+  const toReview = docs.filter((d) => d.status === "SUBMITTED").length;
+  const rejected = docs.filter((d) => d.status === "REJECTED").length;
+  return (
+    <span className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold">
+      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-mid">{validated}/{docs.length} validés</span>
+      {toReview > 0 && <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-amber-700">{toReview} à vérifier</span>}
+      {rejected > 0 && <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-red-600">{rejected} refusé{rejected > 1 ? "s" : ""}</span>}
+    </span>
+  );
 }
 
 function ContactButton({ href, icon: Icon, label, tone }: { href: string; icon: typeof Mail; label: string; tone: string }) {
@@ -305,11 +350,13 @@ export default function StudentDetailPage() {
           <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
             {/* Colonne de travail */}
             <div className="min-w-0 space-y-6">
-              <section id="documents" className="scroll-mt-24">
-                <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark">
-                  <FileText className="h-5 w-5 text-brand" /> {t("Documents", "Documents")} ({documents.length})
-                </h2>
-                <div className="mt-3 space-y-3">
+              <CollapsibleSection
+                id="documents"
+                icon={<FileText className="h-5 w-5 text-brand" />}
+                title={`${t("Documents", "Documents")} (${documents.length})`}
+                summary={documents.length ? <DocSummary docs={documents} /> : undefined}
+              >
+                <div className="space-y-3">
                   {documents.length === 0 ? (
                     <p className="rounded-2xl border border-dashed border-line bg-white p-6 text-sm text-muted">
                       {t("Aucun document requis pour l'instant (l'étudiant n'a pas encore choisi de pays).", "No documents required yet (the student hasn't chosen a country yet).")}
@@ -320,14 +367,16 @@ export default function StudentDetailPage() {
                     ))
                   )}
                 </div>
-              </section>
+              </CollapsibleSection>
 
               {visaApp && (role === "SALES" || role === "ADMIN") && (
-                <section id="visa-documents" className="scroll-mt-24">
-                  <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark">
-                    <FileText className="h-5 w-5 text-brand" /> {t("Documents visa", "Visa documents")}
-                  </h2>
-                  <p className="mt-1 text-xs text-muted">
+                <CollapsibleSection
+                  id="visa-documents"
+                  icon={<FileText className="h-5 w-5 text-brand" />}
+                  title={t("Documents visa", "Visa documents")}
+                  summary={visaDocs.length ? <DocSummary docs={visaDocs} /> : undefined}
+                >
+                  <p className="text-xs text-muted">
                     {t("Validez tous les documents visa obligatoires : le dossier revient ensuite automatiquement au même RDV (ou au moins chargé s'il n'est plus actif).", "Approve every required visa document: the file then returns automatically to the same visa officer (or the least loaded if they are inactive).")}
                   </p>
                   <div className="mt-3 space-y-2">
@@ -349,7 +398,7 @@ export default function StudentDetailPage() {
                       ))
                     )}
                   </div>
-                </section>
+                </CollapsibleSection>
               )}
 
               <section id="candidatures" className="scroll-mt-24">
@@ -469,6 +518,7 @@ function DocumentReviewRow({
   onReviewed: (d: StudentDocumentChecklistItem) => void;
 }) {
   const { t } = useLanguage();
+  const [open, setOpen] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -505,7 +555,7 @@ function DocumentReviewRow({
 
   return (
     <div className="rounded-2xl border border-line bg-white p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div role="button" tabIndex={0} aria-expanded={open} onClick={() => setOpen((v) => !v)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen((v) => !v); } }} className="flex cursor-pointer flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-2">
           <FileText className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
           <div>
@@ -526,27 +576,30 @@ function DocumentReviewRow({
                 ))
               )}
             </div>
-            {doc.fileUrl && (
-              <button
+            {open && doc.fileUrl && (
+              <span onClick={(e) => e.stopPropagation()} className="block"><button
                 type="button"
                 onClick={() => openProtectedFile(doc.fileUrl!).catch((err) => setError(err instanceof Error ? err.message : t("Impossible d'ouvrir ce document.", "Unable to open this document.")))}
                 className="mt-1 inline-block text-left text-xs text-brand underline"
               >
                 {doc.originalFilename || t("Voir le fichier", "View file")}
-              </button>
+              </button></span>
             )}
           </div>
         </div>
-        <span className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold", meta.color)}>
-          <StatusIcon className="h-3 w-3" /> {meta.label}
+        <span className="flex shrink-0 items-center gap-2">
+          <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold", meta.color)}>
+            <StatusIcon className="h-3 w-3" /> {meta.label}
+          </span>
+          <ChevronDown className={cn("h-4 w-4 text-muted transition-transform duration-200", open && "rotate-180")} aria-hidden />
         </span>
       </div>
 
-      {doc.status === "REJECTED" && doc.rejectionReason && (
+      {open && doc.status === "REJECTED" && doc.rejectionReason && (
         <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{t("Motif", "Reason")} : {doc.rejectionReason}</p>
       )}
 
-      {(doc.status === "SUBMITTED" || doc.status === "REJECTED" || doc.status === "VALIDATED") && (
+      {open && (doc.status === "SUBMITTED" || doc.status === "REJECTED" || doc.status === "VALIDATED") && (
         <div className="mt-3 space-y-2">
           {!rejecting ? (
             <div className="flex items-center gap-2">
@@ -598,7 +651,7 @@ function DocumentReviewRow({
           )}
         </div>
       )}
-      {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
+      {open && error && <p className="mt-2 text-xs text-red-500">{error}</p>}
     </div>
   );
 }
@@ -613,6 +666,7 @@ function VisaSalesReviewRow({
   onReviewed: (d: VisaDocumentChecklistItem) => void;
 }) {
   const { t } = useLanguage();
+  const [open, setOpen] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -623,7 +677,7 @@ function VisaSalesReviewRow({
 
   return (
     <div className="rounded-2xl border border-line bg-white p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div role="button" tabIndex={0} aria-expanded={open} onClick={() => setOpen((v) => !v)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen((v) => !v); } }} className="flex cursor-pointer flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-2">
           <FileText className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
           <div>
@@ -631,22 +685,25 @@ function VisaSalesReviewRow({
               {doc.name}
               {doc.required && <span className="ml-1.5 text-red-500">*</span>}
             </p>
-            {doc.fileUrl && (
-              <button
+            {open && doc.fileUrl && (
+              <span onClick={(e) => e.stopPropagation()} className="block"><button
                 type="button"
                 onClick={() => openProtectedFile(doc.fileUrl!).catch((err) => setError(err instanceof Error ? err.message : t("Impossible d'ouvrir ce document.", "Unable to open this document.")))}
                 className="mt-1 inline-block text-left text-xs text-brand underline"
               >
                 {doc.originalFilename || t("Voir le fichier", "View file")}
-              </button>
+              </button></span>
             )}
           </div>
         </div>
-        <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold", meta.color)}>
-          <StatusIcon className="h-2.5 w-2.5" /> {meta.label}
+        <span className="flex shrink-0 items-center gap-2">
+          <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold", meta.color)}>
+            <StatusIcon className="h-2.5 w-2.5" /> {meta.label}
+          </span>
+          <ChevronDown className={cn("h-4 w-4 text-muted transition-transform duration-200", open && "rotate-180")} aria-hidden />
         </span>
       </div>
-      {canReview && (
+      {open && canReview && (
         <div className="mt-3">
           {rejecting ? (
             <div className="space-y-2">
@@ -702,7 +759,7 @@ function VisaSalesReviewRow({
           )}
         </div>
       )}
-      {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
+      {open && error && <p className="mt-2 text-xs text-red-500">{error}</p>}
     </div>
   );
 }

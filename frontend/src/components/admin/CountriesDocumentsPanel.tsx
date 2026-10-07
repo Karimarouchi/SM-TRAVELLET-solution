@@ -202,7 +202,7 @@ export default function CountriesDocumentsPanel() {
   };
 
   const handleDeleteDocument = async (countryId: string, doc: DocumentRequirement) => {
-    if ((await confirmDialog(`Supprimer le document "${doc.name}" ?`, { tone: "danger", confirmLabel: "Supprimer" }))) return;
+    if (!(await confirmDialog(`Supprimer le document "${doc.name}" ?`, { tone: "danger", confirmLabel: "Supprimer" }))) return;
     try {
       await deleteCountryDocument(doc.id);
       notify(`"${doc.name}" supprimé.`);

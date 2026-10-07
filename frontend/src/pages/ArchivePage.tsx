@@ -127,7 +127,7 @@ export default function ArchivePage() {
   };
 
   const handleManualPurge = async () => {
-    if ((await confirmDialog("Voulez-vous vraiment purger les documents des dossiers archivés ? Cette action supprimera définitivement les fichiers physiques correspondants.", { tone: "danger", title: "Purger les documents archivés ?", confirmLabel: "Purger" }))) return;
+    if (!(await confirmDialog("Voulez-vous vraiment purger les documents des dossiers archivés ? Cette action supprimera définitivement les fichiers physiques correspondants.", { tone: "danger", title: "Purger les documents archivés ?", confirmLabel: "Purger" }))) return;
     setPurging(true);
     try {
       const res = await purgeArchive();

@@ -122,7 +122,7 @@ export default function AdminProgrammesPage() {
   };
 
   const handleDelete = async (id: string, title: string) => {
-    if ((await confirmDialog(`Supprimer "${title}" ?`, { tone: "danger", confirmLabel: "Supprimer" }))) return;
+    if (!(await confirmDialog(`Supprimer "${title}" ?`, { tone: "danger", confirmLabel: "Supprimer" }))) return;
     try {
       await deleteProgramme(id);
       setSuccess(`"${title}" supprimé.`);

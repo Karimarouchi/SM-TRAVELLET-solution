@@ -127,7 +127,7 @@ export default function AdminAvisPage() {
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if ((await confirmDialog(`Supprimer l'avis de ${name} ?`, { tone: "danger", confirmLabel: "Supprimer" }))) return;
+    if (!(await confirmDialog(`Supprimer l'avis de ${name} ?`, { tone: "danger", confirmLabel: "Supprimer" }))) return;
     try {
       await deleteAvis(id);
       setSuccess("Avis supprimé");
