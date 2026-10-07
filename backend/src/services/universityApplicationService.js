@@ -251,12 +251,43 @@ async function applyRdvAssignment(application, pick, { visaPreparation, actorId,
   return updated;
 }
 
+// Un étudiant a UN SEUL RDV pour toutes ses candidatures, même s'il vise plusieurs pays :
+//  1. s'il a déjà un RDV sur une autre candidature en cours, c'est le même ;
+//  2. sinon, le RDV spécialisé qui couvre le plus de ses pays visés (les pays de ses
+//     vœux en cours et celui de cette candidature), le moins chargé en cas d'égalité ;
+//  3. à défaut de spécialiste, le RDV actif le moins chargé.
+async function pickRdvForStudent(application) {
+  const others = (await appRepo.listForStudent(application.student_id)).filter(
+    (a) => a.id !== application.id && a.assigned_rdv_id && !["CLOSED", "REJECTED", "POSTPONED"].includes(a.status)
+  );
+  for (const other of others) {
+    if (await isActiveRdv(other.assigned_rdv_id)) {
+      const user = await userRepo.findById(other.assigned_rdv_id);
+      return { rdvUserId: other.assigned_rdv_id, rdvName: `${user.prenom} ${user.nom}`.trim(), fallback: false, sameStudent: true, covered: null };
+    }
+  }
+
+  const choices = await choiceRepo.listActiveForStudent(application.student_id);
+  const countryIds = [...new Set([application.country_id, ...choices.map((c) => c.country_id)])];
+  const specialists = await userRoleRepo.findRdvByCoverage(countryIds);
+  if (specialists.length) {
+    const best = specialists[0];
+    return { rdvUserId: best.id, rdvName: `${best.prenom} ${best.nom}`.trim(), fallback: false, sameStudent: false, covered: best.covered, wanted: countryIds.length };
+  }
+  const suggestion = await computeRdvSuggestion(application.country_id);
+  return { ...suggestion, sameStudent: false, covered: null };
+}
+
 async function autoAssignRdvForApply(application) {
-  const pick = await pickRdv({ countryId: application.country_id, preferredUserId: null });
+  const pick = await pickRdvForStudent(application);
   if (!pick.rdvUserId) return application;
-  const comment = pick.fallback
-    ? `RDV attribué à ${pick.rdvName} (répartition équitable, aucun spécialiste pour ce pays).`
-    : `RDV attribué à ${pick.rdvName} pour le dépôt de candidature.`;
+  const comment = pick.sameStudent
+    ? `RDV attribué à ${pick.rdvName} (déjà le RDV de cet étudiant : un seul RDV par étudiant).`
+    : pick.fallback
+      ? `RDV attribué à ${pick.rdvName} (répartition équitable, aucun spécialiste pour ce pays).`
+      : pick.covered && pick.wanted > 1
+        ? `RDV attribué à ${pick.rdvName} (spécialiste de ${pick.covered} des ${pick.wanted} pays visés par l'étudiant).`
+        : `RDV attribué à ${pick.rdvName} pour le dépôt de candidature.`;
   return applyRdvAssignment(application, pick, { visaPreparation: false, comment });
 }
 

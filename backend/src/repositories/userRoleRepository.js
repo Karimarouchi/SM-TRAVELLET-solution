@@ -48,6 +48,24 @@ async function findRdvForCountry(countryId) {
   return result.rows;
 }
 
+// RDV spécialisés sur au moins un des pays donnés, classés par nombre de ces pays
+// qu'ils couvrent (le plus de pays d'abord), puis par charge actuelle.
+async function findRdvByCoverage(countryIds) {
+  if (!countryIds.length) return [];
+  const result = await query(
+    `SELECT u.id, u.prenom, u.nom,
+            COUNT(DISTINCT rca.country_id)::int AS covered,
+            (SELECT COUNT(*) FROM university_applications ua WHERE ${ACTIVE_VISA_LOAD_SQL})::int AS active_load
+     FROM rdv_country_assignments rca
+     JOIN users u ON u.id = rca.rdv_user_id
+     WHERE rca.country_id = ANY($1::uuid[]) AND u.is_active = TRUE
+     GROUP BY u.id, u.prenom, u.nom
+     ORDER BY covered DESC, active_load ASC, u.prenom ASC`,
+    [countryIds]
+  );
+  return result.rows;
+}
+
 // Répartition équitable de secours : aucun RDV spécialisé sur ce pays, on
 // choisit le RDV actif le moins chargé parmi TOUS les RDV actifs.
 async function findLeastLoadedActiveRdv() {
@@ -126,6 +144,7 @@ module.exports = {
   getEffectiveRoles,
   setAdditionalRoles,
   findRdvForCountry,
+  findRdvByCoverage,
   findLeastLoadedActiveRdv,
   listCountriesForRdv,
   listRdvAssignmentsForCountry,
