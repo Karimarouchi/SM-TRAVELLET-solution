@@ -212,7 +212,6 @@ app.get("/api/admin/auto-assign-shares", requireAuth, requireRoles("ADMIN"), adm
 app.put("/api/admin/auto-assign-shares", requireAuth, requireRoles("ADMIN"), adminController.saveAutoAssignShares);
 app.get("/api/admin/performance", requireAuth, requireRoles("ADMIN"), adminController.teamPerformance);
 app.get("/api/admin/performance/users/:id", requireAuth, requireRoles("ADMIN"), adminController.userPerformance);
-app.patch("/api/admin/auto-assign", requireAuth, requireRoles("ADMIN"), adminController.autoAssign);
 app.post("/api/admin/sales", requireAuth, requireRoles("ADMIN"), adminController.createSales);
 app.patch("/api/admin/sales/:id/active", requireAuth, requireRoles("ADMIN"), adminController.setSalesActive);
 app.post("/api/admin/sales/:id/transfer", requireAuth, requireRoles("ADMIN"), adminController.transferSales);

@@ -1,6 +1,6 @@
 import { fetchAdminSettings, updateAdminSettings, type AdminSettings, type StalledAlertFrequency } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, CheckCircle2, Clock, KeyRound, Mail, Save, Settings as SettingsIcon, ShieldCheck, Users2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, KeyRound, Mail, Save, Settings as SettingsIcon, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import BackupPanel from "@/components/admin/BackupPanel";
 import GoogleCalendarCard from "@/components/admin/GoogleCalendarCard";
@@ -68,17 +68,6 @@ export default function AdminSettingsPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Impossible de charger les paramètres."))
       .finally(() => setLoading(false));
   }, []);
-
-  async function toggleAutoAssign(enabled: boolean) {
-    if (!settings) return;
-    setError("");
-    try {
-      const updated = await updateAdminSettings({ autoAssignSales: enabled });
-      setSettings(updated);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Impossible de modifier ce réglage.");
-    }
-  }
 
   async function saveStalledAlert() {
     setSaving(true);
@@ -165,30 +154,6 @@ export default function AdminSettingsPage() {
         <p className="mt-6 text-sm text-muted">Chargement...</p>
       ) : (
         <>
-          {/* ── Affectation automatique ──────────────────────────────────── */}
-          <section className="mt-6 rounded-[24px] border border-line bg-white p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="flex items-center gap-2 font-display text-xl font-bold text-dark">
-                  <Users2 className="h-5 w-5 text-brand" /> Affectation automatique des sales
-                </h2>
-                <p className="mt-1 text-xs text-muted">
-                  Quand un étudiant sans conseiller termine son onboarding, il est affecté automatiquement à un conseiller (le moins chargé, ou selon les pourcentages ci-dessous).
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => toggleAutoAssign(!settings?.autoAssignSales)}
-                className={cn(
-                  "rounded-full px-5 py-2.5 text-sm font-bold transition",
-                  settings?.autoAssignSales ? "bg-brand text-white" : "border border-line bg-white text-mid"
-                )}
-              >
-                {settings?.autoAssignSales ? "Activée" : "Désactivée"}
-              </button>
-            </div>
-          </section>
-
           {/* ── Répartition par pourcentage ──────────────────────────────── */}
           <AutoAssignSharesCard />
 

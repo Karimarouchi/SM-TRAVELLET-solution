@@ -92,8 +92,8 @@ export default function AutoAssignSharesCard() {
         <Percent className="h-5 w-5 text-brand" /> Répartition par pourcentage
       </h2>
       <p className="mt-1 text-xs text-muted">
-        Comment répartir les nouveaux arrivants entre les conseillers : les nouveaux contacts WhatsApp (toujours) et les étudiants sans
-        conseiller (si l'affectation automatique ci-dessus est activée).
+        Comment répartir les nouveaux arrivants entre les conseillers : les nouveaux contacts WhatsApp et les étudiants sans conseiller
+        sont affectés automatiquement, à chaque fois.
       </p>
 
       {error && (

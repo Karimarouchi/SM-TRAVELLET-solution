@@ -434,13 +434,6 @@ export async function fetchAdminDashboard(params: {
   return request<AdminDashboard>(`/api/admin/dashboard${suffix}`);
 }
 
-export async function setAutoAssign(enabled: boolean) {
-  return request<{ autoAssignSales: boolean }>("/api/admin/auto-assign", {
-    method: "PATCH",
-    body: JSON.stringify({ enabled })
-  });
-}
-
 export type StalledAlertFrequency = "once" | "daily" | "weekly";
 
 export type AdminSettings = {

@@ -481,11 +481,8 @@ export default function AdminAssignment({ onChanged }: { onChanged?: () => void 
             <span className="lg:hidden">Touchez « Déplacer » sur une carte pour changer son conseiller.</span>
           </p>
         </div>
-        <span className={cn(
-          "rounded-full px-4 py-2 text-xs font-bold",
-          board?.autoAssignSales ? "bg-brand-light text-brand" : "bg-slate-100 text-mid"
-        )}>
-          Répartition auto {board?.autoAssignSales ? "activée" : "arrêtée"} · réglable dans Paramètres
+        <span className="rounded-full bg-brand-light px-4 py-2 text-xs font-bold text-brand">
+          Répartition automatique toujours active · pourcentages dans Paramètres
         </span>
       </div>
 

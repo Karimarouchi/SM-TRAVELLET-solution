@@ -60,14 +60,6 @@ async function updateSettings(req, res) {
   }
 }
 
-async function autoAssign(req, res) {
-  try {
-    res.json(await adminService.setAutoAssign(Boolean(req.body.enabled)));
-  } catch (error) {
-    handle(res, error);
-  }
-}
-
 async function createSales(req, res) {
   try {
     res.status(201).json(await adminService.createSales(req.body));

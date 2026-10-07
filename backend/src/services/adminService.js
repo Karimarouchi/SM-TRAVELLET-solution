@@ -429,11 +429,6 @@ async function setStudentActive(studentId, isActive) {
   return { id: updated.id, isActive: updated.is_active !== false };
 }
 
-async function setAutoAssign(enabled) {
-  await settings.set("auto_assign_sales", enabled ? "true" : "false");
-  return { autoAssignSales: Boolean(enabled) };
-}
-
 async function getSettings() {
   const [autoAssignSales, stalledAlert, emailSender, workHours] = await Promise.all([
     settings.isAutoAssignEnabled(),
@@ -459,10 +454,6 @@ async function getSettings() {
 }
 
 async function updateSettings(body) {
-  if (typeof body.autoAssignSales === "boolean") {
-    await settings.set("auto_assign_sales", body.autoAssignSales ? "true" : "false");
-  }
-
   // Les réglages de l'alerte "dossier bloqué" ne sont touchés que si l'appel
   // les fournit explicitement — sinon un simple toggle de l'affectation auto
   // (qui n'envoie que autoAssignSales) échouerait faute de seuil/fréquence.
@@ -845,4 +836,4 @@ async function setRdvCountries(rdvUserId, countryIds) {
   return { rdvUserId, countryIds: ids };
 }
 
-module.exports = { getBoard, getDashboard, getStudentsOverview, setStudentActive, setAutoAssign, getSettings, updateSettings, createSales, setSalesActive, transferAndBlockSales, deleteSales, getStudentDeletionPreview, deleteStudent, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };
+module.exports = { getBoard, getDashboard, getStudentsOverview, setStudentActive, getSettings, updateSettings, createSales, setSalesActive, transferAndBlockSales, deleteSales, getStudentDeletionPreview, deleteStudent, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };

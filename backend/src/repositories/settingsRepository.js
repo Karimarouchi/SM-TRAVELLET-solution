@@ -15,9 +15,9 @@ async function set(key, value) {
   return String(value);
 }
 
+// L'affectation automatique des conseillers est toujours active (plus de réglage).
 async function isAutoAssignEnabled() {
-  const value = await get("auto_assign_sales");
-  return value !== "false";
+  return true;
 }
 
 // Version exposable à l'admin (via l'API) : jamais le mot de passe en clair,
