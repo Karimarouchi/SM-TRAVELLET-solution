@@ -63,6 +63,7 @@ async function updateOnboarding(userId, fields) {
       language_level_german = $32,
       language_level_italian = $33,
       language_level_spanish = $34,
+      language_tests_extra = $35::jsonb,
       onboarding_completed = TRUE,
       onboarding_completed_at = NOW(),
       updated_at = NOW()
@@ -102,7 +103,8 @@ async function updateOnboarding(userId, fields) {
       fields.passportExpiresOn || null,
       fields.languageLevelGerman || null,
       fields.languageLevelItalian || null,
-      fields.languageLevelSpanish || null
+      fields.languageLevelSpanish || null,
+      JSON.stringify(fields.languageTestsExtra || {})
     ]
   );
   return result.rows[0];

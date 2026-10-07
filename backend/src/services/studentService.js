@@ -31,6 +31,25 @@ const FRENCH_TESTS = [
   "Test prévu / inscription en cours",
   "Autre"
 ];
+// Tests proposés pour les langues supplémentaires (même fin de liste que le français et l'anglais).
+const EXTRA_TESTS = {
+  german: {
+    label: "Allemand",
+    adjective: "d’allemand",
+    tests: ["Goethe-Zertifikat A1", "Goethe-Zertifikat A2", "Goethe-Zertifikat B1", "Goethe-Zertifikat B2", "Goethe-Zertifikat C1", "Goethe-Zertifikat C2", "TestDaF", "DSH", "telc Deutsch B1", "telc Deutsch B2", "TestAS", "ÖSD", "Aucun test", "Test prévu / inscription en cours", "Autre"]
+  },
+  italian: {
+    label: "Italien",
+    adjective: "d’italien",
+    tests: ["CILS B1", "CILS B2", "CILS C1", "CILS C2", "CELI A2", "CELI B1", "CELI B2", "CELI C1", "CELI C2", "PLIDA B1", "PLIDA B2", "PLIDA C1", "PLIDA C2", "Aucun test", "Test prévu / inscription en cours", "Autre"]
+  },
+  spanish: {
+    label: "Espagnol",
+    adjective: "d’espagnol",
+    tests: ["DELE A1", "DELE A2", "DELE B1", "DELE B2", "DELE C1", "DELE C2", "SIELE", "Aucun test", "Test prévu / inscription en cours", "Autre"]
+  }
+};
+
 const ENGLISH_TESTS = [
   "IELTS Academic",
   "IELTS General Training",
@@ -158,7 +177,7 @@ function validateOnboarding(body) {
 
   const hasLanguageTest = Boolean(body.hasLanguageTest);
   const langs = Array.isArray(body.languageTestLangs)
-    ? body.languageTestLangs.filter((item) => item === "french" || item === "english")
+    ? body.languageTestLangs.filter((item) => item === "french" || item === "english" || Object.prototype.hasOwnProperty.call(EXTRA_TESTS, item))
     : [];
   const languageTestFrench = String(body.languageTestFrench || "").trim();
   const languageTestEnglish = String(body.languageTestEnglish || "").trim();
@@ -167,7 +186,7 @@ function validateOnboarding(body) {
 
   if (hasLanguageTest) {
     if (!langs.length) {
-      const error = new Error("Choisissez si le test est en français et / ou en anglais.");
+      const error = new Error("Choisissez la ou les langues du test.");
       error.status = 400;
       throw error;
     }
@@ -193,12 +212,33 @@ function validateOnboarding(body) {
     }
   }
 
+  // Allemand / italien / espagnol : seuls ceux cochés sont gardés, avec leur test.
+  const languageTestsExtra = {};
+  for (const [lang, config] of Object.entries(EXTRA_TESTS)) {
+    if (!hasLanguageTest || !langs.includes(lang)) continue;
+    const raw = (body.languageTestsExtra && body.languageTestsExtra[lang]) || {};
+    const test = String(raw.test || "").trim();
+    const other = String(raw.other || "").trim();
+    if (!config.tests.includes(test)) {
+      const error = new Error(`Choisissez le test ${config.adjective}.`);
+      error.status = 400;
+      throw error;
+    }
+    if (test === "Autre" && other.length < 2) {
+      const error = new Error(`Précisez le test ${config.adjective}.`);
+      error.status = 400;
+      throw error;
+    }
+    languageTestsExtra[lang] = { test, other: test === "Autre" ? other.slice(0, 120) : "" };
+  }
+
   const frenchTestLabel = languageTestFrench === "Autre" ? languageTestFrenchOther : languageTestFrench;
   const englishTestLabel = languageTestEnglish === "Autre" ? languageTestEnglishOther : languageTestEnglish;
   const languageTest = hasLanguageTest
     ? [
         langs.includes("french") && frenchTestLabel ? `Français: ${frenchTestLabel}` : "",
-        langs.includes("english") && englishTestLabel ? `Anglais: ${englishTestLabel}` : ""
+        langs.includes("english") && englishTestLabel ? `Anglais: ${englishTestLabel}` : "",
+        ...Object.entries(languageTestsExtra).map(([lang, value]) => `${EXTRA_TESTS[lang].label}: ${value.test === "Autre" ? value.other : value.test}`)
       ].filter(Boolean).join(" | ")
     : "";
 
@@ -241,6 +281,7 @@ function validateOnboarding(body) {
     languageTestEnglish: hasLanguageTest && langs.includes("english") ? languageTestEnglish : "",
     languageTestFrenchOther: languageTestFrench === "Autre" ? languageTestFrenchOther : "",
     languageTestEnglishOther: languageTestEnglish === "Autre" ? languageTestEnglishOther : "",
+    languageTestsExtra,
     hasPassport: Boolean(body.hasPassport),
     ...validatePassport(body),
     visaAlreadyRequested: Boolean(body.visaAlreadyRequested),

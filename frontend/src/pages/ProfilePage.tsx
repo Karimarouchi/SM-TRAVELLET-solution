@@ -16,6 +16,8 @@ import {
   LEVELS,
   MAX_YEAR,
   TARGET_LEVELS,
+  TEST_LANG_CHOICES,
+  isExtraTestLang,
   YES_NO,
   formToPayload,
   profileToForm,
@@ -32,6 +34,7 @@ import { Camera, Check, ChevronDown, Globe2, GraduationCap, MapPinned, Sparkles,
 import { ReactNode, useEffect, useState } from "react";
 import "./profile.css";
 import PassportFields from "@/components/PassportFields";
+import ExtraTestFields from "@/components/ExtraTestFields";
 
 type SectionId = "account" | "identity" | "school" | "project" | "budget";
 
@@ -199,9 +202,14 @@ export default function ProfilePage() {
       ...current,
       languageTestLangs: current.languageTestLangs.includes(lang)
         ? current.languageTestLangs.filter((item) => item !== lang)
-        : [...current.languageTestLangs, lang]
+        : [...current.languageTestLangs, lang],
+      // Décocher une langue vide son test.
+      languageTestsExtra:
+        isExtraTestLang(lang) && current.languageTestLangs.includes(lang)
+          ? { ...current.languageTestsExtra, [lang]: { test: "", other: "" } }
+          : current.languageTestsExtra
     }));
-    setErrors((current) => ({ ...current, languageTestLangs: undefined }));
+    setErrors((current) => ({ ...current, languageTestLangs: undefined, languageTestsExtra: undefined }));
   }
 
   async function onPickPhoto(file?: File | null) {
@@ -531,22 +539,20 @@ export default function ProfilePage() {
                                       setField("languageTestEnglish", "");
                                       setField("languageTestFrenchOther", "");
                                       setField("languageTestEnglishOther", "");
+                                      setField("languageTestsExtra", { german: { test: "", other: "" }, italian: { test: "", other: "" }, spanish: { test: "", other: "" } });
                                     }
                                   }}
                                 />
                                 <span>
                                   <span className="block text-sm font-semibold">Test de langue déjà passé</span>
-                                  <span className="block text-xs text-muted">Coche, puis choisis français et / ou anglais.</span>
+                                  <span className="block text-xs text-muted">Coche, puis choisis la ou les langues et le test.</span>
                                 </span>
                               </label>
                               {form.hasLanguageTest && (
                                 <div className="mt-3 grid gap-3">
                                   <Field label="Test de langue" required error={errors.languageTestLangs}>
                                     <div className="flex flex-wrap gap-2">
-                                      {([
-                                        { id: "french" as const, label: "Français" },
-                                        { id: "english" as const, label: "Anglais" }
-                                      ]).map((item) => {
+                                      {TEST_LANG_CHOICES.map((item) => {
                                         const active = form.languageTestLangs.includes(item.id);
                                         return (
                                           <button
@@ -584,6 +590,15 @@ export default function ProfilePage() {
                                       <input className={fieldInputClass(Boolean(errors.languageTestEnglishOther))} value={form.languageTestEnglishOther} onChange={(e) => setField("languageTestEnglishOther", e.target.value)} />
                                     </Field>
                                   )}
+                                  <ExtraTestFields
+                                    selected={form.languageTestLangs}
+                                    values={form.languageTestsExtra}
+                                    error={errors.languageTestsExtra}
+                                    onChange={(lang, patch) => {
+                                      setField("languageTestsExtra", { ...form.languageTestsExtra, [lang]: { ...form.languageTestsExtra[lang], ...patch } });
+                                      setErrors((current) => ({ ...current, languageTestsExtra: undefined }));
+                                    }}
+                                  />
                                 </div>
                               )}
                             </div>

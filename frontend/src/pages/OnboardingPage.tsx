@@ -1,4 +1,5 @@
-import { EXTRA_LANGUAGES, OPTIONAL_LANG_LEVELS } from "@/lib/student-profile-form";
+import { EMPTY_EXTRA_TESTS, EXTRA_LANGUAGES, OPTIONAL_LANG_LEVELS, TEST_LANG_CHOICES, extraTestsError, isExtraTestLang, type ExtraTest, type ExtraTestLang, type TestLang } from "@/lib/student-profile-form";
+import ExtraTestFields from "@/components/ExtraTestFields";
 import { FancySelect } from "@/components/ui/fancy-select";
 import UniversityPicker from "@/components/UniversityPicker";
 import { addMyUniversityChoice, fetchPublicCountries, fetchPublicUniversities, getSession, saveOnboarding, type Country, type PublicUniversity } from "@/lib/auth";
@@ -52,7 +53,6 @@ const ENGLISH_TESTS = [
   "Test prévu / inscription en cours",
   "Autre"
 ];
-type TestLang = "french" | "english";
 const YES_NO = [
   { value: "yes", label: "Oui" },
   { value: "no", label: "Non" }
@@ -91,6 +91,7 @@ type FormState = {
   languageTestEnglish: string;
   languageTestFrenchOther: string;
   languageTestEnglishOther: string;
+  languageTestsExtra: Record<ExtraTestLang, ExtraTest>;
   hasPassport: "" | "yes" | "no";
   passportNumber: string;
   passportExpiresOn: string;
@@ -130,6 +131,7 @@ const EMPTY: FormState = {
   languageTestEnglish: "",
   languageTestFrenchOther: "",
   languageTestEnglishOther: "",
+  languageTestsExtra: { ...EMPTY_EXTRA_TESTS },
   hasPassport: "",
   passportNumber: "",
   passportExpiresOn: "",
@@ -212,7 +214,7 @@ function validateField(key: FieldKey, form: FormState): string {
       return "";
     case "languageTestLangs":
       if (!form.hasLanguageTest) return "";
-      return form.languageTestLangs.length ? "" : "Choisissez français et / ou anglais.";
+      return form.languageTestLangs.length ? "" : "Choisissez la ou les langues du test.";
     case "languageTestFrench":
       if (!form.hasLanguageTest || !form.languageTestLangs.includes("french")) return "";
       return text ? "" : "Choisissez le test de français.";
@@ -229,6 +231,8 @@ function validateField(key: FieldKey, form: FormState): string {
       if (!text) return "Indiquez le nom du test d’anglais.";
       if (text.length < 2) return "Au moins 2 caractères.";
       return "";
+    case "languageTestsExtra":
+      return extraTestsError(form.hasLanguageTest, form.languageTestLangs, form.languageTestsExtra);
     case "hasPassport":
       return text ? "" : "Indiquez si le passeport est disponible.";
     case "passportNumber":
@@ -249,7 +253,7 @@ const STEP_FIELDS: FieldKey[][] = [
   ["nationality", "residenceCountry", "city"],
   ["currentStudyLevel", "lastDiploma", "studyField", "currentInstitution", "diplomaYear"],
   ["preferredCountries", "preferredCity", "targetLevel", "targetField", "targetIntake", "targetUniversity"],
-  ["annualBudget", "fundingMode", "languageLevelFrench", "languageLevelEnglish", "languageLevelGerman", "languageLevelItalian", "languageLevelSpanish", "hasLanguageTest", "languageTestLangs", "languageTestFrench", "languageTestEnglish", "languageTestFrenchOther", "languageTestEnglishOther", "hasPassport", "passportNumber", "passportExpiresOn", "visaAlreadyRequested", "availableDocuments"]
+  ["annualBudget", "fundingMode", "languageLevelFrench", "languageLevelEnglish", "languageLevelGerman", "languageLevelItalian", "languageLevelSpanish", "hasLanguageTest", "languageTestLangs", "languageTestFrench", "languageTestEnglish", "languageTestFrenchOther", "languageTestEnglishOther", "languageTestsExtra", "hasPassport", "passportNumber", "passportExpiresOn", "visaAlreadyRequested", "availableDocuments"]
 ];
 
 function validateStep(index: number, form: FormState): FieldErrors {
@@ -398,7 +402,11 @@ export default function OnboardingPage() {
         languageTestFrench: lang === "french" && active ? "" : current.languageTestFrench,
         languageTestEnglish: lang === "english" && active ? "" : current.languageTestEnglish,
         languageTestFrenchOther: lang === "french" && active ? "" : current.languageTestFrenchOther,
-        languageTestEnglishOther: lang === "english" && active ? "" : current.languageTestEnglishOther
+        languageTestEnglishOther: lang === "english" && active ? "" : current.languageTestEnglishOther,
+        languageTestsExtra:
+          isExtraTestLang(lang) && active
+            ? { ...current.languageTestsExtra, [lang]: { test: "", other: "" } }
+            : current.languageTestsExtra
       };
     });
     setErrors((current) => ({
@@ -407,7 +415,8 @@ export default function OnboardingPage() {
       languageTestFrench: undefined,
       languageTestEnglish: undefined,
       languageTestFrenchOther: undefined,
-      languageTestEnglishOther: undefined
+      languageTestEnglishOther: undefined,
+      languageTestsExtra: undefined
     }));
     setFormError("");
   }
@@ -463,6 +472,11 @@ export default function OnboardingPage() {
         languageTestEnglish: form.hasLanguageTest && form.languageTestLangs.includes("english") ? form.languageTestEnglish : "",
         languageTestFrenchOther: form.languageTestFrench === "Autre" ? form.languageTestFrenchOther.trim() : "",
         languageTestEnglishOther: form.languageTestEnglish === "Autre" ? form.languageTestEnglishOther.trim() : "",
+        languageTestsExtra: Object.fromEntries(
+          (["german", "italian", "spanish"] as ExtraTestLang[])
+            .filter((lang) => form.hasLanguageTest && form.languageTestLangs.includes(lang))
+            .map((lang) => [lang, { test: form.languageTestsExtra[lang].test, other: form.languageTestsExtra[lang].test === "Autre" ? form.languageTestsExtra[lang].other.trim() : "" }])
+        ),
         hasPassport: form.hasPassport === "yes",
         passportNumber: form.hasPassport === "yes" ? normalizePassportNumber(form.passportNumber) : "",
         passportExpiresOn: form.hasPassport === "yes" ? form.passportExpiresOn : "",
@@ -777,7 +791,7 @@ export default function OnboardingPage() {
                       />
                       <span>
                         <span className="block text-sm font-semibold text-dark">Test de langue déjà passé</span>
-                        <span className="block text-xs text-muted">Cochez, choisissez français et / ou anglais, puis le test.</span>
+                        <span className="block text-xs text-muted">Cochez, choisissez la ou les langues, puis le test.</span>
                       </span>
                     </label>
                     <AnimatePresence>
@@ -790,10 +804,7 @@ export default function OnboardingPage() {
                           <div className="mt-3 grid gap-3">
                             <Field label="Test de langue" required error={errors.languageTestLangs}>
                               <div className="flex flex-wrap gap-2">
-                                {([
-                                  { id: "french" as const, label: "Français" },
-                                  { id: "english" as const, label: "Anglais" }
-                                ]).map((item) => {
+                                {TEST_LANG_CHOICES.map((item) => {
                                   const active = form.languageTestLangs.includes(item.id);
                                   return (
                                     <motion.button
@@ -869,6 +880,15 @@ export default function OnboardingPage() {
                                 )}
                               </>
                             )}
+
+                            <ExtraTestFields
+                              selected={form.languageTestLangs}
+                              values={form.languageTestsExtra}
+                              error={errors.languageTestsExtra}
+                              onChange={(lang, patch) => {
+                                set("languageTestsExtra", { ...form.languageTestsExtra, [lang]: { ...form.languageTestsExtra[lang], ...patch } });
+                              }}
+                            />
                           </div>
                         </motion.div>
                       )}

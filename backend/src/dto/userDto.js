@@ -65,6 +65,7 @@ function studentProfileDto(row) {
     languageTestEnglish: row.language_test_english || "",
     languageTestFrenchOther: row.language_test_french_other || "",
     languageTestEnglishOther: row.language_test_english_other || "",
+    languageTestsExtra: row.language_tests_extra || {},
     hasPassport: row.has_passport,
     passportNumber: row.passport_number || "",
     passportExpiresOn: passport.formatExpiry(row.passport_expires_on),

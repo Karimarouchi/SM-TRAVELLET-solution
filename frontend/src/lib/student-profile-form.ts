@@ -55,7 +55,62 @@ export const YES_NO = [
   { value: "no", label: "Non" }
 ];
 
-export type TestLang = "french" | "english";
+export type ExtraTestLang = "german" | "italian" | "spanish";
+export type TestLang = "french" | "english" | ExtraTestLang;
+export type ExtraTest = { test: string; other: string };
+
+const TEST_TAIL = ["Aucun test", "Test prévu / inscription en cours", "Autre"];
+
+// Langues supplémentaires proposées pour le test de langue, avec leurs tests.
+export const EXTRA_TEST_LANGS: Array<{ id: ExtraTestLang; label: string; adjective: string; tests: string[] }> = [
+  {
+    id: "german",
+    label: "Allemand",
+    adjective: "d’allemand",
+    tests: ["Goethe-Zertifikat A1", "Goethe-Zertifikat A2", "Goethe-Zertifikat B1", "Goethe-Zertifikat B2", "Goethe-Zertifikat C1", "Goethe-Zertifikat C2", "TestDaF", "DSH", "telc Deutsch B1", "telc Deutsch B2", "TestAS", "ÖSD", ...TEST_TAIL]
+  },
+  {
+    id: "italian",
+    label: "Italien",
+    adjective: "d’italien",
+    tests: ["CILS B1", "CILS B2", "CILS C1", "CILS C2", "CELI A2", "CELI B1", "CELI B2", "CELI C1", "CELI C2", "PLIDA B1", "PLIDA B2", "PLIDA C1", "PLIDA C2", ...TEST_TAIL]
+  },
+  {
+    id: "spanish",
+    label: "Espagnol",
+    adjective: "d’espagnol",
+    tests: ["DELE A1", "DELE A2", "DELE B1", "DELE B2", "DELE C1", "DELE C2", "SIELE", ...TEST_TAIL]
+  }
+];
+
+// Les cinq langues proposées pour le test de langue.
+export const TEST_LANG_CHOICES: Array<{ id: TestLang; label: string }> = [
+  { id: "french", label: "Français" },
+  { id: "english", label: "Anglais" },
+  ...EXTRA_TEST_LANGS.map((lang) => ({ id: lang.id as TestLang, label: lang.label }))
+];
+
+export const EMPTY_EXTRA_TESTS: Record<ExtraTestLang, ExtraTest> = {
+  german: { test: "", other: "" },
+  italian: { test: "", other: "" },
+  spanish: { test: "", other: "" }
+};
+
+export function isExtraTestLang(lang: TestLang): lang is ExtraTestLang {
+  return lang === "german" || lang === "italian" || lang === "spanish";
+}
+
+/** Premier message d'erreur des tests d'allemand / italien / espagnol cochés. */
+export function extraTestsError(hasLanguageTest: boolean, langs: TestLang[], values: Record<ExtraTestLang, ExtraTest>): string {
+  if (!hasLanguageTest) return "";
+  for (const lang of EXTRA_TEST_LANGS) {
+    if (!langs.includes(lang.id)) continue;
+    const value = values[lang.id];
+    if (!value.test) return `Choisissez le test ${lang.adjective}.`;
+    if (value.test === "Autre" && value.other.trim().length < 2) return `Indiquez le nom du test ${lang.adjective}.`;
+  }
+  return "";
+}
 
 export type ProfileForm = {
   phone: string;
@@ -86,6 +141,7 @@ export type ProfileForm = {
   languageTestEnglish: string;
   languageTestFrenchOther: string;
   languageTestEnglishOther: string;
+  languageTestsExtra: Record<ExtraTestLang, ExtraTest>;
   hasPassport: "" | "yes" | "no";
   passportNumber: string;
   passportExpiresOn: string;
@@ -106,6 +162,18 @@ export function profileToForm(profile: StudentProfile | null): ProfileForm {
   const langs: TestLang[] = [];
   if (french) langs.push("french");
   if (english) langs.push("english");
+  const extra: Record<ExtraTestLang, ExtraTest> = {
+    german: { ...EMPTY_EXTRA_TESTS.german },
+    italian: { ...EMPTY_EXTRA_TESTS.italian },
+    spanish: { ...EMPTY_EXTRA_TESTS.spanish }
+  };
+  for (const lang of EXTRA_TEST_LANGS) {
+    const saved = profile?.languageTestsExtra?.[lang.id];
+    if (saved?.test) {
+      extra[lang.id] = { test: saved.test, other: saved.other || "" };
+      langs.push(lang.id);
+    }
+  }
   return {
     phone: profile?.phone || "",
     nationality: profile?.nationality || "Tunisie",
@@ -135,6 +203,7 @@ export function profileToForm(profile: StudentProfile | null): ProfileForm {
     languageTestEnglish: english,
     languageTestFrenchOther: profile?.languageTestFrenchOther || "",
     languageTestEnglishOther: profile?.languageTestEnglishOther || "",
+    languageTestsExtra: extra,
     hasPassport: profile?.hasPassport === true ? "yes" : profile?.hasPassport === false ? "no" : "",
     passportNumber: profile?.passportNumber || "",
     passportExpiresOn: profile?.passportExpiresOn || "",
@@ -150,6 +219,12 @@ export function formToPayload(form: ProfileForm) {
     languageTestEnglish: form.hasLanguageTest && form.languageTestLangs.includes("english") ? form.languageTestEnglish : "",
     languageTestFrenchOther: form.languageTestFrench === "Autre" ? form.languageTestFrenchOther.trim() : "",
     languageTestEnglishOther: form.languageTestEnglish === "Autre" ? form.languageTestEnglishOther.trim() : "",
+    languageTestsExtra: Object.fromEntries(
+      EXTRA_TEST_LANGS.filter((lang) => form.hasLanguageTest && form.languageTestLangs.includes(lang.id)).map((lang) => [
+        lang.id,
+        { test: form.languageTestsExtra[lang.id].test, other: form.languageTestsExtra[lang.id].test === "Autre" ? form.languageTestsExtra[lang.id].other.trim() : "" }
+      ])
+    ),
     hasPassport: form.hasPassport === "yes",
     passportNumber: form.hasPassport === "yes" ? normalizePassportNumber(form.passportNumber) : "",
     passportExpiresOn: form.hasPassport === "yes" ? form.passportExpiresOn : "",
@@ -250,7 +325,7 @@ export function validateField(key: ProfileField, form: ProfileForm): string {
       return text ? "" : "Choisissez votre niveau d’anglais.";
     case "languageTestLangs":
       if (!form.hasLanguageTest) return "";
-      return form.languageTestLangs.length ? "" : "Choisissez français et / ou anglais.";
+      return form.languageTestLangs.length ? "" : "Choisissez la ou les langues du test.";
     case "languageTestFrench":
       if (!form.hasLanguageTest || !form.languageTestLangs.includes("french")) return "";
       return text ? "" : "Choisissez le test de français.";
@@ -263,6 +338,8 @@ export function validateField(key: ProfileField, form: ProfileForm): string {
     case "languageTestEnglishOther":
       if (!form.hasLanguageTest || form.languageTestEnglish !== "Autre") return "";
       return text.length >= 2 ? "" : "Indiquez le nom du test d’anglais.";
+    case "languageTestsExtra":
+      return extraTestsError(form.hasLanguageTest, form.languageTestLangs, form.languageTestsExtra);
     case "hasPassport":
       return text ? "" : "Indiquez si le passeport est disponible.";
     // Sur le profil, ces champs sont facultatifs (les comptes créés avant la
@@ -298,6 +375,7 @@ export const SECTION_FIELDS: Record<string, ProfileField[]> = {
     "languageTestEnglish",
     "languageTestFrenchOther",
     "languageTestEnglishOther",
+    "languageTestsExtra",
     "hasPassport",
     "passportNumber",
     "passportExpiresOn",

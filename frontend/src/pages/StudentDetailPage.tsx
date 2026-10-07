@@ -445,6 +445,7 @@ export default function StudentDetailPage() {
                     <InfoRow label={t("Dernier diplôme", "Last diploma")} value={profile.lastDiploma} />
                     <InfoRow label={t("Français", "French")} value={profile.languageLevelFrench} />
                     <InfoRow label={t("Anglais", "English")} value={profile.languageLevelEnglish} />
+                    {profile.languageTest ? <InfoRow label={t("Test de langue", "Language test")} value={profile.languageTest} /> : null}
                     {profile.languageLevelGerman ? <InfoRow label={t("Allemand", "German")} value={profile.languageLevelGerman} /> : null}
                     {profile.languageLevelItalian ? <InfoRow label={t("Italien", "Italian")} value={profile.languageLevelItalian} /> : null}
                     {profile.languageLevelSpanish ? <InfoRow label={t("Espagnol", "Spanish")} value={profile.languageLevelSpanish} /> : null}

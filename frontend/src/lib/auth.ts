@@ -60,6 +60,7 @@ export type StudentProfile = {
   languageTestEnglish: string;
   languageTestFrenchOther: string;
   languageTestEnglishOther: string;
+  languageTestsExtra?: Record<string, { test: string; other: string }>;
   hasPassport: boolean | null;
   passportNumber: string;
   passportExpiresOn: string;
