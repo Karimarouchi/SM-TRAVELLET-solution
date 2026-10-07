@@ -15,7 +15,7 @@ module.exports = {
   corsOrigin: process.env.CORS_ORIGIN || "*",
   // Adresse publique du site, pour les liens envoyés aux étudiants (ex. lien
   // d'inscription avec code pré-rempli envoyé par WhatsApp).
-  appPublicUrl: (process.env.APP_PUBLIC_URL || "https://sm.antigoneinterne.agency").replace(/\/+$/, ""),
+  appPublicUrl: (process.env.APP_PUBLIC_URL || "https://www.smtravel.fr").replace(/\/+$/, ""),
   // Google Calendar : création automatique des liens Meet (voir
   // backend/GOOGLE_CALENDAR.md). Optionnel : sans ces variables, les liens
   // Meet se collent à la main comme avant.

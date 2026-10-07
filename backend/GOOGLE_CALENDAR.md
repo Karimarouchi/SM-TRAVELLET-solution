@@ -9,10 +9,10 @@ Sans configuration, rien ne change : les liens se collent à la main.
 Dans le projet Google Cloud → **Google Auth Platform** :
 
 1. **Clients** → le client OAuth « Application Web » → **URI de redirection autorisés** : ajouter
-   - `https://sm.antigoneinterne.agency/api/google/callback` (production)
+   - `https://www.smtravel.fr/api/google/callback` (production)
    - `http://localhost:3001/api/google/callback` (développement local)
 
-   Les adresses sans chemin (`https://sm.antigoneinterne.agency`) ne conviennent pas : Google exige l'adresse exacte du retour.
+   Les adresses sans chemin (`https://www.smtravel.fr`) ne conviennent pas : Google exige l'adresse exacte du retour.
 2. **API et services** → activer **Google Calendar API**.
 3. **Audience** (écran de consentement) → passer l'état de « Test » à **« En production »**.
    En mode « Test », Google fait expirer l'accès au bout de **7 jours** et seuls les « utilisateurs test » peuvent se connecter. En production, l'écran affichera « application non validée par Google » : c'est normal pour un usage interne (limite 100 comptes), cliquer sur *Paramètres avancés → Continuer*.
@@ -26,7 +26,7 @@ Dans le `.env` du backend (jamais dans git) :
 ```
 GOOGLE_CLIENT_ID=...apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=GOCSPX-...
-# Vide en production : https://sm.antigoneinterne.agency/api/google/callback
+# Vide en production : https://www.smtravel.fr/api/google/callback
 GOOGLE_REDIRECT_URI=
 ```
 

@@ -68,7 +68,7 @@ WhatsApp répondent 503 (« WhatsApp non configuré »).
 
 Dans Meta for Developers → votre app → **WhatsApp → Configuration** :
 
-- **URL de rappel** : `https://sm.antigoneinterne.agency/api/whatsapp/webhook`
+- **URL de rappel** : `https://www.smtravel.fr/api/whatsapp/webhook`
 - **Token de vérification** : exactement la valeur de `WHATSAPP_VERIFY_TOKEN`
 - Cliquer **Vérifier et enregistrer**, puis dans **Champs du webhook**,
   **s'abonner au champ `messages`**.
@@ -78,7 +78,7 @@ Dans Meta for Developers → votre app → **WhatsApp → Configuration** :
 Vérification du webhook (doit afficher `12345`) :
 
 ```
-https://sm.antigoneinterne.agency/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=VOTRE_VERIFY_TOKEN&hub.challenge=12345
+https://www.smtravel.fr/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=VOTRE_VERIFY_TOKEN&hub.challenge=12345
 ```
 
 Simulation d'un message entrant signé, sans passer par Meta (backend lancé,
@@ -107,11 +107,11 @@ Vérifications :
 
 ```
 curl -i "http://localhost:3002/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=VOTRE_VERIFY_TOKEN&hub.challenge=1"
-curl -i "https://sm.antigoneinterne.agency/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=VOTRE_VERIFY_TOKEN&hub.challenge=1"
+curl -i "https://www.smtravel.fr/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=VOTRE_VERIFY_TOKEN&hub.challenge=1"
 ```
 
 - La 1re répond `1` mais pas la 2e → problème nginx : vérifier le bloc
-  `location /api/` dans `/etc/nginx/sites-available/sm.antigoneinterne.agency`,
+  `location /api/` dans `/etc/nginx/sites-available/smtravel`,
   puis `nginx -t && systemctl reload nginx`.
 - Les deux répondent `503` → les variables WhatsApp ne sont pas chargées :
   vérifier `backend/.env` et relancer le backend.

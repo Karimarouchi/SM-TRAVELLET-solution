@@ -33,6 +33,10 @@ const backupService = require("./services/backupService");
 const { query } = require("../db");
 
 const app = express();
+// Le site est derrière nginx (un seul relais) : on lit la vraie adresse du visiteur
+// dans X-Forwarded-For. Sans cela, tous les visiteurs partageraient l'adresse du
+// relais pour la limitation de débit (connexion, codes…).
+app.set("trust proxy", 1);
 app.use(cors({ origin: env.corsOrigin }));
 app.use(express.json({
   limit: "5mb",
