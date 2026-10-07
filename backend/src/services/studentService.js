@@ -144,6 +144,18 @@ function validateOnboarding(body) {
     throw error;
   }
 
+  // Allemand, italien, espagnol : facultatifs (vide = aucun niveau), sinon A1 à C2.
+  const extraLevels = {};
+  for (const [key, label] of [["languageLevelGerman", "allemand"], ["languageLevelItalian", "italien"], ["languageLevelSpanish", "espagnol"]]) {
+    const value = String(body[key] || "").trim();
+    if (value && !cefr.includes(value)) {
+      const error = new Error(`Le niveau d’${label === "allemand" ? "allemand" : label} doit être entre A1 et C2.`);
+      error.status = 400;
+      throw error;
+    }
+    extraLevels[key] = value;
+  }
+
   const hasLanguageTest = Boolean(body.hasLanguageTest);
   const langs = Array.isArray(body.languageTestLangs)
     ? body.languageTestLangs.filter((item) => item === "french" || item === "english")
@@ -223,6 +235,7 @@ function validateOnboarding(body) {
     languageLevel: `Français ${french} / Anglais ${english}`,
     languageLevelFrench: french,
     languageLevelEnglish: english,
+    ...extraLevels,
     languageTest,
     languageTestFrench: hasLanguageTest && langs.includes("french") ? languageTestFrench : "",
     languageTestEnglish: hasLanguageTest && langs.includes("english") ? languageTestEnglish : "",

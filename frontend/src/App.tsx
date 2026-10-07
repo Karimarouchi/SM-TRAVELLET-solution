@@ -11,6 +11,7 @@ import VerifyEmailPage from "@/pages/VerifyEmailPage";
 import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
 import AdminPage from "@/pages/AdminPage";
 import AdminSalesPage from "@/pages/AdminSalesPage";
+import { DialogHost } from "@/components/ui/dialog-host";
 import AdminFinancePage from "@/pages/AdminFinancePage";
 import AdminUsersPage from "@/pages/AdminUsersPage";
 import AdminSettingsPage from "@/pages/AdminSettingsPage";
@@ -22,7 +23,7 @@ import AdminAvisPage from "@/pages/AdminAvisPage";
 import SalesEspacePage from "@/pages/SalesEspacePage";
 import SalesCodesPage from "@/pages/SalesCodesPage";
 import StudentDetailPage from "@/pages/StudentDetailPage";
-import RdvDossiersPage from "@/pages/RdvDossiersPage";
+import RdvDossiersPage, { RdvVisasPage } from "@/pages/RdvDossiersPage";
 import WhatsAppPage from "@/pages/WhatsAppPage";
 import NotificationsPage from "@/pages/NotificationsPage";
 import ArchivePage from "@/pages/ArchivePage";
@@ -31,6 +32,7 @@ export default function App() {
   return (
     <LanguageProvider>
     <HashRouter>
+      <DialogHost />
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<AuthSwitch defaultMode="login" />} />
@@ -57,6 +59,7 @@ export default function App() {
           <Route path="/conseiller/codes" element={<SalesCodesPage />} />
           <Route path="/conseiller/etudiants/:id" element={<StudentDetailPage />} />
           <Route path="/rdv" element={<RdvDossiersPage />} />
+          <Route path="/rdv/visas" element={<RdvVisasPage />} />
           {/* /whatsapp seul (anciens liens, notifications) ouvre la messagerie des non inscrits. */}
           <Route path="/whatsapp" element={<Navigate to="/whatsapp/prospects" replace />} />
           <Route path="/whatsapp/:segment" element={<WhatsAppPage />} />

@@ -52,6 +52,9 @@ export type StudentProfile = {
   languageLevel: string;
   languageLevelFrench: string;
   languageLevelEnglish: string;
+  languageLevelGerman?: string;
+  languageLevelItalian?: string;
+  languageLevelSpanish?: string;
   languageTest: string;
   languageTestFrench: string;
   languageTestEnglish: string;

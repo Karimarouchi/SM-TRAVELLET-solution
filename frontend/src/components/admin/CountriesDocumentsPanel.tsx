@@ -1,3 +1,4 @@
+import { alertDialog, confirmDialog } from "@/components/ui/dialog-host";
 import {
   deleteCountryDocument,
   createCountryDocument,
@@ -127,7 +128,7 @@ export default function CountriesDocumentsPanel() {
       setCountryModalOpen(false);
       await loadCountries();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Erreur lors de l'enregistrement du pays.");
+      void alertDialog(err instanceof Error ? err.message : "Erreur lors de l'enregistrement du pays.", { tone: "danger" });
     } finally {
       setSavingCountry(false);
     }
@@ -169,7 +170,7 @@ export default function CountriesDocumentsPanel() {
   const handleSubmitDocument = async (countryId: string, editingId: string | null) => {
     const form = getDocForm(countryId);
     if (!form.name.trim()) {
-      alert("Le nom du document est obligatoire.");
+      void alertDialog("Le nom du document est obligatoire.", { tone: "warning" });
       return;
     }
     setSavingDocumentCountryId(countryId);
@@ -185,7 +186,7 @@ export default function CountriesDocumentsPanel() {
       setDocumentForms((prev) => ({ ...prev, [countryId]: DEFAULT_DOCUMENT_FORM }));
       await loadDocuments(countryId);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Erreur lors de l'enregistrement du document.");
+      void alertDialog(err instanceof Error ? err.message : "Erreur lors de l'enregistrement du document.", { tone: "danger" });
     } finally {
       setSavingDocumentCountryId(null);
     }
@@ -201,13 +202,13 @@ export default function CountriesDocumentsPanel() {
   };
 
   const handleDeleteDocument = async (countryId: string, doc: DocumentRequirement) => {
-    if (!window.confirm(`Supprimer le document "${doc.name}" ?`)) return;
+    if ((await confirmDialog(`Supprimer le document "${doc.name}" ?`, { tone: "danger", confirmLabel: "Supprimer" }))) return;
     try {
       await deleteCountryDocument(doc.id);
       notify(`"${doc.name}" supprimé.`);
       await loadDocuments(countryId);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Suppression impossible (document déjà utilisé par un dossier étudiant) — désactivez-le à la place.");
+      void alertDialog(err instanceof Error ? err.message : "Suppression impossible (document déjà utilisé par un dossier étudiant) — désactivez-le à la place.", { tone: "danger" });
     }
   };
 

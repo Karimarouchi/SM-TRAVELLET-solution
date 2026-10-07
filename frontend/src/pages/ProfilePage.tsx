@@ -10,7 +10,9 @@ import {
   FRENCH_TESTS,
   FUNDING,
   INTAKES,
+  EXTRA_LANGUAGES,
   LANG_LEVELS,
+  OPTIONAL_LANG_LEVELS,
   LEVELS,
   MAX_YEAR,
   TARGET_LEVELS,
@@ -510,6 +512,11 @@ export default function ProfilePage() {
                             <Field label="Niveau d’anglais" required error={errors.languageLevelEnglish}>
                               <FancySelect invalid={Boolean(errors.languageLevelEnglish)} value={form.languageLevelEnglish} onChange={(value) => setField("languageLevelEnglish", value)} options={LANG_LEVELS} />
                             </Field>
+                            {EXTRA_LANGUAGES.map((language) => (
+                              <Field key={language.key} label={language.label}>
+                                <FancySelect value={form[language.key]} onChange={(value) => setField(language.key, value)} options={OPTIONAL_LANG_LEVELS} placeholder="Aucun niveau" />
+                              </Field>
+                            ))}
                             <div className="sm:col-span-2">
                               <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-line bg-white px-4 py-3">
                                 <input

@@ -1,3 +1,4 @@
+import { alertDialog, confirmDialog } from "@/components/ui/dialog-host";
 import {
   createProgramme,
   deleteProgramme,
@@ -121,7 +122,7 @@ export default function AdminProgrammesPage() {
   };
 
   const handleDelete = async (id: string, title: string) => {
-    if (!window.confirm(`Supprimer "${title}" ?`)) return;
+    if ((await confirmDialog(`Supprimer "${title}" ?`, { tone: "danger", confirmLabel: "Supprimer" }))) return;
     try {
       await deleteProgramme(id);
       setSuccess(`"${title}" supprimé.`);
@@ -133,7 +134,7 @@ export default function AdminProgrammesPage() {
   };
 
   const handleFileUpload = async (file: File) => {
-    if (file.size > 5 * 1024 * 1024) { alert("L'image dépasse 5 Mo."); return; }
+    if (file.size > 5 * 1024 * 1024) { void alertDialog("L'image dépasse 5 Mo.", { tone: "warning" }); return; }
     const reader = new FileReader();
     reader.onload = async () => {
       try {
@@ -141,7 +142,7 @@ export default function AdminProgrammesPage() {
         const res = await uploadProgrammeImage(reader.result as string);
         setFormData((prev) => ({ ...prev, imageUrl: res.imageUrl }));
       } catch (err) {
-        alert(err instanceof Error ? err.message : "Erreur lors de l'upload.");
+        void alertDialog(err instanceof Error ? err.message : "Erreur lors de l'upload.", { tone: "danger" });
       } finally {
         setUploading(false);
       }
@@ -164,7 +165,7 @@ export default function AdminProgrammesPage() {
       loadData();
       setTimeout(() => setSuccess(""), 4000);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Erreur lors de l'enregistrement.");
+      void alertDialog(err instanceof Error ? err.message : "Erreur lors de l'enregistrement.", { tone: "danger" });
     } finally {
       setSaving(false);
     }

@@ -60,6 +60,9 @@ async function updateOnboarding(userId, fields) {
       available_documents = $29,
       passport_number = $30,
       passport_expires_on = $31,
+      language_level_german = $32,
+      language_level_italian = $33,
+      language_level_spanish = $34,
       onboarding_completed = TRUE,
       onboarding_completed_at = NOW(),
       updated_at = NOW()
@@ -96,7 +99,10 @@ async function updateOnboarding(userId, fields) {
       fields.visaAlreadyRequested,
       fields.availableDocuments || null,
       fields.passportNumber || null,
-      fields.passportExpiresOn || null
+      fields.passportExpiresOn || null,
+      fields.languageLevelGerman || null,
+      fields.languageLevelItalian || null,
+      fields.languageLevelSpanish || null
     ]
   );
   return result.rows[0];

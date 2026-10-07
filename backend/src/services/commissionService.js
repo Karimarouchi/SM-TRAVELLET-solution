@@ -125,7 +125,7 @@ async function awardCommission({ userId, studentId, countryId, role, stage, appl
         type: "COMMISSION_EARNED",
         title: `Commission gagnée : ${Number(rule.amount_dinar)} DT`,
         body: `${STAGE_LABELS[stage] || stage}${student ? ` — ${student.prenom} ${student.nom}` : ""}.`,
-        link: role === "RDV" ? "/rdv" : "/conseiller"
+        link: role === "RDV" ? (stage.startsWith("VISA") ? "/rdv/visas" : "/rdv") : "/conseiller"
       });
     }
   } catch (err) {

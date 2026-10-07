@@ -1,3 +1,4 @@
+import { confirmDialog } from "@/components/ui/dialog-host";
 import CommissionsPanel from "@/components/admin/CommissionsPanel";
 import { StatTile } from "@/components/admin/performance-ui";
 import StudentPaymentsPanel from "@/components/StudentPaymentsPanel";
@@ -370,7 +371,7 @@ function PricingRow({ row, onSaved }: { row: CountryPricing; onSaved: (next: Cou
   };
 
   const remove = async () => {
-    if (!window.confirm(`Supprimer le tarif de ${row.countryName} ? Les étudiants déjà engagés gardent leur tarif ; les nouveaux codes ne demanderont plus de paiement.`)) return;
+    if ((await confirmDialog(`Supprimer le tarif de ${row.countryName} ? Les étudiants déjà engagés gardent leur tarif ; les nouveaux codes ne demanderont plus de paiement.`, { tone: "danger", confirmLabel: "Supprimer" }))) return;
     setBusy(true);
     try {
       const next = await removeFinancePricing(row.countryId);

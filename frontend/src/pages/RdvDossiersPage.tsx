@@ -19,7 +19,8 @@ import { MeetLinkButton } from "@/components/MeetLinkButton";
 import { AlertTriangle, ArrowRight, Banknote, Calendar, CalendarClock, CheckCircle2, ClipboardList, Clock, FileText, GraduationCap, Landmark, Plane, Send, Sparkles, ThumbsDown, ThumbsUp, Video, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import ApplicationTimeline from "@/components/admin/ApplicationTimeline";
-import MyCommissionsCard from "@/components/MyCommissionsCard";
+import MyCommissionsCard, { RDV_INSCRIPTION_STAGES, RDV_VISA_STAGES } from "@/components/MyCommissionsCard";
+import { Link } from "react-router-dom";
 
 function docStatusMeta(t: (fr: string, en: string) => string): Record<VisaDocumentChecklistItem["status"], { label: string; color: string; icon: typeof Clock }> {
   return {
@@ -351,17 +352,12 @@ function scrollToId(id: string) {
 
 const DAY = 24 * 3600 * 1000;
 
-export default function RdvDossiersPage() {
-  const { t } = useLanguage();
-  const session = getSession();
+// Données communes aux deux pages du RDV : ses dossiers et les documents visa.
+function useRdvData() {
   const [applications, setApplications] = useState<RdvMyApplication[]>([]);
   const [error, setError] = useState("");
-  const [rejectTarget, setRejectTarget] = useState<string | null>(null);
-  const [prepMeetingTarget, setPrepMeetingTarget] = useState<RdvMyApplication | null>(null);
-  const [embassyTarget, setEmbassyTarget] = useState<RdvMyApplication | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [docsByApp, setDocsByApp] = useState<Record<string, VisaDocumentChecklistItem[]>>({});
-  const [visaFilter, setVisaFilter] = useState<VisaFilter>("all");
 
   const loadDocs = (apps: RdvMyApplication[]) => {
     apps
@@ -384,15 +380,204 @@ export default function RdvDossiersPage() {
 
   useEffect(() => { load(); }, []);
 
+  const run = async (id: string, action: () => Promise<unknown>) => {
+    setBusyId(id);
+    setError("");
+    try {
+      await action();
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur.");
+      // Le message (ex. paiement de l'étudiant non réglé) est affiché en haut de page.
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return { applications, error, busyId, docsByApp, setDocsByApp, load, run };
+}
+
+function ErrorBanner({ message }: { message: string }) {
+  if (!message) return null;
+  return (
+    <div role="alert" className="mt-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> {message}
+    </div>
+  );
+}
+
+function TaskList({ tasks, title }: { tasks: Task[]; title: string }) {
+  const { t } = useLanguage();
+  return (
+    <section aria-labelledby="todo-title" className="min-w-0">
+      <h2 id="todo-title" className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-dark">
+        <Sparkles className="h-5 w-5 text-brand" aria-hidden /> {title}
+      </h2>
+      {tasks.length === 0 ? (
+        <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 px-5 py-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600"><CheckCircle2 className="h-5 w-5" aria-hidden /></span>
+          <div>
+            <p className="text-sm font-bold text-emerald-800">{t("Rien d'urgent", "Nothing urgent")}</p>
+            <p className="text-xs text-emerald-700">{t("Aucune action à mener pour l'instant.", "No action needed right now.")}</p>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2.5">
+          {tasks.slice(0, 8).map((task) => {
+            const st = TASK_STYLES[task.tone];
+            const Icon = task.icon;
+            const className = "inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand px-3.5 py-2 text-xs font-bold text-white transition hover:bg-brand-hover";
+            return (
+              <div key={task.key} className={cn("flex flex-wrap items-center gap-3 rounded-2xl border p-3.5 sm:flex-nowrap", st.box)}>
+                <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", st.icon)}><Icon className="h-5 w-5" aria-hidden /></span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-dark">{task.title}</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-mid">{task.text}</p>
+                </div>
+                {task.href ? (
+                  <a href={task.href} target="_blank" rel="noreferrer" className={className}>{task.cta} <ArrowRight className="h-3.5 w-3.5" aria-hidden /></a>
+                ) : (
+                  <button type="button" onClick={() => scrollToId(task.target)} className={className}>{task.cta} <ArrowRight className="h-3.5 w-3.5" aria-hidden /></button>
+                )}
+              </div>
+            );
+          })}
+          {tasks.length > 8 && <p className="text-xs text-muted">{t(`+ ${tasks.length - 8} autre(s) action(s) plus bas.`, `+ ${tasks.length - 8} more action(s) below.`)}</p>}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PageHero({ eyebrow, name, text }: { eyebrow: string; name: string; text: string }) {
+  const { t } = useLanguage();
+  return (
+    <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-6 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)] sm:p-8">
+      <p className="text-sm text-white/75">{eyebrow}</p>
+      <h1 className="mt-1 font-display text-3xl font-extrabold sm:text-4xl">{t("Bonjour", "Hello")}, {name}</h1>
+      <p className="mt-2 max-w-xl text-sm text-white/85">{text}</p>
+    </section>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Page 1 — Inscriptions universitaires : dépôt des candidatures, entretiens,
+// réponses des universités. Commissions « inscription » uniquement.
+// ─────────────────────────────────────────────────────────────────────────────
+export default function RdvDossiersPage() {
+  const { t } = useLanguage();
+  const session = getSession();
+  const { applications, error, load } = useRdvData();
+
   const board = useMemo(() => {
     const toApply = applications.filter((a) => a.status === "READY_TO_APPLY");
     const waiting = applications.filter((a) => ["WAITING_UNIVERSITY_RESPONSE", "INTERVIEW_REQUIRED", "INTERVIEW_SCHEDULED", "INTERVIEW_COMPLETED"].includes(a.status));
     const interviews = applications
       .filter((a) => a.status === "INTERVIEW_SCHEDULED" && a.interviewDate && new Date(a.interviewDate).getTime() > Date.now() - 2 * 3600 * 1000)
       .sort((a, b) => new Date(a.interviewDate!).getTime() - new Date(b.interviewDate!).getTime());
+    const accepted = applications.filter((a) => a.status === "ACCEPTED");
+    const open = applications.filter((a) => a.status !== "ACCEPTED" && a.status !== "CLOSED");
+
+    const tasks: Task[] = [];
+    for (const a of toApply) {
+      tasks.push({ key: `apply-${a.id}`, tone: "warning", icon: GraduationCap, weight: 80, title: t("Déposer la candidature", "Submit the application"), text: `${a.studentName} · ${a.universityName}${a.fieldOfStudy ? ` · ${a.fieldOfStudy}` : ""}`, target: "candidatures", cta: t("Ouvrir", "Open") });
+    }
+    for (const a of interviews) {
+      const when = new Date(a.interviewDate!);
+      const soon = when.getTime() - Date.now() < 2 * DAY;
+      tasks.push({ key: `int-${a.id}`, tone: soon ? "warning" : "info", icon: CalendarClock, weight: soon ? 82 : 55, title: t("Entretien université", "University interview"), text: `${a.studentName} · ${a.universityName} · ${when.toLocaleString("fr-FR", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`, target: "candidatures", cta: a.interviewLink ? t("Rejoindre", "Join") : t("Voir", "View"), href: a.interviewLink || undefined });
+    }
+    for (const a of waiting.filter((x) => x.status === "WAITING_UNIVERSITY_RESPONSE" && x.appliedAt && Date.now() - new Date(x.appliedAt).getTime() > 10 * DAY)) {
+      const days = Math.floor((Date.now() - new Date(a.appliedAt!).getTime()) / DAY);
+      tasks.push({ key: `wait-${a.id}`, tone: "info", icon: Clock, weight: 40, title: t("Relancer l'université", "Chase the university"), text: `${a.studentName} · ${a.universityName} · ${t(`sans réponse depuis ${days} jours`, `no answer for ${days} days`)}`, target: "candidatures", cta: t("Voir", "View") });
+    }
+    tasks.sort((x, y) => y.weight - x.weight);
+    return { toApply, waiting, interviews, accepted, open, tasks };
+  }, [applications, t]);
+
+  if (!session?.user) return null;
+
+  return (
+    <main className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
+      <PageHero
+        eyebrow={t("Espace RDV · Inscriptions universitaires", "Visa officer · University applications")}
+        name={session.user.prenom}
+        text={
+          board.open.length === 0
+            ? t("Aucune candidature universitaire en cours pour l'instant.", "No university application in progress right now.")
+            : board.tasks.length
+              ? t(`${board.open.length} candidature${board.open.length > 1 ? "s" : ""} en cours · ${board.tasks.length} action${board.tasks.length > 1 ? "s" : ""} à mener aujourd'hui.`, `${board.open.length} application(s) in progress · ${board.tasks.length} action(s) to take today.`)
+              : t(`${board.open.length} candidature${board.open.length > 1 ? "s" : ""} en cours · tout est à jour.`, `${board.open.length} application(s) in progress · all up to date.`)
+        }
+      />
+
+      <ErrorBanner message={error} />
+
+      <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label={t("Indicateurs", "Indicators")}>
+        <KpiTile icon={GraduationCap} label={t("À déposer", "To submit")} value={board.toApply.length} hint={t("candidatures prêtes", "applications ready")} tone="bg-amber-100 text-amber-600" onClick={() => scrollToId("candidatures")} />
+        <KpiTile icon={CalendarClock} label={t("Entretiens", "Interviews")} value={board.interviews.length} hint={t("à venir", "upcoming")} tone="bg-violet-100 text-brand" onClick={() => scrollToId("candidatures")} />
+        <KpiTile icon={Clock} label={t("Réponses", "Replies")} value={board.waiting.length} hint={t("en attente des universités", "awaiting universities")} tone="bg-sky-100 text-sky-600" onClick={() => scrollToId("candidatures")} />
+        <Link to="/rdv/visas" className="min-w-0 rounded-2xl border border-line bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600"><Plane className="h-[18px] w-[18px]" aria-hidden /></span>
+            <p className="min-w-0 truncate text-[11px] font-bold uppercase tracking-wide text-muted">{t("Acceptées", "Accepted")}</p>
+          </div>
+          <p className="mt-3 font-display text-3xl font-extrabold leading-none text-dark">{board.accepted.length}</p>
+          <p className="mt-1 text-[11px] text-muted">{t("suivies dans « Mes dossiers visa »", "followed in \"My visa files\"")}</p>
+        </Link>
+      </section>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <TaskList tasks={board.tasks} title={t("À faire aujourd'hui", "To do today")} />
+        <aside className="min-w-0">
+          <MyCommissionsCard title={t("Commissions · inscriptions", "Commissions · applications")} stages={RDV_INSCRIPTION_STAGES} />
+        </aside>
+      </div>
+
+      {board.open.length > 0 ? (
+        <section id="candidatures" className="mt-8 scroll-mt-24">
+          <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-dark">
+            <ClipboardList className="h-5 w-5 text-brand" aria-hidden /> {t("Candidatures universitaires", "University applications")}
+          </h2>
+          <ApplicationTimeline applications={board.open} canAct onChanged={load} />
+        </section>
+      ) : (
+        <p className="mt-8 rounded-[20px] border border-dashed border-line bg-white p-8 text-sm text-muted">
+          {t("Aucune candidature universitaire à traiter pour l'instant.", "No university application to handle right now.")}
+        </p>
+      )}
+
+      {board.accepted.length > 0 && (
+        <Link to="/rdv/visas" className="mt-6 flex items-center justify-between gap-3 rounded-[20px] border border-emerald-200 bg-emerald-50/70 p-5 transition hover:shadow-md">
+          <span className="text-sm text-emerald-900">
+            <strong>{board.accepted.length}</strong> {t(`dossier${board.accepted.length > 1 ? "s acceptés" : " accepté"} par l'université : la suite (documents, dépôt et décision du visa) se gère dans « Mes dossiers visa ».`, `file(s) accepted by the university: the next steps (documents, filing, decision) are in "My visa files".`)}
+          </span>
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white">{t("Ouvrir", "Open")} <ArrowRight className="h-3.5 w-3.5" aria-hidden /></span>
+        </Link>
+      )}
+    </main>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Page 2 — Mes dossiers visa : documents, paiement, dépôt, décision, rendez-vous.
+// Commissions « visa » uniquement.
+// ─────────────────────────────────────────────────────────────────────────────
+export function RdvVisasPage() {
+  const { t } = useLanguage();
+  const session = getSession();
+  const { applications, error, busyId, docsByApp, setDocsByApp, run } = useRdvData();
+  const [rejectTarget, setRejectTarget] = useState<string | null>(null);
+  const [prepMeetingTarget, setPrepMeetingTarget] = useState<RdvMyApplication | null>(null);
+  const [embassyTarget, setEmbassyTarget] = useState<RdvMyApplication | null>(null);
+  const [visaFilter, setVisaFilter] = useState<VisaFilter>("all");
+
+  const board = useMemo(() => {
     const visaPrep = applications.filter((a) => a.status === "ACCEPTED" && a.visaStatus === "PREPARATION");
     const visaSubmitted = applications.filter((a) => a.status === "ACCEPTED" && a.visaStatus === "SUBMITTED");
     const visaDone = applications.filter((a) => a.status === "ACCEPTED" && (a.visaStatus === "ACCEPTED" || a.visaStatus === "REJECTED"));
+    const waitingAdvisor = applications.filter((a) => a.status === "ACCEPTED" && !a.visaStatus);
     const blocked = visaPrep.filter((a) => a.visaPaymentDue);
     const readyToFile = visaPrep.filter((a) => {
       const docs = docsByApp[a.id];
@@ -409,307 +594,223 @@ export default function RdvDossiersPage() {
     for (const a of readyToFile) {
       tasks.push({ key: `file-${a.id}`, tone: "success", icon: Send, weight: 85, title: t("Prêt à déposer le visa", "Ready to file the visa"), text: `${a.studentName} · ${t("documents validés et paiement réglé", "documents approved and payment settled")}`, target: `app-${a.id}`, cta: t("Déposer", "File") });
     }
-    for (const a of toApply) {
-      tasks.push({ key: `apply-${a.id}`, tone: "warning", icon: GraduationCap, weight: 80, title: t("Déposer la candidature", "Submit the application"), text: `${a.studentName} · ${a.universityName}${a.fieldOfStudy ? ` · ${a.fieldOfStudy}` : ""}`, target: "candidatures", cta: t("Ouvrir", "Open") });
-    }
-    for (const a of interviews) {
-      const when = new Date(a.interviewDate!);
-      const soon = when.getTime() - Date.now() < 2 * DAY;
-      tasks.push({ key: `int-${a.id}`, tone: soon ? "warning" : "info", icon: CalendarClock, weight: soon ? 82 : 55, title: t("Entretien université", "University interview"), text: `${a.studentName} · ${a.universityName} · ${when.toLocaleString("fr-FR", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`, target: "candidatures", cta: a.interviewLink ? t("Rejoindre", "Join") : t("Voir", "View"), href: a.interviewLink || undefined });
-    }
-    for (const a of waiting.filter((x) => x.status === "WAITING_UNIVERSITY_RESPONSE" && x.appliedAt && Date.now() - new Date(x.appliedAt).getTime() > 10 * DAY)) {
-      const days = Math.floor((Date.now() - new Date(a.appliedAt!).getTime()) / DAY);
-      tasks.push({ key: `wait-${a.id}`, tone: "info", icon: Clock, weight: 40, title: t("Relancer l'université", "Chase the university"), text: `${a.studentName} · ${a.universityName} · ${t(`sans réponse depuis ${days} jours`, `no answer for ${days} days`)}`, target: "candidatures", cta: t("Voir", "View") });
-    }
     for (const a of visaSubmitted) {
       tasks.push({ key: `dec-${a.id}`, tone: "info", icon: Plane, weight: 50, title: t("Décision du visa attendue", "Visa decision pending"), text: a.studentName, target: `app-${a.id}`, cta: t("Voir", "View") });
     }
     tasks.sort((x, y) => y.weight - x.weight);
-    return { toApply, waiting, interviews, visaPrep, visaSubmitted, visaDone, blocked, readyToFile, tasks };
+    return { visaPrep, visaSubmitted, visaDone, waitingAdvisor, blocked, readyToFile, tasks };
   }, [applications, docsByApp, t]);
 
   if (!session?.user) return null;
 
-  const run = async (id: string, action: () => Promise<unknown>) => {
-    setBusyId(id);
-    setError("");
-    try {
-      await action();
-      load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur.");
-      // Le message (ex. paiement de l'étudiant non réglé) est affiché en haut de page.
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const visaCards = applications
-    .filter((app) => app.visaStatus)
-    .filter((app) => {
-      if (visaFilter === "preparation") return app.visaStatus === "PREPARATION";
-      if (visaFilter === "submitted") return app.visaStatus === "SUBMITTED";
-      if (visaFilter === "done") return app.visaStatus === "ACCEPTED" || app.visaStatus === "REJECTED";
-      return true;
-    });
+  const visaApplications = applications.filter((a) => a.visaStatus);
+  const visaCards = visaApplications.filter((app) => {
+    if (visaFilter === "preparation") return app.visaStatus === "PREPARATION";
+    if (visaFilter === "submitted") return app.visaStatus === "SUBMITTED";
+    if (visaFilter === "done") return app.visaStatus === "ACCEPTED" || app.visaStatus === "REJECTED";
+    return true;
+  });
   const VISA_FILTERS: Array<{ id: VisaFilter; label: string; count: number }> = [
-    { id: "all", label: t("Tous", "All"), count: applications.filter((a) => a.visaStatus).length },
+    { id: "all", label: t("Tous", "All"), count: visaApplications.length },
     { id: "preparation", label: t("En préparation", "In preparation"), count: board.visaPrep.length },
     { id: "submitted", label: t("Déposés", "Filed"), count: board.visaSubmitted.length },
     { id: "done", label: t("Terminés", "Closed"), count: board.visaDone.length }
   ];
 
   return (
-    <main className="mx-auto max-w-6xl px-4 sm:px-6 pb-16">
-      <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-6 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)] sm:p-8">
-        <p className="text-sm text-white/75">{t("Espace RDV", "Visa officer area")}</p>
-        <h1 className="mt-1 font-display text-3xl font-extrabold sm:text-4xl">{t("Bonjour", "Hello")}, {session.user.prenom}</h1>
-        <p className="mt-2 max-w-xl text-sm text-white/85">
-          {applications.length === 0
-            ? t("Aucun dossier ne vous est attribué pour l'instant.", "No file is assigned to you yet.")
+    <main className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
+      <PageHero
+        eyebrow={t("Espace RDV · Mes dossiers visa", "Visa officer · My visa files")}
+        name={session.user.prenom}
+        text={
+          visaApplications.length === 0 && board.waitingAdvisor.length === 0
+            ? t("Aucun dossier visa pour l'instant : ils arrivent ici dès qu'une université accepte un étudiant.", "No visa file yet: they arrive here as soon as a university accepts a student.")
             : board.tasks.length
-              ? t(`${applications.length} dossier${applications.length > 1 ? "s" : ""} · ${board.tasks.length} action${board.tasks.length > 1 ? "s" : ""} à mener aujourd'hui.`, `${applications.length} file(s) · ${board.tasks.length} action(s) to take today.`)
-              : t(`${applications.length} dossier${applications.length > 1 ? "s" : ""} · tout est à jour.`, `${applications.length} file(s) · all up to date.`)}
-        </p>
-      </section>
+              ? t(`${visaApplications.length} dossier${visaApplications.length > 1 ? "s" : ""} visa · ${board.tasks.length} action${board.tasks.length > 1 ? "s" : ""} à mener aujourd'hui.`, `${visaApplications.length} visa file(s) · ${board.tasks.length} action(s) to take today.`)
+              : t(`${visaApplications.length} dossier${visaApplications.length > 1 ? "s" : ""} visa · tout est à jour.`, `${visaApplications.length} visa file(s) · all up to date.`)
+        }
+      />
 
-      {error && (
-        <div role="alert" className="mt-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> {error}
-        </div>
-      )}
+      <ErrorBanner message={error} />
 
-      {/* ── Indicateurs ──────────────────────────────────────────── */}
-      <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-5" aria-label={t("Indicateurs", "Indicators")}>
-        <KpiTile icon={GraduationCap} label={t("À déposer", "To submit")} value={board.toApply.length} hint={t("candidatures prêtes", "applications ready")} tone="bg-amber-100 text-amber-600" onClick={() => scrollToId("candidatures")} />
-        <KpiTile icon={CalendarClock} label={t("Entretiens", "Interviews")} value={board.interviews.length} hint={t("à venir", "upcoming")} tone="bg-violet-100 text-brand" onClick={() => scrollToId("candidatures")} />
-        <KpiTile icon={Clock} label={t("Réponses", "Replies")} value={board.waiting.length} hint={t("en attente des universités", "awaiting universities")} tone="bg-sky-100 text-sky-600" onClick={() => scrollToId("candidatures")} />
-        <KpiTile icon={Plane} label={t("Visas", "Visas")} value={board.visaPrep.length + board.visaSubmitted.length} hint={t(`${board.readyToFile.length} prêt${board.readyToFile.length > 1 ? "s" : ""} à déposer`, `${board.readyToFile.length} ready to file`)} tone="bg-emerald-100 text-emerald-600" onClick={() => scrollToId("visas")} />
+      <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label={t("Indicateurs", "Indicators")}>
+        <KpiTile icon={FileText} label={t("En préparation", "In preparation")} value={board.visaPrep.length} hint={t("documents à valider", "documents to review")} tone="bg-sky-100 text-sky-600" onClick={() => { setVisaFilter("preparation"); scrollToId("visas"); }} />
+        <KpiTile icon={Send} label={t("Prêts à déposer", "Ready to file")} value={board.readyToFile.length} hint={t("documents validés, paiement réglé", "documents approved, paid")} tone="bg-emerald-100 text-emerald-600" onClick={() => { setVisaFilter("preparation"); scrollToId("visas"); }} />
+        <KpiTile icon={Plane} label={t("Déposés", "Filed")} value={board.visaSubmitted.length} hint={t("décision attendue", "decision pending")} tone="bg-violet-100 text-brand" onClick={() => { setVisaFilter("submitted"); scrollToId("visas"); }} />
         <KpiTile icon={Banknote} label={t("Bloqués", "Blocked")} value={board.blocked.length} hint={t("paiement visa non réglé", "visa payment due")} tone="bg-red-100 text-red-600" onClick={() => { setVisaFilter("preparation"); scrollToId("visas"); }} />
       </section>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <section aria-labelledby="todo-title" className="min-w-0">
-          <h2 id="todo-title" className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-dark">
-            <Sparkles className="h-5 w-5 text-brand" aria-hidden /> {t("À faire aujourd'hui", "To do today")}
-          </h2>
-          {board.tasks.length === 0 ? (
-            <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 px-5 py-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600"><CheckCircle2 className="h-5 w-5" aria-hidden /></span>
-              <div>
-                <p className="text-sm font-bold text-emerald-800">{t("Rien d'urgent", "Nothing urgent")}</p>
-                <p className="text-xs text-emerald-700">{t("Aucune action à mener pour l'instant.", "No action needed right now.")}</p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-2.5">
-              {board.tasks.slice(0, 8).map((task) => {
-                const st = TASK_STYLES[task.tone];
-                const Icon = task.icon;
-                const className = "inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand px-3.5 py-2 text-xs font-bold text-white transition hover:bg-brand-hover";
-                return (
-                  <div key={task.key} className={cn("flex flex-wrap items-center gap-3 rounded-2xl border p-3.5 sm:flex-nowrap", st.box)}>
-                    <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", st.icon)}><Icon className="h-5 w-5" aria-hidden /></span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-dark">{task.title}</p>
-                      <p className="mt-0.5 text-xs leading-relaxed text-mid">{task.text}</p>
-                    </div>
-                    {task.href ? (
-                      <a href={task.href} target="_blank" rel="noreferrer" className={className}>{task.cta} <ArrowRight className="h-3.5 w-3.5" aria-hidden /></a>
-                    ) : (
-                      <button type="button" onClick={() => scrollToId(task.target)} className={className}>{task.cta} <ArrowRight className="h-3.5 w-3.5" aria-hidden /></button>
-                    )}
-                  </div>
-                );
-              })}
-              {board.tasks.length > 8 && <p className="text-xs text-muted">{t(`+ ${board.tasks.length - 8} autre(s) action(s) plus bas.`, `+ ${board.tasks.length - 8} more action(s) below.`)}</p>}
-            </div>
-          )}
-        </section>
-        <aside className="min-w-0"><MyCommissionsCard /></aside>
+        <TaskList tasks={board.tasks} title={t("À faire aujourd'hui", "To do today")} />
+        <aside className="min-w-0">
+          <MyCommissionsCard title={t("Commissions · visas", "Commissions · visas")} stages={RDV_VISA_STAGES} />
+        </aside>
       </div>
 
-      {!applications.length ? (
+      {board.waitingAdvisor.length > 0 && (
+        <section className="mt-6 rounded-[20px] border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
+          {t(`${board.waitingAdvisor.length} dossier${board.waitingAdvisor.length > 1 ? "s" : ""} en attente des documents visa chez le conseiller. ${board.waitingAdvisor.length > 1 ? "Ils vous reviendront" : "Il vous reviendra"} automatiquement (même RDV, ou le moins chargé s'il n'est plus actif).`, `${board.waitingAdvisor.length} file(s) waiting for visa documents with the advisor. They will return to you automatically (same officer, or the least loaded if they are inactive).`)}
+        </section>
+      )}
+
+      {visaApplications.length === 0 ? (
         <p className="mt-8 rounded-[20px] border border-dashed border-line bg-white p-8 text-sm text-muted">
-          {t("Aucun dossier ne vous est attribué pour l'instant.", "No file is assigned to you yet.")}
+          {t("Aucun dossier visa à traiter pour l'instant.", "No visa file to handle right now.")}
         </p>
       ) : (
-        <>
-          {applications.some((a) => a.status !== "ACCEPTED" && a.status !== "CLOSED") && (
-            <section id="candidatures" className="mt-8 scroll-mt-24">
-              <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-dark">
-                <ClipboardList className="h-5 w-5 text-brand" aria-hidden /> {t("Candidatures universitaires", "University applications")}
-              </h2>
-              <ApplicationTimeline
-                applications={applications.filter((a) => a.status !== "ACCEPTED" && a.status !== "CLOSED")}
-                canAct
-                onChanged={load}
-              />
-            </section>
-          )}
-          {applications.some((a) => a.status === "ACCEPTED" && !a.visaStatus) && (
-            <section className="mt-6 rounded-[20px] border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
-              {t("Dossiers en attente des documents visa chez le conseiller. Ils vous reviendront automatiquement (même RDV, ou le moins chargé s'il n'est plus actif).", "Files waiting for visa documents with the advisor. They will return to you automatically (same officer, or the least loaded if they are inactive).")}
-            </section>
-          )}
+        <section id="visas" className="mt-8 scroll-mt-24">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark">
+              <Plane className="h-5 w-5 text-brand" aria-hidden /> {t("Dossiers visa", "Visa files")}
+            </h2>
+            <div className="flex flex-wrap gap-2" role="group" aria-label={t("Filtrer les dossiers visa", "Filter visa files")}>
+              {VISA_FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setVisaFilter(f.id)}
+                  aria-pressed={visaFilter === f.id}
+                  className={cn("inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold transition", visaFilter === f.id ? "border-brand bg-brand text-white" : "border-line bg-white text-mid hover:border-brand/40")}
+                >
+                  {f.label}
+                  <span className={cn("rounded-full px-1.5 text-[10px]", visaFilter === f.id ? "bg-white/25" : "bg-slate-100 text-muted")}>{f.count}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid gap-4 xl:grid-cols-2">
+            {visaCards.map((app) => {
+              const meta = VISA_STEP_META[app.visaStatus || "PREPARATION"];
+              const busy = busyId === app.id;
+              const docs = docsByApp[app.id] || [];
+              const requiredDocs = docs.filter((d) => d.required);
+              const allRequiredValidated = requiredDocs.every((d) => d.status === "VALIDATED");
+              const paymentDue = app.visaPaymentDue;
+              const validated = requiredDocs.filter((d) => d.status === "VALIDATED").length;
+              return (
+                <article id={`app-${app.id}`} key={app.id} className={cn("scroll-mt-24 rounded-[20px] border bg-white p-5 shadow-sm", paymentDue ? "border-red-200" : "border-line")}>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="truncate font-display text-base font-bold text-dark">{app.studentName}</h3>
+                      <p className="truncate text-xs text-muted">{app.studentEmail}</p>
+                      <p className="mt-1.5 flex items-center gap-1.5 text-xs text-mid">
+                        <GraduationCap className="h-3.5 w-3.5 shrink-0 text-brand" /> <span className="truncate">{app.universityName}{app.fieldOfStudy ? ` · ${app.fieldOfStudy}` : ""} · {app.countryName}</span>
+                      </p>
+                    </div>
+                    <span className={cn("rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase", meta.color)}>{meta.label}</span>
+                  </div>
 
-          {applications.some((a) => a.visaStatus) && (
-            <section id="visas" className="mt-8 scroll-mt-24">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark">
-                  <Plane className="h-5 w-5 text-brand" aria-hidden /> {t("Dossiers visa", "Visa files")}
-                </h2>
-                <div className="flex flex-wrap gap-2" role="group" aria-label={t("Filtrer les dossiers visa", "Filter visa files")}>
-                  {VISA_FILTERS.map((f) => (
-                    <button
-                      key={f.id}
-                      type="button"
-                      onClick={() => setVisaFilter(f.id)}
-                      aria-pressed={visaFilter === f.id}
-                      className={cn("inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold transition", visaFilter === f.id ? "border-brand bg-brand text-white" : "border-line bg-white text-mid hover:border-brand/40")}
-                    >
-                      {f.label}
-                      <span className={cn("rounded-full px-1.5 text-[10px]", visaFilter === f.id ? "bg-white/25" : "bg-slate-100 text-muted")}>{f.count}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="grid gap-4 xl:grid-cols-2">
-                {visaCards.map((app) => {
-                  const meta = VISA_STEP_META[app.visaStatus || "PREPARATION"];
-                  const busy = busyId === app.id;
-                  const docs = docsByApp[app.id] || [];
-                  const requiredDocs = docs.filter((d) => d.required);
-                  const allRequiredValidated = requiredDocs.every((d) => d.status === "VALIDATED");
-                  const paymentDue = app.visaPaymentDue;
-                  const validated = requiredDocs.filter((d) => d.status === "VALIDATED").length;
-                  return (
-                    <article id={`app-${app.id}`} key={app.id} className={cn("scroll-mt-24 rounded-[20px] border bg-white p-5 shadow-sm", paymentDue ? "border-red-200" : "border-line")}>
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h3 className="truncate font-display text-base font-bold text-dark">{app.studentName}</h3>
-                          <p className="truncate text-xs text-muted">{app.studentEmail}</p>
-                          <p className="mt-1.5 flex items-center gap-1.5 text-xs text-mid">
-                            <GraduationCap className="h-3.5 w-3.5 shrink-0 text-brand" /> <span className="truncate">{app.universityName}{app.fieldOfStudy ? ` · ${app.fieldOfStudy}` : ""} · {app.countryName}</span>
-                          </p>
-                        </div>
-                        <span className={cn("rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase", meta.color)}>{meta.label}</span>
+                  {paymentDue && (
+                    <div className="mt-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700">
+                      <Banknote className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                      <span>
+                        <strong>{t("Paiement visa non réglé", "Visa payment not settled")}</strong> · {t("reste", "left")} {formatMoney(paymentDue.remaining, paymentDue.currency)}. {t("Le dépôt est bloqué : prévenez le conseiller.", "Filing is blocked: notify the advisor.")}
+                      </span>
+                    </div>
+                  )}
+
+                  {app.visaStatus === "REJECTED" && app.visaDecisionReason && (
+                    <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">
+                      {t("Motif du refus", "Rejection reason")} : {app.visaDecisionReason}
+                    </p>
+                  )}
+
+                  {(app.visaPrepMeetingAt || app.visaEmbassyAppointmentAt) && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {app.visaPrepMeetingAt && (
+                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-violet-50 px-2.5 py-1.5 text-[11px] font-semibold text-violet-700">
+                          {app.visaPrepMeetingType === "ONLINE" ? <Video className="h-3 w-3" /> : <Landmark className="h-3 w-3" />}
+                          {t("Préparation", "Prep")} : {new Date(app.visaPrepMeetingAt).toLocaleString("fr-FR")}
+                        </span>
+                      )}
+                      {app.visaEmbassyAppointmentAt && (
+                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-700">
+                          <Landmark className="h-3 w-3" /> {t("Ambassade", "Embassy")} : {new Date(app.visaEmbassyAppointmentAt).toLocaleString("fr-FR")}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {app.visaStatus === "PREPARATION" && (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold uppercase tracking-wide text-muted">{t("Documents visa", "Visa documents")}</p>
+                        {requiredDocs.length > 0 && <p className="text-[11px] font-semibold text-mid">{validated} / {requiredDocs.length} {t("validés", "approved")}</p>}
                       </div>
-
-                      {paymentDue && (
-                        <div className="mt-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700">
-                          <Banknote className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-                          <span>
-                            <strong>{t("Paiement visa non réglé", "Visa payment not settled")}</strong> · {t("reste", "left")} {formatMoney(paymentDue.remaining, paymentDue.currency)}. {t("Le dépôt est bloqué : prévenez le conseiller.", "Filing is blocked: notify the advisor.")}
-                          </span>
+                      {requiredDocs.length > 0 && (
+                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-line">
+                          <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${(validated / requiredDocs.length) * 100}%` }} />
                         </div>
                       )}
-
-                      {app.visaStatus === "REJECTED" && app.visaDecisionReason && (
-                        <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">
-                          {t("Motif du refus", "Rejection reason")} : {app.visaDecisionReason}
-                        </p>
-                      )}
-
-                      {(app.visaPrepMeetingAt || app.visaEmbassyAppointmentAt) && (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {app.visaPrepMeetingAt && (
-                            <span className="inline-flex items-center gap-1.5 rounded-lg bg-violet-50 px-2.5 py-1.5 text-[11px] font-semibold text-violet-700">
-                              {app.visaPrepMeetingType === "ONLINE" ? <Video className="h-3 w-3" /> : <Landmark className="h-3 w-3" />}
-                              {t("Préparation", "Prep")} : {new Date(app.visaPrepMeetingAt).toLocaleString("fr-FR")}
-                            </span>
-                          )}
-                          {app.visaEmbassyAppointmentAt && (
-                            <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-700">
-                              <Landmark className="h-3 w-3" /> {t("Ambassade", "Embassy")} : {new Date(app.visaEmbassyAppointmentAt).toLocaleString("fr-FR")}
-                            </span>
-                          )}
+                      {docs.length === 0 ? (
+                        <p className="mt-1.5 text-xs text-muted">{t("Aucun document visa requis pour ce pays pour l'instant.", "No visa document required for this country yet.")}</p>
+                      ) : (
+                        <div className="mt-2 space-y-2">
+                          {docs.map((doc) => (
+                            <VisaDocumentReviewRow
+                              key={doc.requirementId}
+                              applicationId={app.id}
+                              doc={doc}
+                              allowReview={false}
+                              onReviewed={(updated) =>
+                                setDocsByApp((prev) => ({
+                                  ...prev,
+                                  [app.id]: (prev[app.id] || []).map((d) => (d.requirementId === updated.requirementId ? updated : d))
+                                }))
+                              }
+                            />
+                          ))}
                         </div>
                       )}
+                    </div>
+                  )}
 
-                      {app.visaStatus === "PREPARATION" && (
-                        <div className="mt-4">
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs font-bold uppercase tracking-wide text-muted">{t("Documents visa", "Visa documents")}</p>
-                            {requiredDocs.length > 0 && <p className="text-[11px] font-semibold text-mid">{validated} / {requiredDocs.length} {t("validés", "approved")}</p>}
-                          </div>
-                          {requiredDocs.length > 0 && (
-                            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-line">
-                              <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${(validated / requiredDocs.length) * 100}%` }} />
-                            </div>
-                          )}
-                          {docs.length === 0 ? (
-                            <p className="mt-1.5 text-xs text-muted">{t("Aucun document visa requis pour ce pays pour l'instant.", "No visa document required for this country yet.")}</p>
-                          ) : (
-                            <div className="mt-2 space-y-2">
-                              {docs.map((doc) => (
-                                <VisaDocumentReviewRow
-                                  key={doc.requirementId}
-                                  applicationId={app.id}
-                                  doc={doc}
-                                  allowReview={false}
-                                  onReviewed={(updated) =>
-                                    setDocsByApp((prev) => ({
-                                      ...prev,
-                                      [app.id]: (prev[app.id] || []).map((d) => (d.requirementId === updated.requirementId ? updated : d))
-                                    }))
-                                  }
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="mt-4 flex flex-wrap items-center gap-2">
-                        {app.visaStatus === "PREPARATION" && (
-                          <>
-                            <button
-                              type="button"
-                              disabled={busy || !allRequiredValidated || Boolean(paymentDue)}
-                              onClick={() => run(app.id, () => submitVisaFile(app.id))}
-                              title={paymentDue ? t("Paiement visa non réglé.", "Visa payment not settled.") : !allRequiredValidated ? t("Tous les documents visa obligatoires doivent être validés d'abord.", "All required visa documents must be approved first.") : undefined}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
-                            >
-                              <Send className="h-3.5 w-3.5" /> {t("Marquer comme déposé", "Mark as submitted")}
-                            </button>
-                            {!paymentDue && !allRequiredValidated && requiredDocs.length > 0 && (
-                              <span className="text-[11px] text-muted">{t("Validez tous les documents obligatoires avant de déposer le dossier.", "Approve all required documents before submitting the file.")}</span>
-                            )}
-                          </>
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    {app.visaStatus === "PREPARATION" && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={busy || !allRequiredValidated || Boolean(paymentDue)}
+                          onClick={() => run(app.id, () => submitVisaFile(app.id))}
+                          title={paymentDue ? t("Paiement visa non réglé.", "Visa payment not settled.") : !allRequiredValidated ? t("Tous les documents visa obligatoires doivent être validés d'abord.", "All required visa documents must be approved first.") : undefined}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
+                        >
+                          <Send className="h-3.5 w-3.5" /> {t("Marquer comme déposé", "Mark as submitted")}
+                        </button>
+                        {!paymentDue && !allRequiredValidated && requiredDocs.length > 0 && (
+                          <span className="text-[11px] text-muted">{t("Validez tous les documents obligatoires avant de déposer le dossier.", "Approve all required documents before submitting the file.")}</span>
                         )}
-                        {app.visaStatus === "SUBMITTED" && (
-                          <>
-                            <button type="button" disabled={busy} onClick={() => run(app.id, () => acceptVisa(app.id))} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-60">
-                              <ThumbsUp className="h-3.5 w-3.5" /> {t("Accepter le visa", "Accept visa")}
-                            </button>
-                            <button type="button" disabled={busy} onClick={() => setRejectTarget(app.id)} className="inline-flex items-center gap-1.5 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-60">
-                              <ThumbsDown className="h-3.5 w-3.5" /> {t("Refuser le visa", "Reject visa")}
-                            </button>
-                            <button type="button" disabled={busy} onClick={() => setPrepMeetingTarget(app)} className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-bold text-dark hover:border-brand hover:text-brand disabled:opacity-60">
-                              <Calendar className="h-3.5 w-3.5" /> {app.visaPrepMeetingAt ? t("Modifier la réunion", "Edit meeting") : t("Planifier une réunion", "Schedule meeting")}
-                            </button>
-                            <button type="button" disabled={busy} onClick={() => setEmbassyTarget(app)} className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-bold text-dark hover:border-brand hover:text-brand disabled:opacity-60">
-                              <Landmark className="h-3.5 w-3.5" /> {app.visaEmbassyAppointmentAt ? t("Modifier le RDV ambassade", "Edit embassy appointment") : t("RDV ambassade", "Embassy appointment")}
-                            </button>
-                          </>
-                        )}
-                        {app.visaStatus === "ACCEPTED" && (
-                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600"><CheckCircle2 className="h-3.5 w-3.5" /> {t("Dossier complet", "File complete")}</span>
-                        )}
-                        {app.visaStatus === "REJECTED" && (
-                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-500"><XCircle className="h-3.5 w-3.5" /> {t("Dossier clôturé", "File closed")}</span>
-                        )}
-                      </div>
-                    </article>
-                  );
-                })}
-                {visaCards.length === 0 && <p className="rounded-2xl border border-dashed border-line bg-white p-6 text-sm text-muted xl:col-span-2">{t("Aucun dossier visa dans cette catégorie.", "No visa file in this category.")}</p>}
-              </div>
-            </section>
-          )}
-        </>
+                      </>
+                    )}
+                    {app.visaStatus === "SUBMITTED" && (
+                      <>
+                        <button type="button" disabled={busy} onClick={() => run(app.id, () => acceptVisa(app.id))} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-60">
+                          <ThumbsUp className="h-3.5 w-3.5" /> {t("Accepter le visa", "Accept visa")}
+                        </button>
+                        <button type="button" disabled={busy} onClick={() => setRejectTarget(app.id)} className="inline-flex items-center gap-1.5 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-60">
+                          <ThumbsDown className="h-3.5 w-3.5" /> {t("Refuser le visa", "Reject visa")}
+                        </button>
+                        <button type="button" disabled={busy} onClick={() => setPrepMeetingTarget(app)} className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-bold text-dark hover:border-brand hover:text-brand disabled:opacity-60">
+                          <Calendar className="h-3.5 w-3.5" /> {app.visaPrepMeetingAt ? t("Modifier la réunion", "Edit meeting") : t("Planifier une réunion", "Schedule meeting")}
+                        </button>
+                        <button type="button" disabled={busy} onClick={() => setEmbassyTarget(app)} className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-bold text-dark hover:border-brand hover:text-brand disabled:opacity-60">
+                          <Landmark className="h-3.5 w-3.5" /> {app.visaEmbassyAppointmentAt ? t("Modifier le RDV ambassade", "Edit embassy appointment") : t("RDV ambassade", "Embassy appointment")}
+                        </button>
+                      </>
+                    )}
+                    {app.visaStatus === "ACCEPTED" && (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600"><CheckCircle2 className="h-3.5 w-3.5" /> {t("Dossier complet", "File complete")}</span>
+                    )}
+                    {app.visaStatus === "REJECTED" && (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-500"><XCircle className="h-3.5 w-3.5" /> {t("Dossier clôturé", "File closed")}</span>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+            {visaCards.length === 0 && <p className="rounded-2xl border border-dashed border-line bg-white p-6 text-sm text-muted xl:col-span-2">{t("Aucun dossier visa dans cette catégorie.", "No visa file in this category.")}</p>}
+          </div>
+        </section>
       )}
 
       {rejectTarget && (

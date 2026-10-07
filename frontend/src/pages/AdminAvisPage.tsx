@@ -1,3 +1,4 @@
+import { confirmDialog } from "@/components/ui/dialog-host";
 import {
   createManualAvis,
   deleteAvis,
@@ -126,7 +127,7 @@ export default function AdminAvisPage() {
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (!window.confirm(`Supprimer l'avis de ${name} ?`)) return;
+    if ((await confirmDialog(`Supprimer l'avis de ${name} ?`, { tone: "danger", confirmLabel: "Supprimer" }))) return;
     try {
       await deleteAvis(id);
       setSuccess("Avis supprimé");

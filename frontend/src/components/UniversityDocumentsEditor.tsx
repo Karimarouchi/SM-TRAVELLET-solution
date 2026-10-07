@@ -1,3 +1,4 @@
+import { confirmDialog } from "@/components/ui/dialog-host";
 import {
   createUniversityDocument,
   deleteUniversityDocument,
@@ -105,8 +106,8 @@ export default function UniversityDocumentsEditor({
                 type="button"
                 disabled={busy}
                 aria-label={`Supprimer ${doc.name}`}
-                onClick={() => {
-                  if (window.confirm(`Supprimer « ${doc.name} » ?`)) run(() => deleteUniversityDocument(doc.id));
+                onClick={async () => {
+                  if (await confirmDialog(`Supprimer « ${doc.name} » ?`, { tone: "danger", confirmLabel: "Supprimer" })) run(() => deleteUniversityDocument(doc.id));
                 }}
                 className="rounded-lg bg-red-50 p-1.5 text-red-500 transition hover:bg-red-500 hover:text-white disabled:opacity-60"
               >

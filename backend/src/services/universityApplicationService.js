@@ -227,7 +227,7 @@ async function applyRdvAssignment(application, pick, { visaPreparation, actorId,
       body: visaPreparation
         ? "Les documents visa sont validés. Vous pouvez déposer le dossier."
         : "Les documents d'études sont validés. Un Meet avec l'étudiant est optionnel, puis déposez la candidature.",
-      link: "/rdv"
+      link: visaPreparation ? "/rdv/visas" : "/rdv"
     });
   }
   return updated;

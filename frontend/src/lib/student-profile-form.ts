@@ -7,6 +7,15 @@ export const TARGET_LEVELS = ["Licence", "Master", "Doctorat", "Prépa / Foundat
 export const INTAKES = ["Septembre 2026", "Février 2027", "Septembre 2027", "Février 2028"];
 export const FUNDING = ["Personnel", "Parents", "Bourse", "Prêt étudiant", "Mixte"];
 export const LANG_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
+
+/** Langues facultatives : « Aucun niveau » (valeur vide) ou A1 à C2. */
+export const OPTIONAL_LANG_LEVELS = [{ value: "", label: "Aucun niveau" }, ...LANG_LEVELS.map((level) => ({ value: level, label: level }))];
+
+export const EXTRA_LANGUAGES = [
+  { key: "languageLevelGerman", label: "Niveau d’allemand" },
+  { key: "languageLevelItalian", label: "Niveau d’italien" },
+  { key: "languageLevelSpanish", label: "Niveau d’espagnol" }
+] as const;
 export const FRENCH_TESTS = [
   "TCF Tout Public / TCF TP",
   "TCF sur ordinateur / TCF SO",
@@ -68,6 +77,9 @@ export type ProfileForm = {
   fundingMode: string;
   languageLevelFrench: string;
   languageLevelEnglish: string;
+  languageLevelGerman: string;
+  languageLevelItalian: string;
+  languageLevelSpanish: string;
   hasLanguageTest: boolean;
   languageTestLangs: TestLang[];
   languageTestFrench: string;
@@ -114,6 +126,9 @@ export function profileToForm(profile: StudentProfile | null): ProfileForm {
     fundingMode: profile?.fundingMode || "",
     languageLevelFrench: profile?.languageLevelFrench || "",
     languageLevelEnglish: profile?.languageLevelEnglish || "",
+    languageLevelGerman: profile?.languageLevelGerman || "",
+    languageLevelItalian: profile?.languageLevelItalian || "",
+    languageLevelSpanish: profile?.languageLevelSpanish || "",
     hasLanguageTest: langs.length > 0,
     languageTestLangs: langs,
     languageTestFrench: french,
@@ -274,6 +289,9 @@ export const SECTION_FIELDS: Record<string, ProfileField[]> = {
     "fundingMode",
     "languageLevelFrench",
     "languageLevelEnglish",
+    "languageLevelGerman",
+    "languageLevelItalian",
+    "languageLevelSpanish",
     "hasLanguageTest",
     "languageTestLangs",
     "languageTestFrench",

@@ -1,3 +1,4 @@
+import { alertDialog, confirmDialog } from "@/components/ui/dialog-host";
 import {
   createCountryUniversity,
   deleteCountryUniversity,
@@ -94,7 +95,7 @@ export default function CountriesUniversitiesPanel() {
   const handleSubmit = async (countryId: string, editing: string | null) => {
     const form = getForm(countryId);
     if (!form.name.trim()) {
-      alert("Le nom de l'université est obligatoire.");
+      void alertDialog("Le nom de l'université est obligatoire.", { tone: "warning" });
       return;
     }
     setSavingCountryId(countryId);
@@ -110,7 +111,7 @@ export default function CountriesUniversitiesPanel() {
       setForms((prev) => ({ ...prev, [countryId]: DEFAULT_UNI_FORM }));
       await loadUniversities(countryId);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Erreur lors de l'enregistrement.");
+      void alertDialog(err instanceof Error ? err.message : "Erreur lors de l'enregistrement.", { tone: "danger" });
     } finally {
       setSavingCountryId(null);
     }
@@ -137,13 +138,13 @@ export default function CountriesUniversitiesPanel() {
   };
 
   const handleDelete = async (countryId: string, uni: CountryUniversity) => {
-    if (!window.confirm(`Supprimer "${uni.name}" ?`)) return;
+    if ((await confirmDialog(`Supprimer "${uni.name}" ?`, { tone: "danger", confirmLabel: "Supprimer" }))) return;
     try {
       await deleteCountryUniversity(uni.id);
       notify(`"${uni.name}" supprimée.`);
       await loadUniversities(countryId);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Suppression impossible.");
+      void alertDialog(err instanceof Error ? err.message : "Suppression impossible.", { tone: "danger" });
     }
   };
 

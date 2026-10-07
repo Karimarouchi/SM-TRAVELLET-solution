@@ -370,7 +370,7 @@ async function uploadVisaDocument(studentUserId, requirementId, fileBase64, orig
       type: "VISA_DOCUMENT_UPLOADED",
       title: "Document visa déposé à vérifier",
       body: `${await studentName(studentUserId)} a déposé « ${requirement.name} » (${application.country_name || "visa"}).`,
-      link: "/rdv"
+      link: "/rdv/visas"
     });
   }
 

@@ -1,3 +1,4 @@
+import { confirmDialog } from "@/components/ui/dialog-host";
 import { fetchBackupStatus, fetchRestoreStatus, runBackupNow, runRestoreNow, type BackupStatus } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, CheckCircle2, CloudDownload, CloudUpload, RefreshCw, XCircle } from "lucide-react";
@@ -38,9 +39,7 @@ export default function BackupPanel() {
   };
 
   const handleRestore = async () => {
-    const confirmed = window.confirm(
-      "Cette action va ÉCRASER les données actuelles du site avec la dernière copie de secours. Cette action est irréversible. Continuer ?"
-    );
+    const confirmed = await confirmDialog("Cette action va ÉCRASER les données actuelles du site avec la dernière copie de secours. Cette action est irréversible. Continuer ?", { tone: "danger", title: "Restaurer la copie de secours ?", confirmLabel: "Restaurer" });
     if (!confirmed) return;
     setRestoring(true);
     setRestoreError("");

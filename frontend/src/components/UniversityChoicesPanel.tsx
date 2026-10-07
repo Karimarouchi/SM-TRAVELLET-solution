@@ -1,3 +1,4 @@
+import { confirmDialog } from "@/components/ui/dialog-host";
 import UniversityDocumentsEditor from "@/components/UniversityDocumentsEditor";
 import { FancySelect } from "@/components/ui/fancy-select";
 import {
@@ -105,7 +106,7 @@ export default function UniversityChoicesPanel({ studentId, onChanged }: { stude
   };
 
   const remove = async (choice: UniversityChoice) => {
-    if (!window.confirm(t(`Retirer « ${choice.universityName} » (${choice.fieldOfStudy}) ?`, `Remove "${choice.universityName}" (${choice.fieldOfStudy})?`))) return;
+    if ((await confirmDialog(t(`Retirer « ${choice.universityName} » (${choice.fieldOfStudy}) ?`, `Remove "${choice.universityName}" (${choice.fieldOfStudy})?`), { tone: "danger", confirmLabel: t("Retirer", "Remove") }))) return;
     try {
       setSummary(await removeUniversityChoice(choice.id));
       onChanged?.();

@@ -1,3 +1,4 @@
+import { alertDialog, confirmDialog } from "@/components/ui/dialog-host";
 import {
   fetchArchive,
   fetchAdminDashboard,
@@ -119,21 +120,21 @@ export default function ArchivePage() {
       await updateArchiveSettings(settings);
       setShowSettings(false);
     } catch (err) {
-      alert("Erreur lors de la sauvegarde.");
+      void alertDialog("Erreur lors de la sauvegarde.", { tone: "danger" });
     } finally {
       setSavingSettings(false);
     }
   };
 
   const handleManualPurge = async () => {
-    if (!confirm("Voulez-vous vraiment purger les documents des dossiers archivés ? Cette action supprimera définitivement les fichiers physiques correspondants.")) return;
+    if ((await confirmDialog("Voulez-vous vraiment purger les documents des dossiers archivés ? Cette action supprimera définitivement les fichiers physiques correspondants.", { tone: "danger", title: "Purger les documents archivés ?", confirmLabel: "Purger" }))) return;
     setPurging(true);
     try {
       const res = await purgeArchive();
       setPurgeResult({ students: res.purgedStudents, files: res.purgedFiles });
       setTimeout(() => setPurgeResult(null), 5000);
     } catch (err) {
-      alert("Erreur lors de la purge.");
+      void alertDialog("Erreur lors de la purge.", { tone: "danger" });
     } finally {
       setPurging(false);
     }

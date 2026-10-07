@@ -1,3 +1,4 @@
+import { EXTRA_LANGUAGES, OPTIONAL_LANG_LEVELS } from "@/lib/student-profile-form";
 import { FancySelect } from "@/components/ui/fancy-select";
 import UniversityPicker from "@/components/UniversityPicker";
 import { addMyUniversityChoice, fetchPublicCountries, fetchPublicUniversities, getSession, saveOnboarding, type Country, type PublicUniversity } from "@/lib/auth";
@@ -81,6 +82,9 @@ type FormState = {
   fundingMode: string;
   languageLevelFrench: string;
   languageLevelEnglish: string;
+  languageLevelGerman: string;
+  languageLevelItalian: string;
+  languageLevelSpanish: string;
   hasLanguageTest: boolean;
   languageTestLangs: TestLang[];
   languageTestFrench: string;
@@ -117,6 +121,9 @@ const EMPTY: FormState = {
   fundingMode: "",
   languageLevelFrench: "",
   languageLevelEnglish: "",
+  languageLevelGerman: "",
+  languageLevelItalian: "",
+  languageLevelSpanish: "",
   hasLanguageTest: false,
   languageTestLangs: [],
   languageTestFrench: "",
@@ -242,7 +249,7 @@ const STEP_FIELDS: FieldKey[][] = [
   ["nationality", "residenceCountry", "city"],
   ["currentStudyLevel", "lastDiploma", "studyField", "currentInstitution", "diplomaYear"],
   ["preferredCountries", "preferredCity", "targetLevel", "targetField", "targetIntake", "targetUniversity"],
-  ["annualBudget", "fundingMode", "languageLevelFrench", "languageLevelEnglish", "hasLanguageTest", "languageTestLangs", "languageTestFrench", "languageTestEnglish", "languageTestFrenchOther", "languageTestEnglishOther", "hasPassport", "passportNumber", "passportExpiresOn", "visaAlreadyRequested", "availableDocuments"]
+  ["annualBudget", "fundingMode", "languageLevelFrench", "languageLevelEnglish", "languageLevelGerman", "languageLevelItalian", "languageLevelSpanish", "hasLanguageTest", "languageTestLangs", "languageTestFrench", "languageTestEnglish", "languageTestFrenchOther", "languageTestEnglishOther", "hasPassport", "passportNumber", "passportExpiresOn", "visaAlreadyRequested", "availableDocuments"]
 ];
 
 function validateStep(index: number, form: FormState): FieldErrors {
@@ -743,6 +750,14 @@ export default function OnboardingPage() {
                   <Field label="Niveau d’anglais" required error={errors.languageLevelEnglish}>
                     <FancySelect invalid={Boolean(errors.languageLevelEnglish)} value={form.languageLevelEnglish} onChange={(value) => set("languageLevelEnglish", value)} options={LANG_LEVELS} placeholder="A1 à C2" />
                   </Field>
+                  {EXTRA_LANGUAGES.map((language) => (
+                    <Field key={language.key} label={language.label}>
+                      <FancySelect value={form[language.key]} onChange={(value) => set(language.key, value)} options={OPTIONAL_LANG_LEVELS} placeholder="Aucun niveau" />
+                    </Field>
+                  ))}
+                  <p className="text-[11px] leading-relaxed text-muted sm:col-span-2">
+                    Allemand, italien, espagnol : indiquez votre niveau (A1 à C2) si vous parlez la langue, sinon laissez « Aucun niveau ».
+                  </p>
                   <div className="sm:col-span-2">
                     <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-line bg-white/90 px-4 py-3 transition-colors hover:border-brand/40">
                       <input

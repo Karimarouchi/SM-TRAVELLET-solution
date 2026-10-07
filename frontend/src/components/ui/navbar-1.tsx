@@ -66,7 +66,8 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
     // backend selon ses pays assignés, ou tous les pays s'il a en plus la
     // permission MANAGE_VISA_DOCUMENTS).
     return [
-      { label: t("Mes dossiers visa", "My visa files"), href: "/rdv" },
+      { label: t("Inscriptions universités", "University applications"), href: "/rdv" },
+      { label: t("Mes dossiers visa", "My visa files"), href: "/rdv/visas" },
       { label: t("Archive", "Archive"), href: "/archive" },
       visaDocs
     ];
