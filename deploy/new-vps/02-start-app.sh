@@ -5,7 +5,8 @@
 #   sudo bash deploy/new-vps/02-start-app.sh        # tout démarrer
 #   sudo bash deploy/new-vps/02-start-app.sh db     # PostgreSQL seul (avant de restaurer les données)
 #
-# Prérequis : backend/.env présent (copié depuis l'ancien serveur, voir MIGRATION.md).
+# backend/.env est créé automatiquement s'il n'existe pas (installation neuve) ;
+# sinon il est conservé et seules les adresses publiques sont mises à jour.
 set -euo pipefail
 
 if [[ "$(id -u)" -ne 0 ]]; then
@@ -20,10 +21,42 @@ cd "${ROOT_DIR}"
 DOMAIN_URL="https://www.smtravel.fr"
 MODE="${1:-all}"
 
+GENERATED_ADMIN_PASSWORD=""
 if [[ ! -f backend/.env ]]; then
-  echo "backend/.env est introuvable."
-  echo "Copiez-le depuis l'ancien serveur (voir MIGRATION.md, étape C), puis relancez."
-  exit 1
+  echo "==> Création de backend/.env (installation neuve)"
+  ADMIN_EMAIL="${ADMIN_EMAIL:-}"
+  if [[ -z "${ADMIN_EMAIL}" && -t 0 ]]; then
+    read -r -p "E-mail du premier administrateur : " ADMIN_EMAIL
+  fi
+  if [[ ! "${ADMIN_EMAIL}" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; then
+    echo "Adresse e-mail administrateur invalide ou absente."
+    echo "Relancez avec :  sudo ADMIN_EMAIL=vous@exemple.com bash deploy/new-vps/02-start-app.sh"
+    exit 1
+  fi
+  if [[ -z "${ADMIN_PASSWORD:-}" ]]; then
+    GENERATED_ADMIN_PASSWORD="$(openssl rand -base64 36 | tr -dc 'A-Za-z0-9' | cut -c1-16)"
+    ADMIN_PASSWORD="${GENERATED_ADMIN_PASSWORD}"
+  fi
+  cat > backend/.env <<EOF
+PORT=3001
+NODE_ENV=production
+JWT_SECRET=$(openssl rand -hex 32)
+JWT_EXPIRES_IN=7d
+
+# Premier compte administrateur (créé au premier démarrage uniquement)
+ADMIN_BOOTSTRAP_EMAIL=${ADMIN_EMAIL}
+ADMIN_BOOTSTRAP_PASSWORD=${ADMIN_PASSWORD}
+
+# E-mails : à régler ensuite dans l'application (Paramètres > Envoi d'e-mails).
+# WhatsApp, Google Calendar : facultatifs (voir backend/WHATSAPP.md et GOOGLE_CALENDAR.md).
+# WHATSAPP_TOKEN=
+# WHATSAPP_APP_SECRET=
+# WHATSAPP_VERIFY_TOKEN=
+# WHATSAPP_PHONE_NUMBER_ID=
+# GOOGLE_CLIENT_ID=
+# GOOGLE_CLIENT_SECRET=
+EOF
+  chmod 600 backend/.env
 fi
 sed -i 's/\r$//' backend/.env
 
@@ -105,5 +138,13 @@ echo "Application démarrée. Vérifications locales :"
 echo "  curl -s http://127.0.0.1:3002/api/health"
 echo "  curl -sI http://127.0.0.1:8081/app/ | head -1"
 echo "  curl -sI http://localhost/ | head -1"
+echo
+if [[ -n "${GENERATED_ADMIN_PASSWORD}" ]]; then
+  echo
+  echo "=== PREMIER ADMINISTRATEUR (notez-le maintenant, il ne sera plus affiché) ==="
+  echo "  E-mail       : ${ADMIN_EMAIL}"
+  echo "  Mot de passe : ${GENERATED_ADMIN_PASSWORD}"
+  echo "  (changez-le après la première connexion)"
+fi
 echo
 echo "Suite : changer le DNS (MIGRATION.md, étape E), puis  sudo bash deploy/new-vps/03-ssl.sh votre@email"
