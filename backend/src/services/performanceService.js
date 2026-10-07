@@ -354,13 +354,76 @@ async function getTeamPerformance(period) {
   };
 }
 
+// Détail complet d'un employé : chaque cas (réponse, document, dossier) avec ses
+// dates et sa durée en heures de travail, pour les totaux par mois / par année
+// et par étudiant calculés côté interface.
+async function buildUserDetail(user) {
+  const config = parseWorkHours(await settings.getWorkHoursConfig());
+  const minutes = (from, to) => businessMinutesBetween(from, to, config);
+  const iso = (d) => new Date(d).toISOString();
+  const event = (student, sub, from, to, outcome) => ({ student, sub, from: iso(from), to: iso(to), minutes: minutes(from, to), outcome: outcome || null });
+  const sortDesc = (list) => list.sort((a, b) => b.to.localeCompare(a.to)).slice(0, 3000);
+  const detail = {};
+
+  if (user.sales) {
+    const [conversations, messages, students, reviews, applications] = await Promise.all([
+      performanceRepo.listConversations(),
+      performanceRepo.listMessagesForTurns(null),
+      performanceRepo.listSalesStudents(),
+      performanceRepo.listReviewEvents(user.id),
+      performanceRepo.listApplications()
+    ]);
+    const conversationById = new Map(conversations.map((c) => [c.id, c]));
+    detail.reply = sortDesc(
+      buildTurns(messages)
+        .filter((t) => t.repliedAt && t.repliedBy === user.id)
+        .map((t) => {
+          const c = conversationById.get(t.contactId);
+          return event(c ? contactLabel(c) : "Contact", t.first ? "Première réponse" : "Réponse", t.startedAt, t.repliedAt);
+        })
+    );
+    detail.review = sortDesc(
+      reviews.map((r) =>
+        event(fullName(r.student_prenom, r.student_nom), `${r.doc_name}${r.category === "VISA" ? " · visa" : ""}`, r.submitted_at, r.reviewed_at, r.status)
+      )
+    );
+    detail.handoff = sortDesc(
+      students
+        .filter((s) => s.sales_id === user.id && s.handed_off_at && s.started_at)
+        .map((s) => event(fullName(s.prenom, s.nom), "Inscription → transmis au RDV", s.started_at, s.handed_off_at))
+    );
+    detail.visaDocs = sortDesc(
+      applications
+        .filter((a) => a.sales_id === user.id && a.decision_at && a.visa_docs_validated_at && a.status === "ACCEPTED")
+        .map((a) => event(fullName(a.student_prenom, a.student_nom), `${a.university_name || ""} · ${a.country_name || ""}`, a.decision_at, a.visa_docs_validated_at))
+    );
+  }
+
+  if (user.rdv) {
+    const applications = (await performanceRepo.listApplications()).filter((a) => a.assigned_rdv_id === user.id);
+    const label = (a) => `${a.university_name || ""} · ${a.country_name || ""}`;
+    const name = (a) => fullName(a.student_prenom, a.student_nom);
+    detail.readyToApplied = sortDesc(applications.filter((a) => a.applied_at).map((a) => event(name(a), label(a), a.created_at, a.applied_at)));
+    detail.appliedToDecision = sortDesc(
+      applications.filter((a) => a.applied_at && a.decision_at && ["ACCEPTED", "REJECTED"].includes(a.status)).map((a) => event(name(a), label(a), a.applied_at, a.decision_at, a.status))
+    );
+    detail.visaDocsToSubmit = sortDesc(
+      applications.filter((a) => a.visa_docs_validated_at && a.visa_submitted_at).map((a) => event(name(a), label(a), a.visa_docs_validated_at, a.visa_submitted_at))
+    );
+    detail.visaDecision = sortDesc(
+      applications.filter((a) => a.visa_submitted_at && a.visa_decision_at).map((a) => event(name(a), label(a), a.visa_submitted_at, a.visa_decision_at, a.visa_status))
+    );
+  }
+  return detail;
+}
+
 // Page d'un employé : tout le détail, listes comprises.
 async function getUserPerformance(userId, period) {
   if (!/^[0-9a-f-]{36}$/i.test(String(userId))) throw fail("Employé introuvable.", 404);
   const report = await computeReport(period);
   const user = report.staff.find((s) => s.id === userId);
   if (!user) throw fail("Employé introuvable (ni conseiller ni Responsable Visa).", 404);
-  return { period: report.period, workHours: report.workHours, user };
+  return { period: report.period, workHours: report.workHours, user, detail: await buildUserDetail(user) };
 }
 
 module.exports = { getTeamPerformance, getUserPerformance, buildTurns };

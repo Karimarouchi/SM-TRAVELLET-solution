@@ -1,6 +1,7 @@
-import { fetchUserPerformance, type PerfContactItem, type PerfDossierItem, type PerformancePeriod, type StaffPerformance, type PerfWorkHours } from "@/lib/auth";
+import { fetchUserPerformance, type StaffDetail, type PerfContactItem, type PerfDossierItem, type PerformancePeriod, type StaffPerformance, type PerfWorkHours } from "@/lib/auth";
 import { formatWhatsAppPhone } from "@/lib/whatsapp";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import StaffTimeDetail from "@/components/admin/StaffTimeDetail";
 import { PERIOD_OPTIONS, PeriodSelector, StatTile, WhatsAppFunnelBars, WorkHoursNote, convertedHint, durationHint, percent, plural } from "@/components/admin/performance-ui";
 import { AlertTriangle, ArrowLeft, FileCheck2, KeyRound, Mail, MessageCircle, Phone, Plane } from "lucide-react";
 import type { ReactNode } from "react";
@@ -162,6 +163,7 @@ export default function AdminStaffStatsPage() {
   const [period, setPeriod] = useState<PerformancePeriod>(PERIOD_OPTIONS.some((p) => p.id === initial) ? initial! : "30");
   const [user, setUser] = useState<StaffPerformance | null>(null);
   const [workHours, setWorkHours] = useState<PerfWorkHours | null>(null);
+  const [detail, setDetail] = useState<StaffDetail>({});
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -170,6 +172,7 @@ export default function AdminStaffStatsPage() {
       .then((data) => {
         setUser(data.user);
         setWorkHours(data.workHours);
+        setDetail(data.detail || {});
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Impossible de charger les statistiques."));
   }, [id, period]);
@@ -218,6 +221,12 @@ export default function AdminStaffStatsPage() {
 
       {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
+      {user && workHours && (user.sales || user.rdv) && (
+        <>
+          {user.sales && <StaffTimeDetail key={`${user.id}-sales`} detail={detail} kind="sales" workHours={workHours} />}
+          {user.rdv && <StaffTimeDetail key={`${user.id}-rdv`} detail={detail} kind="rdv" workHours={workHours} />}
+        </>
+      )}
       {user?.sales && <SalesSection user={user} />}
       {user?.rdv && <RdvSection user={user} />}
       {user && !user.sales && !user.rdv && (

@@ -74,10 +74,27 @@ async function listApplications() {
     `SELECT ua.id, ua.student_id, ua.sales_id, ua.assigned_rdv_id, ua.status,
             ua.created_at, ua.applied_at, ua.decision_at,
             ua.visa_status, ua.visa_docs_validated_at, ua.visa_submitted_at, ua.visa_decision_at,
-            su.prenom AS student_prenom, su.nom AS student_nom, c.name AS country_name
+            su.prenom AS student_prenom, su.nom AS student_nom, c.name AS country_name, cu.name AS university_name
      FROM university_applications ua
      JOIN users su ON su.id = ua.student_id
-     LEFT JOIN countries c ON c.id = ua.country_id`
+     LEFT JOIN countries c ON c.id = ua.country_id
+     LEFT JOIN country_universities cu ON cu.id = ua.university_id`
+  );
+  return result.rows;
+}
+
+// Chaque document vérifié par un employé (détail de la page employé).
+async function listReviewEvents(userId) {
+  const result = await query(
+    `SELECT sd.id, sd.status, sd.submitted_at, sd.reviewed_at, dr.name AS doc_name, dr.category,
+            su.prenom AS student_prenom, su.nom AS student_nom
+     FROM student_documents sd
+     JOIN document_requirements dr ON dr.id = sd.document_requirement_id
+     JOIN users su ON su.id = sd.student_id
+     WHERE sd.reviewed_by = $1 AND sd.reviewed_at IS NOT NULL AND sd.submitted_at IS NOT NULL
+     ORDER BY sd.reviewed_at DESC
+     LIMIT 3000`,
+    [userId]
   );
   return result.rows;
 }
@@ -95,6 +112,7 @@ module.exports = {
   listMessagesForTurns,
   listSalesStudents,
   listDocumentReviews,
+  listReviewEvents,
   listApplications,
   listCodes
 };

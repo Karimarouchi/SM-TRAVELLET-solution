@@ -559,8 +559,12 @@ export async function fetchTeamPerformance(period: PerformancePeriod) {
   return request<TeamPerformance>(`/api/admin/performance?period=${period}`);
 }
 
+// Un cas mesuré (réponse, document, dossier) : dates de début et de fin, durée en heures de travail.
+export type StaffEvent = { student: string; sub: string; from: string; to: string; minutes: number; outcome: string | null };
+export type StaffDetail = Partial<Record<"reply" | "review" | "handoff" | "visaDocs" | "readyToApplied" | "appliedToDecision" | "visaDocsToSubmit" | "visaDecision", StaffEvent[]>>;
+
 export async function fetchUserPerformance(userId: string, period: PerformancePeriod) {
-  return request<{ period: PerformancePeriod; workHours: PerfWorkHours; user: StaffPerformance }>(
+  return request<{ period: PerformancePeriod; workHours: PerfWorkHours; user: StaffPerformance; detail: StaffDetail }>(
     `/api/admin/performance/users/${userId}?period=${period}`
   );
 }
