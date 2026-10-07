@@ -182,6 +182,7 @@ app.post("/api/admin/backup/restore", requireAuth, requireRoles("ADMIN"), backup
 // Finance : tarifs par pays, tableau de bord et liste des plans (admin) ;
 // paiements d'un étudiant (admin ou conseiller de l'étudiant).
 app.get("/api/admin/finance/overview", requireAuth, requireRoles("ADMIN"), paymentController.overview);
+app.get("/api/admin/finance/stats", requireAuth, requireRoles("ADMIN"), paymentController.stats);
 app.get("/api/admin/finance/plans", requireAuth, requireRoles("ADMIN"), paymentController.listPlans);
 app.get("/api/admin/finance/payments", requireAuth, requireRoles("ADMIN"), paymentController.listJournal);
 app.get("/api/admin/finance/pricing", requireAuth, requireRoles("ADMIN"), paymentController.listPricing);

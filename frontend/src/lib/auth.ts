@@ -1789,6 +1789,27 @@ export type FinanceOverview = {
   bySales: Array<{ name: string; byCurrency: Partial<Record<Currency, CurrencyBucket>> }>;
 };
 
+export type FinanceStats = {
+  months: Array<{
+    month: string;
+    currency: Currency;
+    collected: number;
+    count: number;
+    tranche1: number;
+    tranche2: number;
+    methods: Record<PaymentMethod, number>;
+    cancelledCount: number;
+    cancelledAmount: number;
+  }>;
+  byCountry: Array<{ month: string; currency: Currency; name: string; collected: number }>;
+  bySales: Array<{ month: string; currency: Currency; name: string; collected: number }>;
+  billed: Array<{ month: string; currency: Currency; plans: number; due: number }>;
+};
+
+export async function fetchFinanceStats(): Promise<FinanceStats> {
+  return request<FinanceStats>("/api/admin/finance/stats");
+}
+
 export async function fetchFinanceOverview(): Promise<FinanceOverview> {
   return request<FinanceOverview>("/api/admin/finance/overview");
 }

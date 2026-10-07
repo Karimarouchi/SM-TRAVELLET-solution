@@ -172,7 +172,51 @@ async function collectedTotals() {
   return result.rows;
 }
 
+// Statistiques par mois (date du paiement) : encaissements actifs, tranches, modes,
+// annulations, puis ventilation par pays et par conseiller et montants facturés.
+async function statsByMonth() {
+  const [months, countries, sales, billed] = await Promise.all([
+    query(
+      `SELECT to_char(paid_at, 'YYYY-MM') AS month, currency,
+              COALESCE(SUM(amount) FILTER (WHERE status = 'ACTIVE'), 0)::float AS collected,
+              COUNT(*) FILTER (WHERE status = 'ACTIVE')::int AS count,
+              COALESCE(SUM(amount) FILTER (WHERE status = 'ACTIVE' AND tranche = 1), 0)::float AS t1,
+              COALESCE(SUM(amount) FILTER (WHERE status = 'ACTIVE' AND tranche = 2), 0)::float AS t2,
+              COALESCE(SUM(amount) FILTER (WHERE status = 'ACTIVE' AND method = 'CASH'), 0)::float AS cash,
+              COALESCE(SUM(amount) FILTER (WHERE status = 'ACTIVE' AND method = 'TRANSFER'), 0)::float AS transfer,
+              COALESCE(SUM(amount) FILTER (WHERE status = 'ACTIVE' AND method = 'CARD'), 0)::float AS card,
+              COALESCE(SUM(amount) FILTER (WHERE status = 'ACTIVE' AND method = 'CHEQUE'), 0)::float AS cheque,
+              COUNT(*) FILTER (WHERE status = 'CANCELLED')::int AS cancelled_count,
+              COALESCE(SUM(amount) FILTER (WHERE status = 'CANCELLED'), 0)::float AS cancelled_amount
+       FROM student_payments GROUP BY 1, 2 ORDER BY 1`
+    ),
+    query(
+      `SELECT to_char(p.paid_at, 'YYYY-MM') AS month, p.currency, c.name AS name, SUM(p.amount)::float AS collected
+       FROM student_payments p
+       JOIN payment_plans pp ON pp.id = p.plan_id
+       JOIN countries c ON c.id = pp.country_id
+       WHERE p.status = 'ACTIVE' GROUP BY 1, 2, 3`
+    ),
+    query(
+      `SELECT to_char(p.paid_at, 'YYYY-MM') AS month, p.currency,
+              COALESCE(NULLIF(TRIM(CONCAT(s.prenom, ' ', s.nom)), ''), 'Sans conseiller') AS name,
+              SUM(p.amount)::float AS collected
+       FROM student_payments p
+       LEFT JOIN student_profiles sp ON sp.user_id = p.student_id
+       LEFT JOIN users s ON s.id = sp.assigned_sales_id
+       WHERE p.status = 'ACTIVE' GROUP BY 1, 2, 3`
+    ),
+    query(
+      `SELECT to_char(created_at, 'YYYY-MM') AS month, currency,
+              COUNT(*)::int AS plans, SUM(tranche1_due + tranche2_due)::float AS due
+       FROM payment_plans GROUP BY 1, 2`
+    )
+  ]);
+  return { months: months.rows, countries: countries.rows, sales: sales.rows, billed: billed.rows };
+}
+
 module.exports = {
+  statsByMonth,
   listPricing,
   findPricing,
   upsertPricing,

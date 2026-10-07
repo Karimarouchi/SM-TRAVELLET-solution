@@ -4,6 +4,14 @@ function handle(res, error, fallback = 500) {
   res.status(error.status || fallback).json({ error: error.message || "Erreur serveur." });
 }
 
+async function stats(_req, res) {
+  try {
+    res.json(await paymentService.stats());
+  } catch (error) {
+    res.status(error.status || 400).json({ error: error.message || "Requête invalide." });
+  }
+}
+
 async function overview(_req, res) {
   try {
     res.json(await paymentService.overview());
@@ -92,4 +100,4 @@ async function cancel(req, res) {
   }
 }
 
-module.exports = { overview, listPlans, listJournal, listPricing, getPricing, setPricing, removePricing, studentSummary, mySummary, record, cancel };
+module.exports = { stats, overview, listPlans, listJournal, listPricing, getPricing, setPricing, removePricing, studentSummary, mySummary, record, cancel };

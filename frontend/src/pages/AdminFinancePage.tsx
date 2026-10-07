@@ -1,5 +1,6 @@
 import { confirmDialog } from "@/components/ui/dialog-host";
 import CommissionsPanel from "@/components/admin/CommissionsPanel";
+import FinanceStatsSection from "@/components/admin/FinanceStats";
 import { StatTile } from "@/components/admin/performance-ui";
 import StudentPaymentsPanel from "@/components/StudentPaymentsPanel";
 import { FancySelect } from "@/components/ui/fancy-select";
@@ -111,6 +112,7 @@ function Overview() {
         <Breakdown title="Par pays" rows={data.byCountry} />
         <Breakdown title="Par conseiller" rows={data.bySales} />
       </div>
+      <FinanceStatsSection />
     </div>
   );
 }

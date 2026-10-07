@@ -424,6 +424,29 @@ async function overview() {
   };
 }
 
+// Statistiques détaillées par mois / par année (admin). Les montants restent
+// séparés par devise ; le découpage par année est fait côté interface.
+async function stats() {
+  const rows = await paymentRepo.statsByMonth();
+  const num = (v) => money(v);
+  return {
+    months: rows.months.map((r) => ({
+      month: r.month,
+      currency: r.currency,
+      collected: num(r.collected),
+      count: r.count,
+      tranche1: num(r.t1),
+      tranche2: num(r.t2),
+      methods: { CASH: num(r.cash), TRANSFER: num(r.transfer), CARD: num(r.card), CHEQUE: num(r.cheque) },
+      cancelledCount: r.cancelled_count,
+      cancelledAmount: num(r.cancelled_amount)
+    })),
+    byCountry: rows.countries.map((r) => ({ month: r.month, currency: r.currency, name: r.name, collected: num(r.collected) })),
+    bySales: rows.sales.map((r) => ({ month: r.month, currency: r.currency, name: r.name, collected: num(r.collected) })),
+    billed: rows.billed.map((r) => ({ month: r.month, currency: r.currency, plans: r.plans, due: num(r.due) }))
+  };
+}
+
 // Liste filtrable des plans (admin) : statut, pays, conseiller, recherche.
 async function listPlans(filters = {}) {
   let plans = (await paymentRepo.listPlans()).map(planDto);
@@ -450,6 +473,7 @@ module.exports = {
   assertVisaPaid,
   visaPaymentDue,
   overview,
+  stats,
   listPlans,
   listJournal
 };
