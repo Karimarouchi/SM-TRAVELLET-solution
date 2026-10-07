@@ -28,18 +28,26 @@ export default function AutoAssignSharesCard() {
 
   const active = useMemo(() => (data?.shares || []).filter((s) => s.isActive), [data]);
   const blocked = useMemo(() => (data?.shares || []).filter((s) => !s.isActive), [data]);
-  const total = active.reduce((sum, s) => sum + (percents[s.salesId] || 0), 0);
-  const remaining = 100 - total;
-  const valid = total === 100;
+  // Tous les conseillers actifs sauf le dernier sont réglables ; le dernier reçoit
+  // automatiquement ce qui reste : le total ne dépasse jamais 100 %.
+  const lastId = active.length ? active[active.length - 1].salesId : null;
+  const editableSum = active.slice(0, -1).reduce((sum, s) => sum + (percents[s.salesId] || 0), 0);
+  const valueOf = (salesId: string) => (salesId === lastId ? Math.max(0, 100 - editableSum) : percents[salesId] ?? 0);
+  const total = active.reduce((sum, s) => sum + valueOf(s.salesId), 0);
+  const valid = active.length > 0 && total === 100;
 
   const dirty =
     !!data &&
     (mode !== data.mode ||
-      (mode === "percentage" && data.shares.some((s) => s.isActive && (percents[s.salesId] ?? 0) !== s.percent)));
+      (mode === "percentage" && data.shares.some((s) => s.isActive && valueOf(s.salesId) !== s.percent)));
 
   function setPercent(salesId: string, raw: string) {
-    const value = raw === "" ? 0 : Math.min(100, Math.max(0, Math.round(Number(raw))));
-    setPercents((current) => ({ ...current, [salesId]: Number.isFinite(value) ? value : 0 }));
+    if (salesId === lastId) return;
+    const typed = raw === "" ? 0 : Math.round(Number(raw));
+    const othersSum = active.slice(0, -1).reduce((sum, s) => sum + (s.salesId === salesId ? 0 : percents[s.salesId] || 0), 0);
+    // Au plus ce qui reste après les autres conseillers.
+    const value = Number.isFinite(typed) ? Math.min(100 - othersSum, Math.max(0, typed)) : 0;
+    setPercents((current) => ({ ...current, [salesId]: value }));
     setSaved(false);
     setError("");
   }
@@ -61,7 +69,7 @@ export default function AutoAssignSharesCard() {
     try {
       const next = await saveAutoAssignShares({
         mode,
-        shares: active.map((s) => ({ salesId: s.salesId, percent: percents[s.salesId] || 0 }))
+        shares: active.map((s) => ({ salesId: s.salesId, percent: valueOf(s.salesId) }))
       });
       apply(next);
       setSaved(true);
@@ -133,14 +141,18 @@ export default function AutoAssignSharesCard() {
                 <>
                   <ul className="divide-y divide-line/70 rounded-2xl border border-line">
                     {active.map((s) => {
-                      const value = percents[s.salesId] ?? 0;
+                      const value = valueOf(s.salesId);
+                      const isLast = s.salesId === lastId && active.length > 1;
                       const name = `${s.prenom} ${s.nom}`.trim();
                       return (
                         <li key={s.salesId} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
                           <div className="flex min-w-0 flex-1 basis-48 items-center gap-2.5">
                             <UserAvatar name={name} size="sm" className="h-8 w-8 shrink-0 text-[10px]" />
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-bold text-dark">{name}</p>
+                              <p className="flex items-center gap-1.5 truncate text-sm font-bold text-dark">
+                                {name}
+                                {isLast && <span className="shrink-0 rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-bold text-brand">reste automatique</span>}
+                              </p>
                               <p className="text-[11px] text-muted">
                                 A reçu {s.receivedWhatsapp} contact{s.receivedWhatsapp > 1 ? "s" : ""} WhatsApp · {s.receivedStudents} étudiant{s.receivedStudents > 1 ? "s" : ""} depuis ce réglage
                               </p>
@@ -154,8 +166,9 @@ export default function AutoAssignSharesCard() {
                               step={1}
                               value={value}
                               onChange={(e) => setPercent(s.salesId, e.target.value)}
+                              disabled={s.salesId === lastId}
                               aria-label={`Part de ${name}`}
-                              className="h-2 min-w-0 flex-1 cursor-pointer accent-[#6d28d9]"
+                              className="h-2 min-w-0 flex-1 cursor-pointer accent-[#6d28d9] disabled:cursor-not-allowed disabled:opacity-60"
                             />
                             <label className="flex shrink-0 items-center gap-1">
                               <input
@@ -165,9 +178,13 @@ export default function AutoAssignSharesCard() {
                                 max={100}
                                 value={value}
                                 onChange={(e) => setPercent(s.salesId, e.target.value)}
+                                readOnly={s.salesId === lastId}
                                 aria-label={`Pourcentage de ${name}`}
                                 // 16 px : évite le zoom automatique d'iOS au toucher du champ.
-                                className="w-16 rounded-lg border border-line bg-slate-50 px-2 py-1.5 text-right text-base font-bold text-dark outline-none focus:border-brand"
+                                className={cn(
+                                  "w-16 rounded-lg border border-line px-2 py-1.5 text-right text-base font-bold text-dark outline-none focus:border-brand",
+                                  s.salesId === lastId ? "bg-brand/5 text-brand" : "bg-slate-50"
+                                )}
                               />
                               <span className="text-sm font-bold text-muted">%</span>
                             </label>
@@ -190,7 +207,9 @@ export default function AutoAssignSharesCard() {
                       Total : {total} %
                     </span>
                     <span className="text-xs">
-                      {valid ? "Le total fait 100 %, vous pouvez enregistrer." : remaining > 0 ? `Il reste ${remaining} % à répartir.` : `${-remaining} % de trop.`}
+                      {active.length > 1
+                        ? "Le dernier conseiller reçoit automatiquement le reste : le total fait toujours 100 %."
+                        : "Un seul conseiller actif : il reçoit 100 %."}
                     </span>
                   </div>
                   <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100" aria-hidden>
