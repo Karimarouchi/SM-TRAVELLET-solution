@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Prépare un VPS Ubuntu/Debian vierge : Docker + « docker compose », pare-feu,
-# et un peu de swap si la mémoire est faible. À lancer UNE seule fois, en root.
-# (nginx et le certificat tournent dans Docker : rien d'autre à installer.)
+# Prépare un VPS Ubuntu/Debian vierge : Docker + « docker compose », nginx,
+# certbot, pare-feu, et un peu de swap si la mémoire est faible.
+# À lancer UNE seule fois, en root.
 #
 #   sudo bash deploy/new-vps/01-install.sh
 set -euo pipefail
@@ -15,7 +15,7 @@ export DEBIAN_FRONTEND=noninteractive
 
 echo "==> Paquets de base"
 apt-get update -y
-apt-get install -y ca-certificates curl gnupg ufw git openssl dnsutils
+apt-get install -y ca-certificates curl gnupg ufw git openssl dnsutils nginx certbot python3-certbot-nginx
 
 echo "==> Docker + plugin « docker compose »"
 if ! docker compose version >/dev/null 2>&1; then
@@ -27,6 +27,7 @@ if ! docker compose version >/dev/null 2>&1; then
   curl -fsSL https://get.docker.com | sh
 fi
 systemctl enable --now docker
+systemctl enable --now nginx
 docker compose version
 
 # Compiler l'application (Vite + TypeScript) demande de la mémoire : sur un
@@ -48,9 +49,7 @@ ufw allow 443/tcp
 ufw --force enable
 
 echo
-echo "Docker est prêt. Suite :"
-echo "  sudo ADMIN_EMAIL=votre@email.com bash deploy/new-vps/init-env.sh"
-echo "  docker compose --profile production up -d --build"
+echo "Docker, nginx et certbot sont prêts. Suite : voir deploy/new-vps/README.md"
 if [[ -f /var/run/reboot-required ]]; then
   echo
   echo "Note : le système demande un redémarrage (mises à jour du noyau) : sudo reboot, puis reconnectez-vous."

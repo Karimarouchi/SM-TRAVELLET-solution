@@ -1,56 +1,98 @@
-# Nouveau VPS — tout dans Docker (www.smtravel.fr)
+# Nouveau serveur — www.smtravel.fr
 
-Même logique que d'habitude : **tout tourne dans des conteneurs Docker**, y compris nginx (fichier de configuration dans `deploy/nginx/`) et le renouvellement du certificat HTTPS. Sur le serveur, il n'y a rien d'autre à installer que Docker.
+Même méthode que d'habitude : **Docker** pour l'application (API, application React, PostgreSQL) et **un fichier nginx** dans `/etc/nginx` pour le site.
 
-```
-Internet ──► conteneur nginx (80/443)
-              ├─ /          → vitrine statique (dans l'image nginx)
-              ├─ /app/      → conteneur frontend
-              ├─ /api/      → conteneur backend
-              └─ /uploads/  → conteneur backend
-             conteneur postgres (jamais exposé sur Internet)
-```
-
-## Installation neuve (serveur vide)
+## 1. Installer ce qui manque sur le serveur vide (une seule fois)
 
 ```bash
 cd /var/www/SM-TRAVELLET-solution
 git pull origin main
+sudo bash deploy/new-vps/01-install.sh      # Docker, nginx, certbot, pare-feu (ports 22/80/443)
+```
 
-# 1) Docker + pare-feu (une seule fois)
-sudo bash deploy/new-vps/01-install.sh
+(équivalent manuel : `apt install docker.io docker-compose-v2 nginx certbot python3-certbot-nginx`)
 
-# 2) Fichiers de configuration (une seule fois ; contiennent des secrets, hors de git)
+## 2. Les deux fichiers `.env` (ils ne sont pas dans git : ce sont des secrets)
+
+Ils existent déjà sur l'ancien serveur ; vous pouvez les recopier comme d'habitude. Sinon, ce script les crée à votre place (il ne remplace jamais un fichier existant) :
+
+```bash
 sudo ADMIN_EMAIL=votre@email.com bash deploy/new-vps/init-env.sh
-#    -> affiche UNE FOIS le mot de passe du premier administrateur
+```
 
-# 3) Démarrer (compile les images : 10 à 15 minutes la première fois)
+Pourquoi ces deux fichiers sont indispensables :
+
+| Fichier | Contenu | Sans lui |
+|---|---|---|
+| `.env` (racine) | mot de passe PostgreSQL, `VITE_API_URL` | `docker compose` refuse de démarrer |
+| `backend/.env` | clé de sécurité (JWT), premier administrateur | l'API ne démarre pas, et en production **aucun compte n'existe** : sans le premier administrateur, personne ne peut se connecter |
+
+Le mot de passe de l'administrateur est affiché une seule fois par le script : notez-le, puis changez-le après la première connexion.
+
+Si vous les créez à la main :
+
+```
+# .env
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=<mot de passe long>
+POSTGRES_DB=sm_travel
+VITE_API_URL=https://www.smtravel.fr
+
+# backend/.env
+PORT=3001
+NODE_ENV=production
+JWT_SECRET=<64 caractères aléatoires>
+APP_PUBLIC_URL=https://www.smtravel.fr
+CORS_ORIGIN=https://www.smtravel.fr
+ADMIN_BOOTSTRAP_EMAIL=votre@email.com
+ADMIN_BOOTSTRAP_PASSWORD=<mot de passe>
+```
+
+## 3. Démarrer l'application (Docker)
+
+```bash
 docker compose --profile production up -d --build
 docker compose --profile production ps
 curl -s http://127.0.0.1:3002/api/health
 ```
 
-Le site répond alors en HTTP sur l'adresse IP du serveur (`http://191.215.44.82/`).
+## 4. Le site vitrine et le fichier nginx
 
-## DNS (Hostinger)
+```bash
+# Copie de la vitrine (à refaire quand le site vitrine change)
+mkdir -p /var/www/smtravel
+cp -r index.html paiement.html tailwind.css robots.txt sitemap.xml IMAGE js css SONG \
+      mentions-legales politique-confidentialite politique-cookies \
+      politique-annulation-remboursement conditions-generales-de-vente /var/www/smtravel/
 
-Modifier uniquement les deux enregistrements **A** : `@` et `www` → `191.215.44.82` (TTL 300). Ne pas toucher aux `MX`, `TXT` et `CNAME` (ce sont les e-mails `@smtravel.fr`). Supprimer un éventuel `AAAA`.
+# Fichier nginx
+cp deploy/new-vps/nginx-smtravel.conf /etc/nginx/sites-available/smtravel
+ln -s /etc/nginx/sites-available/smtravel /etc/nginx/sites-enabled/smtravel
+rm -f /etc/nginx/sites-enabled/default
+nginx -t && systemctl reload nginx
+```
+
+Le site répond alors en HTTP sur l'adresse IP / le nom une fois le DNS changé.
+
+## 5. DNS (Hostinger)
+
+Modifier uniquement les deux enregistrements **A** : `@` et `www` → `191.215.44.82` (TTL 300). Ne pas toucher aux `MX`, `TXT`, `CNAME` (e-mails `@smtravel.fr`). Supprimer un éventuel `AAAA`.
 
 ```bash
 dig +short www.smtravel.fr @1.1.1.1     # doit afficher 191.215.44.82
 ```
 
-## HTTPS
+## 6. HTTPS
 
 Dès que le DNS pointe vers le serveur :
 
 ```bash
-bash deploy/new-vps/ssl.sh votre@email.com
+certbot --nginx -d www.smtravel.fr -d smtravel.fr --redirect -m votre@email.com --agree-tos
 ```
 
-Le script vérifie le DNS, demande le certificat Let's Encrypt (www et sans www), puis redémarre le conteneur nginx, qui passe tout seul en HTTPS. `smtravel.fr` et le HTTP redirigent vers `https://www.smtravel.fr`. Le renouvellement est automatique (conteneur `certbot-renew`).
+certbot ajoute le HTTPS au fichier nginx et le renouvellement automatique.
 
-## Programmes de la vitrine (facultatif)
+## 7. Programmes de la vitrine (facultatif)
 
 La section « Programmes » du site est vide sur une base neuve :
 
@@ -58,37 +100,22 @@ La section « Programmes » du site est vide sur une base neuve :
 sudo bash deploy/new-vps/seed-programmes.sh
 ```
 
-(sans effet si des programmes existent déjà)
-
 ## Mises à jour (vos commandes habituelles)
 
 ```bash
 cd /var/www/SM-TRAVELLET-solution
 git pull origin main
-docker compose build --no-cache backend frontend nginx
-docker compose up -d --force-recreate backend frontend nginx
+docker compose build --no-cache backend frontend
+docker compose up -d --force-recreate backend frontend
 docker compose logs --tail=60 backend
 ```
 
-> `nginx` contient la vitrine (`index.html`, images…) : ajoutez-le à la reconstruction dès que le site vitrine change. Pour une modification du backend ou de l'application seulement, `backend frontend` suffit.
+Si le site vitrine a changé : refaire la copie de l'étape 4 (`cp -r …`).
 
 ## Après la première connexion
 
-- `https://www.smtravel.fr/app/#/login` avec l'e-mail admin choisi et le mot de passe affiché.
-- Paramètres → envoi d'e-mails : `services@smtravel.fr` et le serveur Hostinger (rien à saisir sur le serveur).
-- WhatsApp et Google (facultatif) : ajouter les clés dans `backend/.env`, puis `docker compose up -d --force-recreate backend`. Adresses à déclarer :
+- `https://www.smtravel.fr/app/#/login`
+- Paramètres → envoi d'e-mails : `services@smtravel.fr` et le serveur Hostinger.
+- WhatsApp / Google (facultatif) : ajouter les clés dans `backend/.env`, puis `docker compose up -d --force-recreate backend`. Adresses à déclarer :
   - WhatsApp (Meta) : `https://www.smtravel.fr/api/whatsapp/webhook`
   - Google (redirection autorisée) : `https://www.smtravel.fr/api/google/callback`
-
-## Commandes utiles
-
-```bash
-docker compose --profile production ps
-docker compose logs -f backend
-docker compose logs --tail=40 nginx
-docker compose restart nginx            # après un changement de certificat
-```
-
-## Ancien serveur
-
-Sur l'ancien serveur (nginx hors Docker sur les ports 80/443), n'utilisez pas `docker compose --profile production up` sans nom de service : le conteneur nginx essaierait de prendre ces ports. Continuez avec `docker compose build ... backend frontend` et `docker compose up -d ... backend frontend`.
