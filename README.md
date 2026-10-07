@@ -122,7 +122,15 @@ npm run dev:backend
 npm run dev:frontend
 ```
 
-Pour un déploiement en production avec Docker (backend + frontend conteneurisés) :
+Pour un **VPS vierge** (Ubuntu/Debian, rien d’installé), copiez le projet sur le serveur puis :
+
+```bash
+sudo bash deploy/install-vps.sh
+```
+
+Le script installe Docker, génère les secrets, construit et démarre PostgreSQL, l’API, la vitrine, l’application (`/app/`) et le HTTPS automatique. Détail : `deploy/README.md`.
+
+Redéploiement après mise à jour du code :
 
 ```bash
 docker compose --profile production up -d --build

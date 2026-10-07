@@ -1,0 +1,36 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$SITE_ADDRESS} {
+	encode gzip zstd
+	request_body {
+		max_size 25MB
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options SAMEORIGIN
+		-Server
+	}
+
+	handle /api* {
+		reverse_proxy backend:3001
+	}
+
+	handle /uploads* {
+		reverse_proxy backend:3001
+	}
+
+	handle /app* {
+		root * /srv
+		try_files {path} /app/index.html
+		file_server
+	}
+
+	handle {
+		root * /srv/vitrine
+		file_server
+	}
+}

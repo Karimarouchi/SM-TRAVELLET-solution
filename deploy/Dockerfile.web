@@ -1,0 +1,24 @@
+FROM node:20-alpine AS frontend-build
+WORKDIR /frontend
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+ARG VITE_API_URL=
+ENV VITE_API_URL=$VITE_API_URL
+RUN npm run build
+
+FROM caddy:2-alpine
+COPY deploy/Caddyfile /etc/caddy/Caddyfile
+COPY --from=frontend-build /frontend/dist /srv/app
+COPY index.html paiement.html tailwind.css /srv/vitrine/
+COPY IMAGE /srv/vitrine/IMAGE
+COPY js /srv/vitrine/js
+COPY css /srv/vitrine/css
+COPY SONG /srv/vitrine/SONG
+COPY robots.txt sitemap.xml /srv/vitrine/
+COPY mentions-legales /srv/vitrine/mentions-legales
+COPY politique-confidentialite /srv/vitrine/politique-confidentialite
+COPY politique-cookies /srv/vitrine/politique-cookies
+COPY politique-annulation-remboursement /srv/vitrine/politique-annulation-remboursement
+COPY conditions-generales-de-vente /srv/vitrine/conditions-generales-de-vente
+EXPOSE 80 443

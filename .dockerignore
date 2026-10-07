@@ -1,0 +1,17 @@
+.git
+.gitignore
+**/.env
+**/.env.production
+**/node_modules
+frontend/dist
+frontend/node_modules
+backend/node_modules
+backend/logs
+backend/uploads
+backend/backend.log
+**/.DS_Store
+.github
+agent-transcripts
+*.md
+!README.md
+!deploy/README.md
