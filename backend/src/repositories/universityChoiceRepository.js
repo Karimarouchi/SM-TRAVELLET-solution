@@ -26,6 +26,12 @@ async function listActiveForStudent(studentId, db) {
   return result.rows;
 }
 
+// Étudiants qui visent actuellement cette université (vœu non retiré, candidature non terminée).
+async function listActiveStudentIdsForUniversity(universityId) {
+  const result = await query(`${SELECT_CHOICE} WHERE ch.university_id = $1 AND ${ACTIVE}`, [universityId]);
+  return [...new Set(result.rows.map((row) => row.student_id))];
+}
+
 async function countActive(studentId, db) {
   const rows = await listActiveForStudent(studentId, db);
   return rows.length;
@@ -85,4 +91,4 @@ async function lockStudent(db, studentId) {
   await db.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`choices:${studentId}`]);
 }
 
-module.exports = { addPreferredCountry, lockStudent, listActiveForStudent, countActive, findById, hasAnyForStudent, create, withdraw, salesManagesUniversity };
+module.exports = { addPreferredCountry, lockStudent, listActiveForStudent, listActiveStudentIdsForUniversity, countActive, findById, hasAnyForStudent, create, withdraw, salesManagesUniversity };

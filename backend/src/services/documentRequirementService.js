@@ -4,6 +4,7 @@ const userRoleRepo = require("../repositories/userRoleRepository");
 const universityRepo = require("../repositories/countryUniversityRepository");
 const choiceRepo = require("../repositories/universityChoiceRepository");
 const { authRoles } = require("../security/rbac");
+const notificationService = require("./notificationService");
 
 const ACCEPTED_FILE_TYPES = ["IMAGE", "PDF", "IMAGE_PDF"];
 const CATEGORIES = ["DOSSIER", "VISA"];
@@ -108,6 +109,22 @@ async function listByUniversity(auth, universityId) {
   return rows.map(documentDto);
 }
 
+// Prévient les étudiants qui visent cette université : un document à déposer s'ajoute à leur liste.
+async function notifyStudentsOfNewDocument(university, document) {
+  try {
+    const studentIds = await choiceRepo.listActiveStudentIdsForUniversity(university.id);
+    if (!studentIds.length) return;
+    await notificationService.notify(studentIds, {
+      type: "DOCUMENT_REQUESTED",
+      title: `Nouveau document à ajouter : ${document.name}`,
+      body: `${university.name} demande ce document${document.required ? "" : " (facultatif)"} en plus de ceux déjà demandés. Ajoutez-le dans votre espace documents.`,
+      link: "/documents"
+    });
+  } catch (error) {
+    // Une notification ne doit jamais empêcher l'ajout du document.
+  }
+}
+
 async function createForUniversity(auth, universityId, payload) {
   const university = await assertUniversityExists(universityId);
   await assertUniversityPermission(auth, university);
@@ -126,6 +143,7 @@ async function createForUniversity(auth, universityId, payload) {
     acceptedFileTypes: normalizeAcceptedFileTypes(payload.acceptedFileTypes),
     category: "DOSSIER"
   });
+  await notifyStudentsOfNewDocument(university, row);
   return documentDto(row);
 }
 
@@ -203,6 +221,10 @@ async function setActive(auth, id, active) {
   if (!existing) throw fail("Document requis introuvable.", 404);
   await assertDocumentPermission(auth, existing);
   const row = await documentRepo.setActive(id, Boolean(active));
+  // Un document d'université réactivé redevient demandé : les étudiants concernés en sont prévenus.
+  if (active && existing.university_id && !existing.active) {
+    await notifyStudentsOfNewDocument(await assertUniversityExists(existing.university_id), row);
+  }
   return documentDto(row);
 }
 
