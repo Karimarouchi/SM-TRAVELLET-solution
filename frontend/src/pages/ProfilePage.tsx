@@ -541,7 +541,7 @@ export default function ProfilePage() {
                               </label>
                               {form.hasLanguageTest && (
                                 <div className="mt-3 grid gap-3">
-                                  <Field label="Langue du test" required error={errors.languageTestLangs}>
+                                  <Field label="Test de langue" required error={errors.languageTestLangs}>
                                     <div className="flex flex-wrap gap-2">
                                       {([
                                         { id: "french" as const, label: "Français" },
