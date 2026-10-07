@@ -76,7 +76,52 @@ services:
       # -> port hôte 8081. Lié à 127.0.0.1 pour la même raison que le backend.
       - "127.0.0.1:8081:80"
 
+  # ── nginx : vitrine + routage /app, /api, /uploads + HTTPS ──
+  # Image construite depuis la racine du projet (deploy/nginx/Dockerfile) : la
+  # vitrine y est incluse, donc reconstruire ce service après un changement du
+  # site vitrine (index.html, images…). Tourne en HTTP tant qu'il n'y a pas de
+  # certificat, puis en HTTPS (voir deploy/new-vps/README.md).
+  nginx:
+    profiles: ["production"]
+    build:
+      context: .
+      dockerfile: deploy/nginx/Dockerfile
+    container_name: sm-travel-nginx
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - sm_travel_certs:/etc/letsencrypt:ro
+      - sm_travel_certbot:/var/www/certbot:ro
+
+  # Renouvellement automatique du certificat HTTPS (toutes les 12 h, ne fait
+  # quelque chose que lorsque le certificat approche de son expiration).
+  certbot-renew:
+    profiles: ["production"]
+    image: certbot/certbot
+    container_name: sm-travel-certbot-renew
+    restart: unless-stopped
+    entrypoint: /bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done'
+    volumes:
+      - sm_travel_certs:/etc/letsencrypt
+      - sm_travel_certbot:/var/www/certbot
+
+  # Première obtention du certificat (commande ponctuelle, voir le README) :
+  #   docker compose run --rm certbot certonly --webroot -w /var/www/certbot ...
+  certbot:
+    profiles: ["certbot"]
+    image: certbot/certbot
+    volumes:
+      - sm_travel_certs:/etc/letsencrypt
+      - sm_travel_certbot:/var/www/certbot
+
 volumes:
   sm_travel_pg:
   sm_travel_uploads:
   sm_travel_logs:
+  sm_travel_certs:
+  sm_travel_certbot:
