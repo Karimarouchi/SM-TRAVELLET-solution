@@ -344,64 +344,6 @@ export default function AdminPage() {
         </div>
       </section>
 
-      {/* ── Entonnoir de conversion & croissance réelle ──────────────────── */}
-      <div className="mt-6 grid gap-4 xl:grid-cols-2">
-        <ChartCard
-          title="Entonnoir de conversion"
-          subtitle="Où les étudiants décrochent réellement dans le parcours, de l'inscription au visa obtenu."
-          badge={
-            <span className="inline-flex items-center gap-1 rounded-full bg-brand-light px-2.5 py-0.5 text-[11px] font-bold text-brand">
-              {conversionRate}% jusqu'au visa
-            </span>
-          }
-        >
-          <ConversionFunnelChart funnel={funnel} />
-        </ChartCard>
-
-        <ChartCard
-          title="Croissance mensuelle"
-          subtitle="Nombre réel d'inscriptions cumulées, mois par mois."
-          badge={<YoYBadge year={currentYear} />}
-        >
-          <GrowthAreaChart data={data?.monthlyGrowth ?? []} currentYear={currentYear} />
-        </ChartCard>
-      </div>
-
-      {/* ── Destinations & Pipeline ──────────────────────────────────────── */}
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <ChartCard
-          title="Destinations demandées"
-          subtitle="Répartition géographique des choix des étudiants à l'onboarding."
-        >
-          {data?.destinations.length ? (
-            <DestinationsPieChart destinations={data.destinations} />
-          ) : (
-            /* Fallback list while loading or empty */
-            <div className="mt-2 space-y-3">
-              {(data?.destinations || []).map((item) => (
-                <div key={item.name}>
-                  <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="font-semibold">{item.name}</span>
-                    <span className="text-xs text-muted">{item.count} · {item.percent}%</span>
-                  </div>
-                  <div className="h-2.5 overflow-hidden rounded-full bg-brand-light">
-                    <div className="h-full rounded-full bg-brand" style={{ width: `${(item.count / maxDest) * 100}%` }} />
-                  </div>
-                </div>
-              ))}
-              {!data?.destinations.length && <p className="text-sm text-muted">Aucune destination renseignée pour le moment.</p>}
-            </div>
-          )}
-        </ChartCard>
-
-        <ChartCard
-          title="Pipeline des dossiers"
-          subtitle="Répartition en pourcentage des dossiers par étape de traitement."
-        >
-          <PipelineRadialChart pipeline={data?.pipeline ?? []} />
-        </ChartCard>
-      </div>
-
       {/* ── Actions prioritaires ─────────────────────────────────────────── */}
       <div className="mt-4">
         <section className="rounded-[24px] border border-line bg-white p-6">
@@ -536,6 +478,64 @@ export default function AdminPage() {
           items={data?.rdvPerformance || []}
           onViewAll={() => navigate("/admin/users?tab=rdv")}
         />
+      </div>
+
+      {/* ── Entonnoir de conversion & croissance réelle ──────────────────── */}
+      <div className="mt-6 grid gap-4 xl:grid-cols-2">
+        <ChartCard
+          title="Entonnoir de conversion"
+          subtitle="Où les étudiants décrochent réellement dans le parcours, de l'inscription au visa obtenu."
+          badge={
+            <span className="inline-flex items-center gap-1 rounded-full bg-brand-light px-2.5 py-0.5 text-[11px] font-bold text-brand">
+              {conversionRate}% jusqu'au visa
+            </span>
+          }
+        >
+          <ConversionFunnelChart funnel={funnel} />
+        </ChartCard>
+
+        <ChartCard
+          title="Croissance mensuelle"
+          subtitle="Nombre réel d'inscriptions cumulées, mois par mois."
+          badge={<YoYBadge year={currentYear} />}
+        >
+          <GrowthAreaChart data={data?.monthlyGrowth ?? []} currentYear={currentYear} />
+        </ChartCard>
+      </div>
+
+      {/* ── Destinations & Pipeline ──────────────────────────────────────── */}
+      <div className="mt-4 grid gap-4 xl:grid-cols-2">
+        <ChartCard
+          title="Destinations demandées"
+          subtitle="Répartition géographique des choix des étudiants à l'onboarding."
+        >
+          {data?.destinations.length ? (
+            <DestinationsPieChart destinations={data.destinations} />
+          ) : (
+            /* Fallback list while loading or empty */
+            <div className="mt-2 space-y-3">
+              {(data?.destinations || []).map((item) => (
+                <div key={item.name}>
+                  <div className="mb-1 flex items-center justify-between text-sm">
+                    <span className="font-semibold">{item.name}</span>
+                    <span className="text-xs text-muted">{item.count} · {item.percent}%</span>
+                  </div>
+                  <div className="h-2.5 overflow-hidden rounded-full bg-brand-light">
+                    <div className="h-full rounded-full bg-brand" style={{ width: `${(item.count / maxDest) * 100}%` }} />
+                  </div>
+                </div>
+              ))}
+              {!data?.destinations.length && <p className="text-sm text-muted">Aucune destination renseignée pour le moment.</p>}
+            </div>
+          )}
+        </ChartCard>
+
+        <ChartCard
+          title="Pipeline des dossiers"
+          subtitle="Répartition en pourcentage des dossiers par étape de traitement."
+        >
+          <PipelineRadialChart pipeline={data?.pipeline ?? []} />
+        </ChartCard>
       </div>
     </main>
   );
