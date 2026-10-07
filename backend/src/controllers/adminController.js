@@ -213,4 +213,4 @@ async function userPerformance(req, res) {
 }
 
 module.exports = {
-  insights, dashboard, board, studentsOverview, setStudentActive, autoAssign, getSettings, updateSettings, teamPerformance, userPerformance, autoAssignShares, saveAutoAssignShares, studentDeletionPreview, deleteStudent, createSales, setSalesActive, transferSales, deleteSales, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };
+  insights, dashboard, board, studentsOverview, setStudentActive, getSettings, updateSettings, teamPerformance, userPerformance, autoAssignShares, saveAutoAssignShares, studentDeletionPreview, deleteStudent, createSales, setSalesActive, transferSales, deleteSales, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };
