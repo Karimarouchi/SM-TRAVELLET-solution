@@ -18,7 +18,9 @@ export const STAGE_META: Record<PipelineStageKey, { label: string; color: string
   visa_submitted: { label: "Visa déposé", color: "bg-indigo-50 text-indigo-700 border-indigo-200", dot: "bg-indigo-500" },
   completed: { label: "Visa obtenu · Terminé", color: "bg-brand/10 text-brand border-brand/20", dot: "bg-brand" },
   rejected: { label: "Candidature refusée", color: "bg-red-50 text-red-600 border-red-200", dot: "bg-red-500" },
-  visa_rejected: { label: "Visa refusé", color: "bg-red-50 text-red-600 border-red-200", dot: "bg-red-500" }
+  visa_rejected: { label: "Visa refusé", color: "bg-red-50 text-red-600 border-red-200", dot: "bg-red-500" },
+  postponed: { label: "Candidature reportée", color: "bg-orange-50 text-orange-700 border-orange-200", dot: "bg-orange-500" },
+  visa_postponed: { label: "Visa reporté", color: "bg-orange-50 text-orange-700 border-orange-200", dot: "bg-orange-500" }
 };
 
 export function StageBadge({ stage }: { stage: PipelineStageKey }) {

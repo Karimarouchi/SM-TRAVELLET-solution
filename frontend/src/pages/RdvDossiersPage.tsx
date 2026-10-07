@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { MeetLinkButton } from "@/components/MeetLinkButton";
 import { AlertTriangle, ArrowRight, Banknote, Calendar, CalendarClock, CheckCircle2, ClipboardList, Clock, FileText, GraduationCap, Landmark, Plane, Send, Sparkles, ThumbsDown, ThumbsUp, Video, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import ApplicationTimeline from "@/components/admin/ApplicationTimeline";
+import ApplicationTimeline, { PostponeModal } from "@/components/admin/ApplicationTimeline";
 import MyCommissionsCard, { RDV_INSCRIPTION_STAGES, RDV_VISA_STAGES } from "@/components/MyCommissionsCard";
 import { Link } from "react-router-dom";
 
@@ -477,7 +477,8 @@ export default function RdvDossiersPage() {
       .filter((a) => a.status === "INTERVIEW_SCHEDULED" && a.interviewDate && new Date(a.interviewDate).getTime() > Date.now() - 2 * 3600 * 1000)
       .sort((a, b) => new Date(a.interviewDate!).getTime() - new Date(b.interviewDate!).getTime());
     const accepted = applications.filter((a) => a.status === "ACCEPTED");
-    const open = applications.filter((a) => a.status !== "ACCEPTED" && a.status !== "CLOSED");
+    const open = applications.filter((a) => a.status !== "ACCEPTED" && a.status !== "CLOSED" && a.status !== "POSTPONED");
+    const postponed = applications.filter((a) => a.status === "POSTPONED" && a.postponedKind !== "VISA");
 
     const tasks: Task[] = [];
     for (const a of toApply) {
@@ -493,7 +494,7 @@ export default function RdvDossiersPage() {
       tasks.push({ key: `wait-${a.id}`, tone: "info", icon: Clock, weight: 40, title: t("Relancer l'université", "Chase the university"), text: `${a.studentName} · ${a.universityName} · ${t(`sans réponse depuis ${days} jours`, `no answer for ${days} days`)}`, target: "candidatures", cta: t("Voir", "View") });
     }
     tasks.sort((x, y) => y.weight - x.weight);
-    return { toApply, waiting, interviews, accepted, open, tasks };
+    return { toApply, waiting, interviews, accepted, open, postponed, tasks };
   }, [applications, t]);
 
   if (!session?.user) return null;
@@ -548,6 +549,16 @@ export default function RdvDossiersPage() {
         </p>
       )}
 
+      {board.postponed.length > 0 && (
+        <section id="a-retenter" className="mt-8 scroll-mt-24">
+          <h2 className="mb-1 flex items-center gap-2 font-display text-lg font-bold text-dark">
+            <CalendarClock className="h-5 w-5 text-orange-500" aria-hidden /> {t("À retenter plus tard", "To retry later")}
+          </h2>
+          <p className="mb-3 text-xs text-muted">{t("Refus reportés à une prochaine session : hors des tâches et des retards, rappel automatique avant la date.", "Refusals postponed to a later intake: no tasks or delays counted, automatic reminder before the date.")}</p>
+          <ApplicationTimeline applications={board.postponed} canAct onChanged={load} />
+        </section>
+      )}
+
       {board.accepted.length > 0 && (
         <Link to="/rdv/visas" className="mt-6 flex items-center justify-between gap-3 rounded-[20px] border border-emerald-200 bg-emerald-50/70 p-5 transition hover:shadow-md">
           <span className="text-sm text-emerald-900">
@@ -567,8 +578,9 @@ export default function RdvDossiersPage() {
 export function RdvVisasPage() {
   const { t } = useLanguage();
   const session = getSession();
-  const { applications, error, busyId, docsByApp, setDocsByApp, run } = useRdvData();
+  const { applications, error, busyId, docsByApp, setDocsByApp, load, run } = useRdvData();
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
+  const [postponeTarget, setPostponeTarget] = useState<RdvMyApplication | null>(null);
   const [prepMeetingTarget, setPrepMeetingTarget] = useState<RdvMyApplication | null>(null);
   const [embassyTarget, setEmbassyTarget] = useState<RdvMyApplication | null>(null);
   const [visaFilter, setVisaFilter] = useState<VisaFilter>("all");
@@ -577,6 +589,7 @@ export function RdvVisasPage() {
     const visaPrep = applications.filter((a) => a.status === "ACCEPTED" && a.visaStatus === "PREPARATION");
     const visaSubmitted = applications.filter((a) => a.status === "ACCEPTED" && a.visaStatus === "SUBMITTED");
     const visaDone = applications.filter((a) => a.status === "ACCEPTED" && (a.visaStatus === "ACCEPTED" || a.visaStatus === "REJECTED"));
+    const visaPostponed = applications.filter((a) => a.status === "POSTPONED" && a.postponedKind === "VISA");
     const waitingAdvisor = applications.filter((a) => a.status === "ACCEPTED" && !a.visaStatus);
     const blocked = visaPrep.filter((a) => a.visaPaymentDue);
     const readyToFile = visaPrep.filter((a) => {
@@ -598,12 +611,12 @@ export function RdvVisasPage() {
       tasks.push({ key: `dec-${a.id}`, tone: "info", icon: Plane, weight: 50, title: t("Décision du visa attendue", "Visa decision pending"), text: a.studentName, target: `app-${a.id}`, cta: t("Voir", "View") });
     }
     tasks.sort((x, y) => y.weight - x.weight);
-    return { visaPrep, visaSubmitted, visaDone, waitingAdvisor, blocked, readyToFile, tasks };
+    return { visaPrep, visaSubmitted, visaDone, visaPostponed, waitingAdvisor, blocked, readyToFile, tasks };
   }, [applications, docsByApp, t]);
 
   if (!session?.user) return null;
 
-  const visaApplications = applications.filter((a) => a.visaStatus);
+  const visaApplications = applications.filter((a) => a.visaStatus && a.status !== "POSTPONED");
   const visaCards = visaApplications.filter((app) => {
     if (visaFilter === "preparation") return app.visaStatus === "PREPARATION";
     if (visaFilter === "submitted") return app.visaStatus === "SUBMITTED";
@@ -802,7 +815,12 @@ export function RdvVisasPage() {
                       <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600"><CheckCircle2 className="h-3.5 w-3.5" /> {t("Dossier complet", "File complete")}</span>
                     )}
                     {app.visaStatus === "REJECTED" && (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-500"><XCircle className="h-3.5 w-3.5" /> {t("Dossier clôturé", "File closed")}</span>
+                      <>
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-500"><XCircle className="h-3.5 w-3.5" /> {t("Dossier clôturé", "File closed")}</span>
+                        <button type="button" disabled={busy} onClick={() => setPostponeTarget(app)} className="inline-flex items-center gap-1.5 rounded-lg bg-orange-50 px-3 py-1.5 text-xs font-bold text-orange-700 hover:bg-orange-100 disabled:opacity-60">
+                          <CalendarClock className="h-3.5 w-3.5" /> {t("Reporter à une date", "Postpone to a date")}
+                        </button>
+                      </>
                     )}
                   </div>
                 </article>
@@ -811,6 +829,24 @@ export function RdvVisasPage() {
             {visaCards.length === 0 && <p className="rounded-2xl border border-dashed border-line bg-white p-6 text-sm text-muted xl:col-span-2">{t("Aucun dossier visa dans cette catégorie.", "No visa file in this category.")}</p>}
           </div>
         </section>
+      )}
+
+      {board.visaPostponed.length > 0 && (
+        <section id="visas-a-redeposer" className="mt-8 scroll-mt-24">
+          <h2 className="mb-1 flex items-center gap-2 font-display text-lg font-bold text-dark">
+            <CalendarClock className="h-5 w-5 text-orange-500" aria-hidden /> {t("Visas à redéposer", "Visas to refile")}
+          </h2>
+          <p className="mb-3 text-xs text-muted">{t("Visas refusés reportés à une date : hors des tâches, rappel automatique avant la date.", "Refused visas postponed to a date: no tasks counted, automatic reminder before the date.")}</p>
+          <ApplicationTimeline applications={board.visaPostponed} canAct onChanged={load} />
+        </section>
+      )}
+
+      {postponeTarget && (
+        <PostponeModal
+          app={postponeTarget}
+          onClose={() => setPostponeTarget(null)}
+          onDone={() => { setPostponeTarget(null); load(); }}
+        />
       )}
 
       {rejectTarget && (

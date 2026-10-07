@@ -75,7 +75,7 @@ async function listForRdv(rdvUserId) {
 async function countActiveForRdv(rdvUserId) {
   const result = await query(
     `SELECT COUNT(*)::int AS count FROM university_applications
-     WHERE assigned_rdv_id = $1 AND status NOT IN ('CLOSED', 'REJECTED')`,
+     WHERE assigned_rdv_id = $1 AND status NOT IN ('CLOSED', 'REJECTED', 'POSTPONED')`,
     [rdvUserId]
   );
   return result.rows[0].count;
@@ -210,6 +210,23 @@ async function listAllActive() {
   return result.rows;
 }
 
+// Dossiers reportés dont la date de relance approche (rappel au RDV, une seule fois).
+async function listRetryDue(daysAhead = 7) {
+  const result = await query(
+    `SELECT ua.*, cu.name AS university_name, c.name AS country_name,
+            u.prenom AS student_prenom, u.nom AS student_nom
+     FROM university_applications ua
+     JOIN countries c ON c.id = ua.country_id
+     JOIN country_universities cu ON cu.id = ua.university_id
+     JOIN users u ON u.id = ua.student_id
+     WHERE ua.status = 'POSTPONED' AND ua.retry_on IS NOT NULL
+       AND ua.retry_on <= CURRENT_DATE + $1::int
+       AND ua.retry_reminder_sent_at IS NULL`,
+    [daysAhead]
+  );
+  return result.rows;
+}
+
 async function countVisaObtainedThisMonth() {
   const result = await query(
     `SELECT COUNT(*)::int AS count
@@ -248,5 +265,6 @@ module.exports = {
   findRecentSuccesses,
   findAcceptedWithoutRdv,
   listAllActive,
+  listRetryDue,
   countVisaObtainedThisMonth
 };

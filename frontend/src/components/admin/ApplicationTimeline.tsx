@@ -2,6 +2,8 @@ import {
   acceptApplication,
   closeApplication,
   completeApplicationInterview,
+  postponeApplication,
+  retryPostponedApplication,
   fetchCountryUniversities,
   markApplicationApplied,
   reapplyApplication,
@@ -16,7 +18,9 @@ import { cn } from "@/lib/utils";
 import { MeetLinkButton } from "@/components/MeetLinkButton";
 import {
   Calendar,
+  CalendarClock,
   CheckCircle2,
+  RotateCcw,
   ExternalLink,
   GraduationCap,
   Send,
@@ -36,7 +40,8 @@ const STATUS_META: Record<ApplicationStatus, { label: string; color: string }> =
   INTERVIEW_COMPLETED: { label: "Entretien terminé", color: "bg-violet-50 text-violet-700 border-violet-200" },
   ACCEPTED: { label: "Accepté", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
   REJECTED: { label: "Refusé", color: "bg-red-50 text-red-600 border-red-200" },
-  CLOSED: { label: "Clôturé", color: "bg-slate-100 text-slate-500 border-slate-200" }
+  CLOSED: { label: "Clôturé", color: "bg-slate-100 text-slate-500 border-slate-200" },
+  POSTPONED: { label: "Reporté", color: "bg-orange-50 text-orange-700 border-orange-200" }
 };
 
 function fmt(value: string | null) {
@@ -77,7 +82,7 @@ export default function ApplicationTimeline({
 function ApplicationCard({ app, canAct, onChanged }: { app: UniversityApplication; canAct: boolean; onChanged: () => void }) {
   // La liste du RDV mélange plusieurs étudiants : leur nom est joint à chaque candidature.
   const studentName = (app as UniversityApplication & { studentName?: string }).studentName;
-  const [modal, setModal] = useState<null | "apply" | "interview" | "reject" | "reapply" | "meet">(null);
+  const [modal, setModal] = useState<null | "apply" | "interview" | "reject" | "reapply" | "meet" | "postpone">(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const meta = STATUS_META[app.status];
@@ -127,6 +132,21 @@ function ApplicationCard({ app, canAct, onChanged }: { app: UniversityApplicatio
       )}
       {app.status === "REJECTED" && app.decisionReason && (
         <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">Motif du refus : {app.decisionReason}</p>
+      )}
+      {app.status === "POSTPONED" && (
+        <div className="mt-2 rounded-xl bg-orange-50 px-3 py-2 text-xs text-orange-800">
+          <p className="flex items-center gap-1.5 font-semibold">
+            <CalendarClock className="h-3.5 w-3.5" />
+            {app.postponedKind === "VISA" ? "Visa à redéposer" : "Candidature à retenter"} le {app.retryOn ? fmt(app.retryOn) : "—"}
+            {app.retryIntake ? ` · rentrée ${app.retryIntake}` : ""}
+          </p>
+          {app.decisionReason && <p className="mt-1">Dernier refus : {app.postponedKind === "VISA" ? app.visaDecisionReason || app.decisionReason : app.decisionReason}</p>}
+          {app.postponedNote && <p className="mt-1">{app.postponedNote}</p>}
+          <p className="mt-1 text-[11px] text-orange-700/80">Ce dossier est hors du suivi courant : aucune tâche ni retard n'est compté avant la relance.</p>
+        </div>
+      )}
+      {(app.attemptNumber || 1) > 1 && app.status !== "POSTPONED" && (
+        <p className="mt-2 text-[11px] font-semibold text-muted">Tentative n°{app.attemptNumber}</p>
       )}
       {app.staffMeetAt && app.status === "READY_TO_APPLY" && (
         <div className="mt-2 rounded-xl bg-sky-50 px-3 py-2 text-xs text-sky-700">
@@ -192,8 +212,24 @@ function ApplicationCard({ app, canAct, onChanged }: { app: UniversityApplicatio
               <button type="button" disabled={busy} onClick={() => act(() => closeApplication(app.id))} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-dark hover:bg-slate-200">
                 <XCircle className="h-3 w-3" /> Clôturer le parcours universitaire
               </button>
+              <button type="button" disabled={busy} onClick={() => setModal("postpone")} className="inline-flex items-center gap-1.5 rounded-lg bg-orange-50 px-3 py-1.5 text-xs font-bold text-orange-700 hover:bg-orange-100">
+                <CalendarClock className="h-3 w-3" /> Reporter à une date
+              </button>
               <button type="button" disabled={busy} onClick={() => setModal("reapply")} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white hover:opacity-90">
                 <Send className="h-3 w-3" /> Postuler dans une autre université
+              </button>
+            </>
+          )}
+          {app.status === "POSTPONED" && (
+            <>
+              <button type="button" disabled={busy} onClick={() => act(() => retryPostponedApplication(app.id))} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white hover:opacity-90">
+                <RotateCcw className="h-3 w-3" /> {app.postponedKind === "VISA" ? "Relancer le visa maintenant" : "Relancer la candidature maintenant"}
+              </button>
+              <button type="button" disabled={busy} onClick={() => setModal("postpone")} className="inline-flex items-center gap-1.5 rounded-lg bg-orange-50 px-3 py-1.5 text-xs font-bold text-orange-700 hover:bg-orange-100">
+                <CalendarClock className="h-3 w-3" /> Changer la date
+              </button>
+              <button type="button" disabled={busy} onClick={() => act(() => closeApplication(app.id))} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-dark hover:bg-slate-200">
+                <XCircle className="h-3 w-3" /> Abandonner
               </button>
             </>
           )}
@@ -213,6 +249,9 @@ function ApplicationCard({ app, canAct, onChanged }: { app: UniversityApplicatio
           onSubmit={async (reason) => { await rejectApplication(app.id, reason); setModal(null); onChanged(); }}
         />
       )}
+      {modal === "postpone" && (
+        <PostponeModal app={app} onClose={() => setModal(null)} onDone={() => { setModal(null); onChanged(); }} />
+      )}
       {modal === "reapply" && (
         <ReapplyModal app={app} onClose={() => setModal(null)} onDone={() => { setModal(null); onChanged(); }} />
       )}
@@ -220,6 +259,58 @@ function ApplicationCard({ app, canAct, onChanged }: { app: UniversityApplicatio
         <StaffMeetModal app={app} onClose={() => setModal(null)} onDone={() => { setModal(null); onChanged(); }} />
       )}
     </div>
+  );
+}
+
+// Report d'un refus : date de la nouvelle tentative (obligatoire) + rentrée visée.
+export function PostponeModal({ app, onClose, onDone }: { app: UniversityApplication; onClose: () => void; onDone: () => void }) {
+  const isVisa = app.visaStatus === "REJECTED";
+  const [retryOn, setRetryOn] = useState(app.retryOn || "");
+  const [intake, setIntake] = useState(app.retryIntake || "");
+  const [note, setNote] = useState(app.postponedNote || "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const today = new Date().toISOString().slice(0, 10);
+
+  const submit = async () => {
+    if (!retryOn) { setError("La date de la nouvelle tentative est obligatoire."); return; }
+    setBusy(true);
+    setError("");
+    try {
+      await postponeApplication(app.id, { retryOn, intake: intake.trim() || undefined, note: note.trim() || undefined });
+      onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur.");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <ModalShell title={isVisa ? "Reporter le visa" : "Reporter la candidature"} onClose={onClose}>
+      <div className="mt-4 space-y-3">
+        <p className="text-xs text-muted">
+          {isVisa ? "Le visa pourra être redéposé à la date choisie." : `${app.universityName} pourra être retentée à la prochaine session.`}{" "}
+          Le dossier sort du suivi courant (aucun retard ni tâche) et un rappel est envoyé avant la date.
+        </p>
+        <div>
+          <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Date de la nouvelle tentative *</label>
+          <input type="date" min={today} value={retryOn} onChange={(e) => setRetryOn(e.target.value)} className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Rentrée visée</label>
+          <input type="text" maxLength={120} value={intake} onChange={(e) => setIntake(e.target.value)} placeholder="Ex. Septembre 2027" className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Note</label>
+          <textarea rows={2} maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />
+        </div>
+        {error && <p className="text-xs text-red-500">{error}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="rounded-lg border border-line px-4 py-2 text-xs font-bold text-muted">Annuler</button>
+          <button type="button" disabled={busy || !retryOn} onClick={submit} className="rounded-lg bg-brand px-4 py-2 text-xs font-bold text-white disabled:opacity-60">Reporter</button>
+        </div>
+      </div>
+    </ModalShell>
   );
 }
 

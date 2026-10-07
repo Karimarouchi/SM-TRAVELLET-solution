@@ -19,7 +19,7 @@ const SELECT_CHOICE = `
     SELECT id, status FROM university_applications WHERE choice_id = ch.id ORDER BY created_at DESC LIMIT 1
   ) la ON TRUE`;
 
-const ACTIVE = `ch.withdrawn_at IS NULL AND COALESCE(la.status, '') NOT IN ('REJECTED', 'CLOSED')`;
+const ACTIVE = `ch.withdrawn_at IS NULL AND COALESCE(la.status, '') NOT IN ('REJECTED', 'CLOSED', 'POSTPONED')`;
 
 async function listActiveForStudent(studentId, db) {
   const result = await exec(db)(`${SELECT_CHOICE} WHERE ch.student_id = $1 AND ${ACTIVE} ORDER BY ch.created_at ASC`, [studentId]);

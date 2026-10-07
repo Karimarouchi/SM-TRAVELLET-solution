@@ -82,6 +82,7 @@ function stageOf(onboardingCompleted: boolean, applications: UniversityApplicati
   if (!onboardingCompleted) return "onboarding";
   const latest = applications.find((a) => a.status !== "CLOSED");
   if (!latest) return "no_application";
+  if (latest.status === "POSTPONED") return latest.postponedKind === "VISA" ? "visa_postponed" : "postponed";
   if (latest.status === "REJECTED") return "rejected";
   if (latest.status === "ACCEPTED") {
     if (latest.visaStatus === "ACCEPTED") return "completed";

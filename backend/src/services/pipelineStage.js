@@ -12,12 +12,15 @@ const PIPELINE_STAGES = [
   { key: "completed", label: "Visa obtenu · Dossier terminé" },
   { key: "rejected", label: "Candidature refusée" },
   { key: "visa_rejected", label: "Visa refusé" },
+  { key: "postponed", label: "Candidature reportée" },
+  { key: "visa_postponed", label: "Visa reporté" },
   { key: "no_application", label: "Onboarding terminé, sans candidature" }
 ];
 
 function computeStage(student, latestApp) {
   if (!student.onboardingCompleted) return "onboarding";
   if (!latestApp) return "no_application";
+  if (latestApp.status === "POSTPONED") return latestApp.postponed_kind === "VISA" ? "visa_postponed" : "postponed";
   if (latestApp.status === "REJECTED") return "rejected";
   if (latestApp.status === "ACCEPTED") {
     if (latestApp.visa_status === "ACCEPTED") return "completed";

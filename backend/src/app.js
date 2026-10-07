@@ -147,6 +147,8 @@ app.patch("/api/applications/:id/interview-completed", requireAuth, requireRoles
 app.patch("/api/applications/:id/accept", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.markAccepted);
 app.patch("/api/applications/:id/reject", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.markRejected);
 app.patch("/api/applications/:id/close", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.closeApplication);
+app.patch("/api/applications/:id/postpone", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.postpone);
+app.post("/api/applications/:id/retry", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.retryPostponed);
 app.post("/api/applications/:id/reapply", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.reapply);
 app.post("/api/applications/:id/meet-link", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.createMeetLink);
 app.patch("/api/applications/:id/staff-meet", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.scheduleStaffMeet);
@@ -303,6 +305,14 @@ setInterval(() => {
 setTimeout(() => {
   stalledAlertService.runCheck().catch((error) => logger.error("Échec de la vérification des dossiers bloqués", { message: error.message }));
 }, 90 * 1000);
+
+// Rappel des dossiers reportés dont la nouvelle tentative approche (une fois par jour).
+const universityApplicationService = require("./services/universityApplicationService");
+function retryReminders() {
+  universityApplicationService.sendRetryReminders().catch((error) => logger.error("Échec des rappels de nouvelle tentative", { message: error.message }));
+}
+setInterval(retryReminders, 24 * 60 * 60 * 1000);
+setTimeout(retryReminders, 120 * 1000);
 
 // Sauvegarde automatique vers Supabase (production uniquement) : vérifiée
 // toutes les 30 min, lancée dès que la dernière date de plus de 12 h

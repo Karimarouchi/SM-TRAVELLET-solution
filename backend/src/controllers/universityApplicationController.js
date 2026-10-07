@@ -84,6 +84,22 @@ async function reapply(req, res) {
   }
 }
 
+async function postpone(req, res) {
+  try {
+    res.json(await service.postpone(req.auth, req.params.id, req.body || {}));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
+async function retryPostponed(req, res) {
+  try {
+    res.status(201).json(await service.retryPostponed(req.auth, req.params.id));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function assignRdv(req, res) {
   try {
     res.json(await service.assignRdv(req.auth, req.params.id, req.body));
@@ -178,6 +194,8 @@ module.exports = {
   markRejected,
   closeApplication,
   reapply,
+  postpone,
+  retryPostponed,
   scheduleStaffMeet,
   markVisaSubmitted,
   markVisaAccepted,

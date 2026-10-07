@@ -22,6 +22,14 @@ function fail(message, status) {
   return error;
 }
 
+// Colonne DATE : pg la renvoie à minuit local, on garde le jour sans décalage de fuseau.
+function dateOnly(value) {
+  if (!value) return null;
+  if (typeof value === "string") return value.slice(0, 10);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+}
+
 function dto(row) {
   if (!row) return null;
   return {
@@ -61,6 +69,13 @@ function dto(row) {
     staffMeetLink: row.staff_meet_link,
     staffMeetInstructions: row.staff_meet_instructions,
     visaDocsValidatedAt: row.visa_docs_validated_at,
+    postponedKind: row.postponed_kind || null,
+    postponedAt: row.postponed_at || null,
+    retryOn: dateOnly(row.retry_on),
+    retryIntake: row.retry_intake || "",
+    postponedNote: row.postponed_note || "",
+    retryOfId: row.retry_of_id || null,
+    attemptNumber: row.attempt_number || 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -590,7 +605,8 @@ async function reapply(auth, applicationId, payload) {
   assertUniversityActor(auth, previous);
   await assertApplicationAccess(auth, previous);
   const visaRejected = previous.visa_status === "REJECTED";
-  if (previous.status !== "REJECTED" && !visaRejected) {
+  const postponedApplication = previous.status === "POSTPONED" && previous.postponed_kind === "APPLICATION";
+  if (previous.status !== "REJECTED" && !visaRejected && !postponedApplication) {
     throw fail("Une nouvelle candidature ne peut être créée qu’après un refus.", 400);
   }
   const university = await resolveUniversity(previous.country_id, payload);
@@ -1014,7 +1030,106 @@ async function listMineForRdv(auth) {
   );
 }
 
+// Refus à retenter plus tard (nouvelle session de la fac, nouveau dépôt de visa).
+// Le dossier quitte le pipeline actif jusqu'à la date de relance : plus aucun
+// retard, tâche ni KPI n'est calculé dessus. La tentative suivante reste liée.
+async function postpone(auth, applicationId, payload) {
+  const application = await appRepo.findById(applicationId);
+  if (!application) throw fail("Candidature introuvable.", 404);
+  assertUniversityActor(auth, application);
+  await assertApplicationAccess(auth, application);
+
+  const visaRefused = application.visa_status === "REJECTED";
+  const kind = visaRefused ? "VISA" : "APPLICATION";
+  const refused = application.status === "REJECTED" || (visaRefused && ["ACCEPTED", "CLOSED"].includes(application.status));
+  if (!refused) throw fail("Seul un dossier refusé peut être reporté.", 400);
+
+  const retryOn = /^\d{4}-\d{2}-\d{2}$/.test(String(payload.retryOn || "")) ? String(payload.retryOn) : "";
+  if (!retryOn || Number.isNaN(new Date(retryOn).getTime())) throw fail("La date de la nouvelle tentative est obligatoire.", 400);
+  if (retryOn < new Date().toISOString().slice(0, 10)) throw fail("La date de la nouvelle tentative doit être dans le futur.", 400);
+  const intake = String(payload.intake || "").trim().slice(0, 120);
+  const note = String(payload.note || "").trim().slice(0, 1000);
+
+  const updated = await appRepo.update(applicationId, {
+    status: "POSTPONED",
+    postponed_kind: kind,
+    postponed_at: new Date(),
+    retry_on: retryOn,
+    retry_intake: intake || null,
+    postponed_note: note || null,
+    retry_reminder_sent_at: null
+  });
+  // Le vœu est libéré : l'étudiant n'a plus de candidature « en cours » ici.
+  if (kind === "APPLICATION" && application.choice_id) await choiceRepo.withdraw(application.choice_id);
+  await recordHistory(
+    applicationId,
+    application.student_id,
+    application.status,
+    "POSTPONED",
+    auth.sub,
+    `${kind === "VISA" ? "Visa" : "Candidature"} reporté(e) : nouvelle tentative le ${retryOn}${intake ? ` (${intake})` : ""}.${note ? ` ${note}` : ""}`
+  );
+  await notifyStudent(
+    application,
+    `${kind === "VISA" ? "Votre visa sera redéposé" : "Votre candidature sera retentée"} le ${retryOn}.${intake ? ` Rentrée visée : ${intake}.` : ""} Votre conseiller vous recontactera.`
+  );
+  return dto({ ...updated, country_name: (await countryRepo.findById(updated.country_id))?.name, university_name: (await universityRepo.findById(updated.university_id))?.name });
+}
+
+// Relance d'un dossier reporté. Candidature : une NOUVELLE candidature (même
+// université et filière) liée à l'ancienne. Visa : le dossier visa repart en
+// préparation. Les commissions (une par étape et par pays) ne sont pas versées deux fois.
+async function retryPostponed(auth, applicationId) {
+  const application = await appRepo.findById(applicationId);
+  if (!application) throw fail("Candidature introuvable.", 404);
+  assertUniversityActor(auth, application);
+  await assertApplicationAccess(auth, application);
+  if (application.status !== "POSTPONED") throw fail("Ce dossier n'est pas reporté.", 400);
+
+  if (application.postponed_kind === "VISA") {
+    const updated = await appRepo.update(applicationId, {
+      status: "ACCEPTED",
+      visa_status: "PREPARATION",
+      visa_decision_at: null,
+      visa_decision_reason: null,
+      visa_submitted_at: null,
+      postponed_kind: null,
+      retry_on: null,
+      attempt_number: (application.attempt_number || 1) + 1
+    });
+    await recordHistory(applicationId, application.student_id, "POSTPONED", "VISA_PREPARATION", auth.sub, `Nouvelle tentative visa (n°${updated.attempt_number}).`);
+    return dto({ ...updated, country_name: (await countryRepo.findById(updated.country_id))?.name, university_name: (await universityRepo.findById(updated.university_id))?.name });
+  }
+
+  const created = await reapply(auth, applicationId, { universityId: application.university_id, fieldOfStudy: application.field_of_study });
+  await appRepo.update(created.id, { retry_of_id: applicationId, attempt_number: (application.attempt_number || 1) + 1 });
+  await appRepo.update(applicationId, { status: "CLOSED" });
+  await recordHistory(applicationId, application.student_id, "POSTPONED", "CLOSED", auth.sub, "Remplacée par une nouvelle tentative.");
+  return { ...created, retryOfId: applicationId, attemptNumber: (application.attempt_number || 1) + 1 };
+}
+
+// Rappel au RDV (et au conseiller) quand la date de relance approche : une seule fois.
+async function sendRetryReminders() {
+  const rows = await appRepo.listRetryDue(7);
+  for (const row of rows) {
+    const who = `${row.student_prenom} ${row.student_nom}`;
+    const what = row.postponed_kind === "VISA" ? "Redéposer le visa" : "Retenter la candidature";
+    const payload = {
+      type: "APPLICATION_UPDATE",
+      title: `${what} : ${who}`,
+      body: `${row.university_name} (${row.country_name}) : nouvelle tentative prévue le ${dateOnly(row.retry_on)}.`
+    };
+    const link = row.postponed_kind === "VISA" ? "/rdv/visas" : "/rdv";
+    if (row.assigned_rdv_id) await notificationService.notify(row.assigned_rdv_id, { ...payload, link });
+    if (row.sales_id) await notificationService.notify(row.sales_id, { ...payload, link: `/conseiller/etudiants/${row.student_id}` });
+    await appRepo.update(row.id, { retry_reminder_sent_at: new Date() });
+  }
+}
+
 module.exports = {
+  postpone,
+  retryPostponed,
+  sendRetryReminders,
   checkAndAdvanceReadyToApply,
   maybeAdvanceVisaAfterDocs,
   assignRdv,

@@ -226,6 +226,8 @@ export type PipelineStageKey =
   | "completed"
   | "rejected"
   | "visa_rejected"
+  | "postponed"
+  | "visa_postponed"
   | "no_application";
 
 export type PipelineStage = { key: PipelineStageKey; label: string };
@@ -1208,7 +1210,8 @@ export type ApplicationStatus =
   | "INTERVIEW_COMPLETED"
   | "ACCEPTED"
   | "REJECTED"
-  | "CLOSED";
+  | "CLOSED"
+  | "POSTPONED";
 
 export type UniversityApplication = {
   id: string;
@@ -1247,6 +1250,13 @@ export type UniversityApplication = {
   staffMeetLink: string | null;
   staffMeetInstructions: string | null;
   visaDocsValidatedAt: string | null;
+  postponedKind?: "APPLICATION" | "VISA" | null;
+  postponedAt?: string | null;
+  retryOn?: string | null;
+  retryIntake?: string;
+  postponedNote?: string;
+  retryOfId?: string | null;
+  attemptNumber?: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -1342,6 +1352,21 @@ export async function reapplyApplication(
     method: "POST",
     body: JSON.stringify(payload)
   });
+}
+
+// Refus à retenter plus tard : le dossier sort du pipeline actif jusqu'à la date.
+export async function postponeApplication(
+  applicationId: string,
+  payload: { retryOn: string; intake?: string; note?: string }
+): Promise<UniversityApplication> {
+  return request<UniversityApplication>(`/api/applications/${applicationId}/postpone`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function retryPostponedApplication(applicationId: string): Promise<UniversityApplication> {
+  return request<UniversityApplication>(`/api/applications/${applicationId}/retry`, { method: "POST" });
 }
 
 export type RdvSuggestion = { rdvUserId: string | null; rdvName: string | null; fallback: boolean };
