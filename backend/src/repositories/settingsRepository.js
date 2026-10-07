@@ -132,28 +132,25 @@ async function setArchivePurgeConfig(enabled, days) {
 const WEEKDAY_IDS = [1, 2, 3, 4, 5, 6, 7];
 
 async function getWorkHoursConfig() {
-  const [days, start, end, timezone, halfway] = await Promise.all([
+  const [days, start, end, timezone] = await Promise.all([
     get("work_days"),
     get("work_start"),
     get("work_end"),
-    get("work_timezone"),
-    get("work_halfway_minutes")
+    get("work_timezone")
   ]);
   return {
     days: days || "1,2,3,4,5",
     start: start || "09:00",
     end: end || "18:00",
-    timezone: timezone || "Africa/Tunis",
-    halfwayMinutes: halfway || "960"
+    timezone: timezone || "Africa/Tunis"
   };
 }
 
-async function setWorkHoursConfig({ days, start, end, timezone, halfwayMinutes }) {
+async function setWorkHoursConfig({ days, start, end, timezone }) {
   if (days !== undefined) await set("work_days", Array.isArray(days) ? days.join(",") : String(days));
   if (start !== undefined) await set("work_start", String(start));
   if (end !== undefined) await set("work_end", String(end));
   if (timezone !== undefined) await set("work_timezone", String(timezone));
-  if (halfwayMinutes !== undefined) await set("work_halfway_minutes", String(halfwayMinutes));
   return getWorkHoursConfig();
 }
 

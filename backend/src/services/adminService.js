@@ -471,8 +471,7 @@ async function getSettings() {
     workDays: String(workHours.days).split(",").map((d) => parseInt(d, 10)).filter((d) => d >= 1 && d <= 7),
     workStart: workHours.start,
     workEnd: workHours.end,
-    workTimezone: workHours.timezone,
-    workHalfwayMinutes: parseInt(workHours.halfwayMinutes, 10) || 960
+    workTimezone: workHours.timezone
   };
 }
 
@@ -576,13 +575,7 @@ async function updateSettings(body) {
     const start = hm(body.workStart, current.start);
     const end = hm(body.workEnd, current.end);
     const timezone = body.workTimezone !== undefined ? String(body.workTimezone).trim() || "Africa/Tunis" : current.timezone;
-    const halfwayMinutes = body.workHalfwayMinutes !== undefined
-      ? parseInt(body.workHalfwayMinutes, 10)
-      : parseInt(current.halfwayMinutes, 10);
-    if (!Number.isInteger(halfwayMinutes) || halfwayMinutes < 30) {
-      throw fail("Le seuil « à mi-parcours » doit être un nombre de minutes ≥ 30.", 400);
-    }
-    await settings.setWorkHoursConfig({ days, start, end, timezone, halfwayMinutes });
+    await settings.setWorkHoursConfig({ days, start, end, timezone });
   }
 
   return getSettings();

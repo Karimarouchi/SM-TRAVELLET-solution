@@ -56,9 +56,10 @@ function parseWorkHours(raw) {
   const start = parseHm(raw.start, "09:00");
   const end = parseHm(raw.end, "18:00");
   const timezone = raw.timezone || "Africa/Tunis";
-  const halfwayMinutes = Math.max(1, parseInt(raw.halfwayMinutes, 10) || 960);
   const startMin = start.h * 60 + start.m;
   const endMin = end.h * 60 + end.m;
+  // Seuil « à mi-parcours » automatique : deux journées de travail complètes.
+  const halfwayMinutes = 2 * Math.max(1, (endMin > startMin ? endMin : startMin + 1) - startMin);
   return {
     days: days.length ? days : [1, 2, 3, 4, 5],
     start,

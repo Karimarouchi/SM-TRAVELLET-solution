@@ -35,6 +35,15 @@ function GlassStat({ icon: Icon, label, hint, children, onClick, active, warn }:
   );
 }
 
+const DAY_SHORT = ["", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+
+// « Lun–Ven » pour des jours consécutifs, sinon la liste.
+function workDaysLabel(days: number[]) {
+  const sorted = [...days].sort((a, b) => a - b);
+  const consecutive = sorted.length > 2 && sorted.every((d, i) => i === 0 || d === sorted[i - 1] + 1);
+  return consecutive ? `${DAY_SHORT[sorted[0]]}–${DAY_SHORT[sorted[sorted.length - 1]]}` : sorted.map((d) => DAY_SHORT[d]).join(" · ");
+}
+
 // Valeur de durée : « 53 min » → compteur sur le nombre, unité conservée.
 function DurationValue({ label }: { label: string }) {
   const match = label.match(/^(\d+)\s*(.*)$/);
@@ -193,7 +202,7 @@ function SalesCard({ person, rank, period, index }: { person: StaffPerformance; 
         </div>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <MiniStat icon={Timer} label="1re réponse" value={wa.firstReply.label} />
+        <MiniStat icon={Timer} label="Temps de réponse" value={wa.reply.label} />
         <MiniStat icon={Clock} label="En attente" value={wa.pendingNow} warn={wa.pendingNow > 0} />
         <MiniStat icon={UserCheck} label="Vérif. docs" value={s.documentReview.label} />
         <MiniStat icon={Send} label="Dossier → RDV" value={s.handoff.label} />
@@ -317,11 +326,16 @@ export default function TeamPerformancePanel() {
 
         {data && wa && (
           <div className="relative mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <GlassStat icon={Timer} label="1re réponse" hint={wa.firstReply.count ? `moyenne, sur ${wa.firstReply.count} conversation${wa.firstReply.count > 1 ? "s" : ""}` : "pas encore de donnée"}>
-              <DurationValue label={wa.firstReply.label} />
-            </GlassStat>
-            <GlassStat icon={MessageCircle} label="Temps de réponse" hint={wa.reply.count ? `moyenne, sur ${wa.reply.count} réponse${wa.reply.count > 1 ? "s" : ""}` : "pas encore de donnée"}>
+            <GlassStat
+              icon={Timer}
+              label="Temps moyen de réponse"
+              hint={wa.reply.count ? `pour répondre aux étudiants, sur ${wa.reply.count} réponse${wa.reply.count > 1 ? "s" : ""}, en heures de travail` : "pas encore de donnée"}
+            >
               <DurationValue label={wa.reply.label} />
+            </GlassStat>
+            <GlassStat icon={Clock} label="Heures de travail" hint="les durées ne comptent que ces jours et ces heures">
+              <span className="text-2xl">{data.workHours.start}–{data.workHours.end}</span>
+              <span className="mt-1 block text-xs font-bold text-white/80">{workDaysLabel(data.workHours.days)}</span>
             </GlassStat>
             <GlassStat icon={TrendingUp} label="Taux d'aboutissement" hint={`${wa.converted} aboutie${wa.converted > 1 ? "s" : ""} sur ${wa.answered} répondue${wa.answered > 1 ? "s" : ""}`}>
               {wa.conversionRate === null ? "—" : <CountUp value={wa.conversionRate} suffix=" %" />}

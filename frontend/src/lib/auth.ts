@@ -456,7 +456,6 @@ export type AdminSettings = {
   workStart: string;
   workEnd: string;
   workTimezone: string;
-  workHalfwayMinutes: number;
 };
 
 export async function fetchAdminSettings() {

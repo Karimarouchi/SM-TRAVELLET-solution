@@ -39,7 +39,7 @@ export default function AdminSettingsPage() {
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const [senderSaved, setSenderSaved] = useState(false);
-  const [workForm, setWorkForm] = useState({ workDays: [1, 2, 3, 4, 5] as number[], workStart: "09:00", workEnd: "18:00", workHalfwayMinutes: "960" });
+  const [workForm, setWorkForm] = useState({ workDays: [1, 2, 3, 4, 5] as number[], workStart: "09:00", workEnd: "18:00" });
   const [workSaving, setWorkSaving] = useState(false);
   const [workSaved, setWorkSaved] = useState(false);
 
@@ -62,8 +62,7 @@ export default function AdminSettingsPage() {
         setWorkForm({
           workDays: data.workDays?.length ? data.workDays : [1, 2, 3, 4, 5],
           workStart: data.workStart || "09:00",
-          workEnd: data.workEnd || "18:00",
-          workHalfwayMinutes: String(data.workHalfwayMinutes || 960)
+          workEnd: data.workEnd || "18:00"
         });
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Impossible de charger les paramètres."))
@@ -131,14 +130,11 @@ export default function AdminSettingsPage() {
     setError("");
     setWorkSaved(false);
     try {
-      const minutes = parseInt(workForm.workHalfwayMinutes, 10);
       if (!workForm.workDays.length) throw new Error("Choisissez au moins un jour ouvré.");
-      if (!Number.isInteger(minutes) || minutes < 30) throw new Error("Le seuil à mi-parcours doit être d'au moins 30 minutes.");
       const updated = await updateAdminSettings({
         workDays: workForm.workDays,
         workStart: workForm.workStart,
-        workEnd: workForm.workEnd,
-        workHalfwayMinutes: minutes
+        workEnd: workForm.workEnd
       });
       setSettings(updated);
       setWorkSaved(true);
@@ -384,7 +380,7 @@ export default function AdminSettingsPage() {
               <Clock className="h-5 w-5 text-brand" /> Horaires de travail
             </h2>
             <p className="mt-1 text-xs text-muted">
-              Les statistiques du Dashboard et des pages employés ne comptent que ces jours et ces heures (fuseau Africa/Tunis). Les nuits et jours non cochés sont exclus des durées et des dossiers « à mi-parcours ».
+              Les statistiques du Dashboard et des pages employés ne comptent que ces jours et ces heures (fuseau Africa/Tunis). Les nuits et jours non cochés sont exclus des durées. Un dossier est « à mi-parcours » quand il attend depuis plus de deux journées de travail : ce seuil est calculé automatiquement.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               {WEEKDAYS.map((day) => {
@@ -404,7 +400,7 @@ export default function AdminSettingsPage() {
                 );
               })}
             </div>
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Début</label>
                 <input type="time" value={workForm.workStart} onChange={(e) => setWorkForm({ ...workForm, workStart: e.target.value })} className="w-full rounded-xl border border-line bg-slate-50 px-3 py-2.5 text-sm" />
@@ -412,10 +408,6 @@ export default function AdminSettingsPage() {
               <div>
                 <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Fin</label>
                 <input type="time" value={workForm.workEnd} onChange={(e) => setWorkForm({ ...workForm, workEnd: e.target.value })} className="w-full rounded-xl border border-line bg-slate-50 px-3 py-2.5 text-sm" />
-              </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Seuil mi-parcours (min)</label>
-                <input type="number" min={30} value={workForm.workHalfwayMinutes} onChange={(e) => setWorkForm({ ...workForm, workHalfwayMinutes: e.target.value })} className="w-full rounded-xl border border-line bg-slate-50 px-3 py-2.5 text-sm" />
               </div>
             </div>
             <div className="mt-5 flex items-center gap-3">
