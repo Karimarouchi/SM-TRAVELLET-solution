@@ -13,6 +13,7 @@ import {
   PipelineRadialChart,
   Sparkline,
 } from "@/components/admin/AdminCharts";
+import AdminInsightsSection from "@/components/admin/AdminInsights";
 import StudentsPipelineBoard from "@/components/admin/StudentsPipelineBoard";
 import TeamPerformancePanel from "@/components/admin/TeamPerformancePanel";
 import {
@@ -479,6 +480,9 @@ export default function AdminPage() {
           onViewAll={() => navigate("/admin/users?tab=rdv")}
         />
       </div>
+
+      {/* ── Indicateurs clés : décisions, délais, finances, commissions ──── */}
+      <AdminInsightsSection />
 
       {/* ── Entonnoir de conversion & croissance réelle ──────────────────── */}
       <div className="mt-6 grid gap-4 xl:grid-cols-2">

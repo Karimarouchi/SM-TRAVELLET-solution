@@ -12,6 +12,14 @@ async function dashboard(req, res) {
   }
 }
 
+async function insights(req, res) {
+  try {
+    res.json(await require("../services/insightsService").getInsights());
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function board(req, res) {
   try {
     res.json(await adminService.getBoard());
@@ -212,4 +220,5 @@ async function userPerformance(req, res) {
   }
 }
 
-module.exports = { dashboard, board, studentsOverview, setStudentActive, autoAssign, getSettings, updateSettings, teamPerformance, userPerformance, autoAssignShares, saveAutoAssignShares, studentDeletionPreview, deleteStudent, createSales, setSalesActive, transferSales, deleteSales, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };
+module.exports = {
+  insights, dashboard, board, studentsOverview, setStudentActive, autoAssign, getSettings, updateSettings, teamPerformance, userPerformance, autoAssignShares, saveAutoAssignShares, studentDeletionPreview, deleteStudent, createSales, setSalesActive, transferSales, deleteSales, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };

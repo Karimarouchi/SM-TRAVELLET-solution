@@ -394,6 +394,30 @@ export async function purgeArchive() {
   });
 }
 
+export type AdminInsights = {
+  postponed: { total: number; due30: number; visa: number; application: number };
+  acceptance: {
+    accepted: number;
+    rejected: number;
+    decided: number;
+    rate: number | null;
+    byCountry: Array<{ country: string; accepted: number; rejected: number; decided: number; rate: number | null }>;
+  };
+  visa: { obtained: number; rejected: number; pending: number; rate: number | null };
+  delays: { universityDays: number | null; visaDays: number | null };
+  finances: {
+    perCurrency: Array<{ currency: string; thisMonth: number; lastMonth: number; outstanding: number }>;
+    visaBlocked: number;
+  };
+  commissions: { salesThisMonth: number; rdvThisMonth: number; totalThisMonth: number; totalLastMonth: number };
+  newStudents: { thisWeek: number; lastWeek: number; thisMonth: number; lastMonth: number };
+  withoutRdv: number;
+};
+
+export async function fetchAdminInsights(): Promise<AdminInsights> {
+  return request<AdminInsights>("/api/admin/insights");
+}
+
 export async function fetchAdminDashboard(params: {
   period?: string;
   salesId?: string;

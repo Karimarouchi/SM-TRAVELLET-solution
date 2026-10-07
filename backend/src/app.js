@@ -198,6 +198,7 @@ app.patch("/api/admin/commission-rules/:id/active", requireAuth, requireRoles("A
 app.delete("/api/admin/commission-rules/:id", requireAuth, requireRoles("ADMIN"), commissionController.removeRule);
 app.get("/api/admin/commission-earnings", requireAuth, requireRoles("ADMIN"), commissionController.listAllEarnings);
 app.get("/api/me/commissions", requireAuth, requireRoles("SALES", "RDV"), commissionController.myEarnings);
+app.get("/api/admin/insights", requireAuth, requireRoles("ADMIN"), adminController.insights);
 app.get("/api/admin/dashboard", requireAuth, requireRoles("ADMIN"), adminController.dashboard);
 app.get("/api/admin/board", requireAuth, requireRoles("ADMIN"), adminController.board);
 app.get("/api/admin/students-overview", requireAuth, requireRoles("ADMIN"), adminController.studentsOverview);
