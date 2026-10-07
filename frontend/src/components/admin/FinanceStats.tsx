@@ -13,7 +13,6 @@ import { cn } from "@/lib/utils";
 import { ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 
 const MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 const SHORT = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
@@ -359,13 +358,13 @@ export default function FinanceStatsSection() {
       <section className="rounded-[24px] border border-line bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-display text-base font-bold text-dark">Paiements · {periodLabel}</h3>
-          <Link to="/admin/finance?tab=journal" className="text-xs font-bold text-brand hover:underline">Ouvrir le journal complet →</Link>
+          <span className="text-xs text-muted">{payments.length} paiement{payments.length > 1 ? "s" : ""}</span>
         </div>
         {payments.length === 0 ? (
           <p className="mt-3 text-sm text-muted">Aucun paiement sur cette période.</p>
         ) : (
           <div className="mt-3 max-h-[420px] overflow-auto">
-            <table className="w-full min-w-[640px] text-sm">
+            <table className="w-full min-w-[760px] text-sm">
               <thead className="sticky top-0 bg-white">
                 <tr className="border-b border-line text-left text-[11px] font-bold uppercase tracking-wide text-muted">
                   <th className="py-2 pr-3">Date</th>
@@ -374,6 +373,7 @@ export default function FinanceStatsSection() {
                   <th className="py-2 pr-3">Tranche</th>
                   <th className="py-2 pr-3">Mode</th>
                   <th className="py-2 pr-3">Reçu</th>
+                  <th className="py-2 pr-3">Référence</th>
                   <th className="py-2 text-right">Montant</th>
                 </tr>
               </thead>
@@ -386,6 +386,7 @@ export default function FinanceStatsSection() {
                     <td className="py-2 pr-3">{p.tranche === 1 ? "Inscription" : "Visa"}</td>
                     <td className="py-2 pr-3">{p.methodLabel}</td>
                     <td className="py-2 pr-3 text-muted">{p.receiptNumber || "—"}</td>
+                    <td className="py-2 pr-3 text-muted">{p.reference ? `${p.referenceLabel ? `${p.referenceLabel} ` : ""}${p.reference}` : "—"}</td>
                     <td className="py-2 text-right font-bold">{formatMoney(p.amount, p.currency)}</td>
                   </tr>
                 ))}

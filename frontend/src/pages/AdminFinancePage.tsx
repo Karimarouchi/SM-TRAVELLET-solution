@@ -6,10 +6,6 @@ import StudentPaymentsPanel from "@/components/StudentPaymentsPanel";
 import { FancySelect } from "@/components/ui/fancy-select";
 import {
   fetchFinanceOverview,
-  fetchPaymentJournal,
-  PAYMENT_METHOD_LABELS,
-  type PaymentMethod,
-  type StudentPayment,
   fetchFinancePlans,
   fetchFinancePricing,
   formatMoney,
@@ -21,16 +17,15 @@ import {
   type PaymentPlan
 } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, BadgeCheck, Banknote, ChevronDown, ChevronUp, Coins, LayoutDashboard, Receipt, ScrollText, Search, Tag } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Banknote, ChevronDown, ChevronUp, Coins, LayoutDashboard, Receipt, Search, Tag } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
-type Tab = "apercu" | "paiements" | "journal" | "tarifs" | "commissions";
+type Tab = "apercu" | "paiements" | "tarifs" | "commissions";
 
 const TABS: Array<{ id: Tab; label: string; icon: typeof Coins }> = [
   { id: "apercu", label: "Aperçu", icon: LayoutDashboard },
   { id: "paiements", label: "Paiements", icon: Receipt },
-  { id: "journal", label: "Journal", icon: ScrollText },
   { id: "tarifs", label: "Tarifs", icon: Tag },
   { id: "commissions", label: "Commissions", icon: Coins }
 ];
@@ -252,95 +247,6 @@ function Payments({ initialStudent }: { initialStudent: string | null }) {
   );
 }
 
-// Journal : tous les paiements, avec leur numéro de reçu et le chèque / code de virement.
-function Journal() {
-  const [rows, setRows] = useState<StudentPayment[] | null>(null);
-  const [method, setMethod] = useState("");
-  const [search, setSearch] = useState("");
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      fetchPaymentJournal({ method, q: search })
-        .then(setRows)
-        .catch((err) => setError(err instanceof Error ? err.message : "Chargement impossible."));
-    }, 200);
-    return () => window.clearTimeout(timer);
-  }, [method, search]);
-
-  return (
-    <div className="mt-6">
-      <div className="grid gap-3 sm:grid-cols-[1fr_220px]">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Reçu (001-2026), n° de chèque, code de virement, étudiant…"
-            className="w-full rounded-xl border border-line bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-          />
-        </div>
-        <FancySelect
-          value={method}
-          onChange={setMethod}
-          options={[{ value: "", label: "Tous les modes" }, ...(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((m) => ({ value: m, label: PAYMENT_METHOD_LABELS[m] }))]}
-        />
-      </div>
-      {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
-
-      {!rows ? (
-        <div className="mx-auto mt-10 h-8 w-8 animate-spin rounded-full border-2 border-line border-t-brand" />
-      ) : rows.length === 0 ? (
-        <p className="mt-4 rounded-2xl border border-dashed border-line bg-white p-6 text-sm text-muted">Aucun paiement ne correspond.</p>
-      ) : (
-        <div className="mt-4 overflow-x-auto rounded-2xl border border-line bg-white shadow-sm">
-          <table className="w-full min-w-[820px] text-left text-sm">
-            <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wide text-muted">
-              <tr>
-                <th className="px-4 py-3">Reçu</th>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Étudiant</th>
-                <th className="px-4 py-3">Tranche</th>
-                <th className="px-4 py-3">Mode</th>
-                <th className="px-4 py-3">Chèque / virement</th>
-                <th className="px-4 py-3 text-right">Montant</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line/60">
-              {rows.map((p) => (
-                <tr key={p.id} className={cn(p.status === "CANCELLED" && "bg-slate-50 text-muted")}>
-                  <td className={cn("px-4 py-3 font-bold", p.status === "CANCELLED" ? "line-through" : "text-brand")}>{p.receiptNumber || "—"}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">{new Date(p.paidAt).toLocaleDateString("fr-FR")}</td>
-                  <td className="px-4 py-3">
-                    <Link to={`/conseiller/etudiants/${p.studentId}`} className="font-semibold text-dark hover:text-brand">{p.studentName}</Link>
-                    <span className="block text-[11px] text-muted">{p.countryName}</span>
-                  </td>
-                  <td className="px-4 py-3">T{p.tranche}</td>
-                  <td className="px-4 py-3">{p.methodLabel}</td>
-                  <td className="px-4 py-3">
-                    {p.reference ? (
-                      <>
-                        <span className="block font-semibold">{p.reference}</span>
-                        <span className="block text-[11px] text-muted">{p.referenceLabel}</span>
-                      </>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className={cn("px-4 py-3 text-right font-bold whitespace-nowrap", p.status === "CANCELLED" && "line-through")}>
-                    {formatMoney(p.amount, p.currency)}
-                    {p.status === "CANCELLED" && <span className="block text-[11px] font-semibold text-red-600 no-underline">Annulé</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function PricingRow({ row, onSaved }: { row: CountryPricing; onSaved: (next: CountryPricing) => void }) {
   const [currency, setCurrency] = useState<Currency>(row.currency);
   const [tranche1, setTranche1] = useState(row.tranche1 === null ? "" : String(row.tranche1));
@@ -469,12 +375,12 @@ export default function AdminFinancePage() {
   const requested = searchParams.get("tab");
   const student = searchParams.get("student");
   const [tab, setTab] = useState<Tab>(
-    requested === "paiements" || requested === "journal" || requested === "tarifs" || requested === "commissions" ? requested : student ? "paiements" : "apercu"
+    requested === "paiements" || requested === "tarifs" || requested === "commissions" ? requested : student ? "paiements" : "apercu"
   );
 
   // Un lien (ex. alerte « paiement non réglé ») peut changer l'onglet sans recharger la page.
   useEffect(() => {
-    if (requested === "paiements" || requested === "journal" || requested === "tarifs" || requested === "commissions") setTab(requested);
+    if (requested === "paiements" || requested === "tarifs" || requested === "commissions") setTab(requested);
     else if (student) setTab("paiements");
   }, [requested, student]);
 
@@ -512,7 +418,6 @@ export default function AdminFinancePage() {
 
       {tab === "apercu" && <Overview />}
       {tab === "paiements" && <Payments key={student || "all"} initialStudent={student} />}
-      {tab === "journal" && <Journal />}
       {tab === "tarifs" && <Pricing />}
       {tab === "commissions" && <CommissionsPanel />}
     </main>
