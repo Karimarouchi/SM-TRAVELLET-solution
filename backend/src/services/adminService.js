@@ -286,7 +286,7 @@ async function getDashboard(query = {}) {
     alerts.push({
       id: "imbalance",
       studentId: null,
-      student: "Équipe sales",
+      student: "Équipe conseillers",
       sales: "Tous",
       problem: `Charge inégale : ${Math.min(...loads)} à ${Math.max(...loads)} étudiants`,
       sinceDays: 0,
@@ -370,7 +370,7 @@ async function getDashboard(query = {}) {
       { key: "inscrit", label: "Inscrits", count: scoped.length },
       { key: "incomplete", label: "Onboarding en cours", count: incomplete.length },
       { key: "complete", label: "Dossiers complets", count: completed.length },
-      { key: "assigned", label: "Affectés à un sales", count: assigned.length },
+      { key: "assigned", label: "Affectés à un conseiller", count: assigned.length },
       { key: "unassigned", label: "Non affectés", count: unassigned.length }
     ],
     funnel,
@@ -701,7 +701,7 @@ async function deleteStudent(adminId, studentId) {
   const linked = await users.countStudentLinkedData(studentId);
   if (linked.commissions > 0) {
     throw fail(
-      `Cet étudiant a généré ${linked.commissions} commission${linked.commissions > 1 ? "s" : ""} pour des conseillers ou des RDV : le supprimer effacerait ces gains. Bloquez son compte à la place.`,
+      `Cet étudiant a généré ${linked.commissions} commission${linked.commissions > 1 ? "s" : ""} pour des conseillers ou des Responsables Dossier : le supprimer effacerait ces gains. Bloquez son compte à la place.`,
       409
     );
   }
@@ -826,7 +826,7 @@ async function setRdvCountries(rdvUserId, countryIds) {
   const user = await users.findById(rdvUserId);
   if (!user) throw fail("Utilisateur introuvable.", 404);
   const effective = await userRoles.getEffectiveRoles(user);
-  if (!effective.includes("RDV")) throw fail("Cet utilisateur n'a pas le rôle RDV.", 400);
+  if (!effective.includes("RDV")) throw fail("Cet utilisateur n'a pas le rôle Responsable Dossier.", 400);
 
   const ids = Array.isArray(countryIds) ? countryIds : [];
   for (const id of ids) {

@@ -144,7 +144,7 @@ export default function AdminSettingsPage() {
           <SettingsIcon className="h-7 w-7" /> Paramètres
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-white/85">
-          Réglages globaux de la plateforme : répartition automatique des sales et alertes de suivi des dossiers.
+          Réglages globaux de la plateforme : répartition automatique des conseillers et alertes de suivi des dossiers.
         </p>
       </section>
 

@@ -473,7 +473,7 @@ export default function ArchivePage() {
                     )}
                     {entry.rdvName && (
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted">RDV</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Responsable Dossier</p>
                         <p className="text-dark">{entry.rdvName}</p>
                       </div>
                     )}

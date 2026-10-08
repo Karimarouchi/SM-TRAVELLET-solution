@@ -98,7 +98,7 @@ async function ensureOwner(contactId, { isNew = false } = {}) {
     await notificationService.notifyAdmins({
       type: "WHATSAPP_UNASSIGNED",
       title: "Conversation WhatsApp non attribuée",
-      body: `${contactLabel(conversation)} a écrit mais aucun sales actif n'est disponible.`,
+      body: `${contactLabel(conversation)} a écrit mais aucun conseiller actif n'est disponible.`,
       link: "/whatsapp"
     });
   }

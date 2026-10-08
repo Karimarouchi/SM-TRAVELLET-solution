@@ -390,7 +390,7 @@ async function buildUserDetail(user) {
     detail.handoff = sortDesc(
       students
         .filter((s) => s.sales_id === user.id && s.handed_off_at && s.started_at)
-        .map((s) => event(fullName(s.prenom, s.nom), "Inscription → transmis au RDV", s.started_at, s.handed_off_at))
+        .map((s) => event(fullName(s.prenom, s.nom), "Inscription → transmis au Responsable Dossier", s.started_at, s.handed_off_at))
     );
     detail.visaDocs = sortDesc(
       applications

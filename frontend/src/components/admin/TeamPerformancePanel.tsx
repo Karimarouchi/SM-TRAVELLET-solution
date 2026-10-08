@@ -233,7 +233,7 @@ function SalesCard({ person, rank, period, index, load }: { person: StaffPerform
         <MiniStat icon={Timer} label="Temps de réponse" value={wa.reply.label} />
         <MiniStat icon={Clock} label="En attente" value={wa.pendingNow} warn={wa.pendingNow > 0} />
         <MiniStat icon={UserCheck} label="Vérif. docs" value={s.documentReview.label} />
-        <MiniStat icon={Send} label="Dossier → RDV" value={s.handoff.label} />
+        <MiniStat icon={Send} label="Dossier → Resp. Dossier" value={s.handoff.label} />
         <MiniStat icon={Flame} label="Mi-parcours" value={s.halfwayDossiers} warn={s.halfwayDossiers > 0} />
         <MiniStat icon={TrendingUp} label="Docs validés" value={s.documentsValidated} />
         <MiniStat icon={Crown} label="Dossiers complets" value={load ? load.completed : "—"} />

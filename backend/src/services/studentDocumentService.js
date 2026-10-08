@@ -310,7 +310,7 @@ function assertVisaDocReview(auth, application) {
   if (roles.includes("ADMIN")) return;
   if (roles.includes("SALES") && application.sales_id === auth.sub && !application.visa_status) return;
   if (roles.includes("RDV") && application.assigned_rdv_id === auth.sub && application.visa_status) return;
-  throw fail("La validation des documents visa est réservée au conseiller tant que le dossier n'est pas revenu au RDV.", 403);
+  throw fail("La validation des documents visa est réservée au conseiller tant que le dossier n'est pas revenu au Responsable Dossier.", 403);
 }
 
 async function getMyVisaChecklist(studentUserId) {

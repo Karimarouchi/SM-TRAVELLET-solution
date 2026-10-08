@@ -312,7 +312,7 @@ export default function StudentDetailPage() {
               <div className="mt-2.5 flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-white px-1 py-0.5"><StageBadge stage={stage} /></span>
                 {rdvContacts.length > 0 && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold"><Plane className="h-3 w-3" aria-hidden /> RDV : {rdvContacts.map((r) => r.name).join(", ")}</span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold"><Plane className="h-3 w-3" aria-hidden /> Responsable Dossier : {rdvContacts.map((r) => r.name).join(", ")}</span>
                 )}
                 {profile.preferredCountries.length > 0 && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold"><Globe2 className="h-3 w-3" aria-hidden /> {profile.preferredCountries.join(", ")}</span>
@@ -408,12 +408,12 @@ export default function StudentDetailPage() {
                   summary={visaDocs.length ? <DocSummary docs={visaDocs} /> : undefined}
                 >
                   <p className="text-xs text-muted">
-                    {t("Validez tous les documents visa obligatoires : le dossier revient ensuite automatiquement au même RDV (ou au moins chargé s'il n'est plus actif).", "Approve every required visa document: the file then returns automatically to the same visa officer (or the least loaded if they are inactive).")}
+                    {t("Validez tous les documents visa obligatoires : le dossier revient ensuite automatiquement au même Responsable Dossier (ou au moins chargé s'il n'est plus actif).", "Approve every required visa document: the file then returns automatically to the same visa officer (or the least loaded if they are inactive).")}
                   </p>
                   {visaDocs.filter((d) => d.required).length === 0 && (
                     <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
                       <p className="text-sm font-bold text-dark">{t("Aucun document visa obligatoire pour ce pays", "No required visa document for this country")}</p>
-                      <p className="mt-1 text-xs text-mid">{t("Confirmez pour transmettre le dossier au RDV : il pourra alors déposer le visa.", "Confirm to pass the file to the visa officer: they will then be able to submit the visa.")}</p>
+                      <p className="mt-1 text-xs text-mid">{t("Confirmez pour transmettre le dossier au Responsable Dossier : il pourra alors déposer le visa.", "Confirm to pass the file to the visa officer: they will then be able to submit the visa.")}</p>
                       <button
                         type="button"
                         onClick={async () => {
@@ -427,7 +427,7 @@ export default function StudentDetailPage() {
                         }}
                         className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-xs font-bold text-white hover:opacity-90"
                       >
-                        <CheckCircle2 className="h-3.5 w-3.5" /> {t("Confirmer et transmettre au RDV", "Confirm and pass to the visa officer")}
+                        <CheckCircle2 className="h-3.5 w-3.5" /> {t("Confirmer et transmettre au Responsable Dossier", "Confirm and pass to the visa officer")}
                       </button>
                     </div>
                   )}
@@ -470,11 +470,11 @@ export default function StudentDetailPage() {
               {openApplications.length > 0 && (
                 <section id="rdv" className="scroll-mt-24 rounded-[24px] border border-line bg-white p-5 shadow-sm">
                   <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark">
-                    <Plane className="h-5 w-5 text-brand" /> {t("Responsable visa (RDV)", "Visa officer (RDV)")}
+                    <Plane className="h-5 w-5 text-brand" /> {t("Responsable Dossier", "Visa officer")}
                   </h2>
                   {rdvContacts.length === 0 ? (
                     <p className="mt-2 text-xs text-muted">
-                      {t("Aucun RDV assigné pour l'instant : il est choisi automatiquement dès que les documents sont validés.", "No visa officer assigned yet: one is picked automatically as soon as the documents are approved.")}
+                      {t("Aucun Responsable Dossier assigné pour l'instant : il est choisi automatiquement dès que les documents sont validés.", "No visa officer assigned yet: one is picked automatically as soon as the documents are approved.")}
                     </p>
                   ) : (
                     <ul className="mt-3 space-y-3">

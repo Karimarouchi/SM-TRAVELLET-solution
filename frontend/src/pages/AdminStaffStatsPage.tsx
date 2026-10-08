@@ -106,8 +106,8 @@ function SalesSection({ user }: { user: StaffPerformance }) {
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatTile label="Étudiants suivis" value={s.students} hint="actuellement à sa charge" />
           <StatTile label="Vérif. d'un document" value={s.documentReview.label} hint={`${plural(s.documentsValidated, "validé")} · ${plural(s.documentsRejected, "refusé")}`} />
-          <StatTile label="Dossier → RDV" value={s.handoff.label} hint={`de l'inscription à la transmission, ${durationHint(s.handoff, "dossier")}`} />
-          <StatTile label="Acceptation → docs visa" value={s.acceptedToVisaDocs.label} hint={`retour au RDV après acceptation, ${durationHint(s.acceptedToVisaDocs, "dossier")}`} />
+          <StatTile label="Dossier → Resp. Dossier" value={s.handoff.label} hint={`de l'inscription à la transmission, ${durationHint(s.handoff, "dossier")}`} />
+          <StatTile label="Acceptation → docs visa" value={s.acceptedToVisaDocs.label} hint={`retour au Responsable Dossier après acceptation, ${durationHint(s.acceptedToVisaDocs, "dossier")}`} />
         </div>
         <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatTile label="Codes créés" value={s.codes.created} hint={`dont ${plural(s.codes.sentOnWhatsapp, "envoyé")} par WhatsApp`} />

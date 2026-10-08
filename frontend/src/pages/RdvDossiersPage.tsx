@@ -515,7 +515,7 @@ export default function RdvDossiersPage() {
   return (
     <main className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
       <PageHero
-        eyebrow={t("Espace RDV · Inscriptions universitaires", "Visa officer · University applications")}
+        eyebrow={t("Espace Responsable Dossier · Inscriptions universitaires", "Visa officer · University applications")}
         name={session.user.prenom}
         text={
           board.open.length === 0
@@ -646,7 +646,7 @@ export function RdvVisasPage() {
   return (
     <main className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
       <PageHero
-        eyebrow={t("Espace RDV · Mes dossiers visa", "Visa officer · My visa files")}
+        eyebrow={t("Espace Responsable Dossier · Mes dossiers visa", "Visa officer · My visa files")}
         name={session.user.prenom}
         text={
           visaApplications.length === 0 && board.waitingAdvisor.length === 0
@@ -675,7 +675,7 @@ export function RdvVisasPage() {
 
       {board.waitingAdvisor.length > 0 && (
         <section className="mt-6 rounded-[20px] border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
-          {t(`${board.waitingAdvisor.length} dossier${board.waitingAdvisor.length > 1 ? "s" : ""} en attente des documents visa chez le conseiller. ${board.waitingAdvisor.length > 1 ? "Ils vous reviendront" : "Il vous reviendra"} automatiquement (même RDV, ou le moins chargé s'il n'est plus actif).`, `${board.waitingAdvisor.length} file(s) waiting for visa documents with the advisor. They will return to you automatically (same officer, or the least loaded if they are inactive).`)}
+          {t(`${board.waitingAdvisor.length} dossier${board.waitingAdvisor.length > 1 ? "s" : ""} en attente des documents visa chez le conseiller. ${board.waitingAdvisor.length > 1 ? "Ils vous reviendront" : "Il vous reviendra"} automatiquement (même Responsable Dossier, ou le moins chargé s'il n'est plus actif).`, `${board.waitingAdvisor.length} file(s) waiting for visa documents with the advisor. They will return to you automatically (same officer, or the least loaded if they are inactive).`)}
         </section>
       )}
 
@@ -825,7 +825,7 @@ export function RdvVisasPage() {
                           <Calendar className="h-3.5 w-3.5" /> {app.visaPrepMeetingAt ? t("Modifier la réunion", "Edit meeting") : t("Planifier une réunion", "Schedule meeting")}
                         </button>
                         <button type="button" disabled={busy} onClick={() => setEmbassyTarget(app)} className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-bold text-dark hover:border-brand hover:text-brand disabled:opacity-60">
-                          <Landmark className="h-3.5 w-3.5" /> {app.visaEmbassyAppointmentAt ? t("Modifier le RDV ambassade", "Edit embassy appointment") : t("RDV ambassade", "Embassy appointment")}
+                          <Landmark className="h-3.5 w-3.5" /> {app.visaEmbassyAppointmentAt ? t("Modifier le rendez-vous ambassade", "Edit embassy appointment") : t("Rendez-vous ambassade", "Embassy appointment")}
                         </button>
                       </>
                     )}

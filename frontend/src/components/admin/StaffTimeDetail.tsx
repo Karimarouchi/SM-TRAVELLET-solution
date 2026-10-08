@@ -11,7 +11,7 @@ type Metric = { key: MetricKey; label: string; icon: typeof Clock; from: string;
 const SALES_METRICS: Metric[] = [
   { key: "reply", label: "Réponses aux étudiants", icon: MessageCircle, from: "Message de l'étudiant", to: "Réponse du conseiller", color: "#10b981" },
   { key: "review", label: "Validation des documents", icon: FileCheck2, from: "Document déposé", to: "Document vérifié", color: "#8b5cf6" },
-  { key: "handoff", label: "Dossier → RDV", icon: Send, from: "Inscription", to: "Transmis au RDV", color: "#0ea5e9" },
+  { key: "handoff", label: "Dossier → Resp. Dossier", icon: Send, from: "Inscription", to: "Transmis au Responsable Dossier", color: "#0ea5e9" },
   { key: "visaDocs", label: "Acceptation → docs visa", icon: Plane, from: "Candidature acceptée", to: "Documents visa validés", color: "#f59e0b" }
 ];
 

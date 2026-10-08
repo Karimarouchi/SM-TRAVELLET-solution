@@ -374,7 +374,7 @@ async function assertRegistrationPaid(application) {
   const payload = {
     type: "PAYMENT_BLOCKED",
     title: `Paiement inscription non réglé : ${who}`,
-    body: `Le RDV ne peut pas déposer la candidature de ${who} (${plan.country_name}) : il reste ${remaining} à payer (tranche 1).`
+    body: `Le Responsable Dossier ne peut pas déposer la candidature de ${who} (${plan.country_name}) : il reste ${remaining} à payer (tranche 1).`
   };
   if (plan.assigned_sales_id) await notificationService.notify(plan.assigned_sales_id, { ...payload, link: `/conseiller/etudiants/${application.student_id}` });
   await notificationService.notifyAdmins({ ...payload, link: `/admin/finance?student=${application.student_id}` });
@@ -397,7 +397,7 @@ async function assertVisaPaid(application) {
   const payload = {
     type: "PAYMENT_BLOCKED",
     title: `Paiement visa non réglé : ${who}`,
-    body: `Le RDV ne peut pas déposer le visa de ${who} (${plan.country_name}) : il reste ${remaining} à payer (tranche 2).`
+    body: `Le Responsable Dossier ne peut pas déposer le visa de ${who} (${plan.country_name}) : il reste ${remaining} à payer (tranche 2).`
   };
   if (salesId) await notificationService.notify(salesId, { ...payload, link: `/conseiller/etudiants/${application.student_id}` });
   await notificationService.notifyAdmins({ ...payload, link: `/admin/finance?student=${application.student_id}` });

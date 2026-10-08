@@ -138,7 +138,7 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
             <Banknote className="h-5 w-5 text-brand" aria-hidden /> Paiements
           </h2>
           <p className="mt-1 text-xs text-muted">
-            Deux tranches : la 1ʳᵉ à l'inscription (code), la 2ᵉ avant le dépôt du visa. Le RDV ne peut pas déposer le visa tant que la tranche 2 n'est pas réglée.
+            Deux tranches : la 1ʳᵉ à l'inscription (code), la 2ᵉ avant le dépôt du visa. Le Responsable Dossier ne peut pas déposer le visa tant que la tranche 2 n'est pas réglée.
           </p>
         </div>
         {!adding && (

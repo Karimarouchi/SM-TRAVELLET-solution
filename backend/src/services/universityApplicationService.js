@@ -198,7 +198,7 @@ function assertUniversityActor(auth, application) {
   const roles = authRoles(auth);
   if (roles.includes("ADMIN")) return;
   if (roles.includes("RDV") && application.assigned_rdv_id === auth.sub) return;
-  throw fail("Le dépôt et le suivi universitaire sont gérés par le RDV assigné.", 403);
+  throw fail("Le dépôt et le suivi universitaire sont gérés par le Responsable Dossier assigné.", 403);
 }
 
 function assertSalesAdminOrOwnerStudent(auth, application) {
@@ -282,12 +282,12 @@ async function autoAssignRdvForApply(application) {
   const pick = await pickRdvForStudent(application);
   if (!pick.rdvUserId) return application;
   const comment = pick.sameStudent
-    ? `RDV attribué à ${pick.rdvName} (déjà le RDV de cet étudiant : un seul RDV par étudiant).`
+    ? `Responsable Dossier attribué à ${pick.rdvName} (déjà le Responsable Dossier de cet étudiant : un seul Responsable Dossier par étudiant).`
     : pick.fallback
-      ? `RDV attribué à ${pick.rdvName} (répartition équitable, aucun spécialiste pour ce pays).`
+      ? `Responsable Dossier attribué à ${pick.rdvName} (répartition équitable, aucun spécialiste pour ce pays).`
       : pick.covered && pick.wanted > 1
-        ? `RDV attribué à ${pick.rdvName} (spécialiste de ${pick.covered} des ${pick.wanted} pays visés par l'étudiant).`
-        : `RDV attribué à ${pick.rdvName} pour le dépôt de candidature.`;
+        ? `Responsable Dossier attribué à ${pick.rdvName} (spécialiste de ${pick.covered} des ${pick.wanted} pays visés par l'étudiant).`
+        : `Responsable Dossier attribué à ${pick.rdvName} pour le dépôt de candidature.`;
   return applyRdvAssignment(application, pick, { visaPreparation: false, comment });
 }
 
@@ -297,8 +297,8 @@ async function autoAssignRdvForVisa(application) {
     throw fail("Aucun Responsable Dossier Visa actif n'existe pour reprendre ce dossier.", 409);
   }
   const comment = pick.sameAsPart1
-    ? `Documents visa validés — le dossier revient à ${pick.rdvName} (même RDV qu'en partie 1).`
-    : `Documents visa validés — ${pick.rdvName} reprend le dossier (RDV de la partie 1 inactif, moins chargé).`;
+    ? `Documents visa validés — le dossier revient à ${pick.rdvName} (même Responsable Dossier qu'en partie 1).`
+    : `Documents visa validés — ${pick.rdvName} reprend le dossier (Responsable Dossier de la partie 1 inactif, moins chargé).`;
   const updated = await applyRdvAssignment(application, pick, { visaPreparation: true, comment });
   if (!application.visa_docs_validated_at) {
     await appRepo.update(application.id, { visa_docs_validated_at: new Date() });
@@ -434,7 +434,7 @@ async function announceDecision(application, { accepted, reason }) {
     type: accepted ? "APPLICATION_ACCEPTED" : "APPLICATION_REJECTED",
     title: `${who} ${verdict} : ${target}`,
     body: accepted
-      ? `L'université a accepté l'étudiant${country?.name ? ` (${country.name})` : ""}. Validez les documents visa, puis le dossier reviendra au RDV.`
+      ? `L'université a accepté l'étudiant${country?.name ? ` (${country.name})` : ""}. Validez les documents visa, puis le dossier reviendra au Responsable Dossier.`
       : `L'université a refusé la candidature${country?.name ? ` (${country.name})` : ""}.${reason ? ` Motif : ${reason}.` : ""}`
   };
   const salesId = application.sales_id || profile?.assigned_sales_id || null;
@@ -444,8 +444,8 @@ async function announceDecision(application, { accepted, reason }) {
       type: "APPLICATION_ACCEPTED",
       title: `${who} est accepté(e) : ${target}`,
       body: visaDocs.length
-        ? "À vous : demandez les documents visa à l'étudiant et validez-les. Le dossier passe ensuite au RDV pour le dépôt du visa."
-        : `Aucun document visa n'est demandé${country?.name ? ` pour ${country.name}` : ""} : confirmez dans la fiche pour transmettre le dossier au RDV.`
+        ? "À vous : demandez les documents visa à l'étudiant et validez-les. Le dossier passe ensuite au Responsable Dossier pour le dépôt du visa."
+        : `Aucun document visa n'est demandé${country?.name ? ` pour ${country.name}` : ""} : confirmez dans la fiche pour transmettre le dossier au Responsable Dossier.`
     };
     if (salesId) await notificationService.notify(salesId, { ...salesPayload, link: `/conseiller/etudiants/${application.student_id}` });
     if (application.assigned_rdv_id) {
@@ -738,7 +738,7 @@ async function suggestRdv(auth, applicationId) {
 async function assignRdv(auth, applicationId, payload) {
   const roles = authRoles(auth);
   if (!roles.includes("ADMIN")) {
-    throw fail("La réattribution manuelle d'un RDV est réservée à l'administrateur.", 403);
+    throw fail("La réattribution manuelle d'un Responsable Dossier est réservée à l'administrateur.", 403);
   }
   const application = await appRepo.findById(applicationId);
   if (!application) throw fail("Candidature introuvable.", 404);
@@ -767,7 +767,7 @@ async function assignRdv(auth, applicationId, payload) {
   const comment = wasAlreadyAssigned
     ? `Dossier réattribué à ${rdvName}.`
     : fallback
-      ? `Dossier transféré à ${rdvName} — attribution équitable parmi tous les RDV actifs.`
+      ? `Dossier transféré à ${rdvName} — attribution équitable parmi tous les Responsables Dossier actifs.`
       : `Dossier transféré à ${rdvName}.`;
   await recordHistory(applicationId, application.student_id, application.status, application.status, auth.sub, comment);
   return dto({ ...updated, country_name: (await countryRepo.findById(updated.country_id))?.name, university_name: (await universityRepo.findById(updated.university_id))?.name });

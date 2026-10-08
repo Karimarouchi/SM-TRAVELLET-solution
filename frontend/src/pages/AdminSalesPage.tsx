@@ -40,11 +40,11 @@ const RDV_STATUS_META: Record<string, { label: string; color: string }> = {
 };
 
 const ADDITIONAL_ROLES = [
-  { value: "SALES", label: "Conseiller (Sales)" },
-  { value: "RDV", label: "Responsable dossier visa (RDV)" },
+  { value: "SALES", label: "Conseiller" },
+  { value: "RDV", label: "Responsable Dossier Visa" },
   { value: "ADMIN", label: "Administrateur" }
 ];
-const ROLE_LABELS: Record<string, string> = { SALES: "Sales", RDV: "Responsable dossier visa", ADMIN: "Administrateur", STUDENT: "Étudiant" };
+const ROLE_LABELS: Record<string, string> = { SALES: "Conseiller", RDV: "Responsable dossier visa", ADMIN: "Administrateur", STUDENT: "Étudiant" };
 const PERMISSIONS = [
   { value: "MANAGE_PROGRAMMES", label: "Gérer les programmes" },
   { value: "MANAGE_COUNTRIES", label: "Gérer les pays, documents et universités" },
@@ -162,7 +162,7 @@ function NewRdvModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-3" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
         <div className="flex items-center justify-between">
-          <h3 className="font-display text-lg font-bold text-dark">Nouveau compte RDV</h3>
+          <h3 className="font-display text-lg font-bold text-dark">Nouveau compte Responsable Dossier</h3>
           <button type="button" onClick={onClose} className="rounded-full p-1.5 text-muted hover:bg-slate-100"><X className="h-4 w-4" /></button>
         </div>
         <div className="mt-4 space-y-3">
@@ -625,7 +625,7 @@ function RdvStats({
   const stats = [
     {
       key: "active",
-      label: "RDV actifs",
+      label: "Responsables Dossier actifs",
       value: active.length,
       hint: `${rdvUsers.length} compte${rdvUsers.length > 1 ? "s" : ""} au total`,
       icon: UserCog,
@@ -641,7 +641,7 @@ function RdvStats({
     },
     {
       key: "top",
-      label: "Meilleur RDV",
+      label: "Meilleur Responsable Dossier",
       value: topRdv ? `${topRdv.prenom} ${topRdv.nom}` : "—",
       hint: topRdv ? `${topCount} dossier${topCount > 1 ? "s" : ""} suivi${topCount > 1 ? "s" : ""}` : "Aucune donnée",
       icon: Trophy,
@@ -650,7 +650,7 @@ function RdvStats({
     },
     {
       key: "uncovered",
-      label: "Pays sans RDV",
+      label: "Pays sans Responsable Dossier",
       value: uncoveredCountries.length,
       hint: uncoveredCountries.length ? uncoveredCountries.map((c) => c.name).join(", ") : "Toutes les destinations couvertes",
       icon: MapPinOff,
@@ -734,14 +734,14 @@ function RdvTab({ onNewRdv, onOpenAccess }: { onNewRdv: () => void; onOpenAccess
             </button>
           </div>
           <button type="button" onClick={onNewRdv} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white hover:opacity-90">
-            <Plus className="h-3.5 w-3.5" /> Nouveau compte RDV
+            <Plus className="h-3.5 w-3.5" /> Nouveau compte Responsable Dossier
           </button>
         </div>
       </div>
 
       {!rdvUsers.length ? (
         <p className="mt-4 rounded-2xl border border-dashed border-line bg-white p-8 text-sm text-muted">
-          Aucun Responsable Dossier Visa pour l'instant. Créez un compte dédié, ou accordez le rôle RDV à un conseiller existant depuis l'onglet Conseillers.
+          Aucun Responsable Dossier Visa pour l'instant. Créez un compte dédié, ou accordez le rôle Responsable Dossier à un conseiller existant depuis l'onglet Conseillers.
         </p>
       ) : viewMode === "table" ? (
         <div className="mt-4 overflow-x-auto rounded-2xl border border-line bg-white shadow-sm">
