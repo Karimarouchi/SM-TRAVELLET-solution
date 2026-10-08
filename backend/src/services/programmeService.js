@@ -54,12 +54,56 @@ function codeCandidatesFromName(name) {
   return candidates;
 }
 
+// Noms anglais ou étrangers rencontrés dans les programmes → nom français de la liste des pays.
+const COUNTRY_ALIASES = {
+  italia: "Italie", italy: "Italie",
+  germany: "Allemagne", deutschland: "Allemagne",
+  hungary: "Hongrie", magyarorszag: "Hongrie",
+  lithuania: "Lituanie",
+  poland: "Pologne",
+  slovakia: "Slovaquie",
+  romania: "Roumanie",
+  malta: "Malte",
+  bulgaria: "Bulgarie",
+  spain: "Espagne", espana: "Espagne",
+  france: "France",
+  canada: "Canada"
+};
+
+function canonicalCountryName(name) {
+  const key = String(name || "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  return COUNTRY_ALIASES[key] || String(name || "").trim();
+}
+
+// Chaque pays d'un programme doit exister dans la table des pays : c'est elle qui alimente les
+// Tarifs, les documents et les universités. Au démarrage, on rattache les programmes sans pays
+// reconnu (noms anglais, pays ajouté avant la liste...) et on crée les pays manquants.
+async function syncProgrammeCountries() {
+  const { query } = require("../../db");
+  const rows = (await query("SELECT id, country, country_id FROM programmes")).rows;
+  let fixed = 0;
+  for (const programme of rows) {
+    const name = canonicalCountryName(programme.country);
+    if (!name) continue;
+    const country = await resolveOrCreateCountryByName(name);
+    if (programme.country_id !== country.id || programme.country !== name) {
+      await query("UPDATE programmes SET country_id = $2, country = $3, updated_at = NOW() WHERE id = $1", [programme.id, country.id, name]);
+      fixed += 1;
+    }
+  }
+  return fixed;
+}
+
 // Résout un pays par nom (source de vérité = table countries). Si le nom ne
 // correspond à aucun pays existant, le pays est créé automatiquement (le
 // champ "Pays" du formulaire Programme reste un texte libre pour l'Admin ;
 // c'est ici, et uniquement ici, que la table countries est tenue à jour).
 async function resolveOrCreateCountryByName(name) {
-  const trimmed = name.trim();
+  const trimmed = canonicalCountryName(name);
   const existing = await countryRepo.findByNameCaseInsensitive(trimmed);
   if (existing) return existing;
 
@@ -186,6 +230,7 @@ async function saveImage(imageBase64) {
 }
 
 module.exports = {
+  syncProgrammeCountries,
   listAll,
   getById,
   createProgramme,

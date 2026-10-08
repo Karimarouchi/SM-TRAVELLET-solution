@@ -29,6 +29,13 @@ async function start() {
     await seed();
   }
   await bootstrapAdmin();
+  // Tarifs, documents et universités s'appuient sur la liste des pays : elle suit les pays des programmes.
+  try {
+    const fixed = await require("./src/services/programmeService").syncProgrammeCountries();
+    if (fixed) logger.info("Pays des programmes synchronisés", { fixed });
+  } catch (error) {
+    logger.error("Synchronisation des pays des programmes impossible", { message: error.message });
+  }
 
   app.listen(env.port, () => {
     console.log(`SM Travel backend prêt sur http://localhost:${env.port}`);
