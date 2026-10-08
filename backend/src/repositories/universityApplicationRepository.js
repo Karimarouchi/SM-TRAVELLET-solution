@@ -119,8 +119,17 @@ async function listArchived(auth, filters = {}) {
     conditions.push(`ua.assigned_rdv_id = $${params.length}`);
   }
 
-  // Archived = COMPLETED dossier, or CLOSED/REJECTED application
-  conditions.push(`(sp.dossier_stage = 'COMPLETED' OR ua.status IN ('CLOSED', 'REJECTED'))`);
+  // Archived = COMPLETED dossier, CLOSED/REJECTED application, or POSTPONED one: reporté depuis plus
+  // de 24 h et dont la date de nouvelle tentative est à plus d'un mois (il ressort un mois avant).
+  conditions.push(`(
+    sp.dossier_stage = 'COMPLETED'
+    OR ua.status IN ('CLOSED', 'REJECTED')
+    OR (
+      ua.status = 'POSTPONED'
+      AND ua.postponed_at < NOW() - INTERVAL '24 hours'
+      AND (ua.retry_on IS NULL OR ua.retry_on > (CURRENT_DATE + INTERVAL '1 month')::date)
+    )
+  )`);
 
   // Optional filters for Admin
   if (filters.salesId) {
@@ -151,6 +160,10 @@ async function listArchived(auth, filters = {}) {
        ua.applied_at,
        ua.decision_at,
        ua.updated_at,
+       ua.postponed_kind,
+       ua.postponed_at,
+       ua.retry_on,
+       ua.retry_intake,
        sp.dossier_stage,
        sp.nationality,
        sp.residence_country,

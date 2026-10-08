@@ -33,7 +33,12 @@ const PAGE_SIZE = 15;
 
 type StatusInfo = { label: string; color: string; dot: string };
 
-function statusInfo(status: string, dossierStage: string | null): StatusInfo {
+function statusInfo(status: string, dossierStage: string | null, retryOn?: string | null): StatusInfo {
+  if (status === "POSTPONED") {
+    const [y, m, d] = (retryOn || "").split("-");
+    const when = y && m && d ? ` · ${d}/${m}/${y}` : "";
+    return { label: `Reporté${when}`, color: "bg-orange-50 text-orange-700 border-orange-200", dot: "bg-orange-500" };
+  }
   if (dossierStage === "COMPLETED" || status === "ACCEPTED") {
     return { label: "Complété", color: "bg-emerald-50 text-emerald-700 border-emerald-200", dot: "bg-emerald-500" };
   }
@@ -345,7 +350,7 @@ export default function ArchivePage() {
               </thead>
               <tbody className="divide-y divide-line">
                 {paginated.map((entry) => {
-                  const s = statusInfo(entry.status, entry.dossierStage);
+                  const s = statusInfo(entry.status, entry.dossierStage, entry.retryOn);
                   const date = entry.decisionAt || entry.updatedAt;
                   const dateStr = date ? new Date(date).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }) : "—";
                   return (
@@ -432,7 +437,7 @@ export default function ArchivePage() {
           {/* Mobile Cards */}
           <div className="grid gap-3 md:hidden">
             {paginated.map((entry) => {
-              const s = statusInfo(entry.status, entry.dossierStage);
+              const s = statusInfo(entry.status, entry.dossierStage, entry.retryOn);
               const date = entry.decisionAt || entry.updatedAt;
               const dateStr = date ? new Date(date).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }) : "—";
               return (

@@ -364,6 +364,10 @@ export type ArchivedEntry = {
   dossierStage: string | null;
   appliedAt: string | null;
   decisionAt: string | null;
+  postponedKind?: "APPLICATION" | "VISA" | null;
+  postponedAt?: string | null;
+  retryOn?: string | null;
+  retryIntake?: string;
   updatedAt: string;
 };
 

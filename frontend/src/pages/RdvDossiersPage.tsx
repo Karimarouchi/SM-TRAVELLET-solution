@@ -350,6 +350,16 @@ function scrollToId(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+// Un dossier reporté reste visible 24 h, puis passe aux archives ; il revient ici
+// un mois avant sa date de nouvelle tentative.
+function postponedVisible(app: { postponedAt?: string | null; retryOn?: string | null }) {
+  const recent = app.postponedAt ? Date.now() - new Date(app.postponedAt).getTime() < 24 * 3600 * 1000 : false;
+  const limit = new Date();
+  limit.setMonth(limit.getMonth() + 1);
+  const soon = app.retryOn ? app.retryOn <= limit.toISOString().slice(0, 10) : true;
+  return recent || soon;
+}
+
 const DAY = 24 * 3600 * 1000;
 
 // Données communes aux deux pages du RDV : ses dossiers et les documents visa.
@@ -478,7 +488,7 @@ export default function RdvDossiersPage() {
       .sort((a, b) => new Date(a.interviewDate!).getTime() - new Date(b.interviewDate!).getTime());
     const accepted = applications.filter((a) => a.status === "ACCEPTED");
     const open = applications.filter((a) => a.status !== "ACCEPTED" && a.status !== "CLOSED" && a.status !== "POSTPONED");
-    const postponed = applications.filter((a) => a.status === "POSTPONED" && a.postponedKind !== "VISA");
+    const postponed = applications.filter((a) => a.status === "POSTPONED" && a.postponedKind !== "VISA" && postponedVisible(a));
 
     const tasks: Task[] = [];
     for (const a of toApply) {
@@ -554,7 +564,7 @@ export default function RdvDossiersPage() {
           <h2 className="mb-1 flex items-center gap-2 font-display text-lg font-bold text-dark">
             <CalendarClock className="h-5 w-5 text-orange-500" aria-hidden /> {t("À retenter plus tard", "To retry later")}
           </h2>
-          <p className="mb-3 text-xs text-muted">{t("Refus reportés à une prochaine session : hors des tâches et des retards, rappel automatique avant la date.", "Refusals postponed to a later intake: no tasks or delays counted, automatic reminder before the date.")}</p>
+          <p className="mb-3 text-xs text-muted">{t("Refus reportés à une prochaine session : visibles 24 h, puis archivés ; ils reviennent ici un mois avant la date.", "Refusals postponed to a later intake: visible for 24 h, then archived; they come back here one month before the date.")}</p>
           <ApplicationTimeline applications={board.postponed} canAct onChanged={load} />
         </section>
       )}
@@ -589,7 +599,7 @@ export function RdvVisasPage() {
     const visaPrep = applications.filter((a) => a.status === "ACCEPTED" && a.visaStatus === "PREPARATION");
     const visaSubmitted = applications.filter((a) => a.status === "ACCEPTED" && a.visaStatus === "SUBMITTED");
     const visaDone = applications.filter((a) => a.status === "ACCEPTED" && (a.visaStatus === "ACCEPTED" || a.visaStatus === "REJECTED"));
-    const visaPostponed = applications.filter((a) => a.status === "POSTPONED" && a.postponedKind === "VISA");
+    const visaPostponed = applications.filter((a) => a.status === "POSTPONED" && a.postponedKind === "VISA" && postponedVisible(a));
     const waitingAdvisor = applications.filter((a) => a.status === "ACCEPTED" && !a.visaStatus);
     const blocked = visaPrep.filter((a) => a.visaPaymentDue);
     const readyToFile = visaPrep.filter((a) => {
@@ -836,7 +846,7 @@ export function RdvVisasPage() {
           <h2 className="mb-1 flex items-center gap-2 font-display text-lg font-bold text-dark">
             <CalendarClock className="h-5 w-5 text-orange-500" aria-hidden /> {t("Visas à redéposer", "Visas to refile")}
           </h2>
-          <p className="mb-3 text-xs text-muted">{t("Visas refusés reportés à une date : hors des tâches, rappel automatique avant la date.", "Refused visas postponed to a date: no tasks counted, automatic reminder before the date.")}</p>
+          <p className="mb-3 text-xs text-muted">{t("Visas refusés reportés à une date : visibles 24 h, puis archivés ; ils reviennent ici un mois avant la date.", "Refused visas postponed to a date: visible for 24 h, then archived; they come back here one month before the date.")}</p>
           <ApplicationTimeline applications={board.visaPostponed} canAct onChanged={load} />
         </section>
       )}

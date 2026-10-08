@@ -40,6 +40,10 @@ async function listArchive(req, res, next) {
       dossierStage: row.dossier_stage || null,
       appliedAt: row.applied_at,
       decisionAt: row.decision_at,
+      postponedKind: row.postponed_kind || null,
+      postponedAt: row.postponed_at || null,
+      retryOn: row.retry_on ? `${row.retry_on.getFullYear()}-${String(row.retry_on.getMonth() + 1).padStart(2, "0")}-${String(row.retry_on.getDate()).padStart(2, "0")}` : null,
+      retryIntake: row.retry_intake || "",
       updatedAt: row.updated_at
     }));
 
