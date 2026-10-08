@@ -17,7 +17,7 @@ function plural(n, one, many = `${one}s`) {
 
 // Ce qu'il faut traiter pour un étudiant, des plus urgents aux moins urgents.
 // « tone » colore la ligne (danger / warning / info), « weight » ordonne la liste.
-function attentionFor({ student, docs, payment, stage, passportInfo, stalledDays }) {
+function attentionFor({ student, docs, payment, stage, passportInfo, stalledDays, awaitingVisaDocs }) {
   const items = [];
   if (docs.toReview > 0) {
     items.push({ key: "docs-review", tone: "warning", weight: 90, text: `${plural(docs.toReview, "document")} à valider` });
@@ -37,8 +37,12 @@ function attentionFor({ student, docs, payment, stage, passportInfo, stalledDays
     const days = daysSince(student.onboardingCompletedAt || student.createdAt);
     if (days >= stalledDays) items.push({ key: "stalled", tone: "warning", weight: 70, text: `Sans candidature depuis ${plural(days, "jour")}` });
   }
-  if (stage === "accepted") {
-    items.push({ key: "visa-docs", tone: "info", weight: 75, text: "Accepté : préparer les documents visa" });
+  // Une candidature acceptée dont les documents visa ne sont pas encore validés : à traiter,
+  // même si l'étudiant a une autre candidature plus récente (reportée, refusée...).
+  if (awaitingVisaDocs.length) {
+    const first = awaitingVisaDocs[0];
+    const more = awaitingVisaDocs.length > 1 ? ` (+${awaitingVisaDocs.length - 1})` : "";
+    items.push({ key: "visa-docs", tone: "warning", weight: 88, text: `Accepté à ${first.university_name} : valider les documents visa${more}` });
   }
   if (stage === "visa_rejected" || stage === "rejected") {
     items.push({ key: "rejected", tone: "danger", weight: 65, text: stage === "visa_rejected" ? "Visa refusé : proposer une suite" : "Candidature refusée : proposer une autre faculté" });
@@ -100,7 +104,8 @@ async function getOverview(auth) {
       payment,
       stage,
       passportInfo: { status: passportStatus },
-      stalledDays: stalled.days || 7
+      stalledDays: stalled.days || 7,
+      awaitingVisaDocs: apps.filter((a) => a.status === "ACCEPTED" && !a.visa_status)
     });
     const nextInterview = apps
       .filter((a) => a.status === "INTERVIEW_SCHEDULED" && a.interview_date && new Date(a.interview_date).getTime() > Date.now() - 2 * 3600 * 1000)
