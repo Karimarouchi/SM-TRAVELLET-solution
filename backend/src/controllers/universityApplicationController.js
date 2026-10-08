@@ -84,6 +84,14 @@ async function reapply(req, res) {
   }
 }
 
+async function confirmVisaDocs(req, res) {
+  try {
+    res.json(await service.confirmVisaDocs(req.auth, req.params.id));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function postpone(req, res) {
   try {
     res.json(await service.postpone(req.auth, req.params.id, req.body || {}));
@@ -194,6 +202,7 @@ module.exports = {
   markRejected,
   closeApplication,
   reapply,
+  confirmVisaDocs,
   postpone,
   retryPostponed,
   scheduleStaffMeet,

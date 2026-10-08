@@ -321,10 +321,9 @@ async function maybeAdvanceVisaAfterDocs(applicationId) {
   if (!application || application.status !== "ACCEPTED") return;
   if (application.visa_status) return;
   const requiredStatuses = await studentDocRepo.findRequiredActiveVisaStatusesForCountry(application.country_id, application.student_id);
-  if (!requiredStatuses.length) {
-    if (!application.visa_status) await autoAssignRdvForVisa(application);
-    return;
-  }
+  // Aucun document visa requis : le dossier ne part pas tout seul chez le RDV, le
+  // conseiller le confirme (confirmVisaDocs) pour qu'il reste maître de la transmission.
+  if (!requiredStatuses.length) return;
   if (requiredStatuses.every((r) => r.status === "VALIDATED") && !application.visa_docs_validated_at) {
     await autoAssignRdvForVisa(application);
   }
@@ -436,8 +435,29 @@ async function announceDecision(application, { accepted, reason }) {
       : `L'université a refusé la candidature${country?.name ? ` (${country.name})` : ""}.${reason ? ` Motif : ${reason}.` : ""}`
   };
   const salesId = application.sales_id || profile?.assigned_sales_id || null;
-  if (salesId) await notificationService.notify(salesId, { ...staffPayload, link: `/conseiller/etudiants/${application.student_id}` });
-  await notificationService.notifyAdmins({ ...staffPayload, link: `/admin/students/${application.student_id}` });
+  if (accepted) {
+    const visaDocs = await studentDocRepo.findRequiredActiveVisaStatusesForCountry(application.country_id, application.student_id);
+    const salesPayload = {
+      type: "APPLICATION_ACCEPTED",
+      title: `${who} est accepté(e) : ${target}`,
+      body: visaDocs.length
+        ? "À vous : demandez les documents visa à l'étudiant et validez-les. Le dossier passe ensuite au RDV pour le dépôt du visa."
+        : `Aucun document visa n'est demandé${country?.name ? ` pour ${country.name}` : ""} : confirmez dans la fiche pour transmettre le dossier au RDV.`
+    };
+    if (salesId) await notificationService.notify(salesId, { ...salesPayload, link: `/conseiller/etudiants/${application.student_id}` });
+    if (application.assigned_rdv_id) {
+      await notificationService.notify(application.assigned_rdv_id, {
+        type: "APPLICATION_ACCEPTED",
+        title: `${who} est accepté(e) : ${target}`,
+        body: "Le conseiller valide d'abord les documents visa. Vous serez prévenu dès que le dossier visa vous revient pour le dépôt.",
+        link: "/rdv/visas"
+      });
+    }
+    await notificationService.notifyAdmins({ ...staffPayload, link: `/admin/students/${application.student_id}` });
+  } else {
+    if (salesId) await notificationService.notify(salesId, { ...staffPayload, link: `/conseiller/etudiants/${application.student_id}` });
+    await notificationService.notifyAdmins({ ...staffPayload, link: `/admin/students/${application.student_id}` });
+  }
 
   try {
     if (student?.email) {
@@ -859,6 +879,9 @@ async function markVisaSubmitted(auth, applicationId) {
     throw fail("Le dossier visa n’est pas en préparation.", 400);
   }
 
+  if (!application.visa_docs_validated_at) {
+    throw fail("Le conseiller doit d'abord valider les documents visa de l'étudiant.", 400);
+  }
   const requiredStatuses = await studentDocRepo.findRequiredActiveVisaStatusesForCountry(application.country_id, application.student_id);
   const notValidated = requiredStatuses.filter((r) => r.status !== "VALIDATED");
   if (notValidated.length) {
@@ -917,6 +940,25 @@ async function markVisaAccepted(auth, applicationId, payload) {
   }
 
   return dto({ ...updated, country_name: (await countryRepo.findById(updated.country_id))?.name, university_name: (await universityRepo.findById(updated.university_id))?.name });
+}
+
+// Le conseiller confirme que les documents visa sont validés — y compris quand le pays
+// n'en demande aucun — et transmet le dossier au RDV.
+async function confirmVisaDocs(auth, applicationId) {
+  const application = await appRepo.findById(applicationId);
+  if (!application) throw fail("Candidature introuvable.", 404);
+  assertSalesAdminOrOwnerStudent(auth, application);
+  if (auth.role === "STUDENT" || auth.role === "RDV") throw fail("Action réservée au conseiller.", 403);
+  await assertApplicationAccess(auth, application);
+  if (application.status !== "ACCEPTED" || application.visa_status) {
+    throw fail("Ce dossier n'attend pas la validation des documents visa.", 400);
+  }
+  const requiredStatuses = await studentDocRepo.findRequiredActiveVisaStatusesForCountry(application.country_id, application.student_id);
+  if (requiredStatuses.some((r) => r.status !== "VALIDATED")) {
+    throw fail("Validez d'abord tous les documents visa obligatoires.", 400);
+  }
+  const updated = await autoAssignRdvForVisa(application);
+  return dto({ ...updated, country_name: (await countryRepo.findById(updated.country_id))?.name });
 }
 
 // Étape visa 2/3 (issue négative) — refus, motif obligatoire, état final :
@@ -1161,6 +1203,7 @@ async function sendRetryReminders() {
 }
 
 module.exports = {
+  confirmVisaDocs,
   postpone,
   retryPostponed,
   sendRetryReminders,

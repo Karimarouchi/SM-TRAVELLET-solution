@@ -604,7 +604,7 @@ export function RdvVisasPage() {
     const blocked = visaPrep.filter((a) => a.visaPaymentDue);
     const readyToFile = visaPrep.filter((a) => {
       const docs = docsByApp[a.id];
-      return !a.visaPaymentDue && docs && docs.filter((d) => d.required).every((d) => d.status === "VALIDATED");
+      return Boolean(a.visaDocsValidatedAt) && !a.visaPaymentDue && docs && docs.filter((d) => d.required).every((d) => d.status === "VALIDATED");
     });
 
     const tasks: Task[] = [];
@@ -789,7 +789,12 @@ export function RdvVisasPage() {
                   )}
 
                   <div className="mt-4 flex flex-wrap items-center gap-2">
-                    {app.visaStatus === "PREPARATION" && (
+                    {app.visaStatus === "PREPARATION" && !app.visaDocsValidatedAt && (
+                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">
+                        <Clock className="h-3.5 w-3.5" /> {t("En attente de la validation des documents visa par le conseiller.", "Waiting for the advisor to approve the visa documents.")}
+                      </span>
+                    )}
+                    {app.visaStatus === "PREPARATION" && app.visaDocsValidatedAt && (
                       <>
                         <button
                           type="button"

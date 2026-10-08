@@ -1410,6 +1410,11 @@ export async function assignApplicationRdv(applicationId: string, rdvUserId?: st
   });
 }
 
+// Le conseiller confirme les documents visa (même si le pays n'en demande aucun) : le dossier part chez le RDV.
+export async function confirmVisaDocuments(applicationId: string): Promise<UniversityApplication> {
+  return request<UniversityApplication>(`/api/applications/${applicationId}/visa-docs-confirm`, { method: "POST" });
+}
+
 export async function submitVisaFile(applicationId: string): Promise<UniversityApplication> {
   return request<UniversityApplication>(`/api/applications/${applicationId}/visa-submit`, { method: "PATCH" });
 }

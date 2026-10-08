@@ -1,4 +1,5 @@
 import {
+  confirmVisaDocuments,
   fetchApplicationVisaDocuments,
   fetchStudentApplications,
   fetchStudentApplicationHistory,
@@ -21,6 +22,7 @@ import {
 import { openProtectedFile } from "@/lib/auth";
 import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+import { alertDialog } from "@/components/ui/dialog-host";
 import ApplicationTimeline from "@/components/admin/ApplicationTimeline";
 import UniversityChoicesPanel from "@/components/UniversityChoicesPanel";
 import NonPartnerDocsCard from "@/components/NonPartnerDocsCard";
@@ -408,6 +410,27 @@ export default function StudentDetailPage() {
                   <p className="text-xs text-muted">
                     {t("Validez tous les documents visa obligatoires : le dossier revient ensuite automatiquement au même RDV (ou au moins chargé s'il n'est plus actif).", "Approve every required visa document: the file then returns automatically to the same visa officer (or the least loaded if they are inactive).")}
                   </p>
+                  {visaDocs.filter((d) => d.required).length === 0 && (
+                    <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
+                      <p className="text-sm font-bold text-dark">{t("Aucun document visa obligatoire pour ce pays", "No required visa document for this country")}</p>
+                      <p className="mt-1 text-xs text-mid">{t("Confirmez pour transmettre le dossier au RDV : il pourra alors déposer le visa.", "Confirm to pass the file to the visa officer: they will then be able to submit the visa.")}</p>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await confirmVisaDocuments(visaApp.id);
+                            loadApplications();
+                            reloadAfterChoice();
+                          } catch (err) {
+                            void alertDialog(err instanceof Error ? err.message : t("Action impossible.", "Action failed."), { tone: "danger" });
+                          }
+                        }}
+                        className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-xs font-bold text-white hover:opacity-90"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" /> {t("Confirmer et transmettre au RDV", "Confirm and pass to the visa officer")}
+                      </button>
+                    </div>
+                  )}
                   <div className="mt-3 space-y-2">
                     {visaDocs.length === 0 ? (
                       <p className="rounded-2xl border border-dashed border-line bg-white p-6 text-sm text-muted">

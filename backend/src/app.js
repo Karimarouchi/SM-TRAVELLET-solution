@@ -147,6 +147,7 @@ app.patch("/api/applications/:id/interview-completed", requireAuth, requireRoles
 app.patch("/api/applications/:id/accept", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.markAccepted);
 app.patch("/api/applications/:id/reject", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.markRejected);
 app.patch("/api/applications/:id/close", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.closeApplication);
+app.post("/api/applications/:id/visa-docs-confirm", requireAuth, requireRoles("SALES", "ADMIN"), universityApplicationController.confirmVisaDocs);
 app.patch("/api/applications/:id/postpone", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.postpone);
 app.post("/api/applications/:id/retry", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.retryPostponed);
 app.post("/api/applications/:id/reapply", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.reapply);
