@@ -1800,6 +1800,64 @@ export type FinanceOverview = {
   bySales: Array<{ name: string; byCurrency: Partial<Record<Currency, CurrencyBucket>> }>;
 };
 
+// ── Facturation (chèques et virements) ──
+export type InvoicingPayment = {
+  id: string;
+  receiptNumber: string | null;
+  tranche: 1 | 2;
+  countryName: string;
+  method: "CHEQUE" | "TRANSFER";
+  methodLabel: string;
+  referenceLabel: string;
+  reference: string | null;
+  paidAt: string;
+  amount: number;
+  currency: Currency;
+  invoiceId: string | null;
+  invoiceNumber: string | null;
+};
+
+export type InvoicingStudent = {
+  studentId: string;
+  name: string;
+  email: string;
+  payments: InvoicingPayment[];
+  invoices: Array<{ id: string; number: string; issuedAt: string; total: number; currency: Currency; lines: number; hasCancelled: boolean }>;
+  toInvoiceCount: number;
+  toInvoiceTotals: Partial<Record<Currency, number>>;
+};
+
+export async function fetchInvoicing() {
+  return request<{ students: InvoicingStudent[] }>("/api/admin/finance/invoicing");
+}
+
+export async function createInvoice(studentId: string, paymentIds: string[]) {
+  return request<{ id: string; number: string; total: number; currency: Currency; issuedAt: string }>("/api/admin/finance/invoices", {
+    method: "POST",
+    body: JSON.stringify({ studentId, paymentIds })
+  });
+}
+
+// Télécharge le PDF d'une facture (route protégée : le jeton est envoyé dans l'en-tête).
+export async function downloadInvoicePdf(invoiceId: string, number: string) {
+  const session = getSession();
+  const response = await fetch(`${API_URL}/api/admin/finance/invoices/${invoiceId}/pdf`, {
+    headers: session?.token ? { Authorization: `Bearer ${session.token}` } : {}
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || "Impossible de télécharger la facture.");
+  }
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `Facture-${number}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+}
+
 export type FinanceStats = {
   months: Array<{
     month: string;

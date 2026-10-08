@@ -15,6 +15,7 @@
     "express-rate-limit": "^8.7.0",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^10.0.10",
+    "pdfkit": "^0.20.2",
     "pg": "^8.16.0",
     "winston": "^3.19.0"
   }
