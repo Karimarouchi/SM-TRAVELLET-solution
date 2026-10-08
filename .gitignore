@@ -20,3 +20,5 @@ backend/uploads/documents/*
 backend/uploads/programmes/*
 !backend/uploads/programmes/.gitkeep
 .DS_Store
+
+frontend/vite.log
