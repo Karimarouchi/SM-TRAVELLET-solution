@@ -31,8 +31,8 @@ async function start() {
   await bootstrapAdmin();
   // Tarifs, documents et universités s'appuient sur la liste des pays : elle suit les pays des programmes.
   try {
-    const fixed = await require("./src/services/programmeService").syncProgrammeCountries();
-    if (fixed) logger.info("Pays des programmes synchronisés", { fixed });
+    const { fixed, hidden } = await require("./src/services/programmeService").syncProgrammeCountries();
+    if (fixed || hidden) logger.info("Pays des programmes synchronisés", { fixed, hidden });
   } catch (error) {
     logger.error("Synchronisation des pays des programmes impossible", { message: error.message });
   }

@@ -95,7 +95,18 @@ async function syncProgrammeCountries() {
       fixed += 1;
     }
   }
-  return fixed;
+  // Un pays n'existe dans l'application (Tarifs, commissions, listes de choix, pays des
+  // Responsables Dossier...) que s'il a au moins un programme : sans programme il est masqué.
+  // Garde-fou : tant qu'il n'y a aucun programme (installation neuve avant le seed), rien n'est masqué.
+  let hidden = 0;
+  if (rows.length > 0) {
+    const result = await query(
+      `UPDATE countries c SET active = FALSE, updated_at = NOW()
+       WHERE c.active = TRUE AND NOT EXISTS (SELECT 1 FROM programmes p WHERE p.country_id = c.id)`
+    );
+    hidden = result.rowCount;
+  }
+  return { fixed, hidden };
 }
 
 // Résout un pays par nom (source de vérité = table countries). Si le nom ne

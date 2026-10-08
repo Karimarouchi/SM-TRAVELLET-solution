@@ -183,7 +183,8 @@ export default function CommissionsPanel() {
     setLoading(true);
     try {
       const [c, r, e] = await Promise.all([fetchAdminCountries(), fetchCommissionRules(), fetchAllCommissionEarnings()]);
-      setCountries(c);
+      // Seuls les pays actifs (qui ont un programme) ont des taux de commission.
+      setCountries(c.filter((country) => country.active));
       setRules(r);
       setEarnings(e);
       setError("");
