@@ -1987,6 +1987,10 @@ export async function fetchPaymentJournal(filters: { q?: string; method?: string
   return request<StudentPayment[]>(`/api/admin/finance/payments?${params.toString()}`);
 }
 
+export async function updateStudentPaymentDate(paymentId: string, paidAt: string): Promise<StudentPaymentsSummary> {
+  return request<StudentPaymentsSummary>(`/api/payments/${paymentId}/date`, { method: "PATCH", body: JSON.stringify({ paidAt }) });
+}
+
 export async function cancelStudentPayment(paymentId: string, reason: string): Promise<StudentPaymentsSummary> {
   return request<StudentPaymentsSummary>(`/api/payments/${paymentId}/cancel`, { method: "PATCH", body: JSON.stringify({ reason }) });
 }

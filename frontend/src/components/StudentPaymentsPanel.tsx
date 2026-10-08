@@ -13,6 +13,7 @@ import {
   type StudentPaymentsSummary,
   type TrancheState
 } from "@/lib/auth";
+import PaymentDateEdit from "@/components/admin/PaymentDateEdit";
 import { cn, todayLocal } from "@/lib/utils";
 import { AlertTriangle, BadgeCheck, Banknote, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -268,8 +269,11 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
                     <p className={cn("font-bold", payment.status === "CANCELLED" ? "line-through" : "text-dark")}>
                       {formatMoney(payment.amount, payment.currency)} · tranche {payment.tranche} · {payment.countryName}
                     </p>
-                    <p>
+                    <p className="flex flex-wrap items-center gap-1.5">
                       {payment.methodLabel} · {new Date(payment.paidAt).toLocaleDateString("fr-FR")}
+                      {payment.status === "ACTIVE" && summary.canCancel && (
+                        <PaymentDateEdit paymentId={payment.id} paidAt={payment.paidAt} onSaved={() => { load(); onChanged?.(); }} />
+                      )}
                     </p>
                   </div>
                   <p className="mt-0.5">

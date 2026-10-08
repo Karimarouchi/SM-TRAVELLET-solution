@@ -1,3 +1,4 @@
+import PaymentDateEdit from "@/components/admin/PaymentDateEdit";
 import { StatTile } from "@/components/admin/performance-ui";
 import {
   fetchFinanceStats,
@@ -120,10 +121,12 @@ export default function FinanceStatsSection() {
   const [currency, setCurrency] = useState<Currency>("TND");
   const [paymentsPage, setPaymentsPage] = useState(1);
 
-  useEffect(() => {
+  const reload = () => {
     fetchFinanceStats().then(setData).catch((err) => setError(err instanceof Error ? err.message : "Statistiques indisponibles."));
     fetchPaymentJournal().then(setJournal).catch(() => undefined);
-  }, []);
+  };
+
+  useEffect(reload, []);
 
   const currencies = useMemo<Currency[]>(() => {
     const found = new Set<Currency>();
@@ -388,7 +391,12 @@ export default function FinanceStatsSection() {
               <tbody>
                 {pagedPayments.map((p) => (
                   <tr key={p.id} className={cn("border-b border-line/50", p.status === "CANCELLED" && "text-muted line-through")}>
-                    <td className="py-2 pr-3 text-mid">{new Date(p.paidAt).toLocaleDateString("fr-FR")}</td>
+                    <td className="py-2 pr-3 text-mid">
+                      <span className="inline-flex flex-wrap items-center gap-1.5">
+                        {new Date(p.paidAt).toLocaleDateString("fr-FR")}
+                        {p.status === "ACTIVE" && <PaymentDateEdit paymentId={p.id} paidAt={p.paidAt} onSaved={reload} />}
+                      </span>
+                    </td>
                     <td className="py-2 pr-3 font-semibold">{p.studentName || "—"}</td>
                     <td className="py-2 pr-3">{p.countryName}</td>
                     <td className="py-2 pr-3">{p.tranche === 1 ? "Inscription" : "Visa"}</td>

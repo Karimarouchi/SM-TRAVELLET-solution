@@ -161,6 +161,11 @@ async function cancelPayment(id, { cancelledBy, reason }) {
   return result.rows[0] || null;
 }
 
+async function updatePaymentDate(id, paidAt) {
+  const result = await query("UPDATE student_payments SET paid_at = $2 WHERE id = $1 RETURNING *", [id, paidAt]);
+  return result.rows[0] || null;
+}
+
 // Encaissements actifs (totaux du tableau de bord Finance).
 async function collectedTotals() {
   const result = await query(
@@ -233,5 +238,6 @@ module.exports = {
   findActiveByMethodReference,
   listJournal,
   cancelPayment,
+  updatePaymentDate,
   collectedTotals
 };

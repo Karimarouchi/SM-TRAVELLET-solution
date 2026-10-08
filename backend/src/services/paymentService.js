@@ -286,6 +286,20 @@ async function cancelPayment(auth, paymentId, reason) {
   return summaryForStudent(auth, payment.student_id);
 }
 
+// Correction de la date d'un paiement déjà enregistré (admin) : il change alors de mois dans les statistiques.
+async function updatePaymentDate(auth, paymentId, rawDate) {
+  if (!authRoles(auth).includes("ADMIN")) throw fail("Seul l'administrateur peut modifier la date d'un paiement.", 403);
+  if (!rawDate) throw fail("Choisissez la nouvelle date du paiement.", 400);
+  const paidAt = normalizeDate(rawDate);
+  const payment = await paymentRepo.findPayment(paymentId);
+  if (!payment) throw fail("Paiement introuvable.", 404);
+  if (payment.status !== "ACTIVE") throw fail("Un paiement annulé ne peut pas être modifié.", 409);
+  const before = dateOnly(payment.paid_at);
+  await paymentRepo.updatePaymentDate(paymentId, paidAt);
+  logger.info("Paiement : date modifiée par l'admin", { paymentId, receipt: payment.receipt_number, before, after: paidAt, by: auth.sub });
+  return summaryForStudent(auth, payment.student_id);
+}
+
 // ── Code d'inscription : tranche 1 confirmée à la création ──
 
 // Valide la confirmation d'encaissement saisie à la création du code. Renvoie
@@ -499,6 +513,7 @@ module.exports = {
   summaryForStudent,
   recordPayment,
   cancelPayment,
+  updatePaymentDate,
   prepareCodePayment,
   applyCodePayment,
   assertVisaPaid,

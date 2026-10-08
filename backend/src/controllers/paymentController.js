@@ -92,6 +92,14 @@ async function record(req, res) {
   }
 }
 
+async function updateDate(req, res) {
+  try {
+    res.json(await paymentService.updatePaymentDate(req.auth, req.params.id, req.body?.paidAt));
+  } catch (error) {
+    handle(res, error, 400);
+  }
+}
+
 async function cancel(req, res) {
   try {
     res.json(await paymentService.cancelPayment(req.auth, req.params.id, req.body?.reason));
@@ -100,4 +108,4 @@ async function cancel(req, res) {
   }
 }
 
-module.exports = { stats, overview, listPlans, listJournal, listPricing, getPricing, setPricing, removePricing, studentSummary, mySummary, record, cancel };
+module.exports = { stats, overview, listPlans, listJournal, listPricing, getPricing, setPricing, removePricing, studentSummary, mySummary, record, cancel, updateDate };
