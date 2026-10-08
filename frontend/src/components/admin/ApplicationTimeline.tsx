@@ -383,7 +383,6 @@ function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onCl
   const [universityId, setUniversityId] = useState(app.universityId);
   const [customName, setCustomName] = useState("");
   const [appliedAt, setAppliedAt] = useState(new Date().toISOString().slice(0, 10));
-  const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -411,7 +410,6 @@ function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onCl
         universityId: useCustom ? undefined : universityId,
         universityName: useCustom ? customName.trim() : undefined,
         appliedAt,
-        applicationReference: reference || undefined,
         notes: notes || undefined
       });
       onDone();
@@ -455,10 +453,6 @@ function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onCl
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Date de dépôt *</label>
           <input type="date" value={appliedAt} onChange={(e) => setAppliedAt(e.target.value)} className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />
-        </div>
-        <div>
-          <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Référence candidature</label>
-          <input type="text" value={reference} onChange={(e) => setReference(e.target.value)} className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />
         </div>
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Commentaire</label>
