@@ -113,6 +113,7 @@ async function finances() {
 }
 
 async function commissions() {
+  const due = await query("SELECT COALESCE(SUM(amount_dinar), 0)::float AS total FROM commission_earnings WHERE payout_id IS NULL");
   const { rows } = await query(
     `SELECT role,
             COALESCE(SUM(amount_dinar) FILTER (WHERE earned_at >= date_trunc('month', CURRENT_DATE)), 0)::float AS this_month,
@@ -127,7 +128,8 @@ async function commissions() {
     salesThisMonth: pick("SALES", "this_month"),
     rdvThisMonth: pick("RDV", "this_month"),
     totalThisMonth: pick("SALES", "this_month") + pick("RDV", "this_month"),
-    totalLastMonth: pick("SALES", "last_month") + pick("RDV", "last_month")
+    totalLastMonth: pick("SALES", "last_month") + pick("RDV", "last_month"),
+    dueTotal: due.rows[0].total
   };
 }
 

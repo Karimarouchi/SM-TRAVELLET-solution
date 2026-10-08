@@ -414,7 +414,7 @@ export type AdminInsights = {
     perCurrency: Array<{ currency: string; thisMonth: number; lastMonth: number; outstanding: number }>;
     visaBlocked: number;
   };
-  commissions: { salesThisMonth: number; rdvThisMonth: number; totalThisMonth: number; totalLastMonth: number };
+  commissions: { salesThisMonth: number; rdvThisMonth: number; totalThisMonth: number; totalLastMonth: number; dueTotal?: number };
   newStudents: { thisWeek: number; lastWeek: number; thisMonth: number; lastMonth: number };
   withoutRdv: number;
 };
@@ -977,7 +977,66 @@ export type CommissionEarning = {
   stage: CommissionStage;
   amountDinar: number;
   earnedAt: string;
+  /** Date du versement (null = commission encore à verser). */
+  paidAt?: string | null;
+  payoutNumber?: string | null;
 };
+
+// ── Versement des commissions (admin) ──
+export type PayoutLine = {
+  id: string;
+  studentName: string;
+  countryName: string;
+  role: CommissionRole;
+  stage: CommissionStage;
+  amountDinar: number;
+  earnedAt: string;
+};
+export type DueEmployee = {
+  userId: string;
+  name: string;
+  email: string;
+  isActive: boolean;
+  roles: CommissionRole[];
+  total: number;
+  count: number;
+  oldestAt: string;
+  lines: PayoutLine[];
+};
+export type DueSummary = { due: number; dueCount: number; employees: number; paidThisMonth: number; payoutsThisMonth: number };
+export type CommissionPayout = {
+  id: string;
+  number: string;
+  userId: string;
+  userName: string;
+  amountDinar: number;
+  count: number;
+  paidAt: string;
+  paidByName: string | null;
+  lines: PayoutLine[];
+};
+export type UserCommissions = { due: PayoutLine[]; dueTotal: number; paidTotal: number; payouts: CommissionPayout[] };
+
+export async function fetchCommissionsDue() {
+  return request<{ employees: DueEmployee[]; totals: DueSummary }>("/api/admin/commission-payouts/due");
+}
+export async function fetchCommissionPayouts(filters: { year?: number; month?: number; userId?: string } = {}) {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => value && params.set(key, String(value)));
+  return request<{ payouts: CommissionPayout[] }>(`/api/admin/commission-payouts?${params.toString()}`);
+}
+export async function fetchUserCommissionPayouts(userId: string) {
+  return request<UserCommissions>(`/api/admin/commission-payouts/users/${userId}`);
+}
+export async function payUserCommissions(userId: string, earningIds?: string[]) {
+  return request<{ id: string; number: string; amountDinar: number; count: number }>(`/api/admin/commission-payouts/users/${userId}/pay`, {
+    method: "POST",
+    body: JSON.stringify({ earningIds })
+  });
+}
+export async function payAllCommissions() {
+  return request<{ payouts: number; total: number }>("/api/admin/commission-payouts/pay-all", { method: "POST" });
+}
 
 export async function fetchCommissionRules(): Promise<CommissionRule[]> {
   return request<CommissionRule[]>("/api/admin/commission-rules");
@@ -999,7 +1058,7 @@ export async function fetchAllCommissionEarnings(): Promise<CommissionEarning[]>
   return request<CommissionEarning[]>("/api/admin/commission-earnings");
 }
 
-export async function fetchMyCommissions(): Promise<{ earnings: CommissionEarning[]; total: number }> {
+export async function fetchMyCommissions(): Promise<{ earnings: CommissionEarning[]; total: number; paidTotal?: number; dueTotal?: number }> {
   return request("/api/me/commissions");
 }
 

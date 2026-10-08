@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronUp, Coins, Eye, EyeOff } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-const STAGE_LABELS_FR: Record<CommissionStage, string> = {
+export const STAGE_LABELS_FR: Record<CommissionStage, string> = {
   CODE_CLAIMED: "Étudiant inscrit via un code",
   DOCUMENTS_VALIDATED: "Documents du dossier validés",
   APPLIED: "Candidature déposée",
@@ -46,6 +46,8 @@ export default function MyCommissionsCard({ title, stages }: { title?: string; s
 
   const earnings = useMemo(() => (stages ? all.filter((e) => stages.includes(e.stage)) : all), [all, stages]);
   const total = useMemo(() => earnings.reduce((sum, e) => sum + e.amountDinar, 0), [earnings]);
+  const received = useMemo(() => earnings.filter((e) => e.paidAt).reduce((sum, e) => sum + e.amountDinar, 0), [earnings]);
+  const toReceive = total - received;
 
   if (!loaded) return null;
 
@@ -91,6 +93,10 @@ export default function MyCommissionsCard({ title, stages }: { title?: string; s
       <p aria-hidden={!revealed} className={cn("mt-4 whitespace-nowrap font-display text-3xl font-extrabold leading-none text-brand transition", blur)}>
         {total.toFixed(2)} <span className="text-lg">DT</span>
       </p>
+      <p className={cn("mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-semibold transition", blur)}>
+        <span className="text-amber-700">{t("À recevoir", "To receive")} : {toReceive.toFixed(2)} DT</span>
+        <span className="text-emerald-700">{t("Déjà reçu", "Received")} : {received.toFixed(2)} DT</span>
+      </p>
 
       {open && (
         <div className="mt-4 space-y-1.5 border-t border-line pt-4">
@@ -103,7 +109,12 @@ export default function MyCommissionsCard({ title, stages }: { title?: string; s
                   <p className="truncate font-semibold text-dark">{e.studentName} · {e.countryName}</p>
                   <p className="truncate text-[11px] text-muted">{STAGE_LABELS_FR[e.stage]}</p>
                 </div>
-                <span className={cn("shrink-0 font-bold text-emerald-600 transition", blur)}>{e.amountDinar.toFixed(2)} DT</span>
+                <span className="flex shrink-0 flex-col items-end gap-0.5">
+                  <span className={cn("font-bold text-emerald-600 transition", blur)}>{e.amountDinar.toFixed(2)} DT</span>
+                  <span className={cn("rounded-full px-1.5 py-0.5 text-[9px] font-bold", e.paidAt ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700")}>
+                    {e.paidAt ? `${t("Payée", "Paid")} ${new Date(e.paidAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })}` : t("À recevoir", "To receive")}
+                  </span>
+                </span>
               </div>
             ))
           )}

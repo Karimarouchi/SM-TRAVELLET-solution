@@ -73,10 +73,12 @@ async function listAllEarnings() {
 
 async function listEarningsForUser(userId) {
   const result = await query(
-    `SELECT ce.*, c.name AS country_name, s.prenom AS student_prenom, s.nom AS student_nom
+    `SELECT ce.*, c.name AS country_name, s.prenom AS student_prenom, s.nom AS student_nom,
+            po.paid_at AS paid_at, po.number AS payout_number
      FROM commission_earnings ce
      JOIN countries c ON c.id = ce.country_id
      JOIN users s ON s.id = ce.student_id
+     LEFT JOIN commission_payouts po ON po.id = ce.payout_id
      WHERE ce.user_id = $1
      ORDER BY ce.earned_at DESC`,
     [userId]

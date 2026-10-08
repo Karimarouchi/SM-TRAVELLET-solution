@@ -1,6 +1,7 @@
 import { fetchUserPerformance, type StaffDetail, type PerfContactItem, type PerfDossierItem, type PerformancePeriod, type StaffPerformance, type PerfWorkHours } from "@/lib/auth";
 import { formatWhatsAppPhone } from "@/lib/whatsapp";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import StaffCommissionsBlock from "@/components/admin/StaffCommissionsBlock";
 import StaffTimeDetail from "@/components/admin/StaffTimeDetail";
 import { PERIOD_OPTIONS, PeriodSelector, StatTile, WhatsAppFunnelBars, WorkHoursNote, convertedHint, durationHint, percent, plural } from "@/components/admin/performance-ui";
 import { AlertTriangle, ArrowLeft, FileCheck2, KeyRound, Mail, MessageCircle, Phone, Plane } from "lucide-react";
@@ -220,6 +221,8 @@ export default function AdminStaffStatsPage() {
       </div>
 
       {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
+
+      {user && (user.sales || user.rdv) && <StaffCommissionsBlock userId={user.id} name={`${user.prenom} ${user.nom}`.trim()} />}
 
       {user && workHours && (user.sales || user.rdv) && (
         <>

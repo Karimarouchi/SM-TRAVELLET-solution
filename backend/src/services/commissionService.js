@@ -48,7 +48,9 @@ function earningDto(row) {
     role: row.role,
     stage: row.stage,
     amountDinar: Number(row.amount_dinar),
-    earnedAt: row.earned_at
+    earnedAt: row.earned_at,
+    paidAt: row.paid_at || null,
+    payoutNumber: row.payout_number || null
   };
 }
 
@@ -97,7 +99,8 @@ async function listEarningsForUser(userId) {
   const rows = await commissionRepo.listEarningsForUser(userId);
   const earnings = rows.map(earningDto);
   const total = earnings.reduce((sum, e) => sum + e.amountDinar, 0);
-  return { earnings, total };
+  const paidTotal = earnings.filter((e) => e.paidAt).reduce((sum, e) => sum + e.amountDinar, 0);
+  return { earnings, total, paidTotal, dueTotal: total - paidTotal };
 }
 
 // Point d'entrée unique utilisé par tous les déclencheurs métier. Ne bloque

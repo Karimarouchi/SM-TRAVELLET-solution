@@ -304,6 +304,11 @@ export default function AdminInsightsSection() {
             <Delta current={commissions.totalThisMonth} previous={commissions.totalLastMonth} blur={blur} />
           </div>
           <p className="mt-1 text-[11px] text-muted">coût commercial du mois</p>
+          {(commissions.dueTotal ?? 0) > 0 && (
+            <Link to="/admin/finance?tab=versements" className="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700 transition hover:bg-amber-100">
+              À verser : <span className={cn("transition", blur)}>{money(commissions.dueTotal ?? 0, "TND")}</span> →
+            </Link>
+          )}
           <div className="mt-4 space-y-3 border-t border-line pt-3">
             {[
               { label: "Équipe Conseillers", value: commissions.salesThisMonth, color: "bg-violet-500" },
