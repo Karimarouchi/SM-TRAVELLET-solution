@@ -491,7 +491,10 @@ export default function RdvDossiersPage() {
     const postponed = applications.filter((a) => a.status === "POSTPONED" && a.postponedKind !== "VISA" && postponedVisible(a));
 
     const tasks: Task[] = [];
-    for (const a of toApply) {
+    for (const a of toApply.filter((x) => x.registrationPaymentDue)) {
+      tasks.push({ key: `regpay-${a.id}`, tone: "danger", icon: Banknote, weight: 100, title: t("Paiement inscription non réglé", "Registration payment not settled"), text: `${a.studentName} · ${t("reste", "left")} ${formatMoney(a.registrationPaymentDue!.remaining, a.registrationPaymentDue!.currency)} · ${t("dépôt bloqué, prévenez le conseiller", "filing blocked, notify the advisor")}`, target: "candidatures", cta: t("Voir", "View") });
+    }
+    for (const a of toApply.filter((x) => !x.registrationPaymentDue)) {
       tasks.push({ key: `apply-${a.id}`, tone: "warning", icon: GraduationCap, weight: 80, title: t("Déposer la candidature", "Submit the application"), text: `${a.studentName} · ${a.universityName}${a.fieldOfStudy ? ` · ${a.fieldOfStudy}` : ""}`, target: "candidatures", cta: t("Ouvrir", "Open") });
     }
     for (const a of interviews) {

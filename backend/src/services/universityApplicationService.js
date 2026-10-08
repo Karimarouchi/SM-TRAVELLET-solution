@@ -370,6 +370,9 @@ async function markApplied(auth, applicationId, payload) {
     throw fail("Cette candidature n’est pas au statut « prête à postuler ».", 400);
   }
 
+  // Paiement : la tranche inscription doit être réglée avant le dépôt de la candidature.
+  await paymentService.assertRegistrationPaid(application);
+
   let universityId = application.university_id;
   const resolved = await resolveUniversity(application.country_id, payload);
   if (resolved) universityId = resolved.id;
@@ -1101,7 +1104,9 @@ async function listMineForRdv(auth) {
       studentName: `${r.student_prenom} ${r.student_nom}`.trim(),
       studentEmail: r.student_email,
       // Tranche visa non réglée : le dépôt du visa sera refusé tant qu'elle reste due.
-      visaPaymentDue: r.visa_status === "PREPARATION" ? await paymentService.visaPaymentDue(r.student_id, r.country_id) : null
+      visaPaymentDue: r.visa_status === "PREPARATION" ? await paymentService.visaPaymentDue(r.student_id, r.country_id) : null,
+      // Tranche inscription non réglée : le dépôt de la candidature sera refusé tant qu'elle reste due.
+      registrationPaymentDue: r.status === "READY_TO_APPLY" ? await paymentService.registrationPaymentDue(r.student_id, r.country_id) : null
     }))
   );
 }

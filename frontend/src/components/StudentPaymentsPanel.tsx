@@ -152,7 +152,7 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
 
       {adding && (
         <div className="mt-4 space-y-3 rounded-2xl border-2 border-dashed border-brand/30 bg-brand/5 p-4">
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3">
             <div>
               <label className="mb-1 block text-[11px] font-bold text-mid">Pays</label>
               <FancySelect value={countryId} onChange={setCountryId} options={countryOptions} placeholder="Choisir un pays" />
@@ -173,7 +173,7 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
               <FancySelect value={method} onChange={(v) => setMethod(v as PaymentMethod)} options={METHODS} placeholder="Choisir" />
             </div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3">
             <div>
               <label className="mb-1 block text-[11px] font-bold text-mid">
                 Montant {plan ? `(${plan.currency === "EUR" ? "€" : "DT"})` : ""}

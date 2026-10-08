@@ -1282,6 +1282,8 @@ export type UniversityApplication = {
   postponedAt?: string | null;
   retryOn?: string | null;
   retryIntake?: string;
+  /** Tranche inscription restant due (listes du RDV) : bloque le dépôt de la candidature. */
+  registrationPaymentDue?: { remaining: number; currency: "TND" | "EUR" } | null;
   postponedNote?: string;
   retryOfId?: string | null;
   attemptNumber?: number;

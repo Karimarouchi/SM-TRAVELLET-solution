@@ -352,6 +352,35 @@ async function visaPaymentDue(studentId, countryId) {
   return { remaining: t2.remaining, currency: plan.currency };
 }
 
+// Tranche inscription restant à payer (null si rien n'est dû ou pas de plan).
+async function registrationPaymentDue(studentId, countryId) {
+  const plan = await paymentRepo.findPlan(studentId, countryId);
+  if (!plan) return null;
+  const t1 = trancheState(plan.tranche1_due, plan.paid1);
+  if (t1.complete) return null;
+  return { remaining: t1.remaining, currency: plan.currency };
+}
+
+// ── Blocage du dépôt de la candidature (tranche 1) ──
+async function assertRegistrationPaid(application) {
+  const plan = await paymentRepo.findPlan(application.student_id, application.country_id);
+  if (!plan) return;
+  const t1 = trancheState(plan.tranche1_due, plan.paid1);
+  if (t1.complete) return;
+
+  const student = await userRepo.findById(application.student_id);
+  const who = student ? `${student.prenom} ${student.nom}`.trim() : "L'étudiant";
+  const remaining = formatAmount(t1.remaining, plan.currency);
+  const payload = {
+    type: "PAYMENT_BLOCKED",
+    title: `Paiement inscription non réglé : ${who}`,
+    body: `Le RDV ne peut pas déposer la candidature de ${who} (${plan.country_name}) : il reste ${remaining} à payer (tranche 1).`
+  };
+  if (plan.assigned_sales_id) await notificationService.notify(plan.assigned_sales_id, { ...payload, link: `/conseiller/etudiants/${application.student_id}` });
+  await notificationService.notifyAdmins({ ...payload, link: `/admin/finance?student=${application.student_id}` });
+  throw fail(`${who} n'a pas réglé son paiement : il reste ${remaining} à payer (tranche 1) avant de déposer la candidature.`, 409);
+}
+
 // ── Blocage du dépôt visa ──
 // Un étudiant qui n'a pas de plan (inscrit avant cette fonction, ou pays sans
 // tarif) n'est jamais bloqué.
@@ -472,6 +501,8 @@ module.exports = {
   applyCodePayment,
   assertVisaPaid,
   visaPaymentDue,
+  registrationPaymentDue,
+  assertRegistrationPaid,
   overview,
   stats,
   listPlans,
