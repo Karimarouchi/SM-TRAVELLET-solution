@@ -13,7 +13,7 @@ import {
   type StudentPaymentsSummary,
   type TrancheState
 } from "@/lib/auth";
-import { cn } from "@/lib/utils";
+import { cn, todayLocal } from "@/lib/utils";
 import { AlertTriangle, BadgeCheck, Banknote, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -53,7 +53,8 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
   const [tranche, setTranche] = useState<"1" | "2">("2");
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState<PaymentMethod | "">("");
-  const [paidAt, setPaidAt] = useState("");
+  // Date du paiement : aujourd'hui par défaut, modifiable.
+  const [paidAt, setPaidAt] = useState(todayLocal());
   const [reference, setReference] = useState("");
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
@@ -79,7 +80,7 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
     setAdding(false);
     setAmount("");
     setMethod("");
-    setPaidAt("");
+    setPaidAt(todayLocal());
     setReference("");
     setError("");
   };
@@ -96,8 +97,7 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
         tranche: Number(tranche) as 1 | 2,
         method,
         amount: amount.trim() ? Number(amount.replace(",", ".")) : undefined,
-        // La date est celle de l'enregistrement ; seul l'admin peut en choisir une autre.
-        paidAt: summary?.canCancel ? paidAt || undefined : undefined,
+        paidAt: paidAt || undefined,
         reference: PAYMENT_REFERENCE_LABELS[method] ? reference.trim() : undefined
       });
       setSummary(next);
@@ -189,19 +189,13 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
             </div>
             <div>
               <label className="mb-1 block text-[11px] font-bold text-mid">Date du paiement</label>
-              {summary?.canCancel ? (
-                <input
-                  type="date"
-                  value={paidAt}
-                  max={new Date().toISOString().slice(0, 10)}
-                  onChange={(e) => setPaidAt(e.target.value)}
-                  className="w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-                />
-              ) : (
-                <p className="rounded-xl border border-dashed border-line bg-white/60 px-3 py-2.5 text-xs text-muted">
-                  Aujourd'hui, {new Date().toLocaleDateString("fr-FR")} (enregistrée automatiquement)
-                </p>
-              )}
+              <input
+                type="date"
+                value={paidAt}
+                max={todayLocal()}
+                onChange={(e) => setPaidAt(e.target.value)}
+                className="w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              />
             </div>
             <div>
               <label className="mb-1 block text-[11px] font-bold text-mid">
@@ -219,7 +213,7 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
               )}
             </div>
           </div>
-          <p className="text-[11px] text-muted">Montant vide = tout le reste dû de la tranche. La date du paiement est celle de l'enregistrement. Chèque : numéro du chèque ; virement : code du virement. Chaque paiement reçoit un numéro de reçu automatique (ex. 001-2026), envoyé par e-mail à l'étudiant.</p>
+          <p className="text-[11px] text-muted">Montant vide = tout le reste dû de la tranche. La date proposée est celle d'aujourd'hui : modifiez-la si le paiement a eu lieu un autre jour. Chèque : numéro du chèque ; virement : code du virement. Chaque paiement reçoit un numéro de reçu automatique (ex. 001-2026), envoyé par e-mail à l'étudiant.</p>
           {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
           <div className="flex justify-end gap-2">
             <button type="button" onClick={reset} className="rounded-xl border border-line bg-white px-4 py-2 text-xs font-bold text-muted hover:bg-slate-50">Annuler</button>

@@ -238,8 +238,8 @@ async function recordPayment(auth, studentId, payload) {
     amount,
     currency: plan.currency,
     method,
-    // La date est celle de l'enregistrement : seul l'admin peut la choisir (rattrapage d'un ancien paiement).
-    paidAt: roles.includes("ADMIN") ? normalizeDate(payload.paidAt) : null,
+    // Date proposée par défaut = aujourd'hui ; le conseiller comme l'admin peuvent la corriger (jamais dans le futur).
+    paidAt: normalizeDate(payload.paidAt),
     reference,
     recordedBy: auth.sub,
     recordedByRole: roles.includes("ADMIN") ? "ADMIN" : "SALES"
@@ -307,8 +307,8 @@ async function prepareCodePayment(countryId, payment) {
     tranche2: money(pricing.tranche2_amount),
     method,
     reference,
-    // La date du paiement est celle de la création du code (jour de l'encaissement), jamais saisie.
-    paidAt: null,
+    // Date de l'encaissement : aujourd'hui par défaut, modifiable par le conseiller (jamais dans le futur).
+    paidAt: paying ? normalizeDate(payment.paidAt) : null,
     // Le reçu est numéroté dès l'encaissement, pour être remis au client.
     receiptNumber: paying ? await paymentRepo.nextReceiptNumber() : null
   };

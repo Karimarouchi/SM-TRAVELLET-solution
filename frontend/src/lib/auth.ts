@@ -644,7 +644,7 @@ export type SalesCodePayload = {
   expiresAt?: string;
   whatsappContactId?: string;
   /** Tranche 1 (inscription) encaissée : obligatoire quand le pays a un tarif. */
-  payment?: { confirmed: boolean; method: PaymentMethod; reference?: string };
+  payment?: { confirmed: boolean; method: PaymentMethod; reference?: string; paidAt?: string };
 };
 
 export async function fetchMySalesCodes(): Promise<SalesCode[]> {

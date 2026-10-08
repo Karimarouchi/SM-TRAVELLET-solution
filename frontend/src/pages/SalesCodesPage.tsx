@@ -14,7 +14,7 @@ import {
   type SalesCode
 } from "@/lib/auth";
 import { useLanguage } from "@/lib/i18n";
-import { cn } from "@/lib/utils";
+import { cn, todayLocal } from "@/lib/utils";
 import { fetchWhatsAppConversations, formatWhatsAppPhone, type WhatsAppConversation } from "@/lib/whatsapp";
 import { AlertTriangle, Banknote, CheckCircle2, ClipboardCopy, Globe2, MessageCircle, Plus, Search, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -155,6 +155,7 @@ export default function SalesCodesPage() {
   const [paid, setPaid] = useState(false);
   const [payMethod, setPayMethod] = useState<PaymentMethod | "">("");
   const [payReference, setPayReference] = useState("");
+  const [payDate, setPayDate] = useState(todayLocal());
 
   const load = () => {
     setLoading(true);
@@ -173,6 +174,7 @@ export default function SalesCodesPage() {
     setPaid(false);
     setPayMethod("");
     setPayReference("");
+    setPayDate(todayLocal());
     setPricing(null);
     if (form.countryId) fetchCountryPricing(form.countryId).then(setPricing).catch(() => setPricing(null));
   }, [form.countryId]);
@@ -200,7 +202,7 @@ export default function SalesCodesPage() {
     setWarning("");
     try {
       const created = await createSalesCode({
-        payment: needsPayment ? { confirmed: true, method: payMethod as PaymentMethod, reference: payReference.trim() || undefined } : undefined,
+        payment: needsPayment ? { confirmed: true, method: payMethod as PaymentMethod, reference: payReference.trim() || undefined, paidAt: payDate || undefined } : undefined,
         countryId: form.countryId,
         prefillCurrentStudyLevel: form.prefillCurrentStudyLevel || undefined,
         prefillTargetLevel: form.prefillTargetLevel || undefined,
@@ -330,6 +332,16 @@ export default function SalesCodesPage() {
                     className="w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm outline-none focus:border-brand"
                   />
                 ) : null}
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold text-amber-900">{t("Date de l'encaissement", "Collection date")}</label>
+                  <input
+                    type="date"
+                    value={payDate}
+                    max={todayLocal()}
+                    onChange={(e) => setPayDate(e.target.value)}
+                    className="w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm outline-none focus:border-brand"
+                  />
+                </div>
               </div>
               <p className="mt-2 text-[11px] text-amber-800">
                 {t(
