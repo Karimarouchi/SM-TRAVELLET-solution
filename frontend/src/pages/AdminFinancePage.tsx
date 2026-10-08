@@ -17,7 +17,7 @@ import {
   type PaymentPlan
 } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, BadgeCheck, Banknote, CheckCircle2, ChevronDown, ChevronUp, Coins, Globe, Info, LayoutDashboard, Layers, Receipt, Save, Search, Tag, Trash2, Wallet } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Banknote, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Coins, Globe, Info, LayoutDashboard, Layers, Receipt, Save, Search, Tag, Trash2, Wallet } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -404,11 +404,14 @@ function PricingCard({ row, onSaved, index }: { row: CountryPricing; onSaved: (n
   );
 }
 
+const PRICING_PAGE_SIZE = 4;
+
 function Pricing() {
   const [rows, setRows] = useState<CountryPricing[] | null>(null);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "set" | "unset">("all");
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     fetchFinancePricing().then(setRows).catch((err) => setError(err instanceof Error ? err.message : "Chargement impossible."));
@@ -428,6 +431,14 @@ function Pricing() {
     const q = search.trim().toLowerCase();
     return !q || r.countryName.toLowerCase().includes(q) || r.code.toLowerCase().includes(q);
   });
+
+  // 4 pays par page ; retour à la première page quand la recherche ou le filtre change.
+  useEffect(() => {
+    setPage(1);
+  }, [search, filter]);
+  const pageCount = Math.max(1, Math.ceil(visible.length / PRICING_PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const paged = visible.slice((currentPage - 1) * PRICING_PAGE_SIZE, currentPage * PRICING_PAGE_SIZE);
 
   return (
     <div className="mt-6 space-y-5">
@@ -488,11 +499,39 @@ function Pricing() {
       ) : visible.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-line bg-white p-8 text-center text-sm text-muted">Aucun pays ne correspond.</p>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {visible.map((row, i) => (
-            <PricingCard key={`${row.countryId}:${row.configured}`} row={row} index={i} onSaved={(next) => setRows((prev) => (prev || []).map((r) => (r.countryId === next.countryId ? next : r)))} />
-          ))}
-        </div>
+        <>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {paged.map((row, i) => (
+              <PricingCard key={`${row.countryId}:${row.configured}`} row={row} index={i} onSaved={(next) => setRows((prev) => (prev || []).map((r) => (r.countryId === next.countryId ? next : r)))} />
+            ))}
+          </div>
+          {visible.length > PRICING_PAGE_SIZE && (
+            <nav className="flex flex-wrap items-center justify-between gap-3" aria-label="Pagination des tarifs">
+              <p className="text-xs text-muted">
+                Pays {(currentPage - 1) * PRICING_PAGE_SIZE + 1}–{Math.min(currentPage * PRICING_PAGE_SIZE, visible.length)} sur {visible.length}
+              </p>
+              <div className="flex items-center gap-1.5">
+                <button type="button" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)} className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-bold text-mid transition hover:border-brand hover:text-brand disabled:opacity-40">
+                  <ChevronLeft className="h-3.5 w-3.5" aria-hidden /> Précédent
+                </button>
+                {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setPage(n)}
+                    aria-current={n === currentPage ? "page" : undefined}
+                    className={cn("h-8 min-w-8 rounded-lg px-2 text-xs font-bold transition", n === currentPage ? "bg-brand text-white shadow" : "border border-line bg-white text-mid hover:border-brand hover:text-brand")}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <button type="button" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)} className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-bold text-mid transition hover:border-brand hover:text-brand disabled:opacity-40">
+                  Suivant <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+                </button>
+              </div>
+            </nav>
+          )}
+        </>
       )}
     </div>
   );
