@@ -412,10 +412,6 @@ function PortalAccount({ app }: { app: UniversityApplication }) {
 }
 
 function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onClose: () => void; onDone: () => void }) {
-  const [universities, setUniversities] = useState<CountryUniversity[]>([]);
-  const [universitiesLoading, setUniversitiesLoading] = useState(true);
-  const [universityId, setUniversityId] = useState(app.universityId);
-  const [customName, setCustomName] = useState("");
   const [appliedAt, setAppliedAt] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
   const [portalLogin, setPortalLogin] = useState("");
@@ -424,23 +420,8 @@ function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onCl
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const useCustom = universityId === "__other__";
-
-  useEffect(() => {
-    setUniversitiesLoading(true);
-    fetchCountryUniversities(app.countryId)
-      .then(setUniversities)
-      .catch(() => setUniversities([]))
-      .finally(() => setUniversitiesLoading(false));
-  }, [app.countryId]);
-
-  const selectedName = useCustom ? customName : (universities.find((u) => u.id === universityId)?.name || app.universityName);
 
   const submit = async () => {
-    if (useCustom && customName.trim().length < 2) {
-      setError("Saisissez le nom de l'université.");
-      return;
-    }
     if (!portalLogin.trim()) {
       setError("Saisissez l'identifiant (e-mail) du compte créé sur la plateforme de l'université.");
       return;
@@ -460,8 +441,6 @@ function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onCl
         portalLogin: portalLogin.trim(),
         portalPassword,
         portalUrl: portalUrl.trim() || undefined,
-        universityId: useCustom ? undefined : universityId,
-        universityName: useCustom ? customName.trim() : undefined,
         appliedAt,
         notes: notes || undefined
       });
@@ -478,30 +457,7 @@ function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onCl
       <div className="mt-4 space-y-3">
         <div className="rounded-lg border border-brand/20 bg-brand/5 px-3 py-2">
           <p className="text-[11px] font-bold uppercase tracking-wider text-muted">Université visée par l'étudiant</p>
-          <p className="mt-0.5 text-sm font-bold text-dark">{selectedName || "—"}</p>
-        </div>
-        <div>
-          <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Université *</label>
-          {universitiesLoading ? (
-            <div className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm text-muted">Chargement...</div>
-          ) : (
-            <>
-              <select value={universityId} onChange={(e) => setUniversityId(e.target.value)} className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm">
-                {universities.filter((u) => u.active).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-                <option value="__other__">Autre — taper un nom</option>
-              </select>
-              {useCustom && (
-                <input
-                  type="text"
-                  maxLength={200}
-                  value={customName}
-                  onChange={(e) => setCustomName(e.target.value)}
-                  placeholder="Nom de l'université"
-                  className="mt-2 w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm"
-                />
-              )}
-            </>
-          )}
+          <p className="mt-0.5 text-sm font-bold text-dark">{app.universityName || "—"}</p>
         </div>
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Date de dépôt *</label>
