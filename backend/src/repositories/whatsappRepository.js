@@ -171,7 +171,7 @@ async function updateStatus(waMessageId, status, error) {
   );
 }
 
-async function listConversations({ userId, ownerId, search, contactId = null }) {
+async function listConversations({ userId, ownerId, search, contactId = null, answeredIsRead = false }) {
   const result = await query(
     `${CONVERSATIONS_CTE}
      SELECT c.id, c.phone, c.profile_name, c.student_id, c.student_prenom, c.student_nom,
@@ -181,7 +181,7 @@ async function listConversations({ userId, ownerId, search, contactId = null }) 
             lm.hidden_at IS NOT NULL AS last_hidden,
             (SELECT COUNT(*)::int FROM whatsapp_messages m
              WHERE m.contact_id = c.id AND m.direction = 'in'
-               AND m.created_at > COALESCE(r.last_read_at, 'epoch'::timestamptz)) AS unread
+               AND m.created_at > GREATEST(COALESCE(r.last_read_at, 'epoch'::timestamptz), CASE WHEN $5 THEN COALESCE((SELECT MAX(o.created_at) FROM whatsapp_messages o WHERE o.contact_id = c.id AND o.direction = 'out'), 'epoch'::timestamptz) ELSE 'epoch'::timestamptz END)) AS unread
      FROM conv c
      LEFT JOIN users ou ON ou.id = c.owner_id
      LEFT JOIN whatsapp_reads r ON r.contact_id = c.id AND r.user_id = $1
@@ -199,7 +199,7 @@ async function listConversations({ userId, ownerId, search, contactId = null }) 
        )
      ORDER BY c.last_message_at DESC NULLS LAST
      LIMIT 300`,
-    [userId, ownerId, search, contactId]
+    [userId, ownerId, search, contactId, answeredIsRead]
   );
   return result.rows;
 }
@@ -247,7 +247,7 @@ async function markRead(contactId, userId) {
   );
 }
 
-async function unreadCount({ userId, ownerId }) {
+async function unreadCount({ userId, ownerId, answeredIsRead = false }) {
   const result = await query(
     `${CONVERSATIONS_CTE}
      SELECT
@@ -258,11 +258,11 @@ async function unreadCount({ userId, ownerId }) {
      CROSS JOIN LATERAL (
        SELECT COUNT(*) AS n FROM whatsapp_messages m
        WHERE m.contact_id = c.id AND m.direction = 'in'
-         AND m.created_at > COALESCE(r.last_read_at, 'epoch'::timestamptz)
+         AND m.created_at > GREATEST(COALESCE(r.last_read_at, 'epoch'::timestamptz), CASE WHEN $3 THEN COALESCE((SELECT MAX(o.created_at) FROM whatsapp_messages o WHERE o.contact_id = c.id AND o.direction = 'out'), 'epoch'::timestamptz) ELSE 'epoch'::timestamptz END)
      ) u
      WHERE ($2::uuid IS NULL OR c.owner_id = $2)
        AND c.muted_at IS NULL AND c.blocked_at IS NULL`,
-    [userId, ownerId]
+    [userId, ownerId, answeredIsRead]
   );
   const { registered, prospects } = result.rows[0];
   // « Inscrits » = conversation liée à un compte étudiant ; « prospects » = les autres.

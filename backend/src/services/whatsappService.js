@@ -238,6 +238,8 @@ async function listConversations(auth, search) {
   const rows = await repo.listConversations({
     userId: auth.sub,
     ownerId: isAdmin(auth) ? null : auth.sub,
+    // Admin : un message déjà répondu par un conseiller n'est plus « non lu ».
+    answeredIsRead: isAdmin(auth),
     search: String(search || "").trim().slice(0, 80)
   });
   return rows.map(mapConversation);
@@ -394,12 +396,12 @@ async function assignOwner(auth, contactId, salesId) {
 }
 
 async function mapConversationById(auth, contactId) {
-  const [row] = await repo.listConversations({ userId: auth.sub, ownerId: null, search: "", contactId });
+  const [row] = await repo.listConversations({ userId: auth.sub, ownerId: null, search: "", contactId, answeredIsRead: isAdmin(auth) });
   return row ? mapConversation(row) : null;
 }
 
 async function unreadCount(auth) {
-  return repo.unreadCount({ userId: auth.sub, ownerId: isAdmin(auth) ? null : auth.sub });
+  return repo.unreadCount({ userId: auth.sub, ownerId: isAdmin(auth) ? null : auth.sub, answeredIsRead: isAdmin(auth) });
 }
 
 // Un étudiant s'inscrit avec un code envoyé sur WhatsApp : sa conversation
