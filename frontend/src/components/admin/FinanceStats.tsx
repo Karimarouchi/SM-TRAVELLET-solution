@@ -11,6 +11,8 @@ import {
 } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
+
+const PAYMENTS_PAGE_SIZE = 10;
 import { motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -116,6 +118,7 @@ export default function FinanceStatsSection() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(0); // 0 = toute l'année
   const [currency, setCurrency] = useState<Currency>("TND");
+  const [paymentsPage, setPaymentsPage] = useState(1);
 
   useEffect(() => {
     fetchFinanceStats().then(setData).catch((err) => setError(err instanceof Error ? err.message : "Statistiques indisponibles."));
@@ -128,6 +131,8 @@ export default function FinanceStatsSection() {
     data?.billed.forEach((m) => found.add(m.currency));
     return (["TND", "EUR"] as Currency[]).filter((c) => found.has(c));
   }, [data]);
+
+  useEffect(() => setPaymentsPage(1), [year, month, currency]);
 
   useEffect(() => {
     if (currencies.length && !currencies.includes(currency)) setCurrency(currencies[0]);
@@ -164,6 +169,9 @@ export default function FinanceStatsSection() {
   const payments = journal
     .filter((p) => p.currency === currency && p.paidAt.startsWith(prefix))
     .sort((a, b) => b.paidAt.localeCompare(a.paidAt));
+  const paymentsPageCount = Math.max(1, Math.ceil(payments.length / PAYMENTS_PAGE_SIZE));
+  const currentPaymentsPage = Math.min(paymentsPage, paymentsPageCount);
+  const pagedPayments = payments.slice((currentPaymentsPage - 1) * PAYMENTS_PAGE_SIZE, currentPaymentsPage * PAYMENTS_PAGE_SIZE);
 
   return (
     <section className="space-y-6">
@@ -363,9 +371,9 @@ export default function FinanceStatsSection() {
         {payments.length === 0 ? (
           <p className="mt-3 text-sm text-muted">Aucun paiement sur cette période.</p>
         ) : (
-          <div className="mt-3 max-h-[420px] overflow-auto">
+          <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[760px] text-sm">
-              <thead className="sticky top-0 bg-white">
+              <thead>
                 <tr className="border-b border-line text-left text-[11px] font-bold uppercase tracking-wide text-muted">
                   <th className="py-2 pr-3">Date</th>
                   <th className="py-2 pr-3">Étudiant</th>
@@ -378,7 +386,7 @@ export default function FinanceStatsSection() {
                 </tr>
               </thead>
               <tbody>
-                {payments.map((p) => (
+                {pagedPayments.map((p) => (
                   <tr key={p.id} className={cn("border-b border-line/50", p.status === "CANCELLED" && "text-muted line-through")}>
                     <td className="py-2 pr-3 text-mid">{new Date(p.paidAt).toLocaleDateString("fr-FR")}</td>
                     <td className="py-2 pr-3 font-semibold">{p.studentName || "—"}</td>
@@ -393,6 +401,32 @@ export default function FinanceStatsSection() {
               </tbody>
             </table>
           </div>
+        )}
+        {payments.length > PAYMENTS_PAGE_SIZE && (
+          <nav className="mt-3 flex flex-wrap items-center justify-between gap-3" aria-label="Pagination des paiements">
+            <p className="text-xs text-muted">
+              Paiements {(currentPaymentsPage - 1) * PAYMENTS_PAGE_SIZE + 1}–{Math.min(currentPaymentsPage * PAYMENTS_PAGE_SIZE, payments.length)} sur {payments.length}
+            </p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button type="button" disabled={currentPaymentsPage === 1} onClick={() => setPaymentsPage(currentPaymentsPage - 1)} className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-bold text-mid transition hover:border-brand hover:text-brand disabled:opacity-40">
+                <ChevronLeft className="h-3.5 w-3.5" aria-hidden /> Précédent
+              </button>
+              {Array.from({ length: paymentsPageCount }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setPaymentsPage(n)}
+                  aria-current={n === currentPaymentsPage ? "page" : undefined}
+                  className={cn("h-8 min-w-8 rounded-lg px-2 text-xs font-bold transition", n === currentPaymentsPage ? "bg-brand text-white shadow" : "border border-line bg-white text-mid hover:border-brand hover:text-brand")}
+                >
+                  {n}
+                </button>
+              ))}
+              <button type="button" disabled={currentPaymentsPage === paymentsPageCount} onClick={() => setPaymentsPage(currentPaymentsPage + 1)} className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-bold text-mid transition hover:border-brand hover:text-brand disabled:opacity-40">
+                Suivant <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            </div>
+          </nav>
         )}
       </section>
     </section>
