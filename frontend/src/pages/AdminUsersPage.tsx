@@ -1,12 +1,14 @@
 import { fetchStudentsOverview, setStudentActive, type StudentOverview } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { Ban, CheckCircle2, GraduationCap, Search, Trash2, Unlock, UserCog, Users } from "lucide-react";
+import { Ban, CheckCircle2, ChevronLeft, ChevronRight, GraduationCap, Search, Trash2, Unlock, UserCog, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { TeamSection } from "@/pages/AdminSalesPage";
 import StudentsPipelineBoard, { StageBadge } from "@/components/admin/StudentsPipelineBoard";
 import DeleteStudentModal from "@/components/admin/DeleteStudentModal";
 import { PassportBadge } from "@/components/PassportBadge";
+
+const STUDENTS_PAGE_SIZE = 10;
 
 // ── Tableau détaillé, toujours affiché sous le pipeline pour garder un accès
 // exhaustif (tri visuel, lecture rapide de tous les champs).
@@ -22,6 +24,12 @@ function StudentsTable({
   onDelete: (student: StudentOverview) => void;
 }) {
   const navigate = useNavigate();
+  const [page, setPage] = useState(1);
+  // Une recherche ou une suppression change la liste : retour à la première page.
+  useEffect(() => setPage(1), [students.length]);
+  const pageCount = Math.max(1, Math.ceil(students.length / STUDENTS_PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const paged = students.slice((currentPage - 1) * STUDENTS_PAGE_SIZE, currentPage * STUDENTS_PAGE_SIZE);
   const profilePath = (student: StudentOverview) => `/conseiller/etudiants/${student.id}`;
   const deleteButton = (student: StudentOverview) => (
     <button
@@ -53,7 +61,7 @@ function StudentsTable({
     <>
     {/* Téléphone : une carte par étudiant, toutes les infos et l'action visibles. */}
     <div className="space-y-3 sm:hidden">
-      {students.map((student) => (
+      {paged.map((student) => (
         <div key={student.id} className="rounded-2xl border border-line bg-white p-4 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <Link to={profilePath(student)} className="min-w-0 flex-1" aria-label={`Ouvrir le profil de ${student.prenom} ${student.nom}`}>
@@ -97,7 +105,7 @@ function StudentsTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-line/60">
-          {students.map((student) => (
+          {paged.map((student) => (
             <tr
               key={student.id}
               onClick={() => navigate(profilePath(student))}
@@ -138,6 +146,32 @@ function StudentsTable({
         </tbody>
       </table>
     </div>
+    {students.length > STUDENTS_PAGE_SIZE && (
+      <nav className="mt-3 flex flex-wrap items-center justify-between gap-3" aria-label="Pagination des étudiants">
+        <p className="text-xs text-muted">
+          Étudiants {(currentPage - 1) * STUDENTS_PAGE_SIZE + 1}–{Math.min(currentPage * STUDENTS_PAGE_SIZE, students.length)} sur {students.length}
+        </p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button type="button" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)} className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-bold text-mid transition hover:border-brand hover:text-brand disabled:opacity-40">
+            <ChevronLeft className="h-3.5 w-3.5" aria-hidden /> Précédent
+          </button>
+          {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setPage(n)}
+              aria-current={n === currentPage ? "page" : undefined}
+              className={cn("h-8 min-w-8 rounded-lg px-2 text-xs font-bold transition", n === currentPage ? "bg-brand text-white shadow" : "border border-line bg-white text-mid hover:border-brand hover:text-brand")}
+            >
+              {n}
+            </button>
+          ))}
+          <button type="button" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)} className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-bold text-mid transition hover:border-brand hover:text-brand disabled:opacity-40">
+            Suivant <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+          </button>
+        </div>
+      </nav>
+    )}
     </>
   );
 }
