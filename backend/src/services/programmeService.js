@@ -89,7 +89,7 @@ async function syncProgrammeCountries() {
   for (const programme of rows) {
     const name = canonicalCountryName(programme.country);
     if (!name) continue;
-    const country = await resolveOrCreateCountryByName(name);
+    const country = await resolveOrCreateCountryByName(name, { reactivate: false });
     if (programme.country_id !== country.id || programme.country !== name) {
       await query("UPDATE programmes SET country_id = $2, country = $3, updated_at = NOW() WHERE id = $1", [programme.id, country.id, name]);
       fixed += 1;
@@ -102,10 +102,23 @@ async function syncProgrammeCountries() {
 // correspond à aucun pays existant, le pays est créé automatiquement (le
 // champ "Pays" du formulaire Programme reste un texte libre pour l'Admin ;
 // c'est ici, et uniquement ici, que la table countries est tenue à jour).
-async function resolveOrCreateCountryByName(name) {
+async function resolveOrCreateCountryByName(name, { reactivate = true } = {}) {
+  const { query } = require("../../db");
   const trimmed = canonicalCountryName(name);
-  const existing = await countryRepo.findByNameCaseInsensitive(trimmed);
-  if (existing) return existing;
+  let existing = await countryRepo.findByNameCaseInsensitive(trimmed);
+  if (!existing && trimmed !== String(name).trim()) {
+    // Le pays existe sous son nom anglais (ex. « Bulgaria ») : on le renomme, sans doublon.
+    const legacy = await countryRepo.findByNameCaseInsensitive(String(name).trim());
+    if (legacy) {
+      await query("UPDATE countries SET name = $2, updated_at = NOW() WHERE id = $1", [legacy.id, trimmed]);
+      existing = { ...legacy, name: trimmed };
+    }
+  }
+  if (existing) {
+    // Un nouveau programme rend son pays visible partout (Tarifs, documents, universités).
+    if (reactivate && existing.active === false) existing = (await countryRepo.setActive(existing.id, true)) || existing;
+    return existing;
+  }
 
   const candidates = codeCandidatesFromName(trimmed);
   for (const code of candidates) {
@@ -196,6 +209,19 @@ async function removeProgramme(id) {
     throw error;
   }
   await programmeRepo.remove(id);
+  // Plus aucun programme pour ce pays : il disparaît des Tarifs, documents et listes de choix.
+  // Il est masqué et non supprimé : prix, documents, universités et dossiers existants sont
+  // conservés, et un nouveau programme du même pays le réactive tel quel.
+  if (existing.country_id) {
+    const { query } = require("../../db");
+    const left = await query(
+      `SELECT 1 FROM programmes p
+       WHERE p.country_id = $1 OR LOWER(p.country) = (SELECT LOWER(name) FROM countries WHERE id = $1)
+       LIMIT 1`,
+      [existing.country_id]
+    );
+    if (!left.rowCount) await countryRepo.setActive(existing.country_id, false);
+  }
   return { success: true, id };
 }
 
