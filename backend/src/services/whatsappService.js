@@ -5,6 +5,11 @@ const repo = require("../repositories/whatsappRepository");
 const notificationService = require("./notificationService");
 const autoAssign = require("./autoAssignService");
 
+// Dernières traces (en mémoire, remises à zéro au redémarrage) : alimentent le diagnostic WhatsApp.
+const trace = { inbound: null, status: null, send: null };
+
+const maskPhone = (phone) => (phone && phone.length > 6 ? `${phone.slice(0, 4)}…${phone.slice(-3)}` : "***");
+
 const MAX_TEXT_LENGTH = 4096;
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 const MEDIA_TYPES = ["image", "document", "audio", "video", "sticker"];
@@ -107,7 +112,7 @@ async function ensureOwner(contactId, { isNew = false } = {}) {
   }
 }
 
-async function handleIncomingMessage(message, profileNames) {
+async function handleIncomingMessage(message, profileNames, metadata = {}) {
   if (message.type === "reaction") return;
 
   const phone = normalizePhone(message.from);
@@ -118,6 +123,20 @@ async function handleIncomingMessage(message, profileNames) {
 
   const contact = await repo.upsertContact(phone, profileNames[message.from]);
   const isNew = !contact.last_message_at;
+
+  // Numéro de l'agence auquel le client a écrit : les réponses repartiront de ce numéro.
+  if (metadata.phone_number_id) {
+    if (contact.wa_phone_number_id !== metadata.phone_number_id) {
+      await repo.setReceivingNumber(contact.id, metadata.phone_number_id, metadata.display_phone_number);
+    }
+    if (env.whatsapp.phoneNumberId && metadata.phone_number_id !== env.whatsapp.phoneNumberId) {
+      logger.warn("WhatsApp : le message arrive sur un autre numéro que WHATSAPP_PHONE_NUMBER_ID", {
+        receivedOn: metadata.phone_number_id,
+        configured: env.whatsapp.phoneNumberId
+      });
+    }
+  }
+  trace.inbound = { at: new Date().toISOString(), phoneNumberId: metadata.phone_number_id || null, displayPhone: metadata.display_phone_number || null, from: maskPhone(phone) };
   if (!contact.student_id) {
     const student = await repo.findStudentByPhone(phone);
     if (student) await repo.setStudent(contact.id, student.id);
@@ -144,6 +163,12 @@ async function handleStatus(status) {
   const errorInfo = status.errors?.[0];
   const error = errorInfo ? errorInfo.error_data?.details || errorInfo.message || errorInfo.title : null;
   await repo.updateStatus(status.id, status.status, status.status === "failed" ? error : null);
+  trace.status = { at: new Date().toISOString(), status: status.status, code: errorInfo?.code || null, error: error || null };
+  if (status.status === "failed") {
+    logger.warn("WhatsApp : message non délivré", { waMessageId: status.id, code: errorInfo?.code, title: errorInfo?.title, details: error });
+  } else {
+    logger.info("WhatsApp : statut de livraison reçu", { waMessageId: status.id, status: status.status });
+  }
 }
 
 async function processWebhook(payload) {
@@ -157,7 +182,7 @@ async function processWebhook(payload) {
       }
       for (const message of value.messages || []) {
         try {
-          await handleIncomingMessage(message, profileNames);
+          await handleIncomingMessage(message, profileNames, value.metadata || {});
         } catch (error) {
           logger.error("WhatsApp : échec du traitement d'un message entrant", { message: error.message, waMessageId: message.id });
         }
@@ -294,14 +319,16 @@ async function sendText(auth, contactId, text) {
   if (!windowInfo(conversation.last_inbound_at).windowOpen) {
     throw fail("Plus de 24 h depuis le dernier message de l'étudiant : il doit vous réécrire avant que vous puissiez répondre.", 409);
   }
-  if (!env.whatsapp.token || !env.whatsapp.phoneNumberId) {
+  // Les réponses partent du numéro auquel le client a écrit (sinon du numéro configuré).
+  const fromNumberId = conversation.wa_phone_number_id || env.whatsapp.phoneNumberId;
+  if (!env.whatsapp.token || !fromNumberId) {
     throw fail("WhatsApp n'est pas configuré sur ce serveur (WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID).", 503);
   }
 
   let response;
   let data;
   try {
-    response = await fetch(`https://graph.facebook.com/${env.whatsapp.graphVersion}/${env.whatsapp.phoneNumberId}/messages`, {
+    response = await fetch(`https://graph.facebook.com/${env.whatsapp.graphVersion}/${fromNumberId}/messages`, {
       method: "POST",
       headers: { Authorization: `Bearer ${env.whatsapp.token}`, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -319,9 +346,12 @@ async function sendText(auth, contactId, text) {
   }
 
   if (!response.ok) {
-    logger.error("WhatsApp : envoi refusé par Meta", { error: data.error, contactId });
+    logger.error("WhatsApp : envoi refusé par Meta", { error: data.error, contactId, from: fromNumberId, to: maskPhone(conversation.phone) });
+    trace.send = { at: new Date().toISOString(), ok: false, from: fromNumberId, code: data.error?.code || null, error: data.error?.message || null };
     throw metaErrorToHttp(data.error);
   }
+  logger.info("WhatsApp : message accepté par Meta", { waMessageId: data.messages?.[0]?.id, from: fromNumberId, to: maskPhone(conversation.phone) });
+  trace.send = { at: new Date().toISOString(), ok: true, from: fromNumberId, waMessageId: data.messages?.[0]?.id || null };
 
   const inserted = await repo.insertMessage({
     contactId,
@@ -340,6 +370,62 @@ async function sendText(auth, contactId, text) {
   await repo.markRead(contactId, auth.sub);
   const sentRow = (await repo.listMessages(contactId, { before: null, limit: 5 })).find((m) => m.id === inserted.id) || inserted;
   return mapMessage(sentRow, { forAdmin: isAdmin(auth) });
+}
+
+// Diagnostic (admin) : configuration, numéro d'envoi vérifié auprès de Meta, numéros de réception vus,
+// accusés de livraison des dernières 24 h et conseils si quelque chose cloche.
+async function diagnostic(auth) {
+  if (!isAdmin(auth)) throw fail("Réservé à l'administrateur.", 403);
+  const config = {
+    tokenSet: Boolean(env.whatsapp.token),
+    appSecretSet: Boolean(env.whatsapp.appSecret),
+    verifyTokenSet: Boolean(env.whatsapp.verifyToken),
+    phoneNumberId: env.whatsapp.phoneNumberId || null,
+    graphVersion: env.whatsapp.graphVersion
+  };
+
+  let sender = null;
+  if (config.tokenSet && config.phoneNumberId) {
+    try {
+      const response = await fetch(
+        `https://graph.facebook.com/${env.whatsapp.graphVersion}/${config.phoneNumberId}?fields=display_phone_number,verified_name,quality_rating,status`,
+        { headers: { Authorization: `Bearer ${env.whatsapp.token}` } }
+      );
+      const data = await response.json().catch(() => ({}));
+      sender = response.ok
+        ? { displayPhone: data.display_phone_number || null, verifiedName: data.verified_name || null, quality: data.quality_rating || null, status: data.status || null }
+        : { error: data.error?.message || `Meta a répondu ${response.status}`, code: data.error?.code || null };
+    } catch (error) {
+      sender = { error: `Meta injoignable : ${error.message}` };
+    }
+  }
+
+  const [receiving, outbound] = await Promise.all([repo.listReceivingNumbers(), repo.outboundStats()]);
+  const counts = Object.fromEntries(outbound.counts.map((row) => [row.status, row.n]));
+  const warnings = [];
+  if (!config.tokenSet) warnings.push("WHATSAPP_TOKEN est vide : aucun message ne peut être envoyé.");
+  if (!config.phoneNumberId) warnings.push("WHATSAPP_PHONE_NUMBER_ID est vide : le numéro d'envoi n'est pas défini.");
+  if (sender?.error) warnings.push(`Le jeton ne peut pas lire le numéro d'envoi : ${sender.error}`);
+  const other = receiving.find((r) => r.wa_phone_number_id !== config.phoneNumberId);
+  if (config.phoneNumberId && other) {
+    warnings.push(
+      `Des clients écrivent au numéro ${other.wa_display_phone || other.wa_phone_number_id}, mais WHATSAPP_PHONE_NUMBER_ID pointe vers ${sender?.displayPhone || config.phoneNumberId}. Les réponses des nouvelles conversations partent désormais du numéro du client ; vérifiez que le jeton a accès à ce numéro.`
+    );
+  }
+  if ((counts.sent || 0) > 0 && !(counts.delivered || counts.read) && !trace.status) {
+    warnings.push("Des messages sont « envoyés » mais aucun accusé de livraison n'est reçu : vérifiez que le webhook est abonné au champ « messages » (il porte aussi les statuts) et que WHATSAPP_APP_SECRET est correct.");
+  }
+  if ((counts.failed || 0) > 0) warnings.push(`${counts.failed} message(s) non délivré(s) sur les dernières 24 h : voir les erreurs ci-dessous.`);
+
+  return {
+    config,
+    sender,
+    receiving: receiving.map((r) => ({ phoneNumberId: r.wa_phone_number_id, displayPhone: r.wa_display_phone, contacts: r.contacts, lastInboundAt: r.last_inbound_at })),
+    outbound24h: { sent: counts.sent || 0, delivered: counts.delivered || 0, read: counts.read || 0, failed: counts.failed || 0 },
+    recentFailures: outbound.failed.map((row) => ({ at: row.created_at, to: maskPhone(row.phone), error: row.error })),
+    last: trace,
+    warnings
+  };
 }
 
 async function linkStudent(auth, contactId, studentId) {
@@ -466,6 +552,7 @@ module.exports = {
   getMessages,
   sendText,
   hideMessage,
+  diagnostic,
   setMuted,
   setBlocked,
   linkStudent,

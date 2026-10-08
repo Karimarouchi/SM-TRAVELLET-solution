@@ -1,4 +1,5 @@
 import { confirmDialog } from "@/components/ui/dialog-host";
+import WhatsAppDiagnosticModal from "@/components/WhatsAppDiagnosticModal";
 import { fetchAssignmentBoard, fetchMyStudents, getSession, type BoardSales, type BoardStudent } from "@/lib/auth";
 import {
   assignWhatsAppOwner,
@@ -21,6 +22,7 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   AlertCircle,
   ArrowLeft,
+  Activity,
   Ban,
   Bell,
   BellOff,
@@ -314,6 +316,7 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
   const [linkOpen, setLinkOpen] = useState(false);
   const [hideTarget, setHideTarget] = useState<WhatsAppMessage | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
+  const [diagnosticOpen, setDiagnosticOpen] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastMessageIdRef = useRef<string | null>(null);
@@ -602,9 +605,16 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
           {/* ── Liste des conversations ─────────────────────────────────── */}
           <aside className={cn("h-full w-full min-h-0 flex-col border-line bg-slate-50/70 md:flex md:w-auto md:border-r", mobileChat ? "hidden" : "flex")}>
             <div className="bg-[#008069] px-4 pb-3 pt-4 md:pb-4 md:pt-5">
-              <h1 className="flex items-center gap-2 font-display text-xl font-extrabold text-white">
-                <MessageCircle className="h-5 w-5" /> WhatsApp
-              </h1>
+              <div className="flex items-center justify-between gap-2">
+                <h1 className="flex items-center gap-2 font-display text-xl font-extrabold text-white">
+                  <MessageCircle className="h-5 w-5" /> WhatsApp
+                </h1>
+                {isAdmin && (
+                  <button type="button" onClick={() => setDiagnosticOpen(true)} title="Diagnostic : pourquoi une réponse n'arrive pas ?" className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-bold text-white transition hover:bg-white/25">
+                    <Activity className="h-3.5 w-3.5" /> Diagnostic
+                  </button>
+                )}
+              </div>
               {/* Bascule entre les deux messageries (en plus du menu de la barre de navigation). */}
               <div className="mt-3 grid grid-cols-2 gap-1 rounded-full bg-black/15 p-1" role="tablist" aria-label="Messagerie WhatsApp">
                 {WHATSAPP_SEGMENTS.map((item) => {
@@ -952,6 +962,7 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
 
       {linkOpen && <LinkStudentModal onClose={() => setLinkOpen(false)} onPick={(studentId) => onLink(studentId)} />}
       {hideTarget && <HideMessageModal message={hideTarget} onClose={() => setHideTarget(null)} onConfirm={() => onHide(hideTarget)} />}
+      {diagnosticOpen && <WhatsAppDiagnosticModal onClose={() => setDiagnosticOpen(false)} />}
       {assignOpen && active && (
         <AssignOwnerModal currentOwnerId={active.ownerId} onClose={() => setAssignOpen(false)} onPick={onAssign} />
       )}

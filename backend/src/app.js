@@ -79,6 +79,7 @@ app.get("/api/whatsapp/webhook", whatsappWebhookController.verifyWebhook);
 app.post("/api/whatsapp/webhook", whatsappWebhookController.receiveWebhook);
 
 app.get("/api/whatsapp/conversations", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.listConversations);
+app.get("/api/whatsapp/diagnostic", requireAuth, requireRoles("ADMIN"), whatsappController.diagnostic);
 app.get("/api/whatsapp/unread-count", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.unreadCount);
 app.get("/api/whatsapp/conversations/:contactId/messages", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.getMessages);
 app.post("/api/whatsapp/conversations/:contactId/messages", requireAuth, requireRoles("SALES"), whatsappController.sendMessage);

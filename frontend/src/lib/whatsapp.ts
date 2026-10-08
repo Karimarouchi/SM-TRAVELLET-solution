@@ -59,6 +59,24 @@ export async function sendWhatsAppMessage(contactId: string, text: string) {
 
 // Masque le message dans l'application seulement : l'API de Meta ne permet pas
 // de le supprimer, l'étudiant le voit toujours sur son téléphone.
+export type WhatsAppDiagnostic = {
+  config: { tokenSet: boolean; appSecretSet: boolean; verifyTokenSet: boolean; phoneNumberId: string | null; graphVersion: string };
+  sender: { displayPhone?: string | null; verifiedName?: string | null; quality?: string | null; status?: string | null; error?: string; code?: number | null } | null;
+  receiving: Array<{ phoneNumberId: string; displayPhone: string | null; contacts: number; lastInboundAt: string | null }>;
+  outbound24h: { sent: number; delivered: number; read: number; failed: number };
+  recentFailures: Array<{ at: string; to: string; error: string | null }>;
+  last: {
+    inbound: { at: string; phoneNumberId: string | null; displayPhone: string | null; from: string } | null;
+    status: { at: string; status: string; code: number | null; error: string | null } | null;
+    send: { at: string; ok: boolean; from: string; code?: number | null; error?: string | null; waMessageId?: string | null } | null;
+  };
+  warnings: string[];
+};
+
+export async function fetchWhatsAppDiagnostic() {
+  return request<WhatsAppDiagnostic>("/api/whatsapp/diagnostic");
+}
+
 export async function muteWhatsAppConversation(contactId: string, muted: boolean) {
   return request<WhatsAppConversation>(`/api/whatsapp/conversations/${contactId}/mute`, { method: "PATCH", body: JSON.stringify({ muted }) });
 }

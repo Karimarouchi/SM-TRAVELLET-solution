@@ -77,6 +77,14 @@ async function setBlocked(req, res) {
   }
 }
 
+async function diagnostic(req, res) {
+  try {
+    res.json(await whatsappService.diagnostic(req.auth));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function unreadCount(req, res) {
   try {
     res.json(await whatsappService.unreadCount(req.auth));
@@ -85,4 +93,4 @@ async function unreadCount(req, res) {
   }
 }
 
-module.exports = { listConversations, getMessages, sendMessage, hideMessage, setMuted, setBlocked, linkStudent, assignOwner, unreadCount };
+module.exports = { listConversations, getMessages, sendMessage, hideMessage, diagnostic, setMuted, setBlocked, linkStudent, assignOwner, unreadCount };

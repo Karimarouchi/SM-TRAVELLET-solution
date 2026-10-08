@@ -30,6 +30,37 @@ async function upsertContact(phone, profileName) {
   return result.rows[0];
 }
 
+async function setReceivingNumber(contactId, phoneNumberId, displayPhone) {
+  await query(
+    "UPDATE whatsapp_contacts SET wa_phone_number_id = $2, wa_display_phone = $3 WHERE id = $1",
+    [contactId, phoneNumberId, displayPhone || null]
+  );
+}
+
+// Numéros WhatsApp de l'agence vus à l'arrivée des messages (diagnostic).
+async function listReceivingNumbers() {
+  const result = await query(
+    `SELECT wa_phone_number_id, wa_display_phone, COUNT(*)::int AS contacts, MAX(last_inbound_at) AS last_inbound_at
+     FROM whatsapp_contacts WHERE wa_phone_number_id IS NOT NULL
+     GROUP BY wa_phone_number_id, wa_display_phone ORDER BY MAX(last_inbound_at) DESC NULLS LAST`
+  );
+  return result.rows;
+}
+
+// Messages envoyés depuis l'application : statut, par jour glissant, et derniers échecs.
+async function outboundStats() {
+  const counts = await query(
+    `SELECT status, COUNT(*)::int AS n FROM whatsapp_messages
+     WHERE direction = 'out' AND created_at > NOW() - INTERVAL '24 hours' GROUP BY status`
+  );
+  const failed = await query(
+    `SELECT m.created_at, m.error, c.phone
+     FROM whatsapp_messages m JOIN whatsapp_contacts c ON c.id = m.contact_id
+     WHERE m.direction = 'out' AND m.status = 'failed' ORDER BY m.created_at DESC LIMIT 5`
+  );
+  return { counts: counts.rows, failed: failed.rows };
+}
+
 async function findContactByPhone(phone) {
   const result = await query("SELECT * FROM whatsapp_contacts WHERE phone = $1", [phone]);
   return result.rows[0] || null;
@@ -301,6 +332,9 @@ async function listOrphanContactIds() {
 module.exports = {
   upsertContact,
   findContactByPhone,
+  setReceivingNumber,
+  listReceivingNumbers,
+  outboundStats,
   findConversation,
   findStudentByPhone,
   findStudentForLink,
