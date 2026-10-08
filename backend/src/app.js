@@ -4,7 +4,7 @@ const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const env = require("./config/env");
 const logger = require("./logger");
-const { requireAuth, requireRoles, requirePermission, requireAnyPermission, requireRolesOrPermissions } = require("./security/rbac");
+const { authRoles, requireAuth, requireRoles, requirePermission, requireAnyPermission, requireRolesOrPermissions } = require("./security/rbac");
 const authController = require("./controllers/authController");
 const studentController = require("./controllers/studentController");
 const salesController = require("./controllers/salesController");
@@ -40,6 +40,18 @@ const app = express();
 // relais pour la limitation de débit (connexion, codes…).
 app.set("trust proxy", 1);
 app.use(cors({ origin: env.corsOrigin }));
+// Identifiants du compte créé sur la plateforme de l'université : réservés à l'équipe SM
+// (admin, conseiller, responsable dossier). Jamais renvoyés à un étudiant, quelle que soit la route.
+const PORTAL_KEYS = new Set(["portalLogin", "portalPassword", "portalUrl"]);
+app.use((req, res, next) => {
+  const send = res.json.bind(res);
+  res.json = (body) => {
+    const staff = authRoles(req.auth).some((r) => ["ADMIN", "SALES", "RDV"].includes(r));
+    if (staff || body === null || typeof body !== "object") return send(body);
+    return send(JSON.parse(JSON.stringify(body, (key, value) => (PORTAL_KEYS.has(key) ? undefined : value))));
+  };
+  next();
+});
 app.use(express.json({
   limit: "5mb",
   // Corps brut conservé pour le webhook WhatsApp uniquement : la signature

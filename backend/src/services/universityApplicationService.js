@@ -14,6 +14,7 @@ const emailService = require("./emailService");
 const googleCalendar = require("./googleCalendarService");
 const commissionService = require("./commissionService");
 const logger = require("../logger");
+const secretBox = require("../security/secretBox");
 const { canAccessStudent, canAccessApplication, authRoles } = require("../security/rbac");
 
 function fail(message, status) {
@@ -51,6 +52,9 @@ function dto(row) {
     status: row.status,
     appliedAt: row.applied_at,
     applicationReference: row.application_reference,
+    portalLogin: row.portal_login || null,
+    portalPassword: row.portal_password_enc ? secretBox.decrypt(row.portal_password_enc) : null,
+    portalUrl: row.portal_url || null,
     notes: row.notes,
     interviewDate: row.interview_date,
     interviewType: row.interview_type,
@@ -380,7 +384,19 @@ async function markApplied(auth, applicationId, payload) {
   const appliedAt = payload.appliedAt ? new Date(payload.appliedAt) : new Date();
   if (Number.isNaN(appliedAt.getTime())) throw fail("Date de dépôt invalide.", 400);
 
+  // Compte créé sur la plateforme de l'université : identifiant et mot de passe obligatoires, lien facultatif.
+  const portalLogin = String(payload.portalLogin || "").trim();
+  const portalPassword = String(payload.portalPassword || "");
+  const portalUrl = String(payload.portalUrl || "").trim();
+  if (!portalLogin) throw fail("Saisissez l'identifiant (e-mail) du compte créé sur la plateforme de l'université.", 400);
+  if (!portalPassword) throw fail("Saisissez le mot de passe du compte créé sur la plateforme de l'université.", 400);
+  if (portalLogin.length > 200 || portalPassword.length > 200) throw fail("Identifiant ou mot de passe trop long.", 400);
+  if (portalUrl && !/^https?:\/\/\S+$/i.test(portalUrl)) throw fail("Le lien de la plateforme doit commencer par http:// ou https://.", 400);
+
   const updated = await appRepo.update(applicationId, {
+    portal_login: portalLogin,
+    portal_password_enc: secretBox.encrypt(portalPassword),
+    portal_url: portalUrl || null,
     university_id: universityId,
     programme_id: payload.programmeId || application.programme_id,
     status: "WAITING_UNIVERSITY_RESPONSE",

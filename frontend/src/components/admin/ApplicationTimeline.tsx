@@ -22,6 +22,8 @@ import {
   Calendar,
   CalendarClock,
   CheckCircle2,
+  Eye,
+  EyeOff,
   RotateCcw,
   ExternalLink,
   GraduationCap,
@@ -129,6 +131,9 @@ function ApplicationCard({ app, canAct, onChanged }: { app: UniversityApplicatio
       )}
       {app.appliedAt && (
         <p className="mt-2 text-xs text-muted">Déposée le {fmt(app.appliedAt)}{app.applicationReference ? ` · Réf. ${app.applicationReference}` : ""}</p>
+      )}
+      {app.portalLogin && (
+        <PortalAccount app={app} />
       )}
       {app.interviewDate && (app.status === "INTERVIEW_SCHEDULED" || app.status === "WAITING_UNIVERSITY_RESPONSE") && (
         <div className="mt-2 rounded-xl bg-violet-50 px-3 py-2 text-xs text-violet-700">
@@ -385,6 +390,27 @@ function ModalShell({ title, onClose, children }: { title: string; onClose: () =
   );
 }
 
+function PortalAccount({ app }: { app: UniversityApplication }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-muted">
+      <p className="font-bold uppercase tracking-wide text-[10px]">Compte sur la plateforme de l'université</p>
+      <p className="mt-1">Identifiant : <span className="font-semibold text-dark">{app.portalLogin}</span></p>
+      <p className="flex items-center gap-1.5">
+        Mot de passe : <span className="font-mono font-semibold text-dark">{show ? app.portalPassword || "—" : "••••••••"}</span>
+        <button type="button" onClick={() => setShow((v) => !v)} aria-label={show ? "Masquer" : "Afficher"} className="rounded-full p-0.5 text-muted transition hover:text-dark">
+          {show ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+        </button>
+      </p>
+      {app.portalUrl && (
+        <a href={app.portalUrl} target="_blank" rel="noreferrer" className="mt-1 flex items-center gap-1 text-brand underline">
+          <ExternalLink className="h-3 w-3" /> {app.portalUrl}
+        </a>
+      )}
+    </div>
+  );
+}
+
 function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onClose: () => void; onDone: () => void }) {
   const [universities, setUniversities] = useState<CountryUniversity[]>([]);
   const [universitiesLoading, setUniversitiesLoading] = useState(true);
@@ -392,6 +418,10 @@ function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onCl
   const [customName, setCustomName] = useState("");
   const [appliedAt, setAppliedAt] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
+  const [portalLogin, setPortalLogin] = useState("");
+  const [portalPassword, setPortalPassword] = useState("");
+  const [portalUrl, setPortalUrl] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const useCustom = universityId === "__other__";
@@ -411,10 +441,25 @@ function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onCl
       setError("Saisissez le nom de l'université.");
       return;
     }
+    if (!portalLogin.trim()) {
+      setError("Saisissez l'identifiant (e-mail) du compte créé sur la plateforme de l'université.");
+      return;
+    }
+    if (!portalPassword) {
+      setError("Saisissez le mot de passe du compte créé sur la plateforme de l'université.");
+      return;
+    }
+    if (portalUrl.trim() && !/^https?:\/\/\S+$/i.test(portalUrl.trim())) {
+      setError("Le lien de la plateforme doit commencer par http:// ou https://.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
       await markApplicationApplied(app.id, {
+        portalLogin: portalLogin.trim(),
+        portalPassword,
+        portalUrl: portalUrl.trim() || undefined,
         universityId: useCustom ? undefined : universityId,
         universityName: useCustom ? customName.trim() : undefined,
         appliedAt,
@@ -461,6 +506,23 @@ function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onCl
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Date de dépôt *</label>
           <input type="date" value={appliedAt} onChange={(e) => setAppliedAt(e.target.value)} className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Identifiant du compte (e-mail) *</label>
+          <input type="text" autoComplete="off" maxLength={200} value={portalLogin} onChange={(e) => setPortalLogin(e.target.value)} placeholder="E-mail utilisé pour créer le compte sur la plateforme" className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Mot de passe du compte *</label>
+          <div className="relative">
+            <input type={showPassword ? "text" : "password"} autoComplete="new-password" maxLength={200} value={portalPassword} onChange={(e) => setPortalPassword(e.target.value)} placeholder="Mot de passe du compte créé" className="w-full rounded-lg border border-line bg-slate-50 py-2 pl-3 pr-10 text-sm" />
+            <button type="button" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted transition hover:text-dark">
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Lien de la plateforme de l'université (facultatif)</label>
+          <input type="url" maxLength={500} value={portalUrl} onChange={(e) => setPortalUrl(e.target.value)} placeholder="https://" className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />
         </div>
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Commentaire</label>
