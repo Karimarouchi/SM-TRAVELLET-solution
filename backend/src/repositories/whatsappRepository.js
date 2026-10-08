@@ -82,6 +82,20 @@ async function setStudent(contactId, studentId) {
   );
 }
 
+async function setMuted(contactId, userId) {
+  await query(
+    "UPDATE whatsapp_contacts SET muted_at = CASE WHEN $2::uuid IS NULL THEN NULL ELSE NOW() END, muted_by = $2, updated_at = NOW() WHERE id = $1",
+    [contactId, userId]
+  );
+}
+
+async function setBlocked(contactId, userId) {
+  await query(
+    "UPDATE whatsapp_contacts SET blocked_at = CASE WHEN $2::uuid IS NULL THEN NULL ELSE NOW() END, blocked_by = $2, updated_at = NOW() WHERE id = $1",
+    [contactId, userId]
+  );
+}
+
 async function setAssignedSales(contactId, salesId) {
   await query(
     "UPDATE whatsapp_contacts SET assigned_sales_id = $2, updated_at = NOW() WHERE id = $1",
@@ -162,7 +176,7 @@ async function listConversations({ userId, ownerId, search, contactId = null }) 
     `${CONVERSATIONS_CTE}
      SELECT c.id, c.phone, c.profile_name, c.student_id, c.student_prenom, c.student_nom,
             c.owner_id, ou.prenom AS owner_prenom, ou.nom AS owner_nom,
-            c.last_inbound_at, c.last_message_at,
+            c.last_inbound_at, c.last_message_at, c.muted_at, c.blocked_at,
             lm.body AS last_body, lm.direction AS last_direction, lm.status AS last_status,
             lm.hidden_at IS NOT NULL AS last_hidden,
             (SELECT COUNT(*)::int FROM whatsapp_messages m
@@ -246,7 +260,8 @@ async function unreadCount({ userId, ownerId }) {
        WHERE m.contact_id = c.id AND m.direction = 'in'
          AND m.created_at > COALESCE(r.last_read_at, 'epoch'::timestamptz)
      ) u
-     WHERE ($2::uuid IS NULL OR c.owner_id = $2)`,
+     WHERE ($2::uuid IS NULL OR c.owner_id = $2)
+       AND c.muted_at IS NULL AND c.blocked_at IS NULL`,
     [userId, ownerId]
   );
   const { registered, prospects } = result.rows[0];
@@ -277,7 +292,7 @@ async function listOrphanContactIds() {
     `${CONVERSATIONS_CTE}
      SELECT c.id FROM conv c
      LEFT JOIN users ou ON ou.id = c.owner_id
-     WHERE c.owner_id IS NULL OR ou.is_active IS NOT TRUE
+     WHERE (c.owner_id IS NULL OR ou.is_active IS NOT TRUE) AND c.blocked_at IS NULL
      ORDER BY c.last_message_at DESC NULLS LAST`
   );
   return result.rows.map((row) => row.id);
@@ -291,6 +306,8 @@ module.exports = {
   findStudentForLink,
   setStudent,
   setAssignedSales,
+  setMuted,
+  setBlocked,
   isActiveSales,
   findLeastLoadedActiveSales,
   insertMessage,

@@ -87,6 +87,9 @@ async function ensureOwner(contactId, { isNew = false } = {}) {
     await repo.setAssignedSales(contactId, after);
   }
 
+  // Conversation en sourdine : l'attribution se fait, mais sans notification.
+  if (conversation.muted_at) return;
+
   if (after && (isNew || after !== before)) {
     await notificationService.notify(after, {
       type: "WHATSAPP_ASSIGNED",
@@ -109,6 +112,9 @@ async function handleIncomingMessage(message, profileNames) {
 
   const phone = normalizePhone(message.from);
   if (!phone) return;
+
+  const known = await repo.findContactByPhone(phone);
+  if (known?.blocked_at) return;
 
   const contact = await repo.upsertContact(phone, profileNames[message.from]);
   const isNew = !contact.last_message_at;
@@ -195,6 +201,8 @@ function mapConversation(row) {
     lastDirection: row.last_direction || null,
     lastStatus: row.last_status || null,
     unread: row.unread || 0,
+    muted: Boolean(row.muted_at),
+    blocked: Boolean(row.blocked_at),
     ...windowInfo(row.last_inbound_at)
   };
 }
@@ -278,6 +286,9 @@ async function sendText(auth, contactId, text) {
   if (body.length > MAX_TEXT_LENGTH) throw fail(`Message trop long (${MAX_TEXT_LENGTH} caractères maximum).`, 400);
 
   const conversation = await getAccessibleConversation(auth, contactId);
+  if (conversation.blocked_at) {
+    throw fail("Ce contact est bloqué : débloquez-le pour lui écrire.", 409);
+  }
   if (!windowInfo(conversation.last_inbound_at).windowOpen) {
     throw fail("Plus de 24 h depuis le dernier message de l'étudiant : il doit vous réécrire avant que vous puissiez répondre.", 409);
   }
@@ -348,6 +359,20 @@ async function linkStudent(auth, contactId, studentId) {
   if (student.assigned_sales_id && (await repo.isActiveSales(student.assigned_sales_id))) {
     await repo.setAssignedSales(contactId, student.assigned_sales_id);
   }
+  return mapConversationById(auth, contactId);
+}
+
+// Sourdine : la conversation continue de recevoir les messages mais n'alerte plus personne.
+async function setMuted(auth, contactId, muted) {
+  await getAccessibleConversation(auth, contactId);
+  await repo.setMuted(contactId, muted ? auth.sub : null);
+  return mapConversationById(auth, contactId);
+}
+
+// Blocage : les nouveaux messages de ce numéro sont ignorés et personne ne peut lui écrire.
+async function setBlocked(auth, contactId, blocked) {
+  await getAccessibleConversation(auth, contactId);
+  await repo.setBlocked(contactId, blocked ? auth.sub : null);
   return mapConversationById(auth, contactId);
 }
 
@@ -439,6 +464,8 @@ module.exports = {
   getMessages,
   sendText,
   hideMessage,
+  setMuted,
+  setBlocked,
   linkStudent,
   assignOwner,
   unreadCount,

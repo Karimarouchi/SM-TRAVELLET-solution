@@ -21,7 +21,7 @@ async function listConversations() {
   const result = await query(
     `${CONVERSATIONS_CTE}
      SELECT c.id, c.phone, c.profile_name, c.student_id, c.student_prenom, c.student_nom,
-            c.owner_id, c.created_at, c.last_message_at,
+            c.owner_id, c.created_at, c.last_message_at, c.muted_at, c.blocked_at,
             (SELECT MIN(m.created_at) FROM whatsapp_messages m WHERE m.contact_id = c.id AND m.direction = 'in') AS first_inbound_at,
             (SELECT MAX(m.created_at) FROM whatsapp_messages m WHERE m.contact_id = c.id AND m.direction = 'in') AS last_inbound_at,
             EXISTS (SELECT 1 FROM whatsapp_messages m WHERE m.contact_id = c.id AND m.direction = 'out') AS answered,

@@ -115,7 +115,9 @@ async function computeReport(period) {
 
   // ── WhatsApp ───────────────────────────────────────────────────────────
   // Conversations de la période = celles où le contact a écrit pendant la période.
-  const periodConversations = conversationRows.filter((c) => inPeriod(c.last_inbound_at, since));
+  // Un contact bloqué n'est compté nulle part ; une conversation en sourdine reste dans les
+  // statistiques mais ne déclenche jamais d'alerte « en attente ».
+  const periodConversations = conversationRows.filter((c) => !c.blocked_at && inPeriod(c.last_inbound_at, since));
   const conversationById = new Map(conversationRows.map((c) => [c.id, c]));
   const turns = buildTurns(messages);
   const firstReply = new Map();
@@ -127,7 +129,9 @@ async function computeReport(period) {
   let teamPending = 0;
   for (const turn of turns) {
     const conversation = conversationById.get(turn.contactId);
+    if (conversation?.blocked_at) continue;
     if (!turn.repliedAt) {
+      if (conversation?.muted_at) continue;
       // En attente de réponse maintenant (quelle que soit la période).
       const waiting = minutes(turn.startedAt, now);
       teamPending += 1;

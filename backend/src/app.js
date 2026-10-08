@@ -81,6 +81,8 @@ app.get("/api/whatsapp/unread-count", requireAuth, requireRoles("SALES", "ADMIN"
 app.get("/api/whatsapp/conversations/:contactId/messages", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.getMessages);
 app.post("/api/whatsapp/conversations/:contactId/messages", requireAuth, requireRoles("SALES"), whatsappController.sendMessage);
 app.post("/api/whatsapp/conversations/:contactId/messages/:messageId/hide", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.hideMessage);
+app.patch("/api/whatsapp/conversations/:contactId/mute", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.setMuted);
+app.patch("/api/whatsapp/conversations/:contactId/block", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.setBlocked);
 app.patch("/api/whatsapp/conversations/:contactId/student", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.linkStudent);
 app.patch("/api/whatsapp/conversations/:contactId/owner", requireAuth, requireRoles("ADMIN"), whatsappController.assignOwner);
 

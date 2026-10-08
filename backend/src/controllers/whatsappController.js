@@ -59,6 +59,24 @@ async function assignOwner(req, res) {
   }
 }
 
+async function setMuted(req, res) {
+  try {
+    if (typeof req.body?.muted !== "boolean") return handle(res, Object.assign(new Error("muted (true/false) est requis."), { status: 400 }));
+    res.json(await whatsappService.setMuted(req.auth, req.params.contactId, req.body.muted));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
+async function setBlocked(req, res) {
+  try {
+    if (typeof req.body?.blocked !== "boolean") return handle(res, Object.assign(new Error("blocked (true/false) est requis."), { status: 400 }));
+    res.json(await whatsappService.setBlocked(req.auth, req.params.contactId, req.body.blocked));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function unreadCount(req, res) {
   try {
     res.json(await whatsappService.unreadCount(req.auth));
@@ -67,4 +85,4 @@ async function unreadCount(req, res) {
   }
 }
 
-module.exports = { listConversations, getMessages, sendMessage, hideMessage, linkStudent, assignOwner, unreadCount };
+module.exports = { listConversations, getMessages, sendMessage, hideMessage, setMuted, setBlocked, linkStudent, assignOwner, unreadCount };

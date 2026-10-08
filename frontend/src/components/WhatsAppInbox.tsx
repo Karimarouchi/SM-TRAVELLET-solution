@@ -1,11 +1,14 @@
+import { confirmDialog } from "@/components/ui/dialog-host";
 import { fetchAssignmentBoard, fetchMyStudents, getSession, type BoardSales, type BoardStudent } from "@/lib/auth";
 import {
   assignWhatsAppOwner,
+  blockWhatsAppConversation,
   fetchWhatsAppConversations,
   fetchWhatsAppMessages,
   formatWhatsAppPhone,
   hideWhatsAppMessage,
   linkWhatsAppStudent,
+  muteWhatsAppConversation,
   sendWhatsAppMessage,
   segmentOf,
   WHATSAPP_SEGMENTS,
@@ -18,6 +21,9 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   AlertCircle,
   ArrowLeft,
+  Ban,
+  Bell,
+  BellOff,
   Check,
   CheckCheck,
   ChevronDown,
@@ -30,6 +36,7 @@ import {
   MessageCircle,
   Search,
   Send,
+  ShieldCheck,
   UserCog,
   X
 } from "lucide-react";
@@ -294,7 +301,7 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
   const [conversations, setConversations] = useState<WhatsAppConversation[]>([]);
   const [listLoaded, setListLoaded] = useState(false);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "unread" | "unassigned">("all");
+  const [filter, setFilter] = useState<"all" | "unread" | "unassigned" | "blocked">("all");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [mobileChat, setMobileChat] = useState(false);
 
@@ -459,6 +466,35 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
     await loadList();
   }
 
+  async function onToggleMute() {
+    if (!active) return;
+    try {
+      const updated = await muteWhatsAppConversation(active.id, !active.muted);
+      setConversations((previous) => previous.map((item) => (item.id === active.id ? { ...item, muted: updated.muted } : item)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur.");
+    }
+  }
+
+  async function onToggleBlock() {
+    if (!active) return;
+    if (!active.blocked) {
+      const confirmed = await confirmDialog(
+        "Les nouveaux messages de ce numéro seront ignorés (ni enregistrés, ni comptés, ni attribués) et vous ne pourrez plus lui écrire. Vous pourrez le débloquer depuis l'onglet « Bloquées ».",
+        { tone: "danger", title: "Bloquer ce contact ?", confirmLabel: "Bloquer" }
+      );
+      if (!confirmed) return;
+    }
+    try {
+      const updated = await blockWhatsAppConversation(active.id, !active.blocked);
+      setConversations((previous) => previous.map((item) => (item.id === active.id ? { ...item, blocked: updated.blocked } : item)));
+      if (updated.blocked) setFilter("blocked");
+      else if (filter === "blocked") setFilter("all");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur.");
+    }
+  }
+
   async function onAssign(salesId: string | null) {
     if (!activeId) return;
     await assignWhatsAppOwner(activeId, salesId);
@@ -470,10 +506,15 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
   // un compte étudiant, « non inscrits » = les autres. Quand un prospect
   // s'inscrit avec son code, sa conversation passe toute seule côté inscrits.
   const inSegment = conversations.filter((item) => segmentOf(item) === segment);
-  const otherUnread = conversations.filter((item) => segmentOf(item) !== segment).reduce((sum, item) => sum + item.unread, 0);
+  const otherUnread = conversations
+    .filter((item) => segmentOf(item) !== segment && !item.muted && !item.blocked)
+    .reduce((sum, item) => sum + item.unread, 0);
+  const blockedCount = inSegment.filter((item) => item.blocked).length;
 
   const visible = inSegment.filter((item) => {
-    if (filter === "unread") return item.unread > 0;
+    if (filter === "blocked") return item.blocked;
+    if (item.blocked) return false;
+    if (filter === "unread") return item.unread > 0 && !item.muted;
     if (filter === "unassigned") return !item.ownerId;
     return true;
   });
@@ -481,7 +522,8 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
   const filters = [
     { id: "all" as const, label: "Toutes" },
     { id: "unread" as const, label: "Non lues" },
-    ...(isAdmin ? [{ id: "unassigned" as const, label: "Non attribuées" }] : [])
+    ...(isAdmin ? [{ id: "unassigned" as const, label: "Non attribuées" }] : []),
+    { id: "blocked" as const, label: blockedCount ? `Bloquées (${blockedCount})` : "Bloquées" }
   ];
 
   // Admin, messagerie « inscrits » : les discussions sont regroupées par
@@ -534,7 +576,9 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
               <>{item.lastDirection === "out" && "Vous : "}{item.lastBody}</>
             )}
           </span>
-          {item.unread > 0 && (
+          {item.muted && <BellOff className="h-3.5 w-3.5 shrink-0 text-muted" aria-label="En sourdine" />}
+          {item.blocked && <Ban className="h-3.5 w-3.5 shrink-0 text-red-500" aria-label="Bloquée" />}
+          {item.unread > 0 && !item.muted && !item.blocked && (
             <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] font-bold text-white">
               {item.unread}
             </span>
@@ -704,6 +748,29 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
                         <span className="hidden md:inline">Lier à un étudiant</span>
                       </button>
                     )}
+                    <button
+                      type="button"
+                      title={active.muted ? "Réactiver les notifications" : "Mettre en sourdine"}
+                      aria-pressed={active.muted}
+                      onClick={onToggleMute}
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full p-2 text-white transition hover:bg-white/15 md:p-1.5 md:hover:bg-slate-200",
+                        active.muted ? "md:bg-amber-100 md:text-amber-700" : "md:text-muted"
+                      )}
+                    >
+                      {active.muted ? <BellOff className="h-[18px] w-[18px] md:h-4 md:w-4" /> : <Bell className="h-[18px] w-[18px] md:h-4 md:w-4" />}
+                    </button>
+                    <button
+                      type="button"
+                      title={active.blocked ? "Débloquer ce contact" : "Bloquer ce contact"}
+                      onClick={onToggleBlock}
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full p-2 text-white transition hover:bg-white/15 md:p-1.5",
+                        active.blocked ? "md:bg-emerald-100 md:text-emerald-700 md:hover:bg-emerald-200" : "md:text-muted md:hover:bg-red-50 md:hover:text-red-600"
+                      )}
+                    >
+                      {active.blocked ? <ShieldCheck className="h-[18px] w-[18px] md:h-4 md:w-4" /> : <Ban className="h-[18px] w-[18px] md:h-4 md:w-4" />}
+                    </button>
                     {isAdmin && (
                       <button
                         type="button"
@@ -810,7 +877,13 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
                     </span>
                   </div>
                 )}
-                {!active.windowOpen && (
+                {active.muted && !active.blocked && (
+                  <div className="flex items-start gap-2 bg-slate-100 px-4 py-1.5 text-[12px] leading-snug text-slate-700">
+                    <BellOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>Conversation en sourdine : elle ne compte plus dans les non lus et ne déclenche plus d'alerte.</span>
+                  </div>
+                )}
+                {!active.windowOpen && !active.blocked && (
                   <div className="flex items-start gap-2 bg-[#fff8e1] px-4 py-2 text-[12px] leading-snug text-amber-900">
                     <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <span>
@@ -821,6 +894,16 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
                 )}
                 {error && <p className="bg-[#f0f2f5] px-4 pt-2 text-xs text-red-500">{error}</p>}
 
+                {active.blocked ? (
+                  <div className="flex flex-wrap items-center justify-between gap-3 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    <span className="flex items-center gap-2 font-semibold">
+                      <Ban className="h-4 w-4 shrink-0" /> Contact bloqué : ses nouveaux messages sont ignorés et vous ne pouvez plus lui écrire.
+                    </span>
+                    <button type="button" onClick={onToggleBlock} className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-bold text-emerald-700 shadow-sm transition hover:bg-emerald-600 hover:text-white">
+                      <ShieldCheck className="h-3.5 w-3.5" /> Débloquer
+                    </button>
+                  </div>
+                ) : (
                 <div
                   className="flex items-end gap-2 bg-[#f0f2f5] px-2 pt-2 md:px-3"
                   style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
@@ -849,6 +932,7 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
                     <Send className="h-[18px] w-[18px]" />
                   </button>
                 </div>
+                )}
               </>
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center bg-[#f7f5f2] px-8 text-center">

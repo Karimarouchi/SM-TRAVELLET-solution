@@ -16,6 +16,10 @@ export type WhatsAppConversation = {
   lastDirection: "in" | "out" | null;
   lastStatus: WhatsAppStatus | null;
   unread: number;
+  /** Sourdine : pas de non lus, de notification ni d'alerte « en attente ». */
+  muted: boolean;
+  /** Bloquée : les nouveaux messages sont ignorés et on ne peut plus lui écrire. */
+  blocked: boolean;
   windowOpen: boolean;
   windowExpiresAt: string | null;
 };
@@ -55,6 +59,14 @@ export async function sendWhatsAppMessage(contactId: string, text: string) {
 
 // Masque le message dans l'application seulement : l'API de Meta ne permet pas
 // de le supprimer, l'étudiant le voit toujours sur son téléphone.
+export async function muteWhatsAppConversation(contactId: string, muted: boolean) {
+  return request<WhatsAppConversation>(`/api/whatsapp/conversations/${contactId}/mute`, { method: "PATCH", body: JSON.stringify({ muted }) });
+}
+
+export async function blockWhatsAppConversation(contactId: string, blocked: boolean) {
+  return request<WhatsAppConversation>(`/api/whatsapp/conversations/${contactId}/block`, { method: "PATCH", body: JSON.stringify({ blocked }) });
+}
+
 export async function hideWhatsAppMessage(contactId: string, messageId: string) {
   return request<{ hidden: boolean }>(`/api/whatsapp/conversations/${contactId}/messages/${messageId}/hide`, { method: "POST" });
 }
