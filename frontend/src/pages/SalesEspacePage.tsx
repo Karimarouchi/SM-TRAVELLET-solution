@@ -8,10 +8,13 @@ import { fetchWhatsAppUnread } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
+  Archive,
   ArrowRight,
   Banknote,
   CalendarClock,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   ClipboardCheck,
   FileCheck2,
   GraduationCap,
@@ -24,10 +27,13 @@ import {
   Users
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 type Filter = "all" | "attention" | "docs" | "payment" | "onboarding" | "application" | "visa" | "done";
 type Sort = "priority" | "recent" | "name";
+
+// « Mes étudiants » : 5 par page ; un dossier terminé (visa obtenu) passe aux archives.
+const PAGE_SIZE = 5;
 
 const FAMILIES: Record<Exclude<Filter, "all" | "attention" | "docs" | "payment">, PipelineStageKey[]> = {
   onboarding: ["onboarding", "no_application"],
@@ -172,12 +178,14 @@ function KpiTile({
 export default function SalesEspacePage() {
   const { t } = useLanguage();
   const session = getSession();
+  const navigate = useNavigate();
   const [data, setData] = useState<SalesOverview | null>(null);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [sort, setSort] = useState<Sort>("priority");
   const [search, setSearch] = useState("");
   const [unread, setUnread] = useState(0);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     fetchSalesOverview()
@@ -190,7 +198,10 @@ export default function SalesEspacePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const students = data?.students || [];
+  const allStudents = data?.students || [];
+  // Les dossiers terminés (visa obtenu) sont dans l'archive, plus dans cette liste.
+  const students = allStudents.filter((s) => s.stage !== "completed");
+  const archivedCount = allStudents.length - students.length;
   const urgent = useMemo(() => students.filter((s) => s.attention.length > 0).slice(0, 6), [students]);
 
   const visible = useMemo(() => {
@@ -201,6 +212,14 @@ export default function SalesEspacePage() {
     return list;
   }, [students, filter, search, sort]);
 
+  // Retour à la première page quand le filtre, la recherche ou le tri change.
+  useEffect(() => {
+    setPage(1);
+  }, [filter, search, sort]);
+  const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const paged = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
   if (!session?.user) return null;
   const k = data?.kpis;
 
@@ -209,8 +228,7 @@ export default function SalesEspacePage() {
     { id: "attention", label: t("À traiter", "To handle"), count: k?.needAttention || 0 },
     { id: "onboarding", label: t("Onboarding / sans candidature", "Onboarding / no application"), count: students.filter((s) => matchesFilter(s, "onboarding")).length },
     { id: "application", label: t("Candidature", "Application"), count: students.filter((s) => matchesFilter(s, "application")).length },
-    { id: "visa", label: t("Visa", "Visa"), count: students.filter((s) => matchesFilter(s, "visa")).length },
-    { id: "done", label: t("Terminés", "Completed"), count: students.filter((s) => matchesFilter(s, "done")).length }
+    { id: "visa", label: t("Visa", "Visa"), count: students.filter((s) => matchesFilter(s, "visa")).length }
   ];
 
   const toggle = (next: Filter) => {
@@ -254,7 +272,7 @@ export default function SalesEspacePage() {
         <KpiTile icon={FileCheck2} label={t("Documents", "Documents")} value={k?.docsToReview ?? "–"} hint={t("à valider", "to review")} tone="bg-sky-100 text-sky-600" active={filter === "docs"} onClick={() => toggle("docs")} />
         <KpiTile icon={Banknote} label={t("Paiements", "Payments")} value={k?.paymentsLate ?? "–"} hint={t("en retard", "overdue")} tone="bg-red-100 text-red-600" active={filter === "payment"} onClick={() => toggle("payment")} />
         <KpiTile icon={GraduationCap} label={t("En cours", "In progress")} value={k?.inProgress ?? "–"} hint={t("candidatures et visas", "applications and visas")} tone="bg-violet-100 text-brand" active={filter === "application"} onClick={() => toggle("application")} />
-        <KpiTile icon={Trophy} label={t("Visas obtenus", "Visas granted")} value={k?.visasObtained ?? "–"} hint={t("dossiers terminés", "completed files")} tone="bg-emerald-100 text-emerald-600" active={filter === "done"} onClick={() => toggle("done")} />
+        <KpiTile icon={Trophy} label={t("Visas obtenus", "Visas granted")} value={k?.visasObtained ?? "–"} hint={t("dossiers terminés", "completed files")} tone="bg-emerald-100 text-emerald-600" active={false} onClick={() => navigate("/archive")} />
       </section>
 
       {/* ── À traiter maintenant + commissions ──────────────────────── */}
@@ -383,7 +401,7 @@ export default function SalesEspacePage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line/60">
-                  {visible.map((student) => (
+                  {paged.map((student) => (
                     <tr key={student.id} className="align-top transition hover:bg-brand/5">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
@@ -416,7 +434,7 @@ export default function SalesEspacePage() {
 
             {/* Téléphone : cartes */}
             <div className="mt-4 space-y-3 md:hidden">
-              {visible.map((student) => (
+              {paged.map((student) => (
                 <article key={student.id} className="rounded-2xl border border-line bg-white p-4 shadow-sm">
                   <div className="flex items-start gap-3">
                     <UserAvatar name={fullName(student)} src={student.avatarUrl} size="md" />
@@ -436,7 +454,53 @@ export default function SalesEspacePage() {
                 </article>
               ))}
             </div>
+
+            {/* Pagination */}
+            {visible.length > PAGE_SIZE && (
+              <nav className="mt-4 flex flex-wrap items-center justify-between gap-3" aria-label={t("Pagination des étudiants", "Students pagination")}>
+                <p className="text-xs text-muted">
+                  {t("Étudiants", "Students")} {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, visible.length)} {t("sur", "of")} {visible.length}
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={currentPage === 1}
+                    onClick={() => setPage(currentPage - 1)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-bold text-mid transition hover:border-brand hover:text-brand disabled:opacity-40"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" aria-hidden /> {t("Précédent", "Previous")}
+                  </button>
+                  {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setPage(n)}
+                      aria-current={n === currentPage ? "page" : undefined}
+                      className={cn("h-8 min-w-8 rounded-lg px-2 text-xs font-bold transition", n === currentPage ? "bg-brand text-white shadow" : "border border-line bg-white text-mid hover:border-brand hover:text-brand")}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    disabled={currentPage === pageCount}
+                    onClick={() => setPage(currentPage + 1)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-bold text-mid transition hover:border-brand hover:text-brand disabled:opacity-40"
+                  >
+                    {t("Suivant", "Next")} <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                </div>
+              </nav>
+            )}
           </>
+        )}
+
+        {archivedCount > 0 && (
+          <Link to="/archive" className="mt-4 inline-flex items-center gap-2 rounded-xl border border-line bg-white px-4 py-2.5 text-xs font-bold text-mid shadow-sm transition hover:border-brand hover:text-brand">
+            <Archive className="h-4 w-4 text-brand" aria-hidden />
+            {t(`${archivedCount} dossier${archivedCount > 1 ? "s" : ""} terminé${archivedCount > 1 ? "s" : ""} dans l'archive`, `${archivedCount} completed file${archivedCount > 1 ? "s" : ""} in the archive`)}
+            <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+          </Link>
         )}
       </section>
     </main>
