@@ -422,15 +422,19 @@ function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onCl
   const [error, setError] = useState("");
 
   const submit = async () => {
+    if (!portalUrl.trim()) {
+      setError("Saisissez le lien de la plateforme de l'université.");
+      return;
+    }
     if (!portalLogin.trim()) {
-      setError("Saisissez l'identifiant (e-mail) du compte créé sur la plateforme de l'université.");
+      setError("Saisissez l'identifiant du compte (e-mail ou identifiant de la plateforme).");
       return;
     }
     if (!portalPassword) {
       setError("Saisissez le mot de passe du compte créé sur la plateforme de l'université.");
       return;
     }
-    if (portalUrl.trim() && !/^https?:\/\/\S+$/i.test(portalUrl.trim())) {
+    if (!/^https?:\/\/\S+$/i.test(portalUrl.trim())) {
       setError("Le lien de la plateforme doit commencer par http:// ou https://.");
       return;
     }
@@ -440,7 +444,7 @@ function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onCl
       await markApplicationApplied(app.id, {
         portalLogin: portalLogin.trim(),
         portalPassword,
-        portalUrl: portalUrl.trim() || undefined,
+        portalUrl: portalUrl.trim(),
         appliedAt,
         notes: notes || undefined
       });
@@ -464,8 +468,8 @@ function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onCl
           <input type="date" value={appliedAt} onChange={(e) => setAppliedAt(e.target.value)} className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Identifiant du compte (e-mail) *</label>
-          <input type="text" autoComplete="off" maxLength={200} value={portalLogin} onChange={(e) => setPortalLogin(e.target.value)} placeholder="E-mail utilisé pour créer le compte sur la plateforme" className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />
+          <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Identifiant du compte *</label>
+          <input type="text" autoComplete="off" maxLength={200} value={portalLogin} onChange={(e) => setPortalLogin(e.target.value)} placeholder="E-mail ou identifiant de la plateforme de l'université" className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />
         </div>
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Mot de passe du compte *</label>
@@ -477,8 +481,8 @@ function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onCl
           </div>
         </div>
         <div>
-          <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Lien de la plateforme de l'université (facultatif)</label>
-          <input type="url" maxLength={500} value={portalUrl} onChange={(e) => setPortalUrl(e.target.value)} placeholder="https://" className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />
+          <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Lien de la plateforme de l'université *</label>
+          <input type="url" required maxLength={500} value={portalUrl} onChange={(e) => setPortalUrl(e.target.value)} placeholder="https://" className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />
         </div>
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Commentaire</label>

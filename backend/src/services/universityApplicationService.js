@@ -384,14 +384,15 @@ async function markApplied(auth, applicationId, payload) {
   const appliedAt = payload.appliedAt ? new Date(payload.appliedAt) : new Date();
   if (Number.isNaN(appliedAt.getTime())) throw fail("Date de dépôt invalide.", 400);
 
-  // Compte créé sur la plateforme de l'université : identifiant et mot de passe obligatoires, lien facultatif.
+  // Compte créé sur la plateforme de l'université : lien, identifiant (e-mail ou identifiant de la plateforme) et mot de passe obligatoires.
   const portalLogin = String(payload.portalLogin || "").trim();
   const portalPassword = String(payload.portalPassword || "");
   const portalUrl = String(payload.portalUrl || "").trim();
-  if (!portalLogin) throw fail("Saisissez l'identifiant (e-mail) du compte créé sur la plateforme de l'université.", 400);
+  if (!portalUrl) throw fail("Saisissez le lien de la plateforme de l'université.", 400);
+  if (!portalLogin) throw fail("Saisissez l'identifiant du compte (e-mail ou identifiant de la plateforme).", 400);
   if (!portalPassword) throw fail("Saisissez le mot de passe du compte créé sur la plateforme de l'université.", 400);
   if (portalLogin.length > 200 || portalPassword.length > 200) throw fail("Identifiant ou mot de passe trop long.", 400);
-  if (portalUrl && !/^https?:\/\/\S+$/i.test(portalUrl)) throw fail("Le lien de la plateforme doit commencer par http:// ou https://.", 400);
+  if (!/^https?:\/\/\S+$/i.test(portalUrl)) throw fail("Le lien de la plateforme doit commencer par http:// ou https://.", 400);
 
   const updated = await appRepo.update(applicationId, {
     portal_login: portalLogin,

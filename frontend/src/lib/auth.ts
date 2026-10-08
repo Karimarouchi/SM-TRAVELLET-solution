@@ -1380,7 +1380,7 @@ export async function fetchStudentApplicationHistory(studentId: string): Promise
 
 export async function markApplicationApplied(
   applicationId: string,
-  payload: { universityId?: string; universityName?: string; programmeId?: string; appliedAt: string; applicationReference?: string; portalLogin: string; portalPassword: string; portalUrl?: string; notes?: string }
+  payload: { universityId?: string; universityName?: string; programmeId?: string; appliedAt: string; applicationReference?: string; portalLogin: string; portalPassword: string; portalUrl: string; notes?: string }
 ): Promise<UniversityApplication> {
   return request<UniversityApplication>(`/api/applications/${applicationId}/apply`, {
     method: "PATCH",
