@@ -9,6 +9,7 @@ import {
   formatMoney,
   getSession,
   reviewApplicationVisaDocument,
+  rejectDocumentAsRdv,
   reviewStudentDocument,
   type ApplicationHistoryEntry,
   type AuthUser,
@@ -241,7 +242,11 @@ export default function StudentDetailPage() {
 
   // reviewStudentDocument nécessite l'id étudiant : on le fournit via une closure locale
   const reviewFor = (name: string, status: "VALIDATED" | "REJECTED", reason?: string, universityId?: string | null) =>
-    id ? reviewStudentDocument(id, name, status, reason, universityId) : Promise.reject(new Error(t("Étudiant inconnu.", "Unknown student.")));
+    id
+      ? role === "RDV"
+        ? rejectDocumentAsRdv(id, name, reason || "", universityId)
+        : reviewStudentDocument(id, name, status, reason, universityId)
+      : Promise.reject(new Error(t("Étudiant inconnu.", "Unknown student.")));
 
   const stage = useMemo(() => stageOf(Boolean(profile?.onboardingCompleted), applications), [profile, applications]);
   const docsToReview = documents.filter((d) => d.status === "SUBMITTED").length;
@@ -396,7 +401,7 @@ export default function StudentDetailPage() {
                     </p>
                   ) : (
                     documents.map((doc) => (
-                      <DocumentReviewRow key={`${doc.universityId || "pays"}:${doc.name}`} doc={doc} reviewFor={reviewFor} onReviewed={handleReviewed} canReview={isReviewer} />
+                      <DocumentReviewRow key={`${doc.universityId || "pays"}:${doc.name}`} doc={doc} reviewFor={reviewFor} onReviewed={handleReviewed} canReview={isReviewer} rejectOnly={role === "RDV"} />
                     ))
                   )}
                 </div>
@@ -606,9 +611,12 @@ function DocumentReviewRow({
   doc,
   reviewFor,
   onReviewed,
-  canReview = true
+  canReview = true,
+  rejectOnly = false
 }: {
   canReview?: boolean;
+  /** Responsable Dossier : peut seulement refuser (avec motif) un document déjà validé. */
+  rejectOnly?: boolean;
   doc: StudentDocumentChecklistItem;
   reviewFor: (name: string, status: "VALIDATED" | "REJECTED", reason?: string, universityId?: string | null) => Promise<StudentDocumentChecklistItem>;
   onReviewed: (d: StudentDocumentChecklistItem) => void;
@@ -695,18 +703,20 @@ function DocumentReviewRow({
         <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{t("Motif", "Reason")} : {doc.rejectionReason}</p>
       )}
 
-      {canReview && open && (doc.status === "SUBMITTED" || doc.status === "REJECTED" || doc.status === "VALIDATED") && (
+      {(canReview || rejectOnly) && open && (rejectOnly ? doc.status === "VALIDATED" : doc.status === "SUBMITTED" || doc.status === "REJECTED" || doc.status === "VALIDATED") && (
         <div className="mt-3 space-y-2">
           {!rejecting ? (
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={busy || doc.status === "VALIDATED"}
-                onClick={handleValidate}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100 transition disabled:opacity-60"
-              >
-                <ThumbsUp className="h-3 w-3" /> {t("Valider", "Approve")}
-              </button>
+              {!rejectOnly && (
+                <button
+                  type="button"
+                  disabled={busy || doc.status === "VALIDATED"}
+                  onClick={handleValidate}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100 transition disabled:opacity-60"
+                >
+                  <ThumbsUp className="h-3 w-3" /> {t("Valider", "Approve")}
+                </button>
+              )}
               <button
                 type="button"
                 disabled={busy}
@@ -722,7 +732,7 @@ function DocumentReviewRow({
                 rows={2}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder={t("Motif du refus (obligatoire, visible par l'étudiant)", "Rejection reason (required, visible to the student)")}
+                placeholder={rejectOnly ? t("Motif du refus (obligatoire, visible par l'étudiant et le conseiller)", "Rejection reason (required, visible to the student and the advisor)") : t("Motif du refus (obligatoire, visible par l'étudiant)", "Rejection reason (required, visible to the student)")}
                 className="w-full resize-none rounded-lg border border-line bg-slate-50 px-3 py-1.5 text-xs outline-none focus:border-brand"
                 autoFocus
               />

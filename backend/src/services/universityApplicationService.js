@@ -378,6 +378,15 @@ async function markApplied(auth, applicationId, payload) {
   // Paiement : la tranche inscription doit être réglée avant le dépôt de la candidature.
   await paymentService.assertRegistrationPaid(application);
 
+  // Un document refusé (par le Responsable Dossier) doit être redéposé puis revalidé par le conseiller.
+  const requiredStatuses = [
+    ...(await studentDocRepo.findRequiredActiveStatusesForCountry(application.country_id, application.student_id)),
+    ...(await studentDocRepo.findRequiredActiveStatusesForUniversity(application.university_id, application.student_id))
+  ];
+  if (requiredStatuses.some((d) => d.status === "REJECTED")) {
+    throw fail("Un document est refusé : attendez que l'étudiant le redépose et que le conseiller le valide avant de déposer la candidature.", 409);
+  }
+
   let universityId = application.university_id;
   const resolved = await resolveUniversity(application.country_id, payload);
   if (resolved) universityId = resolved.id;

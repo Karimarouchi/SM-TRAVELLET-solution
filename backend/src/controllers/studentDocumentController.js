@@ -54,6 +54,15 @@ async function review(req, res) {
   }
 }
 
+async function rdvReject(req, res) {
+  try {
+    const { name, reason, universityId } = req.body;
+    res.json(await studentDocumentService.rejectDocumentAsRdv(req.auth, req.params.id, name, reason, universityId));
+  } catch (error) {
+    res.status(error.status || 400).json({ error: error.message || "Requête invalide." });
+  }
+}
+
 async function myVisaChecklist(req, res) {
   try {
     const data = await studentDocumentService.getMyVisaChecklist(req.auth.sub);
@@ -93,6 +102,7 @@ async function reviewVisa(req, res) {
 }
 
 module.exports = {
+  rdvReject,
   file,
   list,
   upload,

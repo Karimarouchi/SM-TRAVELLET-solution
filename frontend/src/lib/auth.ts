@@ -1601,6 +1601,18 @@ export async function fetchStudentDocuments(studentId: string): Promise<StudentD
   return request<StudentDocumentChecklistItem[]>(`/api/students/${studentId}/documents`);
 }
 
+export async function rejectDocumentAsRdv(
+  studentId: string,
+  name: string,
+  reason: string,
+  universityId?: string | null
+): Promise<StudentDocumentChecklistItem> {
+  return request<StudentDocumentChecklistItem>(`/api/students/${studentId}/documents/rdv-reject`, {
+    method: "PATCH",
+    body: JSON.stringify({ name, reason, universityId: universityId || undefined })
+  });
+}
+
 export async function reviewStudentDocument(
   studentId: string,
   name: string,

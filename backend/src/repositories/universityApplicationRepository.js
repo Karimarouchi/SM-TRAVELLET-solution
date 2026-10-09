@@ -267,6 +267,15 @@ async function findAcceptedWithoutRdv() {
   return result.rows;
 }
 
+// Candidatures « prêtes à postuler » (pas encore déposées) d'un étudiant, affectées à ce Responsable Dossier.
+async function listReadyForRdv(rdvUserId, studentId) {
+  const result = await query(
+    "SELECT * FROM university_applications WHERE assigned_rdv_id = $1 AND student_id = $2 AND status = 'READY_TO_APPLY'",
+    [rdvUserId, studentId]
+  );
+  return result.rows;
+}
+
 async function rdvHasStudent(rdvUserId, studentId) {
   const result = await query(
     "SELECT 1 FROM university_applications WHERE assigned_rdv_id = $1 AND student_id = $2 LIMIT 1",
@@ -277,6 +286,7 @@ async function rdvHasStudent(rdvUserId, studentId) {
 
 module.exports = {
   rdvHasStudent,
+  listReadyForRdv,
   findById,
   listForStudent,
   findActiveForStudent,

@@ -259,6 +259,65 @@ async function reviewDocument(auth, studentId, name, status, reason, universityI
   return findItem(checklist, trimmedName, universityId);
 }
 
+// Le Responsable Dossier peut refuser un document déjà validé par le conseiller, tant que la
+// candidature n'est pas déposée : le document repasse « refusé » avec son motif, l'étudiant et le
+// conseiller sont prévenus, et le conseiller fait redéposer un autre document.
+async function rejectDocumentAsRdv(auth, studentId, name, reason, universityId = null) {
+  if (!authRoles(auth).includes("RDV")) throw fail("Action réservée au Responsable Dossier.", 403);
+  const trimmedReason = String(reason || "").trim();
+  if (!trimmedReason) throw fail("Indiquez le motif du refus.", 400);
+  if (trimmedReason.length > 500) throw fail("Le motif est trop long (500 caractères maximum).", 400);
+
+  const readyApps = await appRepo.listReadyForRdv(auth.sub, studentId);
+  if (!readyApps.length) {
+    throw fail("Vous pouvez refuser un document tant que la candidature de cet étudiant (qui vous est affectée) n'est pas déposée.", 403);
+  }
+
+  const profile = await studentRepo.ensureProfile(studentId);
+  const trimmedName = String(name || "").trim();
+  const group = await requirementGroup(studentId, profile, trimmedName, universityId || null);
+  if (!group.length) throw fail("Document introuvable pour ce dossier.", 404);
+  const existing = await studentDocRepo.findStudentDocumentsByRequirementIds(studentId, group.map((g) => g.id));
+  if (!existing.some((d) => d.file_url)) throw fail("Aucun fichier n’a encore été déposé pour ce document.", 400);
+  if (!existing.some((d) => d.status === "VALIDATED")) throw fail("Seul un document validé par le conseiller peut être refusé ici.", 409);
+
+  await studentDocRepo.updateStatusForRequirementIds(studentId, group.map((g) => g.id), "REJECTED", auth.sub, trimmedReason);
+
+  const [student, rdv] = await Promise.all([userRepo.findById(studentId), userRepo.findById(auth.sub)]);
+  const studentName = student ? `${student.prenom} ${student.nom}`.trim() : "L'étudiant";
+  const rdvName = rdv ? `${rdv.prenom} ${rdv.nom}`.trim() : "Le Responsable Dossier";
+  const label = `${trimmedName}${group[0].university_name ? ` (${group[0].university_name})` : ""}`;
+
+  for (const app of readyApps) {
+    await appRepo.addHistory({
+      applicationId: app.id,
+      studentId,
+      oldStatus: app.status,
+      newStatus: app.status,
+      changedBy: auth.sub,
+      comment: `Document refusé par le Responsable Dossier : ${label} — ${trimmedReason}`
+    });
+  }
+
+  await notificationService.notify(studentId, {
+    type: "DOCUMENT_REJECTED",
+    title: `Document refusé : ${label}`,
+    body: `${trimmedReason}. Merci de le redéposer dans votre espace Documents.`,
+    link: "/documents"
+  });
+  if (profile.assigned_sales_id) {
+    await notificationService.notify(profile.assigned_sales_id, {
+      type: "DOCUMENT_REJECTED_BY_RDV",
+      title: `Document refusé par le Responsable Dossier : ${label}`,
+      body: `${studentName} : ${rdvName} a refusé ce document (${trimmedReason}). Faites redéposer un autre document ; le dossier sera à revalider.`,
+      link: `/conseiller/etudiants/${studentId}`
+    });
+  }
+
+  const checklist = await getChecklist(studentId);
+  return findItem(checklist, trimmedName, universityId);
+}
+
 // -------------------------------------------------------------------------
 // Documents VISA — même mécanique que les documents DOSSIER ci-dessus, mais
 // scopée à une candidature précise (un seul pays) plutôt qu'à la liste des
@@ -438,6 +497,7 @@ module.exports = {
   getChecklistFor,
   uploadDocument,
   reviewDocument,
+  rejectDocumentAsRdv,
   getMyVisaChecklist,
   uploadVisaDocument,
   getVisaChecklistForApplication,

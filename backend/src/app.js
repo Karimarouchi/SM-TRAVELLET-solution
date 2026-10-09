@@ -149,6 +149,7 @@ app.put("/api/university-documents/:id", requireAuth, requireRolesOrPermissions(
 app.patch("/api/university-documents/:id/active", requireAuth, requireRolesOrPermissions(["SALES", "ADMIN"], ["MANAGE_COUNTRIES"]), documentRequirementController.setActive);
 app.delete("/api/university-documents/:id", requireAuth, requireRolesOrPermissions(["SALES", "ADMIN"], ["MANAGE_COUNTRIES"]), documentRequirementController.remove);
 app.get("/api/students/:id/documents", requireAuth, requireRoles("SALES", "ADMIN", "RDV"), studentDocumentController.listForStudent);
+app.patch("/api/students/:id/documents/rdv-reject", requireAuth, requireRoles("RDV"), studentDocumentController.rdvReject);
 app.patch("/api/students/:id/documents/review", requireAuth, requireRoles("SALES", "ADMIN"), studentDocumentController.review);
 app.get("/api/students/me/visa-documents", requireAuth, requireRoles("STUDENT"), studentDocumentController.myVisaChecklist);
 app.post("/api/students/me/visa-documents", requireAuth, requireRoles("STUDENT"), studentDocumentController.uploadVisa);
