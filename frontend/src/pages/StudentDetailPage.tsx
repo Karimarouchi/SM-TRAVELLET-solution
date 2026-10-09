@@ -181,6 +181,8 @@ export default function StudentDetailPage() {
   const session = getSession();
   const role = session?.user?.role;
   const canActUniversity = role === "ADMIN";
+  // Le Responsable Dossier consulte le profil de ses étudiants en lecture seule.
+  const isReviewer = role === "SALES" || role === "ADMIN";
   const passportExpiry = profile?.passportExpiresOn ? parseExpiry(profile.passportExpiresOn) : null;
   const passportMonthsLeft = passportExpiry ? monthsLeft(passportExpiry) : null;
   const [activeTab, setActiveTab] = useState<"overview" | "history">("overview");
@@ -204,7 +206,7 @@ export default function StudentDetailPage() {
   }, [applications]);
 
   const reloadPayments = () => {
-    if (!id || (role !== "SALES" && role !== "ADMIN")) return;
+    if (!id || (role !== "SALES" && role !== "ADMIN" && role !== "RDV")) return;
     fetchStudentPayments(id).then((data) => setPlans(data.plans)).catch(() => undefined);
   };
 
@@ -247,17 +249,17 @@ export default function StudentDetailPage() {
   const docsValidated = documents.filter((d) => d.status === "VALIDATED").length;
   const alerts = useMemo<Alert[]>(() => {
     const list: Alert[] = [];
-    if (docsToReview) list.push({ key: "docs", tone: "warning", text: t(`${docsToReview} document${docsToReview > 1 ? "s" : ""} à valider`, `${docsToReview} document(s) to review`), target: "documents" });
+    if (docsToReview && isReviewer) list.push({ key: "docs", tone: "warning", text: t(`${docsToReview} document${docsToReview > 1 ? "s" : ""} à valider`, `${docsToReview} document(s) to review`), target: "documents" });
     const visaToReview = visaDocs.filter((d) => d.status === "SUBMITTED").length;
-    if (visaToReview) list.push({ key: "visa-docs", tone: "warning", text: t(`${visaToReview} document${visaToReview > 1 ? "s" : ""} visa à valider`, `${visaToReview} visa document(s) to review`), target: "visa-documents" });
+    if (visaToReview && isReviewer) list.push({ key: "visa-docs", tone: "warning", text: t(`${visaToReview} document${visaToReview > 1 ? "s" : ""} visa à valider`, `${visaToReview} visa document(s) to review`), target: "visa-documents" });
     const late = plans.find((p) => p.late);
-    if (late) list.push({ key: "payment", tone: "danger", text: t(`Paiement en retard : reste ${formatMoney(late.remainingTotal, late.currency)}`, `Payment overdue: ${formatMoney(late.remainingTotal, late.currency)} left`), target: "paiements" });
+    if (late) list.push({ key: "payment", tone: "danger", text: isReviewer ? t(`Paiement en retard : reste ${formatMoney(late.remainingTotal, late.currency)}`, `Payment overdue: ${formatMoney(late.remainingTotal, late.currency)} left`) : t("Paiement en retard", "Payment overdue"), target: "paiements" });
     if (profile?.passportStatus === "EXPIRED") list.push({ key: "passport", tone: "danger", text: t("Passeport expiré", "Passport expired"), target: "profil" });
     else if (profile?.passportStatus === "EXPIRING") list.push({ key: "passport", tone: "warning", text: t("Passeport à renouveler", "Passport to renew"), target: "profil" });
     if (docsRejected) list.push({ key: "rejected", tone: "info", text: t(`${docsRejected} document${docsRejected > 1 ? "s" : ""} refusé${docsRejected > 1 ? "s" : ""} : en attente de l'étudiant`, `${docsRejected} rejected document(s): waiting for the student`), target: "documents" });
     if (stage === "accepted") list.push({ key: "visa-prep", tone: "info", text: t("Accepté : préparer les documents visa", "Accepted: prepare visa documents"), target: "visa-documents" });
     return list;
-  }, [docsToReview, docsRejected, visaDocs, plans, profile, stage, t]);
+  }, [docsToReview, docsRejected, visaDocs, plans, profile, stage, isReviewer, t]);
 
   if (loading) {
     return (
@@ -394,7 +396,7 @@ export default function StudentDetailPage() {
                     </p>
                   ) : (
                     documents.map((doc) => (
-                      <DocumentReviewRow key={`${doc.universityId || "pays"}:${doc.name}`} doc={doc} reviewFor={reviewFor} onReviewed={handleReviewed} />
+                      <DocumentReviewRow key={`${doc.universityId || "pays"}:${doc.name}`} doc={doc} reviewFor={reviewFor} onReviewed={handleReviewed} canReview={isReviewer} />
                     ))
                   )}
                 </div>
@@ -462,7 +464,7 @@ export default function StudentDetailPage() {
                 </div>
               </section>
 
-              {id && <div className="[&>section]:mt-0"><UniversityChoicesPanel studentId={id} onChanged={reloadAfterChoice} /></div>}
+              {id && <div className="[&>section]:mt-0"><UniversityChoicesPanel studentId={id} onChanged={reloadAfterChoice} readOnly={!isReviewer} /></div>}
             </div>
 
             {/* Colonne latérale : profil et paiements */}
@@ -603,8 +605,10 @@ function FullHistoryTimeline({ history }: { history: ApplicationHistoryEntry[] }
 function DocumentReviewRow({
   doc,
   reviewFor,
-  onReviewed
+  onReviewed,
+  canReview = true
 }: {
+  canReview?: boolean;
   doc: StudentDocumentChecklistItem;
   reviewFor: (name: string, status: "VALIDATED" | "REJECTED", reason?: string, universityId?: string | null) => Promise<StudentDocumentChecklistItem>;
   onReviewed: (d: StudentDocumentChecklistItem) => void;
@@ -691,7 +695,7 @@ function DocumentReviewRow({
         <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{t("Motif", "Reason")} : {doc.rejectionReason}</p>
       )}
 
-      {open && (doc.status === "SUBMITTED" || doc.status === "REJECTED" || doc.status === "VALIDATED") && (
+      {canReview && open && (doc.status === "SUBMITTED" || doc.status === "REJECTED" || doc.status === "VALIDATED") && (
         <div className="mt-3 space-y-2">
           {!rejecting ? (
             <div className="flex items-center gap-2">

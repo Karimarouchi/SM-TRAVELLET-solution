@@ -6,6 +6,7 @@ const notificationService = require("./notificationService");
 const emailService = require("./emailService");
 const logger = require("../logger");
 const { canAccessStudent, authRoles } = require("../security/rbac");
+const { canViewStudent } = require("../security/studentView");
 
 // Deux tranches par pays : 1 = inscription (à la création du code), 2 = avant le
 // dépôt du visa. Montants en DT (TND) ou en euro selon le pays.
@@ -202,10 +203,30 @@ async function assertStudentAccess(auth, studentId) {
   return profile;
 }
 
+// Responsable Dossier : seulement l'état du paiement (soldé / en retard), jamais les montants.
+function redactPlan(plan) {
+  const hide = (tranche) => ({ due: 0, paid: 0, remaining: 0, complete: tranche.complete });
+  return {
+    ...plan,
+    salesId: null,
+    salesName: null,
+    tranche1: hide(plan.tranche1),
+    tranche2: hide(plan.tranche2),
+    total: 0,
+    paidTotal: 0,
+    remainingTotal: 0
+  };
+}
+
 async function summaryForStudent(auth, studentId) {
-  await assertStudentAccess(auth, studentId);
+  const profile = await studentRepo.ensureProfile(studentId);
+  const fullAccess = canAccessStudent(auth, studentId, profile.assigned_sales_id);
+  if (!fullAccess && !(await canViewStudent(auth, studentId, profile.assigned_sales_id))) {
+    throw fail("Vous n’avez pas accès à ce dossier.", 403);
+  }
   const isAdmin = authRoles(auth).includes("ADMIN");
   const plans = (await paymentRepo.listPlansForStudent(studentId)).map(planDto);
+  if (!fullAccess) return { plans: plans.map(redactPlan), payments: [], canCancel: false };
   const payments = (await paymentRepo.listPaymentsForStudent(studentId)).map(paymentDto);
   return { plans, payments: isAdmin ? payments : payments.filter((p) => p.status === "ACTIVE"), canCancel: isAdmin };
 }

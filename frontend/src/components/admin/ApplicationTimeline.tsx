@@ -6,6 +6,7 @@ import {
   postponeApplication,
   retryPostponedApplication,
   fetchCountryUniversities,
+  getSession,
   markApplicationApplied,
   reapplyApplication,
   rejectApplication,
@@ -15,7 +16,8 @@ import {
   type CountryUniversity,
   type UniversityApplication
 } from "@/lib/auth";
-import { cn } from "@/lib/utils";
+import { cn, studentProfilePath } from "@/lib/utils";
+import { Link } from "react-router-dom";
 import { MeetLinkButton } from "@/components/MeetLinkButton";
 import {
   AlertTriangle,
@@ -105,12 +107,16 @@ function ApplicationCard({ app, canAct, onChanged }: { app: UniversityApplicatio
   };
 
   return (
-    <div className="rounded-2xl border border-line bg-white p-5">
+    <div id={`app-${app.id}`} className="scroll-mt-24 rounded-2xl border border-line bg-white p-5 transition">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-2">
           <GraduationCap className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
           <div>
-            {studentName && <p className="mb-0.5 text-[11px] font-bold uppercase tracking-wide text-brand">{studentName}</p>}
+            {studentName && (
+              <p className="mb-0.5 text-[11px] font-bold uppercase tracking-wide text-brand">
+                <Link to={studentProfilePath(getSession()?.user?.role, app.studentId)} className="hover:underline" title="Ouvrir le profil de l'étudiant">{studentName}</Link>
+              </p>
+            )}
             <p className="text-sm font-bold text-dark">{app.universityName}{app.fieldOfStudy ? ` · ${app.fieldOfStudy}` : ""}</p>
             <p className="text-xs text-muted">{app.countryName}{app.programmeTitle ? ` · ${app.programmeTitle}` : ""}</p>
           </div>

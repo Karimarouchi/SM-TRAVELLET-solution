@@ -7,6 +7,7 @@ const choiceRepo = require("../repositories/universityChoiceRepository");
 const userRepo = require("../repositories/userRepository");
 const notificationService = require("./notificationService");
 const { canAccessStudent, authRoles } = require("../security/rbac");
+const { canViewStudent } = require("../security/studentView");
 const universityApplicationService = require("./universityApplicationService");
 const logger = require("../logger");
 
@@ -190,7 +191,7 @@ async function uploadDocument(studentUserId, name, fileBase64, originalFilename,
 
 async function getChecklistFor(auth, studentId) {
   const profile = await studentRepo.ensureProfile(studentId);
-  if (!canAccessStudent(auth, studentId, profile.assigned_sales_id)) {
+  if (!(await canViewStudent(auth, studentId, profile.assigned_sales_id))) {
     throw fail("Vous n’avez pas accès à ce dossier.", 403);
   }
   return getChecklist(studentId);

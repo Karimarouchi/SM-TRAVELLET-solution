@@ -267,7 +267,16 @@ async function findAcceptedWithoutRdv() {
   return result.rows;
 }
 
+async function rdvHasStudent(rdvUserId, studentId) {
+  const result = await query(
+    "SELECT 1 FROM university_applications WHERE assigned_rdv_id = $1 AND student_id = $2 LIMIT 1",
+    [rdvUserId, studentId]
+  );
+  return result.rowCount > 0;
+}
+
 module.exports = {
+  rdvHasStudent,
   findById,
   listForStudent,
   findActiveForStudent,

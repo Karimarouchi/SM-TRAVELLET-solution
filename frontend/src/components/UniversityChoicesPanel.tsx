@@ -41,7 +41,7 @@ function stageLabel(choice: UniversityChoice, t: (fr: string, en: string) => str
 // Sans studentId : l'étudiant gère les siennes ; avec studentId : un conseiller
 // ou un admin gère celles de l'étudiant (et définit les documents des
 // universités hors conventions).
-export default function UniversityChoicesPanel({ studentId, onChanged }: { studentId?: string; onChanged?: () => void }) {
+export default function UniversityChoicesPanel({ studentId, onChanged, readOnly = false }: { studentId?: string; onChanged?: () => void; readOnly?: boolean }) {
   const { t } = useLanguage();
   const staff = Boolean(studentId);
   const [summary, setSummary] = useState<UniversityChoicesSummary | null>(null);
@@ -139,7 +139,7 @@ export default function UniversityChoicesPanel({ studentId, onChanged }: { stude
             )}
           </p>
         </div>
-        {!adding && (
+        {!adding && !readOnly && (
           <button
             type="button"
             disabled={full}
@@ -262,7 +262,7 @@ export default function UniversityChoicesPanel({ studentId, onChanged }: { stude
                 )}
 
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {removable && (
+                  {removable && !readOnly && (
                     <button
                       type="button"
                       onClick={() => remove(choice)}

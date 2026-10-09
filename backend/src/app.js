@@ -130,7 +130,7 @@ app.put("/api/students/me/onboarding", requireAuth, requireRoles("STUDENT"), stu
 app.patch("/api/students/me/identity", requireAuth, requireRoles("STUDENT"), studentController.identity);
 app.post("/api/students/me/avatar", requireAuth, requireRoles("STUDENT"), studentController.avatar);
 app.get("/api/students", requireAuth, requireRoles("SALES", "ADMIN"), studentController.list);
-app.get("/api/students/:id", requireAuth, requireRoles("SALES", "ADMIN"), studentController.detail);
+app.get("/api/students/:id", requireAuth, requireRoles("SALES", "ADMIN", "RDV"), studentController.detail);
 app.patch("/api/students/:id/assign", requireAuth, requireRoles("ADMIN"), studentController.assign);
 app.post("/api/students/avis", requireAuth, requireRoles("STUDENT"), avisController.createStudentAvis);
 app.get("/api/documents/files/:filename", requireAuth, studentDocumentController.file);
@@ -138,7 +138,7 @@ app.get("/api/students/me/documents", requireAuth, requireRoles("STUDENT"), stud
 app.post("/api/students/me/documents", requireAuth, requireRoles("STUDENT"), studentDocumentController.upload);
 app.get("/api/students/me/university-choices", requireAuth, requireRoles("STUDENT"), universityChoiceController.listMine);
 app.post("/api/students/me/university-choices", requireAuth, requireRoles("STUDENT"), universityChoiceController.addMine);
-app.get("/api/students/:id/university-choices", requireAuth, requireRoles("SALES", "ADMIN"), universityChoiceController.listForStudent);
+app.get("/api/students/:id/university-choices", requireAuth, requireRoles("SALES", "ADMIN", "RDV"), universityChoiceController.listForStudent);
 app.post("/api/students/:id/university-choices", requireAuth, requireRoles("SALES", "ADMIN"), universityChoiceController.addForStudent);
 app.delete("/api/university-choices/:id", requireAuth, requireRoles("STUDENT", "SALES", "ADMIN"), universityChoiceController.remove);
 app.get("/api/countries/:countryId/university-picker", requireAuth, requireRoles("STUDENT", "SALES", "ADMIN"), universityChoiceController.picker);
@@ -148,7 +148,7 @@ app.post("/api/universities/:id/documents", requireAuth, requireRolesOrPermissio
 app.put("/api/university-documents/:id", requireAuth, requireRolesOrPermissions(["SALES", "ADMIN"], ["MANAGE_COUNTRIES"]), documentRequirementController.update);
 app.patch("/api/university-documents/:id/active", requireAuth, requireRolesOrPermissions(["SALES", "ADMIN"], ["MANAGE_COUNTRIES"]), documentRequirementController.setActive);
 app.delete("/api/university-documents/:id", requireAuth, requireRolesOrPermissions(["SALES", "ADMIN"], ["MANAGE_COUNTRIES"]), documentRequirementController.remove);
-app.get("/api/students/:id/documents", requireAuth, requireRoles("SALES", "ADMIN"), studentDocumentController.listForStudent);
+app.get("/api/students/:id/documents", requireAuth, requireRoles("SALES", "ADMIN", "RDV"), studentDocumentController.listForStudent);
 app.patch("/api/students/:id/documents/review", requireAuth, requireRoles("SALES", "ADMIN"), studentDocumentController.review);
 app.get("/api/students/me/visa-documents", requireAuth, requireRoles("STUDENT"), studentDocumentController.myVisaChecklist);
 app.post("/api/students/me/visa-documents", requireAuth, requireRoles("STUDENT"), studentDocumentController.uploadVisa);
@@ -156,8 +156,8 @@ app.get("/api/applications/:id/visa-documents", requireAuth, requireRoles("SALES
 app.patch("/api/applications/:id/visa-documents/review", requireAuth, requireRoles("SALES", "RDV", "ADMIN"), studentDocumentController.reviewVisa);
 
 app.get("/api/students/me/applications", requireAuth, requireRoles("STUDENT"), universityApplicationController.listMine);
-app.get("/api/students/:id/applications", requireAuth, requireRoles("SALES", "ADMIN"), universityApplicationController.listForStudent);
-app.get("/api/students/:id/applications/history", requireAuth, requireRoles("SALES", "ADMIN"), universityApplicationController.historyForStudent);
+app.get("/api/students/:id/applications", requireAuth, requireRoles("SALES", "ADMIN", "RDV"), universityApplicationController.listForStudent);
+app.get("/api/students/:id/applications/history", requireAuth, requireRoles("SALES", "ADMIN", "RDV"), universityApplicationController.historyForStudent);
 app.patch("/api/applications/:id/apply", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.markApplied);
 app.patch("/api/applications/:id/interview", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.scheduleInterview);
 app.patch("/api/applications/:id/interview-completed", requireAuth, requireRoles("RDV", "ADMIN", "STUDENT"), universityApplicationController.completeInterview);
@@ -211,7 +211,7 @@ app.put("/api/admin/finance/pricing/:countryId", requireAuth, requireRoles("ADMI
 app.delete("/api/admin/finance/pricing/:countryId", requireAuth, requireRoles("ADMIN"), paymentController.removePricing);
 app.get("/api/finance/pricing/:countryId", requireAuth, requireRoles("SALES", "ADMIN"), paymentController.getPricing);
 app.get("/api/students/me/payments", requireAuth, requireRoles("STUDENT"), paymentController.mySummary);
-app.get("/api/students/:id/payments", requireAuth, requireRoles("SALES", "ADMIN"), paymentController.studentSummary);
+app.get("/api/students/:id/payments", requireAuth, requireRoles("SALES", "ADMIN", "RDV"), paymentController.studentSummary);
 app.post("/api/students/:id/payments", requireAuth, requireRoles("SALES", "ADMIN"), paymentController.record);
 app.patch("/api/payments/:id/date", requireAuth, requireRoles("ADMIN"), paymentController.updateDate);
 app.patch("/api/payments/:id/cancel", requireAuth, requireRoles("ADMIN"), paymentController.cancel);

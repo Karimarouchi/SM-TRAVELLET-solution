@@ -6,6 +6,7 @@ const sales = require("../repositories/salesRepository");
 const settings = require("../repositories/settingsRepository");
 const { studentProfileDto, userDto, formatPgDate, lockedFieldsFromRow } = require("../dto/userDto");
 const { canAccessStudent } = require("../security/rbac");
+const { canViewStudent } = require("../security/studentView");
 const countryUniversityService = require("./countryUniversityService");
 const notificationService = require("./notificationService");
 const autoAssign = require("./autoAssignService");
@@ -508,7 +509,7 @@ async function getDetail(auth, studentUserId) {
     throw error;
   }
   const row = await students.findByUserId(studentUserId);
-  if (!canAccessStudent(auth, studentUserId, row?.assigned_sales_id)) {
+  if (!(await canViewStudent(auth, studentUserId, row?.assigned_sales_id))) {
     const error = new Error("Vous n’avez pas accès à ce dossier.");
     error.status = 403;
     throw error;

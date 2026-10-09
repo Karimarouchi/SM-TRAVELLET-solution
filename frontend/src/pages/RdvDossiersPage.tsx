@@ -21,6 +21,8 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import ApplicationTimeline, { PostponeModal } from "@/components/admin/ApplicationTimeline";
 import MyCommissionsCard, { RDV_INSCRIPTION_STAGES, RDV_VISA_STAGES } from "@/components/MyCommissionsCard";
 import { Link } from "react-router-dom";
+import RdvStudentSearch from "@/components/RdvStudentSearch";
+import { studentProfilePath } from "@/lib/utils";
 
 function docStatusMeta(t: (fr: string, en: string) => string): Record<VisaDocumentChecklistItem["status"], { label: string; color: string; icon: typeof Clock }> {
   return {
@@ -324,7 +326,7 @@ function EmbassyAppointmentModal({
 
 type VisaFilter = "all" | "preparation" | "submitted" | "done";
 type TaskTone = "danger" | "warning" | "info" | "success";
-type Task = { key: string; tone: TaskTone; icon: typeof Clock; title: string; text: string; weight: number; target: string; cta: string; href?: string };
+type Task = { key: string; tone: TaskTone; icon: typeof Clock; title: string; text: string; weight: number; target: string; cta: string; href?: string; profileOf?: string };
 
 const TASK_STYLES: Record<TaskTone, { box: string; icon: string }> = {
   danger: { box: "border-red-200 bg-red-50/60", icon: "bg-red-100 text-red-600" },
@@ -347,7 +349,15 @@ function KpiTile({ icon: Icon, label, value, hint, tone, onClick }: { icon: type
 }
 
 function scrollToId(id: string) {
-  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "start" });
+  // Une carte précise est mise en évidence un instant pour qu'on la repère.
+  if (id.startsWith("app-")) {
+    const ring = ["ring-2", "ring-brand", "ring-offset-2"];
+    el.classList.add(...ring);
+    window.setTimeout(() => el.classList.remove(...ring), 1800);
+  }
 }
 
 // Un dossier reporté reste visible 24 h, puis passe aux archives ; il revient ici
@@ -447,6 +457,8 @@ function TaskList({ tasks, title }: { tasks: Task[]; title: string }) {
                 </div>
                 {task.href ? (
                   <a href={task.href} target="_blank" rel="noreferrer" className={className}>{task.cta} <ArrowRight className="h-3.5 w-3.5" aria-hidden /></a>
+                ) : task.profileOf ? (
+                  <Link to={studentProfilePath("RDV", task.profileOf)} className={className}>{task.cta} <ArrowRight className="h-3.5 w-3.5" aria-hidden /></Link>
                 ) : (
                   <button type="button" onClick={() => scrollToId(task.target)} className={className}>{task.cta} <ArrowRight className="h-3.5 w-3.5" aria-hidden /></button>
                 )}
@@ -492,19 +504,19 @@ export default function RdvDossiersPage() {
 
     const tasks: Task[] = [];
     for (const a of toApply.filter((x) => x.registrationPaymentDue)) {
-      tasks.push({ key: `regpay-${a.id}`, tone: "danger", icon: Banknote, weight: 100, title: t("Paiement inscription non réglé", "Registration payment not settled"), text: `${a.studentName} · ${t("reste", "left")} ${formatMoney(a.registrationPaymentDue!.remaining, a.registrationPaymentDue!.currency)} · ${t("dépôt bloqué, prévenez le conseiller", "filing blocked, notify the advisor")}`, target: "candidatures", cta: t("Voir", "View") });
+      tasks.push({ key: `regpay-${a.id}`, tone: "danger", icon: Banknote, weight: 100, title: t("Paiement inscription non réglé", "Registration payment not settled"), text: `${a.studentName} · ${t("reste", "left")} ${formatMoney(a.registrationPaymentDue!.remaining, a.registrationPaymentDue!.currency)} · ${t("dépôt bloqué, prévenez le conseiller", "filing blocked, notify the advisor")}`, target: "candidatures", cta: t("Voir", "View"), profileOf: a.studentId });
     }
     for (const a of toApply.filter((x) => !x.registrationPaymentDue)) {
-      tasks.push({ key: `apply-${a.id}`, tone: "warning", icon: GraduationCap, weight: 80, title: t("Déposer la candidature", "Submit the application"), text: `${a.studentName} · ${a.universityName}${a.fieldOfStudy ? ` · ${a.fieldOfStudy}` : ""}`, target: "candidatures", cta: t("Ouvrir", "Open") });
+      tasks.push({ key: `apply-${a.id}`, tone: "warning", icon: GraduationCap, weight: 80, title: t("Déposer la candidature", "Submit the application"), text: `${a.studentName} · ${a.universityName}${a.fieldOfStudy ? ` · ${a.fieldOfStudy}` : ""}`, target: `app-${a.id}`, cta: t("Ouvrir", "Open") });
     }
     for (const a of interviews) {
       const when = new Date(a.interviewDate!);
       const soon = when.getTime() - Date.now() < 2 * DAY;
-      tasks.push({ key: `int-${a.id}`, tone: soon ? "warning" : "info", icon: CalendarClock, weight: soon ? 82 : 55, title: t("Entretien université", "University interview"), text: `${a.studentName} · ${a.universityName} · ${when.toLocaleString("fr-FR", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`, target: "candidatures", cta: a.interviewLink ? t("Rejoindre", "Join") : t("Voir", "View"), href: a.interviewLink || undefined });
+      tasks.push({ key: `int-${a.id}`, tone: soon ? "warning" : "info", icon: CalendarClock, weight: soon ? 82 : 55, title: t("Entretien université", "University interview"), text: `${a.studentName} · ${a.universityName} · ${when.toLocaleString("fr-FR", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`, target: "candidatures", cta: a.interviewLink ? t("Rejoindre", "Join") : t("Voir", "View"), href: a.interviewLink || undefined, profileOf: a.studentId });
     }
     for (const a of waiting.filter((x) => x.status === "WAITING_UNIVERSITY_RESPONSE" && x.appliedAt && Date.now() - new Date(x.appliedAt).getTime() > 10 * DAY)) {
       const days = Math.floor((Date.now() - new Date(a.appliedAt!).getTime()) / DAY);
-      tasks.push({ key: `wait-${a.id}`, tone: "info", icon: Clock, weight: 40, title: t("Relancer l'université", "Chase the university"), text: `${a.studentName} · ${a.universityName} · ${t(`sans réponse depuis ${days} jours`, `no answer for ${days} days`)}`, target: "candidatures", cta: t("Voir", "View") });
+      tasks.push({ key: `wait-${a.id}`, tone: "info", icon: Clock, weight: 40, title: t("Relancer l'université", "Chase the university"), text: `${a.studentName} · ${a.universityName} · ${t(`sans réponse depuis ${days} jours`, `no answer for ${days} days`)}`, target: "candidatures", cta: t("Voir", "View"), profileOf: a.studentId });
     }
     tasks.sort((x, y) => y.weight - x.weight);
     return { toApply, waiting, interviews, accepted, open, postponed, tasks };
@@ -527,6 +539,8 @@ export default function RdvDossiersPage() {
       />
 
       <ErrorBanner message={error} />
+
+      <RdvStudentSearch applications={applications} />
 
       <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label={t("Indicateurs", "Indicators")}>
         <KpiTile icon={GraduationCap} label={t("À déposer", "To submit")} value={board.toApply.length} hint={t("candidatures prêtes", "applications ready")} tone="bg-amber-100 text-amber-600" onClick={() => scrollToId("candidatures")} />
@@ -612,16 +626,16 @@ export function RdvVisasPage() {
 
     const tasks: Task[] = [];
     for (const a of blocked) {
-      tasks.push({ key: `pay-${a.id}`, tone: "danger", icon: Banknote, weight: 100, title: t("Paiement visa non réglé", "Visa payment not settled"), text: `${a.studentName} · ${t("reste", "left")} ${formatMoney(a.visaPaymentDue!.remaining, a.visaPaymentDue!.currency)} · ${t("dépôt bloqué, prévenez le conseiller", "filing blocked, notify the advisor")}`, target: `app-${a.id}`, cta: t("Voir", "View") });
+      tasks.push({ key: `pay-${a.id}`, tone: "danger", icon: Banknote, weight: 100, title: t("Paiement visa non réglé", "Visa payment not settled"), text: `${a.studentName} · ${t("reste", "left")} ${formatMoney(a.visaPaymentDue!.remaining, a.visaPaymentDue!.currency)} · ${t("dépôt bloqué, prévenez le conseiller", "filing blocked, notify the advisor")}`, target: `app-${a.id}`, cta: t("Voir", "View"), profileOf: a.studentId });
     }
     for (const a of applications.filter((x) => x.visaEmbassyAppointmentAt && new Date(x.visaEmbassyAppointmentAt).getTime() > Date.now() - 2 * 3600 * 1000)) {
-      tasks.push({ key: `emb-${a.id}`, tone: "warning", icon: Landmark, weight: 88, title: t("Rendez-vous ambassade", "Embassy appointment"), text: `${a.studentName} · ${new Date(a.visaEmbassyAppointmentAt!).toLocaleString("fr-FR", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`, target: `app-${a.id}`, cta: t("Voir", "View") });
+      tasks.push({ key: `emb-${a.id}`, tone: "warning", icon: Landmark, weight: 88, title: t("Rendez-vous ambassade", "Embassy appointment"), text: `${a.studentName} · ${new Date(a.visaEmbassyAppointmentAt!).toLocaleString("fr-FR", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`, target: `app-${a.id}`, cta: t("Voir", "View"), profileOf: a.studentId });
     }
     for (const a of readyToFile) {
       tasks.push({ key: `file-${a.id}`, tone: "success", icon: Send, weight: 85, title: t("Prêt à déposer le visa", "Ready to file the visa"), text: `${a.studentName} · ${t("documents validés et paiement réglé", "documents approved and payment settled")}`, target: `app-${a.id}`, cta: t("Déposer", "File") });
     }
     for (const a of visaSubmitted) {
-      tasks.push({ key: `dec-${a.id}`, tone: "info", icon: Plane, weight: 50, title: t("Décision du visa attendue", "Visa decision pending"), text: a.studentName, target: `app-${a.id}`, cta: t("Voir", "View") });
+      tasks.push({ key: `dec-${a.id}`, tone: "info", icon: Plane, weight: 50, title: t("Décision du visa attendue", "Visa decision pending"), text: a.studentName, target: `app-${a.id}`, cta: t("Voir", "View"), profileOf: a.studentId });
     }
     tasks.sort((x, y) => y.weight - x.weight);
     return { visaPrep, visaSubmitted, visaDone, visaPostponed, waitingAdvisor, blocked, readyToFile, tasks };
@@ -658,6 +672,8 @@ export function RdvVisasPage() {
       />
 
       <ErrorBanner message={error} />
+
+      <RdvStudentSearch applications={applications} />
 
       <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label={t("Indicateurs", "Indicators")}>
         <KpiTile icon={FileText} label={t("En préparation", "In preparation")} value={board.visaPrep.length} hint={t("documents à valider", "documents to review")} tone="bg-sky-100 text-sky-600" onClick={() => { setVisaFilter("preparation"); scrollToId("visas"); }} />
@@ -717,7 +733,7 @@ export function RdvVisasPage() {
                 <article id={`app-${app.id}`} key={app.id} className={cn("scroll-mt-24 rounded-[20px] border bg-white p-5 shadow-sm", paymentDue ? "border-red-200" : "border-line")}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h3 className="truncate font-display text-base font-bold text-dark">{app.studentName}</h3>
+                      <h3 className="truncate font-display text-base font-bold text-dark"><Link to={studentProfilePath("RDV", app.studentId)} className="hover:text-brand hover:underline">{app.studentName}</Link></h3>
                       <p className="truncate text-xs text-muted">{app.studentEmail}</p>
                       <p className="mt-1.5 flex items-center gap-1.5 text-xs text-mid">
                         <GraduationCap className="h-3.5 w-3.5 shrink-0 text-brand" /> <span className="truncate">{app.universityName}{app.fieldOfStudy ? ` · ${app.fieldOfStudy}` : ""} · {app.countryName}</span>

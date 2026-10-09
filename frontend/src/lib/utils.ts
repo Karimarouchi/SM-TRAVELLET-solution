@@ -7,6 +7,11 @@ export function todayLocal() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// Profil d'un étudiant selon le rôle : le Responsable Dossier a sa propre fiche (lecture seule).
+export function studentProfilePath(role: string | undefined, studentId: string) {
+  return role === "RDV" ? `/rdv/etudiants/${studentId}` : `/conseiller/etudiants/${studentId}`;
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }

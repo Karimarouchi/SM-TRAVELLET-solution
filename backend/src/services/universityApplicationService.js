@@ -15,6 +15,7 @@ const googleCalendar = require("./googleCalendarService");
 const commissionService = require("./commissionService");
 const logger = require("../logger");
 const secretBox = require("../security/secretBox");
+const { canViewStudent } = require("../security/studentView");
 const { canAccessStudent, canAccessApplication, authRoles } = require("../security/rbac");
 
 function fail(message, status) {
@@ -155,7 +156,7 @@ async function checkAndAdvanceReadyToApply(studentId) {
 
 async function listForStudent(auth, studentId) {
   const profile = await studentRepo.ensureProfile(studentId);
-  if (!canAccessStudent(auth, studentId, profile.assigned_sales_id)) {
+  if (!(await canViewStudent(auth, studentId, profile.assigned_sales_id))) {
     throw fail("Vous n’avez pas accès à ce dossier.", 403);
   }
   const rows = await appRepo.listForStudent(studentId);
@@ -164,7 +165,7 @@ async function listForStudent(auth, studentId) {
 
 async function getHistoryForStudent(auth, studentId) {
   const profile = await studentRepo.ensureProfile(studentId);
-  if (!canAccessStudent(auth, studentId, profile.assigned_sales_id)) {
+  if (!(await canViewStudent(auth, studentId, profile.assigned_sales_id))) {
     throw fail("Vous n’avez pas accès à ce dossier.", 403);
   }
   return appRepo.listHistoryForStudent(studentId);

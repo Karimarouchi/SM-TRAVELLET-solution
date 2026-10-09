@@ -9,6 +9,7 @@ const userRepo = require("../repositories/userRepository");
 const countryUniversityService = require("./countryUniversityService");
 const notificationService = require("./notificationService");
 const { canAccessStudent, authRoles } = require("../security/rbac");
+const { canViewStudent } = require("../security/studentView");
 const logger = require("../logger");
 
 // Nombre maximum de candidatures actives en même temps (une université avec
@@ -68,7 +69,10 @@ async function listMine(studentId) {
 }
 
 async function listForStudent(auth, studentId) {
-  await assertStudentAccess(auth, studentId);
+  const profile = await studentRepo.ensureProfile(studentId);
+  if (!(await canViewStudent(auth, studentId, profile.assigned_sales_id))) {
+    throw fail("Vous n’avez pas accès à ce dossier.", 403);
+  }
   return summary(studentId);
 }
 
