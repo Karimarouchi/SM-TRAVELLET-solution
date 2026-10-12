@@ -22,3 +22,6 @@ backend/uploads/programmes/*
 .DS_Store
 
 frontend/vite.log
+
+# Fichiers envoyés sur WhatsApp : jamais dans git
+backend/uploads/whatsapp/*
