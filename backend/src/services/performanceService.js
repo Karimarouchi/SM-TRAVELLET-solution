@@ -166,6 +166,25 @@ async function computeReport(period) {
     }
   }
 
+  // Messages de la période par conseiller : envoyés par lui, reçus sur ses conversations, conversations traitées.
+  const messagesSent = new Map();
+  const messagesReceived = new Map();
+  const conversationsHandled = new Map();
+  for (const m of messages) {
+    if (!inPeriod(m.created_at, since)) continue;
+    const conversation = conversationById.get(m.contact_id);
+    if (conversation?.blocked_at) continue;
+    if (m.direction === "out" && m.sent_by) {
+      messagesSent.set(m.sent_by, (messagesSent.get(m.sent_by) || 0) + 1);
+      const handled = conversationsHandled.get(m.sent_by) || new Set();
+      handled.add(m.contact_id);
+      conversationsHandled.set(m.sent_by, handled);
+    }
+    if (m.direction === "in" && conversation?.owner_id) {
+      messagesReceived.set(conversation.owner_id, (messagesReceived.get(conversation.owner_id) || 0) + 1);
+    }
+  }
+
   // ── Dossiers suivis par les conseillers ────────────────────────────────
   const handoff = new Map();
   const halfwaySales = new Map();
@@ -280,7 +299,10 @@ async function computeReport(period) {
           ...whatsappFunnel(mine),
           firstReply: duration(firstReply.get(u.id) || []),
           reply: duration(reply.get(u.id) || []),
-          pendingNow: (pendingByOwner.get(u.id) || []).length
+          pendingNow: (pendingByOwner.get(u.id) || []).length,
+          messagesSent: messagesSent.get(u.id) || 0,
+          messagesReceived: messagesReceived.get(u.id) || 0,
+          conversationsHandled: (conversationsHandled.get(u.id) || new Set()).size
         },
         students: (studentsBySales.get(u.id) || []).length,
         handoff: duration(handoff.get(u.id) || []),

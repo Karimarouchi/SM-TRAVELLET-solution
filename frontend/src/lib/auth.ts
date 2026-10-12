@@ -499,7 +499,7 @@ export type PerfContactItem = { contactId: string; name: string; phone: string; 
 export type PerfDossierItem = { name: string; step: string; waitingLabel: string };
 
 export type SalesPerformance = {
-  whatsapp: WhatsAppFunnel & { firstReply: PerfDuration; reply: PerfDuration; pendingNow: number };
+  whatsapp: WhatsAppFunnel & { firstReply: PerfDuration; reply: PerfDuration; pendingNow: number; messagesSent: number; messagesReceived: number; conversationsHandled: number };
   students: number;
   handoff: PerfDuration;
   documentReview: PerfDuration;

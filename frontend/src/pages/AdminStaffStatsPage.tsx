@@ -61,12 +61,12 @@ function DossierRow({ item }: { item: PerfDossierItem }) {
   );
 }
 
-function SalesSection({ user }: { user: StaffPerformance }) {
+// Bloc WhatsApp du conseiller : placé avant les tableaux de temps par tâche.
+function SalesWhatsAppBlock({ user }: { user: StaffPerformance }) {
   const s = user.sales!;
   const wa = s.whatsapp;
   const lists = s.lists;
   return (
-    <>
       <Block icon={<MessageCircle className="h-5 w-5 text-emerald-600" />} title="WhatsApp" subtitle="Conversations dont ce conseiller est responsable.">
         <div className="grid gap-4 lg:grid-cols-[1fr_1.1fr]">
           <div className="grid grid-cols-2 gap-3 self-start">
@@ -74,6 +74,10 @@ function SalesSection({ user }: { user: StaffPerformance }) {
             <StatTile label="Temps de réponse" value={wa.reply.label} hint={durationHint(wa.reply, "réponse")} />
             <StatTile label="Taux d'aboutissement" value={percent(wa.conversionRate)} hint={convertedHint(wa.converted, wa.answered)} />
             <StatTile label="En attente" value={wa.pendingNow} hint="attendent une réponse maintenant" tone={wa.pendingNow ? "warning" : "default"} />
+            <StatTile label="Messages envoyés" value={wa.messagesSent} hint="par ce conseiller sur la période" />
+            <StatTile label="Messages reçus" value={wa.messagesReceived} hint="sur ses conversations, sur la période" />
+            <StatTile label="Conversations traitées" value={wa.conversationsHandled} hint="auxquelles il a répondu sur la période" />
+            <StatTile label="Conversations" value={wa.conversations} hint="actives sur la période" />
           </div>
           <div className="rounded-2xl border border-line p-4">
             <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Entonnoir</p>
@@ -102,7 +106,13 @@ function SalesSection({ user }: { user: StaffPerformance }) {
           </div>
         )}
       </Block>
+  );
+}
 
+function SalesDossiersBlock({ user }: { user: StaffPerformance }) {
+  const s = user.sales!;
+  const lists = s.lists;
+  return (
       <Block icon={<FileCheck2 className="h-5 w-5 text-brand" />} title="Dossiers et délais" subtitle="Du premier accès de l'étudiant jusqu'à la transmission au Responsable Visa.">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatTile label="Étudiants suivis" value={s.students} hint="actuellement à sa charge" />
@@ -125,7 +135,6 @@ function SalesSection({ user }: { user: StaffPerformance }) {
           </div>
         )}
       </Block>
-    </>
   );
 }
 
@@ -224,13 +233,15 @@ export default function AdminStaffStatsPage() {
 
       {user && (user.sales || user.rdv) && <StaffCommissionsBlock userId={user.id} name={`${user.prenom} ${user.nom}`.trim()} />}
 
+      {user?.sales && <SalesWhatsAppBlock user={user} />}
+
       {user && workHours && (user.sales || user.rdv) && (
         <>
           {user.sales && <StaffTimeDetail key={`${user.id}-sales`} detail={detail} kind="sales" workHours={workHours} />}
           {user.rdv && <StaffTimeDetail key={`${user.id}-rdv`} detail={detail} kind="rdv" workHours={workHours} />}
         </>
       )}
-      {user?.sales && <SalesSection user={user} />}
+      {user?.sales && <SalesDossiersBlock user={user} />}
       {user?.rdv && <RdvSection user={user} />}
       {user && !user.sales && !user.rdv && (
         <p className="mt-6 flex items-center gap-2 text-sm text-muted"><KeyRound className="h-4 w-4" /> Aucune statistique pour ce rôle.</p>
