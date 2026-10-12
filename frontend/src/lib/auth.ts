@@ -242,6 +242,14 @@ export type StudentApplicationSummary = {
   updatedAt: string | null;
 };
 
+export type BlockerReason = { key: string; tone: "danger" | "warning" | "info"; text: string; items?: string[] };
+/** Étudiant « sans candidature » : pourquoi (documents manquants / à valider / refusés, vœu absent…). */
+export type StudentBlockers = { reasons: BlockerReason[]; documents: { required: number; validated: number } };
+
+export async function fetchApplicationBlockers(studentId: string) {
+  return request<StudentBlockers>(`/api/students/${studentId}/application-blockers`);
+}
+
 export type StudentOverview = {
   id: string;
   prenom: string;
@@ -268,6 +276,7 @@ export type StudentOverview = {
   dossierStage: string;
   stage: PipelineStageKey;
   applications: StudentApplicationSummary[];
+  blockers?: StudentBlockers | null;
 };
 
 export async function fetchStudentsOverview() {
@@ -2050,6 +2059,7 @@ export type SalesOverviewStudent = {
   nextInterviewAt: string | null;
   attention: SalesAttentionItem[];
   score: number;
+  blockers?: StudentBlockers | null;
 };
 
 export type SalesOverview = {

@@ -2,6 +2,7 @@ import {
   confirmVisaDocuments,
   fetchApplicationVisaDocuments,
   fetchStudentApplications,
+  fetchApplicationBlockers,
   fetchStudentApplicationHistory,
   fetchStudentDetail,
   fetchStudentDocuments,
@@ -17,6 +18,7 @@ import {
   type PaymentPlan,
   type PipelineStageKey,
   type StudentDocumentChecklistItem,
+  type StudentBlockers,
   type StudentProfile,
   type UniversityApplication,
   type VisaDocumentChecklistItem
@@ -27,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { alertDialog } from "@/components/ui/dialog-host";
 import ApplicationTimeline from "@/components/admin/ApplicationTimeline";
 import UniversityChoicesPanel from "@/components/UniversityChoicesPanel";
+import ApplicationBlockers from "@/components/ApplicationBlockers";
 import NonPartnerDocsCard from "@/components/NonPartnerDocsCard";
 import StudentPaymentsPanel from "@/components/StudentPaymentsPanel";
 import { StageBadge } from "@/components/admin/StudentsPipelineBoard";
@@ -51,6 +54,7 @@ import {
   ThumbsDown,
   ThumbsUp,
   Upload,
+  CircleHelp,
   UserRound,
   XCircle
 } from "lucide-react";
@@ -191,6 +195,7 @@ export default function StudentDetailPage() {
   const [activeTab, setActiveTab] = useState<"overview" | "history">("overview");
   const [visaDocs, setVisaDocs] = useState<VisaDocumentChecklistItem[]>([]);
   const [plans, setPlans] = useState<PaymentPlan[]>([]);
+  const [blockers, setBlockers] = useState<StudentBlockers | null>(null);
   const visaApp = applications.find((a) => a.status === "ACCEPTED" && !a.visaStatus);
 
   const loadApplications = () => {
@@ -261,6 +266,15 @@ export default function StudentDetailPage() {
     });
 
   const stage = useMemo(() => stageOf(Boolean(profile?.onboardingCompleted), applications), [profile, applications]);
+
+  // « Sans candidature » : on explique pourquoi (documents manquants, vœu absent…), pour le conseiller et l'admin.
+  useEffect(() => {
+    if (!id || stage !== "no_application" || !isReviewer) {
+      setBlockers(null);
+      return;
+    }
+    fetchApplicationBlockers(id).then(setBlockers).catch(() => setBlockers(null));
+  }, [id, stage, isReviewer, documents]);
   const docsToReview = documents.filter((d) => d.status === "SUBMITTED").length;
   const docsRejected = documents.filter((d) => d.status === "REJECTED").length;
   const docsValidated = documents.filter((d) => d.status === "VALIDATED").length;
@@ -373,6 +387,16 @@ export default function StudentDetailPage() {
 
       {activeTab === "overview" ? (
         <>
+          {isReviewer && stage === "no_application" && blockers && (
+            <section className="mt-6 rounded-2xl border border-line bg-white p-4 shadow-sm" aria-label={t("Pourquoi pas encore de candidature", "Why no application yet")}>
+              <p className="mb-2.5 flex items-center gap-2 text-sm font-extrabold text-dark">
+                <CircleHelp className="h-4 w-4 text-brand" aria-hidden /> {t("Pourquoi pas encore de candidature ?", "Why no application yet?")}
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-muted">{blockers.documents.validated}/{blockers.documents.required} {t("documents validés", "documents approved")}</span>
+              </p>
+              <ApplicationBlockers blockers={blockers} />
+            </section>
+          )}
+
           {/* À traiter */}
           {alerts.length > 0 && (
             <section className="mt-6 rounded-2xl border border-line bg-white p-4 shadow-sm" aria-label={t("À traiter", "To handle")}>

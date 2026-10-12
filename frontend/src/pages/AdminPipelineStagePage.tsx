@@ -1,5 +1,6 @@
 import { fetchStudentsOverview, type PipelineStageKey, type StudentOverview } from "@/lib/auth";
 import { PassportBadge } from "@/components/PassportBadge";
+import ApplicationBlockers from "@/components/ApplicationBlockers";
 import { STAGE_META } from "@/components/admin/StudentsPipelineBoard";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { cn } from "@/lib/utils";
@@ -192,6 +193,8 @@ function StudentCard({ student }: { student: StudentOverview }) {
           {apps.length > 2 && <li className="px-1 text-[11px] font-semibold text-muted">+ {apps.length - 2} autre{apps.length - 2 > 1 ? "s" : ""}</li>}
         </ul>
       )}
+
+      {student.stage === "no_application" && <ApplicationBlockers blockers={student.blockers} compact className="mt-3" />}
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
         <PassportBadge status={student.passportStatus} expiresOn={student.passportExpiresOn} monthsLeft={student.passportMonthsLeft} />

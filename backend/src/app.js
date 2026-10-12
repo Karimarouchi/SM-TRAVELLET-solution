@@ -130,6 +130,7 @@ app.put("/api/students/me/onboarding", requireAuth, requireRoles("STUDENT"), stu
 app.patch("/api/students/me/identity", requireAuth, requireRoles("STUDENT"), studentController.identity);
 app.post("/api/students/me/avatar", requireAuth, requireRoles("STUDENT"), studentController.avatar);
 app.get("/api/students", requireAuth, requireRoles("SALES", "ADMIN"), studentController.list);
+app.get("/api/students/:id/application-blockers", requireAuth, requireRoles("SALES", "ADMIN"), studentController.blockers);
 app.get("/api/students/:id", requireAuth, requireRoles("SALES", "ADMIN", "RDV"), studentController.detail);
 app.patch("/api/students/:id/assign", requireAuth, requireRoles("ADMIN"), studentController.assign);
 app.post("/api/students/avis", requireAuth, requireRoles("STUDENT"), avisController.createStudentAvis);

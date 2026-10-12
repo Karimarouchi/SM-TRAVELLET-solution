@@ -36,6 +36,15 @@ async function avatar(req, res) {
   }
 }
 
+async function blockers(req, res) {
+  try {
+    await studentService.assertCanView(req.auth, req.params.id);
+    res.json(await require("../services/applicationBlockersService").reasonsFor(req.params.id));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function detail(req, res) {
   try {
     res.json(await studentService.getDetail(req.auth, req.params.id));
@@ -60,4 +69,4 @@ async function assign(req, res) {
   }
 }
 
-module.exports = { me, detail, onboarding, identity, avatar, list, assign };
+module.exports = { me, detail, onboarding, identity, avatar, list, assign, blockers };

@@ -61,6 +61,7 @@ function mapStudent(row) {
 // peut avoir plusieurs candidatures (une par pays) : on retient celle mise à
 // jour le plus récemment pour représenter son avancement global.
 const { PIPELINE_STAGES, computeStage } = require("./pipelineStage");
+const applicationBlockers = require("./applicationBlockersService");
 
 const MONTHS_FR = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
 
@@ -416,6 +417,13 @@ async function getStudentsOverview() {
       }))
     };
   });
+
+  // Étudiants « sans candidature » : on explique pourquoi (documents manquants, vœu absent…).
+  const noApplication = overview.filter((s) => s.stage === "no_application");
+  if (noApplication.length) {
+    const blockers = await applicationBlockers.reasonsForMany(noApplication.map((s) => s.id));
+    for (const s of noApplication) s.blockers = blockers.get(s.id) || null;
+  }
 
   return { stages: PIPELINE_STAGES, students: overview };
 }

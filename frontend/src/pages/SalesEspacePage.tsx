@@ -1,3 +1,4 @@
+import ApplicationBlockers from "@/components/ApplicationBlockers";
 import { StageBadge } from "@/components/admin/StudentsPipelineBoard";
 import MyCommissionsCard from "@/components/MyCommissionsCard";
 import { PassportBadge } from "@/components/PassportBadge";
@@ -309,6 +310,7 @@ export default function SalesEspacePage() {
                       <StageBadge stage={student.stage} />
                     </div>
                     <div className="mt-1.5"><AttentionChips items={student.attention} /></div>
+                    {student.stage === "no_application" && <ApplicationBlockers blockers={student.blockers} compact className="mt-2" />}
                   </div>
                   <RowActions student={student} />
                 </div>
@@ -410,6 +412,7 @@ export default function SalesEspacePage() {
                             <Link to={`/conseiller/etudiants/${student.id}`} className="block truncate text-sm font-bold text-dark hover:text-brand">{fullName(student)}</Link>
                             <p className="truncate text-[11px] text-muted">{student.preferredCountries.join(", ") || student.email}</p>
                             {student.attention.length > 0 && <div className="mt-1.5"><AttentionChips items={student.attention} limit={2} /></div>}
+                            {student.stage === "no_application" && <ApplicationBlockers blockers={student.blockers} compact className="mt-2 max-w-sm" />}
                           </div>
                         </div>
                       </td>
@@ -445,6 +448,7 @@ export default function SalesEspacePage() {
                     </div>
                   </div>
                   {student.attention.length > 0 && <div className="mt-3"><AttentionChips items={student.attention} limit={3} /></div>}
+                  {student.stage === "no_application" && <ApplicationBlockers blockers={student.blockers} compact className="mt-3" />}
                   <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl bg-slate-50 p-2.5">
                     <div><p className="text-[10px] font-bold uppercase text-muted">{t("Docs", "Docs")}</p><div className="mt-1"><DocsCell docs={student.docs} /></div></div>
                     <div><p className="text-[10px] font-bold uppercase text-muted">{t("Passeport", "Passport")}</p><div className="mt-1"><PassportBadge status={student.passport.status} monthsLeft={student.passport.monthsLeft} /></div></div>

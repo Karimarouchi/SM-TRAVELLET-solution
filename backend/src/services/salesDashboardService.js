@@ -3,6 +3,7 @@ const settings = require("../repositories/settingsRepository");
 const passport = require("./passport");
 const paymentService = require("./paymentService");
 const { PIPELINE_STAGES, computeStage } = require("./pipelineStage");
+const applicationBlockers = require("./applicationBlockersService");
 
 const DAY_MS = 24 * 3600 * 1000;
 
@@ -136,6 +137,13 @@ async function getOverview(auth) {
       score: attention.reduce((max, item) => Math.max(max, item.weight), 0)
     };
   });
+
+  // Étudiants « sans candidature » : on explique pourquoi (documents manquants, vœu absent…).
+  const noApplication = students.filter((s) => s.stage === "no_application");
+  if (noApplication.length) {
+    const blockers = await applicationBlockers.reasonsForMany(noApplication.map((s) => s.id));
+    for (const s of noApplication) s.blockers = blockers.get(s.id) || null;
+  }
 
   students.sort((a, b) => b.score - a.score || `${a.prenom} ${a.nom}`.localeCompare(`${b.prenom} ${b.nom}`));
 
