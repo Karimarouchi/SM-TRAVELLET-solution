@@ -1,3 +1,4 @@
+import { Amount, useAmountBlur } from "@/components/ui/hidden-amounts";
 import {
   fetchAdminCountries,
   fetchAllCommissionEarnings,
@@ -44,6 +45,7 @@ function RuleRow({
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [error, setError] = useState("");
+  const blur = useAmountBlur();
 
   useEffect(() => { setAmount(String(rule?.amountDinar ?? "")); }, [rule?.amountDinar]);
 
@@ -86,7 +88,7 @@ function RuleRow({
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="0"
-            className="w-14 bg-transparent py-1.5 text-right text-xs font-semibold text-dark outline-none"
+            className={cn("w-14 bg-transparent py-1.5 text-right text-xs font-semibold text-dark outline-none", blur)}
           />
           <span className="text-[10px] font-bold text-muted">DT</span>
         </div>
@@ -108,6 +110,7 @@ function RuleRow({
 
 /* ─── Statistiques de commissions, même style que Conseillers/RDV ────── */
 function CommissionsStats({ earnings }: { earnings: CommissionEarning[] }) {
+  const blur = useAmountBlur();
   const totalPaid = earnings.reduce((sum, e) => sum + e.amountDinar, 0);
   const salesEarnings = earnings.filter((e) => e.role === "SALES");
   const rdvEarnings = earnings.filter((e) => e.role === "RDV");
@@ -159,11 +162,11 @@ function CommissionsStats({ earnings }: { earnings: CommissionEarning[] }) {
           <div className={cn("flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br text-white", stat.color)}>
             <stat.icon className="h-4 w-4" />
           </div>
-          <p className={cn("mt-3 font-display font-extrabold text-dark", stat.isText ? "text-2xl" : "text-2xl")}>
+          <p className={cn("mt-3 font-display text-2xl font-extrabold text-dark", blur)}>
             {stat.value}
           </p>
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted sm:text-xs">{stat.label}</p>
-          <p className="mt-1 text-[11px] text-brand">{stat.hint}</p>
+          <p className={cn("mt-1 text-[11px] text-brand", blur)}>{stat.hint}</p>
         </div>
       ))}
     </div>
@@ -313,7 +316,7 @@ export default function CommissionsPanel() {
                   <td className="px-4 py-2.5 text-xs text-mid">{e.studentName}</td>
                   <td className="px-4 py-2.5 hidden sm:table-cell text-xs text-muted"><Globe2 className="mr-1 inline h-3 w-3" />{e.countryName}</td>
                   <td className="px-4 py-2.5 hidden md:table-cell text-[11px] text-muted">{STAGE_LABELS[e.stage]}</td>
-                  <td className="px-4 py-2.5 text-right text-xs font-bold text-emerald-600">{e.amountDinar.toFixed(2)} DT</td>
+                  <td className="px-4 py-2.5 text-right text-xs font-bold text-emerald-600"><Amount>{e.amountDinar.toFixed(2)} DT</Amount></td>
                   <td className="px-4 py-2.5 hidden lg:table-cell text-right text-[11px] text-muted">
                     {new Date(e.earnedAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}
                   </td>

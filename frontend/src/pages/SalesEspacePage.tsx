@@ -1,5 +1,5 @@
 import ApplicationBlockers from "@/components/ApplicationBlockers";
-import { StageBadge } from "@/components/admin/StudentsPipelineBoard";
+import { STAGE_META, StageBadge } from "@/components/admin/StudentsPipelineBoard";
 import MyCommissionsCard from "@/components/MyCommissionsCard";
 import { PassportBadge } from "@/components/PassportBadge";
 import { UserAvatar } from "@/components/ui/user-avatar";
@@ -30,18 +30,38 @@ import {
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-type Filter = "all" | "attention" | "docs" | "payment" | "onboarding" | "application" | "visa" | "done";
+type Filter = "all" | "attention" | "docs" | "payment" | "in_progress" | PipelineStageKey;
 type Sort = "priority" | "recent" | "name";
 
 // « Mes étudiants » : 5 par page ; un dossier terminé (visa obtenu) passe aux archives.
 const PAGE_SIZE = 5;
 
-const FAMILIES: Record<Exclude<Filter, "all" | "attention" | "docs" | "payment">, PipelineStageKey[]> = {
-  onboarding: ["onboarding", "no_application"],
-  application: ["ready_to_apply", "applied", "waiting_response", "interview", "rejected"],
-  visa: ["accepted", "visa_preparation", "visa_submitted", "visa_rejected"],
-  done: ["completed"]
-};
+// Ordre du parcours ; « completed » est exclu car ces dossiers vont dans l'archive.
+const STAGE_ORDER: PipelineStageKey[] = [
+  "onboarding",
+  "no_application",
+  "in_translation",
+  "ready_to_apply",
+  "applied",
+  "waiting_response",
+  "interview",
+  "accepted",
+  "visa_preparation",
+  "visa_submitted",
+  "rejected",
+  "visa_rejected",
+  "postponed",
+  "visa_postponed"
+];
+
+const NOT_IN_PROGRESS: PipelineStageKey[] = ["completed", "rejected", "visa_rejected"];
+
+const STAGE_GROUPS: Array<{ fr: string; en: string; stages: PipelineStageKey[] }> = [
+  { fr: "Dossier", en: "File", stages: ["onboarding", "no_application", "in_translation", "ready_to_apply"] },
+  { fr: "Université", en: "University", stages: ["applied", "waiting_response", "interview", "accepted"] },
+  { fr: "Visa", en: "Visa", stages: ["visa_preparation", "visa_submitted"] },
+  { fr: "Refus et reports", en: "Refusals and postponed", stages: ["rejected", "visa_rejected", "postponed", "visa_postponed"] }
+];
 
 const TONE: Record<SalesAttentionItem["tone"], string> = {
   danger: "border-red-200 bg-red-50 text-red-700",
@@ -59,8 +79,10 @@ function matchesFilter(student: SalesOverviewStudent, filter: Filter): boolean {
       return student.docs.toReview > 0;
     case "payment":
       return Boolean(student.payment?.late);
+    case "in_progress":
+      return Boolean(student.application) && !NOT_IN_PROGRESS.includes(student.stage);
     default:
-      return FAMILIES[filter].includes(student.stage);
+      return student.stage === filter;
   }
 }
 
@@ -224,12 +246,15 @@ export default function SalesEspacePage() {
   if (!session?.user) return null;
   const k = data?.kpis;
 
+  const STAGE_FILTERS: Array<{ id: Filter; label: string; count: number }> = STAGE_ORDER.map((stage) => ({
+    id: stage,
+    label: STAGE_META[stage].label,
+    count: students.filter((s) => s.stage === stage).length
+  }));
   const FILTERS: Array<{ id: Filter; label: string; count: number }> = [
     { id: "all", label: t("Tous", "All"), count: students.length },
     { id: "attention", label: t("À traiter", "To handle"), count: k?.needAttention || 0 },
-    { id: "onboarding", label: t("Onboarding / sans candidature", "Onboarding / no application"), count: students.filter((s) => matchesFilter(s, "onboarding")).length },
-    { id: "application", label: t("Candidature", "Application"), count: students.filter((s) => matchesFilter(s, "application")).length },
-    { id: "visa", label: t("Visa", "Visa"), count: students.filter((s) => matchesFilter(s, "visa")).length }
+    ...STAGE_FILTERS
   ];
 
   const toggle = (next: Filter) => {
@@ -272,7 +297,7 @@ export default function SalesEspacePage() {
         <KpiTile icon={ClipboardCheck} label={t("À traiter", "To handle")} value={k?.needAttention ?? "–"} hint={t("dossiers demandant une action", "files needing action")} tone="bg-amber-100 text-amber-600" active={filter === "attention"} onClick={() => toggle("attention")} />
         <KpiTile icon={FileCheck2} label={t("Documents", "Documents")} value={k?.docsToReview ?? "–"} hint={t("à valider", "to review")} tone="bg-sky-100 text-sky-600" active={filter === "docs"} onClick={() => toggle("docs")} />
         <KpiTile icon={Banknote} label={t("Paiements", "Payments")} value={k?.paymentsLate ?? "–"} hint={t("en retard", "overdue")} tone="bg-red-100 text-red-600" active={filter === "payment"} onClick={() => toggle("payment")} />
-        <KpiTile icon={GraduationCap} label={t("En cours", "In progress")} value={k?.inProgress ?? "–"} hint={t("candidatures et visas", "applications and visas")} tone="bg-violet-100 text-brand" active={filter === "application"} onClick={() => toggle("application")} />
+        <KpiTile icon={GraduationCap} label={t("En cours", "In progress")} value={k?.inProgress ?? "–"} hint={t("candidatures et visas", "applications and visas")} tone="bg-violet-100 text-brand" active={filter === "in_progress"} onClick={() => toggle("in_progress")} />
         <KpiTile icon={Trophy} label={t("Visas obtenus", "Visas granted")} value={k?.visasObtained ?? "–"} hint={t("dossiers terminés", "completed files")} tone="bg-emerald-100 text-emerald-600" active={false} onClick={() => navigate("/archive")} />
       </section>
 
@@ -324,7 +349,7 @@ export default function SalesEspacePage() {
           <section className="rounded-[20px] border border-line bg-white p-5 shadow-sm">
             <h2 className="font-display text-base font-bold text-dark">{t("Où en sont mes étudiants", "Where my students stand")}</h2>
             <div className="mt-3 space-y-2.5">
-              {FILTERS.filter((f) => !["all", "attention"].includes(f.id)).map((f) => (
+              {STAGE_FILTERS.filter((f) => f.count > 0).map((f) => (
                 <button key={f.id} type="button" onClick={() => toggle(f.id)} className="block w-full text-left">
                   <span className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-mid">{f.label}</span>
@@ -346,7 +371,7 @@ export default function SalesEspacePage() {
           <Users className="h-5 w-5 text-brand" aria-hidden /> {t("Mes étudiants", "My students")}
         </h2>
         <div className="flex flex-wrap items-center gap-2">
-          {FILTERS.map((f) => (
+          {FILTERS.filter((f) => f.id === "all" || f.id === "attention").map((f) => (
             <button
               key={f.id}
               type="button"
@@ -360,6 +385,36 @@ export default function SalesEspacePage() {
               {f.label}
               <span className={cn("rounded-full px-1.5 text-[10px]", filter === f.id ? "bg-white/25" : "bg-slate-100 text-muted")}>{f.count}</span>
             </button>
+          ))}
+        </div>
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" role="group" aria-label={t("Filtrer par étape", "Filter by stage")}>
+          {STAGE_GROUPS.map((group) => (
+            <div key={group.fr} className="rounded-2xl border border-line bg-white p-3 shadow-sm">
+              <p className="mb-1.5 px-1 text-[10px] font-extrabold uppercase tracking-wider text-muted">{t(group.fr, group.en)}</p>
+              <div className="space-y-0.5">
+                {group.stages.map((stage) => {
+                  const count = STAGE_FILTERS.find((f) => f.id === stage)?.count || 0;
+                  const active = filter === stage;
+                  return (
+                    <button
+                      key={stage}
+                      type="button"
+                      onClick={() => setFilter(active ? "all" : stage)}
+                      aria-pressed={active}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition",
+                        active ? "bg-brand/10 font-bold text-brand ring-1 ring-brand/30" : "hover:bg-slate-50",
+                        !active && (count ? "font-semibold text-dark" : "text-muted/70")
+                      )}
+                    >
+                      <span className={cn("h-2 w-2 shrink-0 rounded-full", STAGE_META[stage].dot, !count && !active && "opacity-40")} aria-hidden />
+                      <span className="min-w-0 flex-1 truncate">{STAGE_META[stage].label}</span>
+                      <span className={cn("shrink-0 rounded-full px-1.5 text-[10px] font-bold", active ? "bg-brand text-white" : count ? "bg-slate-100 text-dark" : "text-muted/60")}>{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           ))}
         </div>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">

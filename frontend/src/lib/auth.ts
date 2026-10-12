@@ -217,6 +217,7 @@ export async function fetchAssignmentBoard() {
 
 export type PipelineStageKey =
   | "onboarding"
+  | "in_translation"
   | "ready_to_apply"
   | "applied"
   | "waiting_response"
@@ -1296,6 +1297,18 @@ export async function fetchApplicationVisaDocuments(applicationId: string): Prom
   return request<VisaDocumentChecklistItem[]>(`/api/applications/${applicationId}/visa-documents`);
 }
 
+export async function uploadApplicationVisaDocument(
+  applicationId: string,
+  requirementId: string,
+  file: string,
+  originalFilename?: string
+): Promise<VisaDocumentChecklistItem> {
+  return request<VisaDocumentChecklistItem>(`/api/applications/${applicationId}/visa-documents`, {
+    method: "POST",
+    body: JSON.stringify({ requirementId, file, originalFilename })
+  });
+}
+
 export async function reviewApplicationVisaDocument(
   applicationId: string,
   requirementId: string,
@@ -1366,6 +1379,8 @@ export type UniversityApplication = {
   staffMeetLink: string | null;
   staffMeetInstructions: string | null;
   visaDocsValidatedAt: string | null;
+  /** Vide tant que les documents sont en traduction (la candidature n'est pas encore chez le RDV). */
+  translationDoneAt?: string | null;
   postponedKind?: "APPLICATION" | "VISA" | null;
   postponedAt?: string | null;
   retryOn?: string | null;
@@ -1402,6 +1417,10 @@ export async function fetchStudentApplications(studentId: string): Promise<Unive
 
 export async function fetchStudentApplicationHistory(studentId: string): Promise<ApplicationHistoryEntry[]> {
   return request<ApplicationHistoryEntry[]>(`/api/students/${studentId}/applications/history`);
+}
+
+export async function markApplicationTranslationDone(applicationId: string): Promise<UniversityApplication> {
+  return request<UniversityApplication>(`/api/applications/${applicationId}/translation-done`, { method: "PATCH" });
 }
 
 export async function markApplicationApplied(

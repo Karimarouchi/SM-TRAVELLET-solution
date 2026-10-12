@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 export const STAGE_META: Record<PipelineStageKey, { label: string; color: string; dot: string }> = {
   onboarding: { label: "Onboarding en cours", color: "bg-slate-100 text-slate-600 border-slate-200", dot: "bg-slate-400" },
   no_application: { label: "Sans candidature", color: "bg-slate-100 text-slate-600 border-slate-200", dot: "bg-slate-400" },
+  in_translation: { label: "Documents en traduction", color: "bg-cyan-50 text-cyan-700 border-cyan-200", dot: "bg-cyan-500" },
   ready_to_apply: { label: "Prêt à postuler", color: "bg-emerald-50 text-emerald-700 border-emerald-200", dot: "bg-emerald-500" },
   applied: { label: "Candidature déposée", color: "bg-blue-50 text-blue-700 border-blue-200", dot: "bg-blue-500" },
   waiting_response: { label: "En attente université", color: "bg-amber-50 text-amber-700 border-amber-200", dot: "bg-amber-500" },
@@ -213,8 +214,8 @@ function StudentBubble({ student }: { student: StudentOverview }) {
 
 const BUBBLES_PER_COLUMN = 6;
 
-// ── Colonne pipeline : au-delà de 6 étudiants, une bulle "+N" remplace le
-// reste et déplie la colonne au clic ; une bulle "Réduire" la replie ensuite.
+// ── Colonne pipeline : 6 bulles au maximum. Au-delà, la 6ᵉ devient "+N" et
+// déplie la colonne au clic ; une bulle "Réduire" la replie ensuite.
 function PipelineColumn({
   stageKey,
   students
@@ -225,8 +226,9 @@ function PipelineColumn({
   const [expanded, setExpanded] = useState(false);
   const navigate = useNavigate();
   const meta = STAGE_META[stageKey];
-  const hidden = students.length - BUBBLES_PER_COLUMN;
-  const visible = expanded || hidden <= 0 ? students : students.slice(0, BUBBLES_PER_COLUMN);
+  const overflow = students.length > BUBBLES_PER_COLUMN;
+  const hidden = overflow ? students.length - (BUBBLES_PER_COLUMN - 1) : 0;
+  const visible = expanded || !overflow ? students : students.slice(0, BUBBLES_PER_COLUMN - 1);
 
   return (
     <div className="w-[220px] shrink-0 snap-start rounded-[20px] border border-line bg-slate-50 p-3">

@@ -1,5 +1,6 @@
 import PaymentDateEdit from "@/components/admin/PaymentDateEdit";
 import { StatTile } from "@/components/admin/performance-ui";
+import { Amount, useAmountBlur, useAmountsHidden } from "@/components/ui/hidden-amounts";
 import {
   fetchFinanceStats,
   fetchPaymentJournal,
@@ -92,7 +93,7 @@ function RankingCard({ title, rows, currency, empty }: { title: string; rows: Ar
             <div key={row.name}>
               <div className="mb-1 flex items-center justify-between gap-3 text-xs">
                 <span className="truncate font-semibold text-dark">{row.name}</span>
-                <span className="shrink-0 font-bold text-emerald-700">{formatMoney(row.collected, currency)}</span>
+<Amount className="shrink-0 font-bold text-emerald-700">{formatMoney(row.collected, currency)}</Amount>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                 <motion.div
@@ -120,6 +121,8 @@ export default function FinanceStatsSection() {
   const [month, setMonth] = useState(0); // 0 = toute l'année
   const [currency, setCurrency] = useState<Currency>("TND");
   const [paymentsPage, setPaymentsPage] = useState(1);
+  const blur = useAmountBlur();
+  const hidden = useAmountsHidden();
 
   const reload = () => {
     fetchFinanceStats().then(setData).catch((err) => setError(err instanceof Error ? err.message : "Statistiques indisponibles."));
@@ -263,10 +266,10 @@ export default function FinanceStatsSection() {
                 key={row.index}
                 type="button"
                 onClick={() => setMonth(selected ? 0 : row.index)}
-                title={`${MONTHS[i]} : ${formatMoney(row.collected, currency)}`}
+                title={hidden ? MONTHS[i] : `${MONTHS[i]} : ${formatMoney(row.collected, currency)}`}
                 className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5"
               >
-                <span className={cn("hidden text-[10px] font-bold transition sm:block", selected ? "text-brand" : "text-muted opacity-0 group-hover:opacity-100")}>
+                <span className={cn("hidden text-[10px] font-bold transition sm:block", selected ? "text-brand" : "text-muted opacity-0 group-hover:opacity-100", blur)}>
                   {row.collected ? formatMoney(row.collected, currency) : ""}
                 </span>
                 <div className="flex h-full w-full items-end justify-center gap-0.5">
@@ -302,7 +305,7 @@ export default function FinanceStatsSection() {
                 <div key={m}>
                   <div className="mb-1 flex items-center justify-between text-xs">
                     <span className="font-semibold text-dark">{PAYMENT_METHOD_LABELS[m]}</span>
-                    <span className="text-muted">{formatMoney(current.methods[m], currency)} · {Math.round((current.methods[m] / methodTotal) * 100)}%</span>
+                    <Amount className="text-muted">{formatMoney(current.methods[m], currency)} · {Math.round((current.methods[m] / methodTotal) * 100)}%</Amount>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                     <motion.div
@@ -345,20 +348,20 @@ export default function FinanceStatsSection() {
                   className={cn("cursor-pointer border-b border-line/50 transition hover:bg-slate-50", month === row.index && "bg-brand/5")}
                 >
                   <td className="py-2 pr-3 font-semibold text-dark">{MONTHS[i]}</td>
-                  <td className="py-2 pr-3 text-right text-mid">{row.count}</td>
-                  <td className="py-2 pr-3 text-right font-bold text-emerald-700">{formatMoney(row.collected, currency)}</td>
-                  <td className="py-2 pr-3 text-right text-mid">{formatMoney(row.tranche1, currency)}</td>
-                  <td className="py-2 pr-3 text-right text-mid">{formatMoney(row.tranche2, currency)}</td>
-                  <td className={cn("py-2 text-right", row.cancelledCount ? "font-semibold text-amber-600" : "text-muted")}>{row.cancelledCount}</td>
+                  <td className={cn("py-2 pr-3 text-right text-mid", blur)}>{row.count}</td>
+                  <td className={cn("py-2 pr-3 text-right font-bold text-emerald-700", blur)}>{formatMoney(row.collected, currency)}</td>
+                  <td className={cn("py-2 pr-3 text-right text-mid", blur)}>{formatMoney(row.tranche1, currency)}</td>
+                  <td className={cn("py-2 pr-3 text-right text-mid", blur)}>{formatMoney(row.tranche2, currency)}</td>
+                  <td className={cn("py-2 text-right", row.cancelledCount ? "font-semibold text-amber-600" : "text-muted", blur)}>{row.cancelledCount}</td>
                 </tr>
               ))}
               <tr className="font-bold text-dark">
                 <td className="pt-3 pr-3">Total {year}</td>
-                <td className="pt-3 pr-3 text-right">{yearTotal.count}</td>
-                <td className="pt-3 pr-3 text-right text-emerald-700">{formatMoney(yearTotal.collected, currency)}</td>
-                <td className="pt-3 pr-3 text-right">{formatMoney(yearTotal.tranche1, currency)}</td>
-                <td className="pt-3 pr-3 text-right">{formatMoney(yearTotal.tranche2, currency)}</td>
-                <td className="pt-3 text-right">{yearTotal.cancelledCount}</td>
+                <td className={cn("pt-3 pr-3 text-right", blur)}>{yearTotal.count}</td>
+                <td className={cn("pt-3 pr-3 text-right text-emerald-700", blur)}>{formatMoney(yearTotal.collected, currency)}</td>
+                <td className={cn("pt-3 pr-3 text-right", blur)}>{formatMoney(yearTotal.tranche1, currency)}</td>
+                <td className={cn("pt-3 pr-3 text-right", blur)}>{formatMoney(yearTotal.tranche2, currency)}</td>
+                <td className={cn("pt-3 text-right", blur)}>{yearTotal.cancelledCount}</td>
               </tr>
             </tbody>
           </table>
@@ -403,7 +406,7 @@ export default function FinanceStatsSection() {
                     <td className="py-2 pr-3">{p.methodLabel}</td>
                     <td className="py-2 pr-3 text-muted">{p.receiptNumber || "—"}</td>
                     <td className="py-2 pr-3 text-muted">{p.reference ? `${p.referenceLabel ? `${p.referenceLabel} ` : ""}${p.reference}` : "—"}</td>
-                    <td className="py-2 text-right font-bold">{formatMoney(p.amount, p.currency)}</td>
+                    <td className={cn("py-2 text-right font-bold", blur)}>{formatMoney(p.amount, p.currency)}</td>
                   </tr>
                 ))}
               </tbody>

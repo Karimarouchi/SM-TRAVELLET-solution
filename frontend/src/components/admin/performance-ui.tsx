@@ -1,4 +1,5 @@
 import type { PerfDuration, PerformancePeriod, PerfWorkHours, WhatsAppFunnel } from "@/lib/auth";
+import { useAmountBlur } from "@/components/ui/hidden-amounts";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, Clock } from "lucide-react";
 import type { ReactNode } from "react";
@@ -63,6 +64,7 @@ export function StatTile({
   expanded?: boolean;
 }) {
   const Wrapper = onClick ? "button" : "div";
+  const blur = useAmountBlur();
   return (
     <Wrapper
       {...(onClick ? { type: "button" as const, onClick, "aria-expanded": expanded } : {})}
@@ -77,8 +79,8 @@ export function StatTile({
         {tone === "warning" && <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" aria-hidden />}
         <span className="break-words">{label}</span>
       </p>
-      <p className="mt-1 font-display text-2xl font-extrabold leading-tight text-dark">{value}</p>
-      {hint ? <p className="mt-0.5 text-[11px] leading-snug text-muted">{hint}</p> : null}
+      <p className={cn("mt-1 font-display text-2xl font-extrabold leading-tight text-dark", blur)}>{value}</p>
+      {hint ? <p className={cn("mt-0.5 text-[11px] leading-snug text-muted", blur)}>{hint}</p> : null}
       {onClick && (
         <p className="mt-1.5 text-[11px] font-bold text-brand">{expanded ? "Masquer la liste ▲" : "Voir la liste ▼"}</p>
       )}

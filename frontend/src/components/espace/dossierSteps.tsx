@@ -1,5 +1,5 @@
-import type { UniversityApplication } from "@/lib/auth";
-import { Calendar, ExternalLink } from "lucide-react";
+import { formatMoney, type PaymentPlan, type UniversityApplication } from "@/lib/auth";
+import { AlertTriangle, Calendar, ExternalLink } from "lucide-react";
 import type { ReactNode } from "react";
 
 export type StepState = "done" | "current" | "upcoming" | "rejected";
@@ -26,16 +26,21 @@ export function buildSteps({
   dossierStage,
   application,
   t,
-  interviewAction
+  interviewAction,
+  plans = []
 }: {
   dossierStage: string;
   application: UniversityApplication | null;
   t: T;
   interviewAction?: ReactNode;
+  /** Plans de paiement de l'étudiant : la tranche inscription non réglée bloque le dépôt. */
+  plans?: PaymentPlan[];
 }): StepsResult {
   const documentsDone = dossierStage !== "DOCUMENTS";
   const readyDone = Boolean(application);
   const appliedDone = Boolean(application?.appliedAt);
+  const inTranslation = application?.status === "READY_TO_APPLY" && !application.translationDoneAt;
+  const unpaidPlan = application?.status === "READY_TO_APPLY" ? plans.find((p) => p.countryId === application.countryId && !p.tranche1.complete) : undefined;
   const isAccepted = application?.status === "ACCEPTED";
   const isRejected = application?.status === "REJECTED" || application?.status === "CLOSED";
   const visaStatus = application?.visaStatus;
@@ -47,14 +52,36 @@ export function buildSteps({
 
   if (application) {
     steps.push({
+      key: "translation",
+      label: t("Traduction des documents", "Document translation"),
+      state: inTranslation ? "current" : "done",
+      detail: inTranslation ? (
+        <p className="mt-0.5 text-xs text-mid">{t("Vos documents sont en cours de traduction par l'agence.", "The agency is translating your documents.")}</p>
+      ) : undefined
+    });
+    steps.push({
       key: "applied",
       label: t("Candidature déposée", "Application submitted"),
-      state: appliedDone ? "done" : "current",
+      state: appliedDone ? "done" : inTranslation ? "upcoming" : "current",
       detail: (
-        <p className="mt-0.5 text-xs font-semibold text-mid">
-          {application.universityName}
-          {application.fieldOfStudy ? ` · ${application.fieldOfStudy}` : ""} · {application.countryName}
-        </p>
+        <>
+          <p className="mt-0.5 text-xs font-semibold text-mid">
+            {application.universityName}
+            {application.fieldOfStudy ? ` · ${application.fieldOfStudy}` : ""} · {application.countryName}
+          </p>
+          {unpaidPlan && (
+            <div className="mt-1.5 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+              <span>
+                <strong>{t("Candidature bloquée : paiement non réglé.", "Application on hold: payment not settled.")}</strong>{" "}
+                {t(
+                  `Il reste ${formatMoney(unpaidPlan.tranche1.remaining, unpaidPlan.currency)} à payer (tranche inscription). Votre candidature sera déposée dès le règlement auprès de votre conseiller.`,
+                  `${formatMoney(unpaidPlan.tranche1.remaining, unpaidPlan.currency)} left to pay (registration instalment). Your application will be submitted once you pay your advisor.`
+                )}
+              </span>
+            </div>
+          )}
+        </>
       )
     });
 
@@ -129,10 +156,19 @@ export function buildSteps({
   const current = steps.find((s) => s.state === "current");
   const rejected = [...steps].reverse().find((s) => s.state === "rejected");
   const finished = steps.find((s) => s.key === "visa-decision" && s.state === "done");
+  const blocked = Boolean(unpaidPlan) && !rejected;
   return {
     steps,
-    headline: finished ? t("Parcours terminé — visa obtenu", "Journey complete — visa obtained") : rejected ? rejected.label : current ? current.label : t("Dossier en cours", "File in progress"),
-    tone: finished ? "success" : rejected ? "danger" : "progress",
+    headline: finished
+      ? t("Parcours terminé — visa obtenu", "Journey complete — visa obtained")
+      : rejected
+        ? rejected.label
+        : blocked
+          ? t("Candidature bloquée : paiement à régler", "Application on hold: payment due")
+          : current
+            ? current.label
+            : t("Dossier en cours", "File in progress"),
+    tone: finished ? "success" : rejected || blocked ? "danger" : "progress",
     doneCount: steps.filter((s) => s.state === "done").length
   };
 }

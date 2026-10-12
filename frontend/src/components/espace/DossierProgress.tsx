@@ -1,4 +1,4 @@
-import { completeApplicationInterview, type UniversityApplication } from "@/lib/auth";
+import { completeApplicationInterview, type PaymentPlan, type UniversityApplication } from "@/lib/auth";
 import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { Check, GraduationCap, Plane, X } from "lucide-react";
@@ -17,12 +17,14 @@ const DOT: Record<StepState, string> = {
 export default function DossierProgress({
   dossierStage,
   applications,
+  plans,
   selectedId,
   onSelect,
   onRefresh
 }: {
   dossierStage: string;
   applications: UniversityApplication[];
+  plans?: PaymentPlan[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   onRefresh: () => void;
@@ -57,7 +59,7 @@ export default function DossierProgress({
     </div>
   ) : null;
 
-  const { steps, headline, tone } = buildSteps({ dossierStage, application, t, interviewAction });
+  const { steps, headline, tone } = buildSteps({ dossierStage, application, t, interviewAction, plans });
 
   return (
     <section className="overflow-hidden rounded-[24px] border border-line bg-white shadow-sm">

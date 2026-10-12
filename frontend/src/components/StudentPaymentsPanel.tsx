@@ -1,4 +1,5 @@
 import { FancySelect } from "@/components/ui/fancy-select";
+import { Amount } from "@/components/ui/hidden-amounts";
 import {
   PAYMENT_METHOD_LABELS,
   PAYMENT_REFERENCE_LABELS,
@@ -32,14 +33,14 @@ function TrancheBox({ title, hint, state, currency }: { title: string; hint: str
       </div>
       <p className="mt-0.5 text-[11px] text-muted">{hint}</p>
       <p className="mt-2 text-sm font-extrabold text-dark">
-        {formatMoney(state.paid, currency)} <span className="font-semibold text-muted">/ {formatMoney(state.due, currency)}</span>
+        <Amount>{formatMoney(state.paid, currency)}</Amount> <Amount className="font-semibold text-muted">/ {formatMoney(state.due, currency)}</Amount>
       </p>
       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white">
         <div className={cn("h-full rounded-full", state.complete ? "bg-emerald-500" : "bg-amber-500")} style={{ width: `${percent}%` }} />
       </div>
       {!state.complete && (
         <p className="mt-1.5 text-[11px] font-semibold text-amber-800">
-          Reste {formatMoney(state.remaining, currency)}
+          Reste <Amount>{formatMoney(state.remaining, currency)}</Amount>
           {state.deadline && (
             <span className={cn("ml-1", state.deadline < todayLocal() ? "text-red-600" : "")}>
               · à payer avant le {new Date(`${state.deadline}T12:00:00`).toLocaleDateString("fr-FR")}{state.deadline < todayLocal() ? " (dépassée)" : ""}
@@ -233,7 +234,7 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
           {isPartial && selectedState && plan && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
               <p className="text-xs font-bold text-amber-900">
-                Paiement partiel : il restera {formatMoney(selectedState.remaining - (typedAmount || 0), plan.currency)} à payer.
+                Paiement partiel : il restera <Amount>{formatMoney(selectedState.remaining - (typedAmount || 0), plan.currency)}</Amount> à payer.
               </p>
               <label className="mb-1 mt-2 block text-[11px] font-bold text-amber-900">Date limite pour payer le reste *</label>
               <input
@@ -269,7 +270,7 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
             <div key={p.id} className="rounded-2xl border border-line p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-bold text-dark">
-                  {p.countryName} · {formatMoney(p.total, p.currency)}
+                  {p.countryName} · <Amount>{formatMoney(p.total, p.currency)}</Amount>
                 </p>
                 {p.status === "PAID" ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
@@ -277,10 +278,10 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
                   </span>
                 ) : p.late ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-600">
-                    <AlertTriangle className="h-3 w-3" /> En retard · reste {formatMoney(p.remainingTotal, p.currency)}
+                    <AlertTriangle className="h-3 w-3" /> En retard · reste <Amount>{formatMoney(p.remainingTotal, p.currency)}</Amount>
                   </span>
                 ) : (
-                  <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800">Reste {formatMoney(p.remainingTotal, p.currency)}</span>
+                  <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800">Reste <Amount>{formatMoney(p.remainingTotal, p.currency)}</Amount></span>
                 )}
               </div>
               <div className={cn("mt-3 grid gap-3", !compact && "sm:grid-cols-2")}>
@@ -299,7 +300,7 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
                 <div key={payment.id} className={cn("rounded-xl border px-3 py-2.5 text-xs", payment.status === "CANCELLED" ? "border-line bg-slate-50 text-muted" : "border-line bg-white")}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className={cn("font-bold", payment.status === "CANCELLED" ? "line-through" : "text-dark")}>
-                      {formatMoney(payment.amount, payment.currency)} · tranche {payment.tranche} · {payment.countryName}
+                      <Amount>{formatMoney(payment.amount, payment.currency)}</Amount> · tranche {payment.tranche} · {payment.countryName}
                     </p>
                     <p className="flex flex-wrap items-center gap-1.5">
                       {payment.methodLabel} · {new Date(payment.paidAt).toLocaleDateString("fr-FR")}

@@ -56,7 +56,7 @@ app.use((req, res, next) => {
 });
 // Documents de l'étudiant (5 Mo max) : un fichier de 5 Mo pèse environ 6,7 Mo une fois encodé en base64,
 // donc la limite JSON de 5 Mo refusait déjà les fichiers de plus de 3,7 Mo avec une erreur 500.
-app.use(["/api/students/me/documents", "/api/students/me/visa-documents"], express.json({ limit: "9mb" }));
+app.use(["/api/students/me/documents", "/api/students/me/visa-documents", "/api/students/:id/documents", "/api/applications/:id/visa-documents"], express.json({ limit: "9mb" }));
 // Envoi d'un fichier WhatsApp (16 Mo max, soit environ 22 Mo en base64) : limite dédiée à cette route.
 app.use("/api/whatsapp/conversations/:contactId/media", express.json({ limit: "25mb" }));
 // Envoi de mail avec pièces jointes (10 Mo, soit environ 14 Mo en base64) : limite dédiée à cette seule route.
@@ -189,11 +189,13 @@ app.patch("/api/students/:id/documents/review", requireAuth, requireRoles("SALES
 app.get("/api/students/me/visa-documents", requireAuth, requireRoles("STUDENT"), studentDocumentController.myVisaChecklist);
 app.post("/api/students/me/visa-documents", requireAuth, requireRoles("STUDENT"), studentDocumentController.uploadVisa);
 app.get("/api/applications/:id/visa-documents", requireAuth, requireRoles("SALES", "RDV", "ADMIN"), studentDocumentController.visaChecklistForApplication);
+app.post("/api/applications/:id/visa-documents", requireAuth, requireRoles("SALES", "RDV", "ADMIN"), studentDocumentController.uploadVisaForStudent);
 app.patch("/api/applications/:id/visa-documents/review", requireAuth, requireRoles("SALES", "RDV", "ADMIN"), studentDocumentController.reviewVisa);
 
 app.get("/api/students/me/applications", requireAuth, requireRoles("STUDENT"), universityApplicationController.listMine);
 app.get("/api/students/:id/applications", requireAuth, requireRoles("SALES", "ADMIN", "RDV"), universityApplicationController.listForStudent);
 app.get("/api/students/:id/applications/history", requireAuth, requireRoles("SALES", "ADMIN", "RDV"), universityApplicationController.historyForStudent);
+app.patch("/api/applications/:id/translation-done", requireAuth, requireRoles("SALES", "ADMIN"), universityApplicationController.markTranslationDone);
 app.patch("/api/applications/:id/apply", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.markApplied);
 app.patch("/api/applications/:id/interview", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.scheduleInterview);
 app.patch("/api/applications/:id/interview-completed", requireAuth, requireRoles("RDV", "ADMIN", "STUDENT"), universityApplicationController.completeInterview);

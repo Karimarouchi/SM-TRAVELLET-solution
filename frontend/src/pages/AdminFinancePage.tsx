@@ -6,6 +6,7 @@ import InvoicingPanel from "@/components/admin/InvoicingPanel";
 import { StatTile } from "@/components/admin/performance-ui";
 import StudentPaymentsPanel from "@/components/StudentPaymentsPanel";
 import { FancySelect } from "@/components/ui/fancy-select";
+import { Amount, HiddenAmountsProvider, RevealAmountsButton, useAmountBlur } from "@/components/ui/hidden-amounts";
 import {
   fetchFinanceOverview,
   fetchFinancePlans,
@@ -84,8 +85,8 @@ function Overview() {
               <div key={row.name} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5 text-sm">
                 <span className="font-semibold text-dark">{row.name}</span>
                 <span className="text-xs">
-                  <span className="font-bold text-emerald-700">{moneyLines(collected)}</span> encaissés ·{" "}
-                  <span className="font-bold text-amber-700">{moneyLines(remaining)}</span> restants
+                  <Amount className="font-bold text-emerald-700">{moneyLines(collected)}</Amount> encaissés ·{" "}
+                  <Amount className="font-bold text-amber-700">{moneyLines(remaining)}</Amount> restants
                 </span>
               </div>
             );
@@ -219,7 +220,8 @@ function Payments({ initialStudent }: { initialStudent: string | null }) {
                   </span>
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-semibold text-mid">
-                      T1 {plan.tranche1.complete ? "✓" : formatMoney(plan.tranche1.remaining, plan.currency)} · T2 {plan.tranche2.complete ? "✓" : formatMoney(plan.tranche2.remaining, plan.currency)}
+                      T1 {plan.tranche1.complete ? "✓" : <Amount>{formatMoney(plan.tranche1.remaining, plan.currency)}</Amount>} · T2{" "}
+                      {plan.tranche2.complete ? "✓" : <Amount>{formatMoney(plan.tranche2.remaining, plan.currency)}</Amount>}
                     </span>
                     {plan.status === "PAID" ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
@@ -263,6 +265,7 @@ function PricingCard({ row, onSaved, index }: { row: CountryPricing; onSaved: (n
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
+  const blur = useAmountBlur();
   const t1 = parseAmount(tranche1);
   const t2 = parseAmount(tranche2);
   const total = t1 + t2;
@@ -313,7 +316,7 @@ function PricingCard({ row, onSaved, index }: { row: CountryPricing; onSaved: (n
           onChange={(e) => set(e.target.value.replace(/[^\d.,\s]/g, ""))}
           inputMode="decimal"
           placeholder="0"
-          className="w-full rounded-xl border border-line bg-slate-50 py-2.5 pl-3 pr-12 font-display text-lg font-extrabold text-dark outline-none transition focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/20"
+          className={cn("w-full rounded-xl border border-line bg-slate-50 py-2.5 pl-3 pr-12 font-display text-lg font-extrabold text-dark outline-none transition focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/20", blur)}
         />
         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted">{symbol}</span>
       </div>
@@ -341,7 +344,7 @@ function PricingCard({ row, onSaved, index }: { row: CountryPricing; onSaved: (n
         <div className="min-w-0 flex-1">
           <h3 className="truncate font-display text-lg font-bold text-dark">{row.countryName}</h3>
           {row.configured ? (
-            <p className="text-[11px] font-bold text-emerald-600">Tarif défini · {formatMoney((row.tranche1 ?? 0) + (row.tranche2 ?? 0), row.currency)}</p>
+            <p className="text-[11px] font-bold text-emerald-600">Tarif défini · <Amount>{formatMoney((row.tranche1 ?? 0) + (row.tranche2 ?? 0), row.currency)}</Amount></p>
           ) : (
             <p className="text-[11px] font-semibold text-muted">Aucun tarif · aucun paiement exigé</p>
           )}
@@ -365,10 +368,10 @@ function PricingCard({ row, onSaved, index }: { row: CountryPricing; onSaved: (n
         <div className="flex items-end justify-between gap-3">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Prix total pour l'étudiant</p>
-            <p className="font-display text-2xl font-extrabold leading-tight text-dark">{formatMoney(total, currency)}</p>
+            <p className={cn("font-display text-2xl font-extrabold leading-tight text-dark", blur)}>{formatMoney(total, currency)}</p>
           </div>
           {total > 0 && (
-            <p className="text-right text-[11px] text-muted">
+            <p className={cn("text-right text-[11px] text-muted", blur)}>
               <span className="font-bold text-brand">{Math.round((t1 / total) * 100)}%</span> puis <span className="font-bold text-sky-600">{Math.round((t2 / total) * 100)}%</span>
             </p>
           )}
@@ -378,8 +381,8 @@ function PricingCard({ row, onSaved, index }: { row: CountryPricing; onSaved: (n
           <motion.div className="h-full bg-sky-400" animate={{ width: total ? `${(t2 / total) * 100}%` : "0%" }} transition={{ duration: 0.4 }} />
         </div>
         <div className="mt-2 flex justify-between text-[10px] font-semibold text-muted">
-          <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-brand" /> Inscription {formatMoney(t1, currency)}</span>
-          <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-sky-400" /> Visa {formatMoney(t2, currency)}</span>
+          <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-brand" /> Inscription <Amount>{formatMoney(t1, currency)}</Amount></span>
+          <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-sky-400" /> Visa <Amount>{formatMoney(t2, currency)}</Amount></span>
         </div>
       </div>
 
@@ -476,7 +479,7 @@ function Pricing() {
               <p className="mt-2 text-sm text-muted">—</p>
             ) : (
               <div className="mt-2 space-y-0.5">
-                {averages.map((a) => <p key={a.currency} className="font-display text-xl font-extrabold leading-tight text-dark">{formatMoney(Math.round(a.average), a.currency)}</p>)}
+                {averages.map((a) => <p key={a.currency} className="font-display text-xl font-extrabold leading-tight text-dark"><Amount>{formatMoney(Math.round(a.average), a.currency)}</Amount></p>)}
               </div>
             )}
           </div>
@@ -561,12 +564,18 @@ export default function AdminFinancePage() {
   };
 
   return (
+    <HiddenAmountsProvider>
     <main className="mx-auto max-w-[1400px] px-4 pb-16 sm:px-6">
       <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-6 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)] sm:p-8">
-        <p className="text-sm text-white/80">Espace administrateur</p>
-        <h1 className="mt-1 flex items-center gap-3 font-display text-3xl font-extrabold">
-          <Banknote className="h-8 w-8" aria-hidden /> Finance
-        </h1>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm text-white/80">Espace administrateur</p>
+            <h1 className="mt-1 flex items-center gap-3 font-display text-3xl font-extrabold">
+              <Banknote className="h-8 w-8" aria-hidden /> Finance
+            </h1>
+          </div>
+          <RevealAmountsButton className="bg-white text-brand shadow hover:bg-violet-50" />
+        </div>
         <p className="mt-3 max-w-2xl text-sm text-white/85">
           Chiffre d'affaires, paiements des étudiants en 2 tranches (inscription puis visa), tarifs par pays et commissions de l'équipe.
         </p>
@@ -594,5 +603,6 @@ export default function AdminFinancePage() {
       {tab === "tarifs" && <Pricing />}
       {tab === "commissions" && <CommissionsPanel />}
     </main>
+    </HiddenAmountsProvider>
   );
 }

@@ -22,6 +22,7 @@ import ApplicationTimeline, { PostponeModal } from "@/components/admin/Applicati
 import MyCommissionsCard, { RDV_INSCRIPTION_STAGES, RDV_VISA_STAGES } from "@/components/MyCommissionsCard";
 import { Link } from "react-router-dom";
 import RdvStudentSearch from "@/components/RdvStudentSearch";
+import StaffVisaUploadButton from "@/components/StaffVisaUploadButton";
 import { studentProfilePath } from "@/lib/utils";
 
 function docStatusMeta(t: (fr: string, en: string) => string): Record<VisaDocumentChecklistItem["status"], { label: string; color: string; icon: typeof Clock }> {
@@ -37,12 +38,15 @@ function VisaDocumentReviewRow({
   applicationId,
   doc,
   onReviewed,
-  allowReview = true
+  allowReview = true,
+  allowUpload = false
 }: {
   applicationId: string;
   doc: VisaDocumentChecklistItem;
   onReviewed: (d: VisaDocumentChecklistItem) => void;
   allowReview?: boolean;
+  /** Le Responsable Dossier ajoute lui-même le document (validé directement). */
+  allowUpload?: boolean;
 }) {
   const { t } = useLanguage();
   const [rejecting, setRejecting] = useState(false);
@@ -110,6 +114,8 @@ function VisaDocumentReviewRow({
           <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" /> {doc.rejectionReason}
         </div>
       )}
+
+      {allowUpload && <StaffVisaUploadButton applicationId={applicationId} doc={doc} onUploaded={onReviewed} />}
 
       {canReview && (
         <div className="mt-2">
@@ -794,6 +800,7 @@ export function RdvVisasPage() {
                               applicationId={app.id}
                               doc={doc}
                               allowReview={false}
+                              allowUpload
                               onReviewed={(updated) =>
                                 setDocsByApp((prev) => ({
                                   ...prev,

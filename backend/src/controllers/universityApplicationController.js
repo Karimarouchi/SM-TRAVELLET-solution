@@ -28,6 +28,14 @@ async function historyForStudent(req, res) {
   }
 }
 
+async function markTranslationDone(req, res) {
+  try {
+    res.json(await service.markTranslationDone(req.auth, req.params.id));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function markApplied(req, res) {
   try {
     res.json(await service.markApplied(req.auth, req.params.id, req.body));
@@ -195,6 +203,7 @@ module.exports = {
   listForStudent,
   listMine,
   historyForStudent,
+  markTranslationDone,
   markApplied,
   scheduleInterview,
   completeInterview,

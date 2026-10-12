@@ -38,14 +38,25 @@ async function findActiveForStudent(studentId) {
   return result.rows;
 }
 
-async function create({ studentId, countryId, universityId, programmeId, salesId, choiceId, fieldOfStudy }) {
+// translationPending : la candidature attend la fin de la traduction des documents
+// (translation_done_at vide) avant de partir chez le Responsable Dossier.
+async function create({ studentId, countryId, universityId, programmeId, salesId, choiceId, fieldOfStudy, translationPending = false }) {
   const result = await query(
-    `INSERT INTO university_applications (student_id, country_id, university_id, programme_id, sales_id, choice_id, field_of_study, status, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, 'READY_TO_APPLY', NOW())
+    `INSERT INTO university_applications (student_id, country_id, university_id, programme_id, sales_id, choice_id, field_of_study, status, translation_done_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, 'READY_TO_APPLY', CASE WHEN $8::boolean THEN NULL ELSE NOW() END, NOW())
      RETURNING *`,
-    [studentId, countryId, universityId, programmeId || null, salesId || null, choiceId || null, fieldOfStudy || ""]
+    [studentId, countryId, universityId, programmeId || null, salesId || null, choiceId || null, fieldOfStudy || "", Boolean(translationPending)]
   );
   return result.rows[0];
+}
+
+// Les documents d'études sont communs à toutes les candidatures : traduits une fois, ils le restent.
+async function hasTranslatedApplication(studentId) {
+  const result = await query(
+    "SELECT 1 FROM university_applications WHERE student_id = $1 AND translation_done_at IS NOT NULL LIMIT 1",
+    [studentId]
+  );
+  return result.rowCount > 0;
 }
 
 async function update(id, fields) {
@@ -216,7 +227,7 @@ async function findRecentSuccesses(days = 7) {
 async function listAllActive() {
   const result = await query(
     `SELECT ua.id, ua.student_id, ua.status, ua.visa_status, ua.updated_at, ua.decision_at, ua.assigned_rdv_id,
-            c.name AS country_name, cu.name AS university_name
+            ua.translation_done_at, c.name AS country_name, cu.name AS university_name
      FROM university_applications ua
      JOIN countries c ON c.id = ua.country_id
      JOIN country_universities cu ON cu.id = ua.university_id
@@ -285,6 +296,7 @@ async function rdvHasStudent(rdvUserId, studentId) {
 }
 
 module.exports = {
+  hasTranslatedApplication,
   rdvHasStudent,
   listReadyForRdv,
   findById,

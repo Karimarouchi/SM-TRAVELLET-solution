@@ -77,6 +77,7 @@ function dto(row) {
     staffMeetLink: row.staff_meet_link,
     staffMeetInstructions: row.staff_meet_instructions,
     visaDocsValidatedAt: row.visa_docs_validated_at,
+    translationDoneAt: row.translation_done_at || null,
     postponedKind: row.postponed_kind || null,
     postponedAt: row.postponed_at || null,
     retryOn: dateOnly(row.retry_on),
@@ -91,6 +92,11 @@ function dto(row) {
 
 async function recordHistory(applicationId, studentId, oldStatus, newStatus, changedBy, comment) {
   await appRepo.addHistory({ applicationId, studentId, oldStatus, newStatus, changedBy, comment });
+}
+
+async function studentDisplayName(studentId) {
+  const student = await userRepo.findById(studentId);
+  return student ? `${student.prenom} ${student.nom}`.trim() : "Un étudiant";
 }
 
 // Appelée après chaque validation de document (studentDocumentService) et
@@ -136,16 +142,31 @@ async function checkAndAdvanceReadyToApply(studentId) {
       const specific = await studentDocRepo.findRequiredActiveStatusesForUniversity(choice.university_id, studentId);
       if (!specific.every((s) => s.status === "VALIDATED")) continue;
 
+      const alreadyTranslated = await appRepo.hasTranslatedApplication(studentId);
       const created = await appRepo.create({
         studentId,
         countryId: country.id,
         universityId: choice.university_id,
         salesId: profile.assigned_sales_id,
         choiceId: choice.id,
-        fieldOfStudy: choice.field_of_study
+        fieldOfStudy: choice.field_of_study,
+        translationPending: !alreadyTranslated
       });
-      await recordHistory(created.id, studentId, null, "READY_TO_APPLY", null, `Documents validés — dossier prêt à postuler (${choice.university_name}${choice.field_of_study ? `, ${choice.field_of_study}` : ""}).`);
-      await autoAssignRdvForApply(created);
+      const label = `${choice.university_name}${choice.field_of_study ? `, ${choice.field_of_study}` : ""}`;
+      if (alreadyTranslated) {
+        await recordHistory(created.id, studentId, null, "READY_TO_APPLY", null, `Documents validés (déjà traduits) — dossier prêt à postuler (${label}).`);
+        await autoAssignRdvForApply(created);
+      } else {
+        await recordHistory(created.id, studentId, null, "READY_TO_APPLY", null, `Documents validés — documents en traduction avant le dépôt (${label}).`);
+        if (profile.assigned_sales_id) {
+          await notificationService.notify(profile.assigned_sales_id, {
+            type: "APPLICATION_UPDATE",
+            title: "Documents à faire traduire",
+            body: `${await studentDisplayName(studentId)} : tous les documents sont validés (${label}). Confirmez la fin de la traduction pour transmettre le dossier au Responsable Dossier.`,
+            link: `/conseiller/etudiants/${studentId}`
+          });
+        }
+      }
     }
   }
 
@@ -373,6 +394,9 @@ async function markApplied(auth, applicationId, payload) {
   await assertApplicationAccess(auth, application);
   if (application.status !== "READY_TO_APPLY") {
     throw fail("Cette candidature n’est pas au statut « prête à postuler ».", 400);
+  }
+  if (!application.translation_done_at) {
+    throw fail("Les documents sont encore en traduction : le conseiller doit confirmer la fin de la traduction avant le dépôt.", 409);
   }
 
   // Paiement : la tranche inscription doit être réglée avant le dépôt de la candidature.
@@ -797,6 +821,26 @@ async function assignRdv(auth, applicationId, payload) {
       ? `Dossier transféré à ${rdvName} — attribution équitable parmi tous les Responsables Dossier actifs.`
       : `Dossier transféré à ${rdvName}.`;
   await recordHistory(applicationId, application.student_id, application.status, application.status, auth.sub, comment);
+  return dto({ ...updated, country_name: (await countryRepo.findById(updated.country_id))?.name, university_name: (await universityRepo.findById(updated.university_id))?.name });
+}
+
+// Le conseiller confirme que les documents d'études sont traduits : la candidature
+// passe « À déposer » chez le Responsable Dossier (attribué à ce moment-là).
+async function markTranslationDone(auth, applicationId) {
+  const application = await appRepo.findById(applicationId);
+  if (!application) throw fail("Candidature introuvable.", 404);
+  const roles = authRoles(auth);
+  if (!roles.includes("ADMIN") && !(roles.includes("SALES") && application.sales_id === auth.sub)) {
+    throw fail("Seul le conseiller de l'étudiant ou un administrateur peut confirmer la traduction.", 403);
+  }
+  if (application.status !== "READY_TO_APPLY" || application.translation_done_at) {
+    throw fail("Cette candidature n'est pas en attente de traduction.", 400);
+  }
+
+  let updated = await appRepo.update(applicationId, { translation_done_at: new Date(), translation_done_by: auth.sub });
+  await recordHistory(applicationId, application.student_id, application.status, application.status, auth.sub, "Traduction des documents terminée — dossier transmis au Responsable Dossier pour le dépôt.");
+  if (!updated.assigned_rdv_id) updated = await autoAssignRdvForApply(updated);
+  await notifyStudent(updated, "Vos documents sont traduits. Votre Responsable Dossier va maintenant déposer votre candidature.");
   return dto({ ...updated, country_name: (await countryRepo.findById(updated.country_id))?.name, university_name: (await universityRepo.findById(updated.university_id))?.name });
 }
 
@@ -1235,6 +1279,7 @@ async function sendRetryReminders() {
 }
 
 module.exports = {
+  markTranslationDone,
   confirmVisaDocs,
   postpone,
   retryPostponed,

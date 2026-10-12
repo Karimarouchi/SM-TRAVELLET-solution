@@ -91,6 +91,15 @@ async function uploadVisa(req, res) {
   }
 }
 
+async function uploadVisaForStudent(req, res) {
+  try {
+    const { requirementId, file, originalFilename } = req.body;
+    res.json(await studentDocumentService.uploadVisaDocumentForStudent(req.auth, req.params.id, requirementId, file, originalFilename));
+  } catch (error) {
+    res.status(error.status || 400).json({ error: error.message || "Requête invalide." });
+  }
+}
+
 async function visaChecklistForApplication(req, res) {
   try {
     const checklist = await studentDocumentService.getVisaChecklistForApplication(req.auth, req.params.id);
@@ -120,6 +129,7 @@ module.exports = {
   review,
   myVisaChecklist,
   uploadVisa,
+  uploadVisaForStudent,
   visaChecklistForApplication,
   reviewVisa
 };

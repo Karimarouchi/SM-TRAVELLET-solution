@@ -1,5 +1,6 @@
 import { STAGE_LABELS_FR } from "@/components/MyCommissionsCard";
 import { alertDialog, confirmDialog } from "@/components/ui/dialog-host";
+import { Amount } from "@/components/ui/hidden-amounts";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   fetchCommissionPayouts,
@@ -32,7 +33,7 @@ function Kpi({ icon: Icon, label, children, hint, tone }: { icon: typeof Coins; 
         <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", tone)}><Icon className="h-[18px] w-[18px]" aria-hidden /></span>
         <p className="text-[11px] font-bold uppercase tracking-wide text-muted">{label}</p>
       </div>
-      <p className="mt-3 font-display text-3xl font-extrabold leading-none text-dark">{children}</p>
+      <p className="mt-3 font-display text-3xl font-extrabold leading-none text-dark"><Amount>{children}</Amount></p>
       <p className="mt-1 text-[11px] text-muted">{hint}</p>
     </motion.div>
   );
@@ -64,7 +65,7 @@ function Lines({ lines, selectable, selected, onToggle }: { lines: PayoutLine[];
               <td className="px-3 py-2 text-mid">{STAGE_LABELS_FR[line.stage]}</td>
               <td className="px-3 py-2 text-mid">{line.countryName}</td>
               <td className="whitespace-nowrap px-3 py-2 text-muted">{frDate(line.earnedAt)}</td>
-              <td className="whitespace-nowrap px-3 py-2 text-right font-bold text-dark">{dt(line.amountDinar)}</td>
+              <td className="whitespace-nowrap px-3 py-2 text-right font-bold text-dark"><Amount>{dt(line.amountDinar)}</Amount></td>
             </tr>
           ))}
         </tbody>
@@ -220,7 +221,7 @@ export default function CommissionPayoutsPanel() {
         </div>
         {tab === "due" && employees.length > 0 && (
           <button type="button" disabled={busy !== null} onClick={() => void payEveryone()} className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50">
-            <HandCoins className="h-4 w-4" /> {busy === "all" ? "Versement…" : `Payer tous les employés · ${dt(due.totals.due)}`}
+            <HandCoins className="h-4 w-4" /> {busy === "all" ? "Versement…" : <>Payer tous les employés · <Amount>{dt(due.totals.due)}</Amount></>}
           </button>
         )}
       </div>
@@ -254,18 +255,18 @@ export default function CommissionPayoutsPanel() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-display text-2xl font-extrabold leading-none text-dark">{dt(employee.total)}</p>
-                        <p className="mt-1 text-[11px] text-muted">{employee.count} commission{employee.count > 1 ? "s" : ""} · depuis le {frDate(employee.oldestAt)}</p>
+                        <p className="font-display text-2xl font-extrabold leading-none text-dark"><Amount>{dt(employee.total)}</Amount></p>
+                        <p className="mt-1 text-[11px] text-muted"><Amount>{employee.count}</Amount> commission{employee.count > 1 ? "s" : ""} · depuis le {frDate(employee.oldestAt)}</p>
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line bg-slate-50/60 px-5 py-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <button type="button" disabled={busy !== null} onClick={() => void payEmployee(employee)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50">
-                          <HandCoins className="h-3.5 w-3.5" /> {busy === employee.userId ? "Versement…" : `Payer tout · ${dt(employee.total)}`}
+                          <HandCoins className="h-3.5 w-3.5" /> {busy === employee.userId ? "Versement…" : <>Payer tout · <Amount>{dt(employee.total)}</Amount></>}
                         </button>
                         {selected.length > 0 && (
                           <button type="button" disabled={busy !== null} onClick={() => void payEmployee(employee, selected)} className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-white px-4 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-50">
-                            Payer la sélection · {selected.length} · {dt(selectedTotal)}
+                            Payer la sélection · {selected.length} · <Amount>{dt(selectedTotal)}</Amount>
                           </button>
                         )}
                       </div>
@@ -310,7 +311,7 @@ export default function CommissionPayoutsPanel() {
               <option value={0}>Tous les mois</option>
               {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
             </select>
-            <p className="ml-auto text-xs text-muted">{filteredPayouts.length} versement{filteredPayouts.length > 1 ? "s" : ""} · <strong className="text-dark">{dt(historyTotal)}</strong></p>
+            <p className="ml-auto text-xs text-muted">{filteredPayouts.length} versement{filteredPayouts.length > 1 ? "s" : ""} · <Amount className="font-bold text-dark">{dt(historyTotal)}</Amount></p>
           </div>
 
           {filteredPayouts.length === 0 ? (
@@ -338,8 +339,8 @@ export default function CommissionPayoutsPanel() {
                           <td className="px-5 py-3 font-bold text-dark">{payout.number}</td>
                           <td className="whitespace-nowrap px-3 py-3 text-mid">{frDate(payout.paidAt)}</td>
                           <td className="px-3 py-3 font-semibold text-dark">{payout.userName}</td>
-                          <td className="px-3 py-3 text-right text-mid">{payout.count}</td>
-                          <td className="whitespace-nowrap px-3 py-3 text-right font-bold text-emerald-700">{dt(payout.amountDinar)}</td>
+                          <td className="px-3 py-3 text-right text-mid"><Amount>{payout.count}</Amount></td>
+                          <td className="whitespace-nowrap px-3 py-3 text-right font-bold text-emerald-700"><Amount>{dt(payout.amountDinar)}</Amount></td>
                           <td className="px-3 py-3 text-mid">{payout.paidByName || "—"}</td>
                           <td className="px-3 py-3"><ChevronDown className={cn("h-4 w-4 text-muted transition-transform", isOpen && "rotate-180")} /></td>
                         </tr>

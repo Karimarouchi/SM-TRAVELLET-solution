@@ -1,4 +1,5 @@
 import { alertDialog } from "@/components/ui/dialog-host";
+import { Amount } from "@/components/ui/hidden-amounts";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { createInvoice, downloadInvoicePdf, fetchInvoicing, formatMoney, type Currency, type InvoicingPayment, type InvoicingStudent } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -21,7 +22,7 @@ function Kpi({ icon: Icon, label, value, hint, tone }: { icon: typeof Receipt; l
         <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", tone)}><Icon className="h-[18px] w-[18px]" aria-hidden /></span>
         <p className="text-[11px] font-bold uppercase tracking-wide text-muted">{label}</p>
       </div>
-      <p className="mt-3 font-display text-3xl font-extrabold leading-none text-dark">{value}</p>
+      <p className="mt-3 font-display text-3xl font-extrabold leading-none text-dark"><Amount>{value}</Amount></p>
       <p className="mt-1 text-[11px] text-muted">{hint}</p>
     </motion.div>
   );
@@ -206,7 +207,7 @@ export default function InvoicingPanel() {
                               <span className="inline-flex items-center gap-1"><Landmark className="h-3 w-3" /> {p.methodLabel}{p.method === "CHEQUE" || p.reference ? ` ${p.referenceLabel || ""} ${p.reference || "—"}` : ""}</span>
                             </td>
                             <td className="whitespace-nowrap px-2 py-2.5">{frDate(p.paidAt)}</td>
-                            <td className="whitespace-nowrap px-2 py-2.5 text-right font-bold text-dark">{formatMoney(p.amount, p.currency)}</td>
+                            <td className="whitespace-nowrap px-2 py-2.5 text-right font-bold text-dark"><Amount>{formatMoney(p.amount, p.currency)}</Amount></td>
                             <td className="px-5 py-2.5 text-right">
                               {p.invoiceId ? (
                                 <button type="button" onClick={() => void download(p.invoiceId!, p.invoiceNumber || "")} className="inline-flex items-center gap-1 rounded-lg bg-violet-50 px-2 py-1 text-[11px] font-bold text-brand transition hover:bg-brand hover:text-white">
@@ -238,7 +239,13 @@ export default function InvoicingPanel() {
                               className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
                             >
                               <FileText className="h-3.5 w-3.5" />
-                              {busy === key ? "Génération…" : `Générer la facture · ${chosen.length} paiement${chosen.length > 1 ? "s" : ""} · ${formatMoney(total, currency)}`}
+                              {busy === key ? (
+                                "Génération…"
+                              ) : (
+                                <>
+                                  Générer la facture · {chosen.length} paiement{chosen.length > 1 ? "s" : ""} · <Amount>{formatMoney(total, currency)}</Amount>
+                                </>
+                              )}
                             </button>
                           );
                         })}
@@ -249,7 +256,7 @@ export default function InvoicingPanel() {
                         <div className="flex flex-wrap items-center gap-1.5">
                           {student.invoices.map((inv) => (
                             <button key={inv.id} type="button" onClick={() => void download(inv.id, inv.number)} title={`Émise le ${frDate(inv.issuedAt)}`} className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-[11px] font-bold text-mid transition hover:border-brand hover:text-brand">
-                              <Download className="h-3 w-3" /> {inv.number} · {formatMoney(inv.total, inv.currency)}
+                              <Download className="h-3 w-3" /> {inv.number} · <Amount>{formatMoney(inv.total, inv.currency)}</Amount>
                               {inv.hasCancelled && <AlertTriangle className="h-3 w-3 text-amber-500" aria-label="Un paiement de cette facture a été annulé" />}
                             </button>
                           ))}

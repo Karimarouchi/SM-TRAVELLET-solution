@@ -33,6 +33,7 @@ import ApplicationBlockers from "@/components/ApplicationBlockers";
 import StudentNotes from "@/components/StudentNotes";
 import NonPartnerDocsCard from "@/components/NonPartnerDocsCard";
 import StudentPaymentsPanel from "@/components/StudentPaymentsPanel";
+import StaffVisaUploadButton from "@/components/StaffVisaUploadButton";
 import { StageBadge } from "@/components/admin/StudentsPipelineBoard";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import {
@@ -107,6 +108,7 @@ function stageOf(onboardingCompleted: boolean, applications: UniversityApplicati
   if (["INTERVIEW_REQUIRED", "INTERVIEW_SCHEDULED", "INTERVIEW_COMPLETED"].includes(latest.status)) return "interview";
   if (latest.status === "WAITING_UNIVERSITY_RESPONSE") return "waiting_response";
   if (latest.status === "APPLIED") return "applied";
+  if (!latest.translationDoneAt) return "in_translation";
   return "ready_to_apply";
 }
 
@@ -289,9 +291,10 @@ export default function StudentDetailPage() {
     if (profile?.passportStatus === "EXPIRED") list.push({ key: "passport", tone: "danger", text: t("Passeport expiré", "Passport expired"), target: "profil" });
     else if (profile?.passportStatus === "EXPIRING") list.push({ key: "passport", tone: "warning", text: t("Passeport à renouveler", "Passport to renew"), target: "profil" });
     if (docsRejected) list.push({ key: "rejected", tone: "info", text: t(`${docsRejected} document${docsRejected > 1 ? "s" : ""} refusé${docsRejected > 1 ? "s" : ""} : en attente de l'étudiant`, `${docsRejected} rejected document(s): waiting for the student`), target: "documents" });
+    if (isReviewer && applications.some((a) => a.status === "READY_TO_APPLY" && !a.translationDoneAt)) list.push({ key: "translation", tone: "warning", text: t("Documents en traduction : confirmer la fin de la traduction", "Documents in translation: confirm when done"), target: "candidatures" });
     if (stage === "accepted") list.push({ key: "visa-prep", tone: "info", text: t("Accepté : préparer les documents visa", "Accepted: prepare visa documents"), target: "visa-documents" });
     return list;
-  }, [docsToReview, docsRejected, visaDocs, plans, profile, stage, isReviewer, t]);
+  }, [docsToReview, docsRejected, visaDocs, plans, profile, stage, isReviewer, applications, t]);
 
   if (loading) {
     return (
@@ -483,7 +486,7 @@ export default function StudentDetailPage() {
                   <div className="mt-3 space-y-2">
                     {visaDocs.length === 0 ? (
                       <p className="rounded-2xl border border-dashed border-line bg-white p-6 text-sm text-muted">
-                        {t("Aucun document visa configuré pour ce pays, ou l'étudiant n'a pas encore déposé de fichier.", "No visa document configured for this country, or the student has not uploaded a file yet.")}
+                        {t("Aucun document visa configuré pour ce pays.", "No visa document configured for this country.")}
                       </p>
                     ) : (
                       visaDocs.map((doc) => (
@@ -507,7 +510,7 @@ export default function StudentDetailPage() {
                   <GraduationCap className="h-5 w-5 text-brand" /> {t("Candidatures universitaires", "University applications")} ({applications.length})
                 </h2>
                 <div className="mt-3">
-                  <ApplicationTimeline applications={applications} canAct={canActUniversity} onChanged={loadApplications} />
+                  <ApplicationTimeline applications={applications} canAct={canActUniversity} canMarkTranslation={isReviewer} onChanged={loadApplications} />
                 </div>
               </section>
 
@@ -523,7 +526,7 @@ export default function StudentDetailPage() {
                   </h2>
                   {rdvContacts.length === 0 ? (
                     <p className="mt-2 text-xs text-muted">
-                      {t("Aucun Responsable Dossier assigné pour l'instant : il est choisi automatiquement dès que les documents sont validés.", "No visa officer assigned yet: one is picked automatically as soon as the documents are approved.")}
+                      {t("Aucun Responsable Dossier assigné pour l'instant : il est choisi automatiquement dès que les documents sont validés et traduits.", "No visa officer assigned yet: one is picked automatically as soon as the documents are approved and translated.")}
                     </p>
                   ) : (
                     <ul className="mt-3 space-y-3">
@@ -882,6 +885,7 @@ function VisaSalesReviewRow({
           <ChevronDown className={cn("h-4 w-4 text-muted transition-transform duration-200", open && "rotate-180")} aria-hidden />
         </span>
       </div>
+      {open && <StaffVisaUploadButton applicationId={applicationId} doc={doc} onUploaded={onReviewed} />}
       {open && canReview && (
         <div className="mt-3">
           {rejecting ? (

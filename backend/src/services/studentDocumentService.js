@@ -416,18 +416,8 @@ async function getMyVisaChecklist(studentUserId) {
   return { application: { id: application.id, countryName: application.country_name, visaStatus: application.visa_status }, checklist };
 }
 
-async function uploadVisaDocument(studentUserId, requirementId, fileBase64, originalFilename) {
-  const trimmedReqId = String(requirementId || "").trim();
-  if (!trimmedReqId) throw fail("Document manquant.", 400);
+async function storeVisaFile(studentUserId, requirement, fileBase64, originalFilename) {
   if (!fileBase64 || typeof fileBase64 !== "string") throw fail("Aucun fichier fourni.", 400);
-
-  const application = await findActiveVisaApplicationForStudent(studentUserId);
-  if (!application) throw fail("Aucun dossier visa actif.", 404);
-
-  const requirements = await studentDocRepo.findActiveVisaRequirementsByCountryId(application.country_id);
-  const requirement = requirements.find((r) => r.id === trimmedReqId);
-  if (!requirement) throw fail("Ce document ne fait pas partie de votre checklist visa actuelle.", 404);
-
   const match = fileBase64.match(/^data:(image\/(png|jpeg|jpg|webp)|application\/pdf);base64,/);
   if (!match) throw fail("Format de fichier non supporté (image ou PDF uniquement).", 400);
   const mimeType = match[1];
@@ -453,6 +443,21 @@ async function uploadVisaDocument(studentUserId, requirementId, fileBase64, orig
     mimeType,
     fileSize: buffer.length
   });
+}
+
+async function uploadVisaDocument(studentUserId, requirementId, fileBase64, originalFilename) {
+  const trimmedReqId = String(requirementId || "").trim();
+  if (!trimmedReqId) throw fail("Document manquant.", 400);
+  if (!fileBase64 || typeof fileBase64 !== "string") throw fail("Aucun fichier fourni.", 400);
+
+  const application = await findActiveVisaApplicationForStudent(studentUserId);
+  if (!application) throw fail("Aucun dossier visa actif.", 404);
+
+  const requirements = await studentDocRepo.findActiveVisaRequirementsByCountryId(application.country_id);
+  const requirement = requirements.find((r) => r.id === trimmedReqId);
+  if (!requirement) throw fail("Ce document ne fait pas partie de votre checklist visa actuelle.", 404);
+
+  await storeVisaFile(studentUserId, requirement, fileBase64, originalFilename);
 
   if (application.sales_id && !application.visa_status) {
     await notificationService.notify(application.sales_id, {
@@ -471,6 +476,35 @@ async function uploadVisaDocument(studentUserId, requirementId, fileBase64, orig
   }
 
   const checklist = await getVisaChecklist(application.country_id, studentUserId);
+  return checklist.find((d) => d.requirementId === requirement.id);
+}
+
+// Le conseiller (tant que le dossier visa est chez lui) ou le Responsable Dossier (une fois le
+// dossier revenu chez lui) dépose un document visa à la place de l'étudiant : validé directement.
+async function uploadVisaDocumentForStudent(auth, applicationId, requirementId, fileBase64, originalFilename) {
+  const application = await appRepo.findById(applicationId);
+  if (!application) throw fail("Candidature introuvable.", 404);
+  assertVisaDocReview(auth, application);
+  if (application.status !== "ACCEPTED" || ["ACCEPTED", "REJECTED"].includes(application.visa_status)) {
+    throw fail("Ce dossier visa n'accepte plus de nouveaux documents.", 409);
+  }
+
+  const requirements = await studentDocRepo.findActiveVisaRequirementsByCountryId(application.country_id);
+  const requirement = requirements.find((r) => r.id === String(requirementId || "").trim());
+  if (!requirement) throw fail("Ce document ne fait pas partie de la checklist visa de ce dossier.", 404);
+
+  await storeVisaFile(application.student_id, requirement, fileBase64, originalFilename);
+  await studentDocRepo.updateStatusForRequirementIds(application.student_id, [requirement.id], "VALIDATED", auth.sub, null);
+
+  await notificationService.notify(application.student_id, {
+    type: "VISA_DOCUMENT_VALIDATED",
+    title: `Document visa ajouté et validé : ${requirement.name}`,
+    body: "Votre dossier visa a été complété par l'équipe SM Travel.",
+    link: "/documents?tab=visa"
+  });
+  await universityApplicationService.maybeAdvanceVisaAfterDocs(application.id);
+
+  const checklist = await getVisaChecklist(application.country_id, application.student_id);
   return checklist.find((d) => d.requirementId === requirement.id);
 }
 
@@ -537,6 +571,7 @@ module.exports = {
   uploadDocumentForStudent,
   getMyVisaChecklist,
   uploadVisaDocument,
+  uploadVisaDocumentForStudent,
   getVisaChecklistForApplication,
   reviewVisaDocument
 };

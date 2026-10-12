@@ -8,6 +8,7 @@ import {
   fetchCountryUniversities,
   getSession,
   markApplicationApplied,
+  markApplicationTranslationDone,
   reapplyApplication,
   rejectApplication,
   scheduleApplicationInterview,
@@ -29,6 +30,7 @@ import {
   RotateCcw,
   ExternalLink,
   GraduationCap,
+  Languages,
   Send,
   ThumbsDown,
   ThumbsUp,
@@ -50,6 +52,8 @@ const STATUS_META: Record<ApplicationStatus, { label: string; color: string }> =
   POSTPONED: { label: "Reporté", color: "bg-orange-50 text-orange-700 border-orange-200" }
 };
 
+const TRANSLATION_META = { label: "Documents en traduction", color: "bg-cyan-50 text-cyan-700 border-cyan-200" };
+
 function fmt(value: string | null) {
   if (!value) return "";
   return new Date(value).toLocaleString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
@@ -62,10 +66,13 @@ function fmtDateTime(value: string | null) {
 export default function ApplicationTimeline({
   applications,
   canAct,
+  canMarkTranslation = false,
   onChanged
 }: {
   applications: UniversityApplication[];
   canAct: boolean;
+  /** Conseiller / admin : confirme la fin de la traduction des documents. */
+  canMarkTranslation?: boolean;
   onChanged: () => void;
 }) {
   if (!applications.length) {
@@ -79,19 +86,20 @@ export default function ApplicationTimeline({
   return (
     <div className="space-y-3">
       {applications.map((app) => (
-        <ApplicationCard key={app.id} app={app} canAct={canAct} onChanged={onChanged} />
+        <ApplicationCard key={app.id} app={app} canAct={canAct} canMarkTranslation={canMarkTranslation} onChanged={onChanged} />
       ))}
     </div>
   );
 }
 
-function ApplicationCard({ app, canAct, onChanged }: { app: UniversityApplication; canAct: boolean; onChanged: () => void }) {
+function ApplicationCard({ app, canAct, canMarkTranslation, onChanged }: { app: UniversityApplication; canAct: boolean; canMarkTranslation: boolean; onChanged: () => void }) {
   // La liste du RDV mélange plusieurs étudiants : leur nom est joint à chaque candidature.
   const studentName = (app as UniversityApplication & { studentName?: string }).studentName;
   const [modal, setModal] = useState<null | "apply" | "interview" | "reject" | "reapply" | "meet" | "postpone">(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const meta = STATUS_META[app.status];
+  const inTranslation = app.status === "READY_TO_APPLY" && !app.translationDoneAt;
+  const meta = inTranslation ? TRANSLATION_META : STATUS_META[app.status];
 
   const act = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -126,6 +134,17 @@ function ApplicationCard({ app, canAct, onChanged }: { app: UniversityApplicatio
         </span>
       </div>
 
+      {inTranslation && (
+        <div className="mt-2 rounded-xl bg-cyan-50 px-3 py-2 text-xs text-cyan-800">
+          <p className="flex items-center gap-1.5 font-semibold"><Languages className="h-3.5 w-3.5" /> Documents validés, en cours de traduction.</p>
+          <p className="mt-0.5">Le dossier part chez le Responsable Dossier (« À déposer ») dès que le conseiller confirme la fin de la traduction.</p>
+          {canMarkTranslation && (
+            <button type="button" disabled={busy} onClick={() => act(() => markApplicationTranslationDone(app.id))} className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-cyan-700 disabled:opacity-60">
+              <CheckCircle2 className="h-3 w-3" /> Traduction terminée
+            </button>
+          )}
+        </div>
+      )}
       {app.status === "READY_TO_APPLY" && app.registrationPaymentDue && (
         <p className="mt-2 flex items-start gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -194,7 +213,7 @@ function ApplicationCard({ app, canAct, onChanged }: { app: UniversityApplicatio
 
       {canAct && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          {app.status === "READY_TO_APPLY" && (
+          {app.status === "READY_TO_APPLY" && !inTranslation && (
             <>
               <button type="button" disabled={busy} onClick={() => setModal("meet")} className="inline-flex items-center gap-1.5 rounded-lg bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-700 hover:bg-sky-100">
                 <Video className="h-3 w-3" /> {app.staffMeetAt ? "Modifier le Meet (optionnel)" : "Planifier un Meet (optionnel)"}

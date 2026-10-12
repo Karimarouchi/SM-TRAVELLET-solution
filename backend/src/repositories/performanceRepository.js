@@ -72,7 +72,7 @@ async function listDocumentReviews(since) {
 async function listApplications() {
   const result = await query(
     `SELECT ua.id, ua.student_id, ua.sales_id, ua.assigned_rdv_id, ua.status,
-            ua.created_at, ua.applied_at, ua.decision_at,
+            ua.created_at, ua.applied_at, ua.decision_at, ua.translation_done_at,
             ua.visa_status, ua.visa_docs_validated_at, ua.visa_submitted_at, ua.visa_decision_at,
             su.prenom AS student_prenom, su.nom AS student_nom, c.name AS country_name, cu.name AS university_name
      FROM university_applications ua

@@ -134,7 +134,7 @@ export default function EspacePage() {
   const dossierStage = profile?.dossierStage || "DOCUMENTS";
   const salesName = profile?.assignedSalesName || "";
 
-  const journey = useMemo(() => buildSteps({ dossierStage, application: selected, t }), [dossierStage, selected, t]);
+  const journey = useMemo(() => buildSteps({ dossierStage, application: selected, t, plans: payments?.plans }), [dossierStage, selected, payments, t]);
 
   const docsDone = documents.filter((d) => d.status === "SUBMITTED" || d.status === "VALIDATED").length;
   const docsValidated = documents.filter((d) => d.status === "VALIDATED").length;
@@ -168,7 +168,17 @@ export default function EspacePage() {
     }
     for (const plan of payments?.plans || []) {
       if (!plan.tranche1.complete) {
-        list.push({ key: `pay1-${plan.id}`, tone: "warning", icon: Banknote, title: t(`Tranche inscription à régler : ${formatMoney(plan.tranche1.remaining, plan.currency)}`, `Registration instalment due: ${formatMoney(plan.tranche1.remaining, plan.currency)}`), text: t(`${plan.countryName} · à régler auprès de votre conseiller.`, `${plan.countryName} · to be paid to your advisor.`), cta: "" });
+        const blocked = applications.some((a) => a.status === "READY_TO_APPLY" && a.countryId === plan.countryId);
+        list.push({
+          key: `pay1-${plan.id}`,
+          tone: blocked ? "danger" : "warning",
+          icon: Banknote,
+          title: t(`Tranche inscription à régler : ${formatMoney(plan.tranche1.remaining, plan.currency)}`, `Registration instalment due: ${formatMoney(plan.tranche1.remaining, plan.currency)}`),
+          text: blocked
+            ? t(`${plan.countryName} · votre dossier est prêt mais la candidature est bloquée tant que ce paiement n'est pas réglé auprès de votre conseiller.`, `${plan.countryName} · your file is ready but the application is on hold until you pay your advisor.`)
+            : t(`${plan.countryName} · à régler auprès de votre conseiller.`, `${plan.countryName} · to be paid to your advisor.`),
+          cta: ""
+        });
       } else if (!plan.tranche2.complete && (dossierStage === "VISA" || selected?.visaStatus)) {
         list.push({ key: `pay2-${plan.id}`, tone: "warning", icon: Banknote, title: t(`Tranche visa à régler : ${formatMoney(plan.tranche2.remaining, plan.currency)}`, `Visa instalment due: ${formatMoney(plan.tranche2.remaining, plan.currency)}`), text: t(`${plan.countryName} · à régler avant le dépôt de votre visa.`, `${plan.countryName} · due before your visa is filed.`), cta: "" });
       }
@@ -187,7 +197,7 @@ export default function EspacePage() {
     }
     const rank: Record<Tone, number> = { danger: 0, warning: 1, info: 2 };
     return list.sort((a, b) => rank[a.tone] - rank[b.tone]);
-  }, [documents, visaDocuments, payments, profile, selected, dossierStage, t]);
+  }, [documents, visaDocuments, payments, profile, selected, dossierStage, applications, t]);
 
   if (!session?.user) return null;
   const { user } = session;
@@ -329,7 +339,7 @@ export default function EspacePage() {
           <div id="candidatures" className="scroll-mt-24 [&>section]:mt-0">
             <UniversityChoicesPanel onChanged={load} />
           </div>
-          <DossierProgress dossierStage={dossierStage} applications={shown} selectedId={selected?.id || null} onSelect={setSelectedId} onRefresh={load} />
+          <DossierProgress dossierStage={dossierStage} applications={shown} plans={payments?.plans} selectedId={selected?.id || null} onSelect={setSelectedId} onRefresh={load} />
         </div>
 
         <aside className="min-w-0 space-y-4">

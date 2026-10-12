@@ -250,7 +250,7 @@ async function computeReport(period) {
     rdvOutcomes.set(a.assigned_rdv_id, outcome);
 
     // Dossiers qui n'avancent pas côté RDV.
-    const stuckFrom = a.status === "READY_TO_APPLY" ? a.created_at
+    const stuckFrom = a.status === "READY_TO_APPLY" ? a.translation_done_at
       : a.visa_status === "PREPARATION" && a.visa_docs_validated_at ? a.visa_docs_validated_at
         : null;
     if (stuckFrom) {

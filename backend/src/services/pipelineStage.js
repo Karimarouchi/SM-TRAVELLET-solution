@@ -2,6 +2,7 @@
 
 const PIPELINE_STAGES = [
   { key: "onboarding", label: "Onboarding en cours" },
+  { key: "in_translation", label: "Documents en traduction" },
   { key: "ready_to_apply", label: "Prêt à postuler" },
   { key: "applied", label: "Candidature déposée" },
   { key: "waiting_response", label: "En attente de l'université" },
@@ -32,6 +33,7 @@ function computeStage(student, latestApp) {
   if (["INTERVIEW_REQUIRED", "INTERVIEW_SCHEDULED", "INTERVIEW_COMPLETED"].includes(latestApp.status)) return "interview";
   if (latestApp.status === "WAITING_UNIVERSITY_RESPONSE") return "waiting_response";
   if (latestApp.status === "APPLIED") return "applied";
+  if (latestApp.status === "READY_TO_APPLY" && !latestApp.translation_done_at) return "in_translation";
   return "ready_to_apply";
 }
 

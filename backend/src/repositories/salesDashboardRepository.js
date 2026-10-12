@@ -37,7 +37,7 @@ async function documentCounts(salesId) {
 // Candidatures non clôturées, la plus récente d'abord.
 async function activeApplications(salesId) {
   const result = await query(
-    `SELECT ua.id, ua.student_id, ua.status, ua.visa_status, ua.updated_at, ua.interview_date,
+    `SELECT ua.id, ua.student_id, ua.status, ua.visa_status, ua.updated_at, ua.interview_date, ua.translation_done_at,
             ua.field_of_study, c.name AS country_name, cu.name AS university_name
      FROM university_applications ua
      JOIN student_profiles sp ON sp.user_id = ua.student_id
