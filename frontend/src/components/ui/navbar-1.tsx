@@ -157,7 +157,7 @@ const Navbar1 = () => {
 
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-[9999] flex justify-center px-4 pt-4">
-      <div className="pointer-events-auto relative flex w-full max-w-6xl items-center justify-between gap-6 rounded-full border border-white/70 bg-white/85 px-6 py-3 shadow-[0_12px_40px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+      <div className="pointer-events-auto relative flex w-full max-w-7xl items-center justify-between gap-4 rounded-full border border-white/70 bg-white/85 px-6 py-3 shadow-[0_12px_40px_rgba(15,23,42,0.12)] backdrop-blur-xl">
         <div className="flex items-center">
           <motion.a
             href={VITRINE_URL}
@@ -171,11 +171,11 @@ const Navbar1 = () => {
           </motion.a>
         </div>
 
-        <nav className="hidden min-w-0 items-center gap-3 lg:flex xl:gap-6">
+        <nav className="hidden shrink-0 items-center gap-3 lg:flex xl:gap-5">
           {links.map((item) => {
             const active = !item.external && item.href && (item.href === WHATSAPP_HREF ? location.pathname.startsWith(WHATSAPP_HREF) : location.pathname === item.href);
             const isChildActive = item.children?.some(child => currentPath === child.href);
-            const className = `text-sm font-medium transition-colors ${
+            const className = `text-[13px] font-medium transition-colors xl:text-sm ${
               active || isChildActive ? "text-brand" : "text-gray-900 hover:text-brand"
             }`;
 
