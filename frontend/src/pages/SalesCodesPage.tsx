@@ -15,6 +15,7 @@ import {
 } from "@/lib/auth";
 import { useLanguage } from "@/lib/i18n";
 import { cn, todayLocal } from "@/lib/utils";
+import { Link } from "react-router-dom";
 import { fetchWhatsAppConversations, formatWhatsAppPhone, type WhatsAppConversation } from "@/lib/whatsapp";
 import { AlertTriangle, Banknote, CheckCircle2, ClipboardCopy, Globe2, MessageCircle, Plus, Search, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -460,7 +461,13 @@ export default function SalesCodesPage() {
                   <p className="mt-2 inline-flex items-center gap-1 text-xs text-muted">
                     <Globe2 className="h-3 w-3" /> {c.countryName}
                   </p>
-                  <p className="mt-1 text-xs text-dark font-semibold">{c.usedByName}</p>
+                  <p className="mt-1 text-xs text-dark font-semibold">
+                    {c.usedByStudentId ? (
+                      <Link to={`/conseiller/etudiants/${c.usedByStudentId}`} className="hover:text-brand hover:underline" title={t("Ouvrir le profil de l'étudiant", "Open the student's profile")}>{c.usedByName}</Link>
+                    ) : (
+                      c.usedByName
+                    )}
+                  </p>
                 </article>
               ))}
               {!used.length && (

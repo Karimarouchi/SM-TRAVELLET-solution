@@ -721,7 +721,13 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
                   </button>
                   <UserAvatar name={displayName(active)} size="lg" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-display text-[15px] font-bold md:text-sm">{displayName(active)}</p>
+                    <p className="truncate font-display text-[15px] font-bold md:text-sm">
+                      {active.studentId ? (
+                        <Link to={`/conseiller/etudiants/${active.studentId}`} className="hover:underline" title="Ouvrir le profil de l'étudiant">{displayName(active)}</Link>
+                      ) : (
+                        displayName(active)
+                      )}
+                    </p>
                     <p className="truncate text-xs text-white/80 md:text-muted">
                       {formatWhatsAppPhone(active.phone)}
                       {active.studentName && active.profileName && active.profileName !== active.studentName && ` · « ${active.profileName} »`}
