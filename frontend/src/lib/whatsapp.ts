@@ -1,4 +1,4 @@
-import { request } from "@/lib/auth";
+import { API_URL, getSession, request } from "@/lib/auth";
 
 export type WhatsAppStatus = "received" | "sent" | "delivered" | "read" | "failed";
 
@@ -36,6 +36,11 @@ export type WhatsAppMessage = {
   senderName: string | null;
   // Admin seulement : ce message a été envoyé par l'admin, au nom du conseiller affiché.
   sentByAdmin?: boolean;
+  /** Réponse automatique d'un jour non travaillé (jamais comptée comme une réponse d'un conseiller). */
+  auto?: boolean;
+  /** Fichier joint (image ou document) envoyé depuis l'application. */
+  media?: { name: string; mime: string; kind: "image" | "document" } | null;
+  caption?: string;
   createdAt: string;
 };
 
@@ -55,6 +60,31 @@ export async function sendWhatsAppMessage(contactId: string, text: string) {
     method: "POST",
     body: JSON.stringify({ text })
   });
+}
+
+export const WA_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+export const WA_MAX_DOCUMENT_BYTES = 16 * 1024 * 1024;
+/** Formats acceptés par WhatsApp : images JPEG/PNG, PDF, Word, Excel, PowerPoint, texte. */
+export const WA_ACCEPTED_FILES = ".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,image/jpeg,image/png,application/pdf";
+
+export async function sendWhatsAppMedia(contactId: string, payload: { file: string; filename: string; caption?: string }) {
+  return request<WhatsAppMessage>(`/api/whatsapp/conversations/${contactId}/media`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+// Fichier d'un message : téléchargé avec la session (jamais en lien public).
+export async function fetchWhatsAppMediaBlob(contactId: string, messageId: string): Promise<Blob> {
+  const session = getSession();
+  const response = await fetch(`${API_URL}/api/whatsapp/conversations/${contactId}/messages/${messageId}/media`, {
+    headers: session?.token ? { Authorization: `Bearer ${session.token}` } : {}
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || "Impossible d'ouvrir ce fichier.");
+  }
+  return response.blob();
 }
 
 // Masque le message dans l'application seulement : l'API de Meta ne permet pas

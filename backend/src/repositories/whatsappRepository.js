@@ -156,13 +156,32 @@ async function findLeastLoadedActiveSales() {
   return result.rows[0] || null;
 }
 
-async function insertMessage({ contactId, waMessageId, direction, type, body, status, sentBy, sentAs, createdAt }) {
+async function insertMessage({ contactId, waMessageId, direction, type, body, status, sentBy, sentAs, createdAt, isAuto = false, mediaPath = null, mediaName = null, mediaMime = null }) {
   const result = await query(
-    `INSERT INTO whatsapp_messages (contact_id, wa_message_id, direction, type, body, status, sent_by, sent_as_id, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, NOW()))
+    `INSERT INTO whatsapp_messages (contact_id, wa_message_id, direction, type, body, status, sent_by, sent_as_id, created_at, is_auto, media_path, media_name, media_mime)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, NOW()), $10, $11, $12, $13)
      ON CONFLICT (wa_message_id) DO NOTHING
      RETURNING *`,
-    [contactId, waMessageId || null, direction, type, body, status, sentBy || null, sentAs || null, createdAt || null]
+    [contactId, waMessageId || null, direction, type, body, status, sentBy || null, sentAs || null, createdAt || null, isAuto, mediaPath, mediaName, mediaMime]
+  );
+  return result.rows[0] || null;
+}
+
+// Réponse automatique : une seule par période de fermeture et par contact.
+async function getLastAutoReplyAt(contactId) {
+  const result = await query("SELECT last_auto_reply_at FROM whatsapp_contacts WHERE id = $1", [contactId]);
+  return result.rows[0]?.last_auto_reply_at || null;
+}
+
+async function setLastAutoReplyAt(contactId) {
+  await query("UPDATE whatsapp_contacts SET last_auto_reply_at = NOW() WHERE id = $1", [contactId]);
+}
+
+// Fichier d'un message (jamais exposé en lien public : servi par une route authentifiée).
+async function findMessageMedia(contactId, messageId) {
+  const result = await query(
+    "SELECT media_path, media_name, media_mime FROM whatsapp_messages WHERE id = $1 AND contact_id = $2 AND media_path IS NOT NULL",
+    [messageId, contactId]
   );
   return result.rows[0] || null;
 }
@@ -212,7 +231,7 @@ async function listConversations({ userId, ownerId, search, contactId = null, an
             lm.hidden_at IS NOT NULL AS last_hidden,
             (SELECT COUNT(*)::int FROM whatsapp_messages m
              WHERE m.contact_id = c.id AND m.direction = 'in'
-               AND m.created_at > GREATEST(COALESCE(r.last_read_at, 'epoch'::timestamptz), CASE WHEN $5 THEN COALESCE((SELECT MAX(o.created_at) FROM whatsapp_messages o WHERE o.contact_id = c.id AND o.direction = 'out'), 'epoch'::timestamptz) ELSE 'epoch'::timestamptz END)) AS unread
+               AND m.created_at > GREATEST(COALESCE(r.last_read_at, 'epoch'::timestamptz), CASE WHEN $5 THEN COALESCE((SELECT MAX(o.created_at) FROM whatsapp_messages o WHERE o.contact_id = c.id AND o.direction = 'out' AND o.is_auto = FALSE), 'epoch'::timestamptz) ELSE 'epoch'::timestamptz END)) AS unread
      FROM conv c
      LEFT JOIN users ou ON ou.id = c.owner_id
      LEFT JOIN whatsapp_reads r ON r.contact_id = c.id AND r.user_id = $1
@@ -237,7 +256,7 @@ async function listConversations({ userId, ownerId, search, contactId = null, an
 
 async function listMessages(contactId, { before, limit }) {
   const result = await query(
-    `SELECT m.id, m.direction, m.type, m.body, m.status, m.error, m.created_at,
+    `SELECT m.id, m.direction, m.type, m.body, m.status, m.error, m.created_at, m.is_auto, m.media_name, m.media_mime,
             -- Auteur AFFICHÉ : le conseiller au nom de qui l'admin a répondu, sinon l'expéditeur réel.
             COALESCE(sa.prenom, u.prenom) AS sender_prenom, COALESCE(sa.nom, u.nom) AS sender_nom,
             (m.sent_as_id IS NOT NULL AND m.sent_as_id IS DISTINCT FROM m.sent_by) AS sent_by_admin,
@@ -289,7 +308,7 @@ async function unreadCount({ userId, ownerId, answeredIsRead = false }) {
      CROSS JOIN LATERAL (
        SELECT COUNT(*) AS n FROM whatsapp_messages m
        WHERE m.contact_id = c.id AND m.direction = 'in'
-         AND m.created_at > GREATEST(COALESCE(r.last_read_at, 'epoch'::timestamptz), CASE WHEN $3 THEN COALESCE((SELECT MAX(o.created_at) FROM whatsapp_messages o WHERE o.contact_id = c.id AND o.direction = 'out'), 'epoch'::timestamptz) ELSE 'epoch'::timestamptz END)
+         AND m.created_at > GREATEST(COALESCE(r.last_read_at, 'epoch'::timestamptz), CASE WHEN $3 THEN COALESCE((SELECT MAX(o.created_at) FROM whatsapp_messages o WHERE o.contact_id = c.id AND o.direction = 'out' AND o.is_auto = FALSE), 'epoch'::timestamptz) ELSE 'epoch'::timestamptz END)
      ) u
      WHERE ($2::uuid IS NULL OR c.owner_id = $2)
        AND c.muted_at IS NULL AND c.blocked_at IS NULL`,
@@ -350,6 +369,9 @@ module.exports = {
   updateStatus,
   listConversations,
   listMessages,
+  getLastAutoReplyAt,
+  setLastAutoReplyAt,
+  findMessageMedia,
   findMessage,
   hideMessage,
   markRead,

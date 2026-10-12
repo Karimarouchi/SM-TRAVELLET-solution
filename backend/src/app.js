@@ -54,6 +54,8 @@ app.use((req, res, next) => {
   };
   next();
 });
+// Envoi d'un fichier WhatsApp (16 Mo max, soit environ 22 Mo en base64) : limite dédiée à cette route.
+app.use("/api/whatsapp/conversations/:contactId/media", express.json({ limit: "25mb" }));
 // Envoi de mail avec pièces jointes (10 Mo, soit environ 14 Mo en base64) : limite dédiée à cette seule route.
 app.use("/api/mail/send", express.json({ limit: "15mb" }));
 app.use(express.json({
@@ -67,6 +69,8 @@ app.use(express.json({
 // Documents des étudiants (passeports, diplômes...) : jamais en accès libre,
 // uniquement via /api/documents/files/:filename, qui vérifie les droits.
 app.use("/uploads/documents", (_req, res) => res.status(404).json({ error: "Introuvable." }));
+// Fichiers envoyés sur WhatsApp : jamais en accès libre, uniquement via la route authentifiée de la conversation.
+app.use("/uploads/whatsapp", (_req, res) => res.status(404).json({ error: "Introuvable." }));
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 app.get("/api/health", async (_req, res) => {
@@ -119,6 +123,8 @@ app.get("/api/whatsapp/diagnostic", requireAuth, requireRoles("ADMIN"), whatsapp
 app.get("/api/whatsapp/unread-count", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.unreadCount);
 app.get("/api/whatsapp/conversations/:contactId/messages", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.getMessages);
 app.post("/api/whatsapp/conversations/:contactId/messages", requireAuth, requireRoles("SALES"), whatsappController.sendMessage);
+app.post("/api/whatsapp/conversations/:contactId/media", requireAuth, requireRoles("SALES"), whatsappController.sendMedia);
+app.get("/api/whatsapp/conversations/:contactId/messages/:messageId/media", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.getMedia);
 app.post("/api/whatsapp/conversations/:contactId/messages/:messageId/hide", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.hideMessage);
 app.patch("/api/whatsapp/conversations/:contactId/mute", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.setMuted);
 app.patch("/api/whatsapp/conversations/:contactId/block", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.setBlocked);

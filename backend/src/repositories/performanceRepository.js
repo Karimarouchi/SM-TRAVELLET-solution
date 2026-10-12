@@ -24,7 +24,7 @@ async function listConversations() {
             c.owner_id, c.created_at, c.last_message_at, c.muted_at, c.blocked_at,
             (SELECT MIN(m.created_at) FROM whatsapp_messages m WHERE m.contact_id = c.id AND m.direction = 'in') AS first_inbound_at,
             (SELECT MAX(m.created_at) FROM whatsapp_messages m WHERE m.contact_id = c.id AND m.direction = 'in') AS last_inbound_at,
-            EXISTS (SELECT 1 FROM whatsapp_messages m WHERE m.contact_id = c.id AND m.direction = 'out') AS answered,
+            EXISTS (SELECT 1 FROM whatsapp_messages m WHERE m.contact_id = c.id AND m.direction = 'out' AND m.is_auto = FALSE) AS answered,
             EXISTS (SELECT 1 FROM sales_codes sc WHERE sc.whatsapp_contact_id = c.id) AS code_sent
      FROM conv c`
   );
@@ -37,7 +37,7 @@ async function listMessagesForTurns(since) {
   const result = await query(
     `SELECT contact_id, direction, sent_by, created_at
      FROM whatsapp_messages
-     WHERE ($1::timestamptz IS NULL OR created_at >= $1::timestamptz - INTERVAL '30 days')
+     WHERE is_auto = FALSE AND ($1::timestamptz IS NULL OR created_at >= $1::timestamptz - INTERVAL '30 days')
      ORDER BY contact_id, created_at`,
     [since]
   );

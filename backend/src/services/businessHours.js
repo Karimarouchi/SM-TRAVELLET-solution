@@ -116,6 +116,9 @@ function average(values) {
 }
 
 module.exports = {
+  zonedParts,
+  zonedLocalToUtc,
+  addDays,
   pad,
   parseWorkHours,
   businessMinutesBetween,

@@ -1,8 +1,12 @@
 const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
 const env = require("../config/env");
 const logger = require("../logger");
 const repo = require("../repositories/whatsappRepository");
 const notificationService = require("./notificationService");
+const settings = require("../repositories/settingsRepository");
+const { parseWorkHours, zonedParts, zonedLocalToUtc, addDays } = require("./businessHours");
 const autoAssign = require("./autoAssignService");
 
 // Dernières traces (en mémoire, remises à zéro au redémarrage) : alimentent le diagnostic WhatsApp.
@@ -156,6 +160,8 @@ async function handleIncomingMessage(message, profileNames, metadata = {}) {
 
   await repo.touchInbound(contact.id, createdAt);
   await ensureOwner(contact.id, { isNew });
+  // Jour non travaillé : réponse automatique (sans jamais bloquer la réception du message).
+  await maybeAutoReply(contact.id);
 }
 
 async function handleStatus(status) {
@@ -234,6 +240,11 @@ function mapConversation(row) {
 
 // forAdmin : seul l'admin voit qu'un message a été envoyé par lui au nom d'un
 // conseiller ; les conseillers voient simplement le nom affiché.
+// Texte de repli (aperçu de la liste) quand un fichier est envoyé sans légende.
+const IMAGE_LABEL = "📷 Photo";
+const documentLabel = (name) => `📄 ${name}`;
+const isMediaLabel = (body) => body === IMAGE_LABEL || String(body || "").startsWith("📄 ");
+
 function mapMessage(row, { forAdmin = false } = {}) {
   const hidden = Boolean(row.hidden_at);
   return {
@@ -246,7 +257,13 @@ function mapMessage(row, { forAdmin = false } = {}) {
     hiddenByName: hidden ? fullName(row.hidden_prenom, row.hidden_nom) : null,
     status: row.status,
     error: row.error,
-    senderName: fullName(row.sender_prenom, row.sender_nom),
+    senderName: row.is_auto ? "Message automatique" : fullName(row.sender_prenom, row.sender_nom),
+    auto: Boolean(row.is_auto),
+    // Fichier joint : jamais le chemin du serveur, seulement de quoi l'afficher.
+    media: row.media_name
+      ? { name: row.media_name, mime: row.media_mime || "", kind: /^image\//.test(row.media_mime || "") ? "image" : "document" }
+      : null,
+    caption: row.media_name && !isMediaLabel(row.body) ? row.body || "" : "",
     createdAt: new Date(row.created_at).toISOString()
   };
 }
@@ -303,6 +320,36 @@ function metaErrorToHttp(metaError) {
   return fail(`WhatsApp a refusé l'envoi : ${detail}`, 502);
 }
 
+// Envoi d'un message à Meta, depuis le numéro auquel le client a écrit (sinon le numéro configuré).
+// Renvoie l'identifiant WhatsApp du message ; toute erreur est expliquée en clair.
+async function postToMeta(conversation, contactId, payload) {
+  const fromNumberId = conversation.wa_phone_number_id || env.whatsapp.phoneNumberId;
+  if (!env.whatsapp.token || !fromNumberId) {
+    throw fail("WhatsApp n'est pas configuré sur ce serveur (WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID).", 503);
+  }
+  let response;
+  let data;
+  try {
+    response = await fetch(`https://graph.facebook.com/${env.whatsapp.graphVersion}/${fromNumberId}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.whatsapp.token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to: conversation.phone, ...payload })
+    });
+    data = await response.json().catch(() => ({}));
+  } catch (error) {
+    logger.error("WhatsApp : Meta injoignable", { message: error.message });
+    throw fail("Impossible de joindre WhatsApp. Réessayez dans un instant.", 502);
+  }
+  if (!response.ok) {
+    logger.error("WhatsApp : envoi refusé par Meta", { error: data.error, contactId, from: fromNumberId, to: maskPhone(conversation.phone) });
+    trace.send = { at: new Date().toISOString(), ok: false, from: fromNumberId, code: data.error?.code || null, error: data.error?.message || null };
+    throw metaErrorToHttp(data.error);
+  }
+  logger.info("WhatsApp : message accepté par Meta", { waMessageId: data.messages?.[0]?.id, from: fromNumberId, to: maskPhone(conversation.phone) });
+  trace.send = { at: new Date().toISOString(), ok: true, from: fromNumberId, waMessageId: data.messages?.[0]?.id || null };
+  return data.messages?.[0]?.id || null;
+}
+
 async function sendText(auth, contactId, text) {
   // Conseillers et admin (qui supervise et peut répondre à la place d'un conseiller).
   if (!authRoles(auth).some((role) => role === "SALES" || role === "ADMIN")) {
@@ -319,43 +366,11 @@ async function sendText(auth, contactId, text) {
   if (!windowInfo(conversation.last_inbound_at).windowOpen) {
     throw fail("Plus de 24 h depuis le dernier message de l'étudiant : il doit vous réécrire avant que vous puissiez répondre.", 409);
   }
-  // Les réponses partent du numéro auquel le client a écrit (sinon du numéro configuré).
-  const fromNumberId = conversation.wa_phone_number_id || env.whatsapp.phoneNumberId;
-  if (!env.whatsapp.token || !fromNumberId) {
-    throw fail("WhatsApp n'est pas configuré sur ce serveur (WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID).", 503);
-  }
-
-  let response;
-  let data;
-  try {
-    response = await fetch(`https://graph.facebook.com/${env.whatsapp.graphVersion}/${fromNumberId}/messages`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${env.whatsapp.token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: conversation.phone,
-        type: "text",
-        text: { preview_url: false, body }
-      })
-    });
-    data = await response.json().catch(() => ({}));
-  } catch (error) {
-    logger.error("WhatsApp : Meta injoignable", { message: error.message });
-    throw fail("Impossible de joindre WhatsApp. Réessayez dans un instant.", 502);
-  }
-
-  if (!response.ok) {
-    logger.error("WhatsApp : envoi refusé par Meta", { error: data.error, contactId, from: fromNumberId, to: maskPhone(conversation.phone) });
-    trace.send = { at: new Date().toISOString(), ok: false, from: fromNumberId, code: data.error?.code || null, error: data.error?.message || null };
-    throw metaErrorToHttp(data.error);
-  }
-  logger.info("WhatsApp : message accepté par Meta", { waMessageId: data.messages?.[0]?.id, from: fromNumberId, to: maskPhone(conversation.phone) });
-  trace.send = { at: new Date().toISOString(), ok: true, from: fromNumberId, waMessageId: data.messages?.[0]?.id || null };
+  const waMessageId = await postToMeta(conversation, contactId, { type: "text", text: { preview_url: false, body } });
 
   const inserted = await repo.insertMessage({
     contactId,
-    waMessageId: data.messages?.[0]?.id,
+    waMessageId,
     direction: "out",
     type: "text",
     body,
@@ -370,6 +385,181 @@ async function sendText(auth, contactId, text) {
   await repo.markRead(contactId, auth.sub);
   const sentRow = (await repo.listMessages(contactId, { before: null, limit: 5 })).find((m) => m.id === inserted.id) || inserted;
   return mapMessage(sentRow, { forAdmin: isAdmin(auth) });
+}
+
+// ── Fichiers envoyés (images et documents) ───────────────────────────────
+const WA_MEDIA_DIR = path.join(__dirname, "../../uploads/whatsapp");
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // limite de Meta pour les images
+const MAX_DOCUMENT_BYTES = 16 * 1024 * 1024;
+
+// Formats acceptés par WhatsApp. « signature » = octets de début du fichier, vérifiés pour ne pas se fier au seul nom.
+const MEDIA_FORMATS = {
+  "image/jpeg": { ext: "jpg", kind: "image", signature: [[0xff, 0xd8, 0xff]] },
+  "image/png": { ext: "png", kind: "image", signature: [[0x89, 0x50, 0x4e, 0x47]] },
+  "application/pdf": { ext: "pdf", kind: "document", signature: [[0x25, 0x50, 0x44, 0x46]] },
+  "application/msword": { ext: "doc", kind: "document", signature: [[0xd0, 0xcf, 0x11, 0xe0]] },
+  "application/vnd.ms-excel": { ext: "xls", kind: "document", signature: [[0xd0, 0xcf, 0x11, 0xe0]] },
+  "application/vnd.ms-powerpoint": { ext: "ppt", kind: "document", signature: [[0xd0, 0xcf, 0x11, 0xe0]] },
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": { ext: "docx", kind: "document", signature: [[0x50, 0x4b]] },
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": { ext: "xlsx", kind: "document", signature: [[0x50, 0x4b]] },
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": { ext: "pptx", kind: "document", signature: [[0x50, 0x4b]] },
+  "text/plain": { ext: "txt", kind: "document", signature: null }
+};
+
+function cleanFileName(name, fallback) {
+  const base = String(name || "").replace(/[\\/:*?"<>|\r\n]+/g, "_").trim().slice(0, 120);
+  return base || fallback;
+}
+
+// Envoi d'une image ou d'un document (avec légende facultative), dans la fenêtre de 24 h comme un texte.
+async function sendMedia(auth, contactId, { file, filename, caption }) {
+  if (!authRoles(auth).some((role) => role === "SALES" || role === "ADMIN")) {
+    throw fail("Seuls les conseillers et l'admin peuvent envoyer un message WhatsApp.", 403);
+  }
+  const match = String(file || "").match(/^data:([^;,]+);base64,/);
+  if (!match) throw fail("Aucun fichier fourni.", 400);
+  const mime = match[1].toLowerCase();
+  const format = MEDIA_FORMATS[mime];
+  if (!format) throw fail("Format non pris en charge par WhatsApp : images JPEG ou PNG, PDF, Word, Excel, PowerPoint ou texte.", 400);
+
+  const buffer = Buffer.from(String(file).slice(match[0].length), "base64");
+  if (!buffer.length) throw fail("Le fichier est vide.", 400);
+  const limit = format.kind === "image" ? MAX_IMAGE_BYTES : MAX_DOCUMENT_BYTES;
+  if (buffer.length > limit) {
+    throw fail(`Fichier trop lourd : ${format.kind === "image" ? "5 Mo" : "16 Mo"} au maximum pour ${format.kind === "image" ? "une image" : "un document"}.`, 400);
+  }
+  if (format.signature && !format.signature.some((sig) => sig.every((byte, i) => buffer[i] === byte))) {
+    throw fail("Le contenu du fichier ne correspond pas à son format.", 400);
+  }
+
+  const text = String(caption || "").trim().slice(0, 1024);
+  const name = cleanFileName(filename, `${format.kind === "image" ? "image" : "document"}.${format.ext}`);
+
+  const conversation = await getAccessibleConversation(auth, contactId);
+  if (conversation.blocked_at) throw fail("Ce contact est bloqué : débloquez-le pour lui écrire.", 409);
+  if (!windowInfo(conversation.last_inbound_at).windowOpen) {
+    throw fail("Plus de 24 h depuis le dernier message de l'étudiant : il doit vous réécrire avant que vous puissiez répondre.", 409);
+  }
+  const fromNumberId = conversation.wa_phone_number_id || env.whatsapp.phoneNumberId;
+  if (!env.whatsapp.token || !fromNumberId) {
+    throw fail("WhatsApp n'est pas configuré sur ce serveur (WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID).", 503);
+  }
+
+  // 1) Le fichier est déposé chez Meta, qui renvoie un identifiant de média.
+  let mediaId;
+  try {
+    const form = new FormData();
+    form.append("messaging_product", "whatsapp");
+    form.append("type", mime);
+    form.append("file", new Blob([buffer], { type: mime }), name);
+    const upload = await fetch(`https://graph.facebook.com/${env.whatsapp.graphVersion}/${fromNumberId}/media`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.whatsapp.token}` },
+      body: form
+    });
+    const uploaded = await upload.json().catch(() => ({}));
+    if (!upload.ok || !uploaded.id) {
+      logger.error("WhatsApp : dépôt du fichier refusé par Meta", { error: uploaded.error, contactId, mime, size: buffer.length });
+      throw metaErrorToHttp(uploaded.error);
+    }
+    mediaId = uploaded.id;
+  } catch (error) {
+    if (error.status) throw error;
+    logger.error("WhatsApp : Meta injoignable (dépôt du fichier)", { message: error.message });
+    throw fail("Impossible de joindre WhatsApp. Réessayez dans un instant.", 502);
+  }
+
+  // 2) Le message avec ce média est envoyé au client.
+  const content = format.kind === "image" ? { id: mediaId, ...(text ? { caption: text } : {}) } : { id: mediaId, filename: name, ...(text ? { caption: text } : {}) };
+  const waMessageId = await postToMeta(conversation, contactId, { type: format.kind, [format.kind]: content });
+
+  // 3) Copie conservée sur le serveur pour l'afficher dans la conversation (jamais en lien public).
+  fs.mkdirSync(WA_MEDIA_DIR, { recursive: true });
+  const stored = `wa_${String(contactId).slice(0, 8)}_${Date.now()}_${crypto.randomBytes(4).toString("hex")}.${format.ext}`;
+  fs.writeFileSync(path.join(WA_MEDIA_DIR, stored), buffer);
+
+  const inserted = await repo.insertMessage({
+    contactId,
+    waMessageId,
+    direction: "out",
+    type: format.kind,
+    body: text || (format.kind === "image" ? IMAGE_LABEL : documentLabel(name)),
+    status: "sent",
+    sentBy: auth.sub,
+    sentAs: isAdmin(auth) && conversation.owner_id && conversation.owner_id !== auth.sub ? conversation.owner_id : null,
+    mediaPath: stored,
+    mediaName: name,
+    mediaMime: mime
+  });
+  await repo.touchOutbound(contactId);
+  await repo.markRead(contactId, auth.sub);
+  const sentRow = (await repo.listMessages(contactId, { before: null, limit: 5 })).find((m) => m.id === inserted.id) || inserted;
+  return mapMessage(sentRow, { forAdmin: isAdmin(auth) });
+}
+
+// Fichier d'un message envoyé, pour l'afficher dans l'application (même droits que la conversation).
+async function getMedia(auth, contactId, messageId) {
+  await getAccessibleConversation(auth, contactId);
+  if (!/^[0-9a-f-]{36}$/i.test(String(messageId))) throw fail("Fichier introuvable.", 404);
+  const media = await repo.findMessageMedia(contactId, messageId);
+  if (!media) throw fail("Fichier introuvable.", 404);
+  const absolute = path.join(WA_MEDIA_DIR, path.basename(media.media_path));
+  if (!fs.existsSync(absolute)) throw fail("Le fichier n'existe plus sur le serveur.", 404);
+  return { absolutePath: absolute, name: media.media_name, mime: media.media_mime };
+}
+
+// ── Réponse automatique des jours non travaillés ─────────────────────────
+const DAY_NAMES = ["", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
+
+// Dernier jour ouvré avant `parts`, puis début de la période de fermeture (minuit qui suit ce jour) et prochaine reprise.
+function closurePeriod(hours, parts) {
+  let lastWorkDelta = null;
+  for (let delta = 1; delta <= 7; delta += 1) {
+    const weekday = ((parts.isoWeekday - 1 - delta) % 7 + 7) % 7 + 1;
+    if (hours.days.includes(weekday)) { lastWorkDelta = delta; break; }
+  }
+  const startDay = addDays(parts.year, parts.month, parts.day, -(lastWorkDelta === null ? 0 : lastWorkDelta - 1));
+  const closureStart = zonedLocalToUtc(startDay.year, startDay.month, startDay.day, 0, 0, 0, hours.timezone);
+
+  let nextDelta = null;
+  for (let delta = 1; delta <= 7; delta += 1) {
+    const weekday = ((parts.isoWeekday - 1 + delta) % 7) + 1;
+    if (hours.days.includes(weekday)) { nextDelta = delta; break; }
+  }
+  const nextWeekday = nextDelta === null ? null : ((parts.isoWeekday - 1 + nextDelta) % 7) + 1;
+  return { closureStart, nextWeekday };
+}
+
+function buildAutoReplyText(template, hours, nextWeekday) {
+  const time = `${String(hours.start.h).padStart(2, "0")}h${String(hours.start.m).padStart(2, "0")}`;
+  const reprise = nextWeekday ? `${DAY_NAMES[nextWeekday]} à ${time}` : "dès que possible";
+  return String(template).replace(/\{reprise\}/g, reprise);
+}
+
+// Un jour non travaillé, le client reçoit un message pour nous réécrire à la reprise. Une seule fois par période de
+// fermeture et par contact ; ce message ne compte jamais comme une réponse d'un conseiller. Ne bloque jamais la réception.
+async function maybeAutoReply(contactId) {
+  try {
+    const config = await settings.getWhatsAppAutoReply();
+    if (!config.enabled) return;
+    const hours = parseWorkHours(await settings.getWorkHoursConfig());
+    const parts = zonedParts(new Date(), hours.timezone);
+    if (hours.days.includes(parts.isoWeekday)) return; // jour ouvré : aucune réponse automatique
+
+    const { closureStart, nextWeekday } = closurePeriod(hours, parts);
+    const last = await repo.getLastAutoReplyAt(contactId);
+    if (last && new Date(last).getTime() >= closureStart.getTime()) return;
+
+    const conversation = await repo.findConversation(contactId);
+    if (!conversation || conversation.blocked_at) return;
+    const body = buildAutoReplyText(config.text, hours, nextWeekday);
+    const waMessageId = await postToMeta(conversation, contactId, { type: "text", text: { preview_url: false, body } });
+    await repo.insertMessage({ contactId, waMessageId, direction: "out", type: "text", body, status: "sent", sentBy: null, isAuto: true });
+    await repo.setLastAutoReplyAt(contactId);
+    logger.info("WhatsApp : réponse automatique envoyée (jour non travaillé)", { contactId, to: maskPhone(conversation.phone) });
+  } catch (error) {
+    logger.warn("WhatsApp : réponse automatique impossible", { contactId, message: error.message });
+  }
 }
 
 // Diagnostic (admin) : configuration, numéro d'envoi vérifié auprès de Meta, numéros de réception vus,
@@ -552,6 +742,10 @@ module.exports = {
   getMessages,
   sendText,
   hideMessage,
+  sendMedia,
+  getMedia,
+  buildAutoReplyText,
+  maybeAutoReply,
   diagnostic,
   setMuted,
   setBlocked,

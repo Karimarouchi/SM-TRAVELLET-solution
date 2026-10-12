@@ -154,9 +154,37 @@ async function setWorkHoursConfig({ days, start, end, timezone }) {
   return getWorkHoursConfig();
 }
 
+// Réponse automatique WhatsApp des jours non travaillés (activée par défaut, texte modifiable).
+const DEFAULT_AUTO_REPLY = [
+  "Bonjour 👋",
+  "",
+  "Merci de nous avoir écrit et de votre confiance en SM Travel ! 🌍",
+  "",
+  "Notre équipe est actuellement en repos. Nous reprenons le travail {reprise}.",
+  "",
+  "Pour que nous puissions vous répondre avec toute l'attention que mérite votre projet d'études, merci de nous écrire de nouveau à partir de ce moment-là : un conseiller sera heureux de vous accompagner. 🎓✈️",
+  "",
+  "À très bientôt,",
+  "L'équipe SM Travel"
+].join("\n");
+
+async function getWhatsAppAutoReply() {
+  const [enabled, text] = await Promise.all([get("whatsapp_auto_reply_enabled"), get("whatsapp_auto_reply_text")]);
+  return { enabled: enabled === null || enabled === undefined || enabled === "" ? true : enabled === "1", text: text || DEFAULT_AUTO_REPLY };
+}
+
+async function setWhatsAppAutoReply({ enabled, text }) {
+  if (enabled !== undefined) await set("whatsapp_auto_reply_enabled", enabled ? "1" : "0");
+  if (text !== undefined) await set("whatsapp_auto_reply_text", String(text));
+  return getWhatsAppAutoReply();
+}
+
 module.exports = {
   get,
   set,
+  getWhatsAppAutoReply,
+  setWhatsAppAutoReply,
+  DEFAULT_AUTO_REPLY,
   isAutoAssignEnabled,
   getArchivePurgeConfig,
   setArchivePurgeConfig,

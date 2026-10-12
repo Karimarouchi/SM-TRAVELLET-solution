@@ -438,11 +438,12 @@ async function setStudentActive(studentId, isActive) {
 }
 
 async function getSettings() {
-  const [autoAssignSales, stalledAlert, emailSender, workHours] = await Promise.all([
+  const [autoAssignSales, stalledAlert, emailSender, workHours, whatsappAutoReply] = await Promise.all([
     settings.isAutoAssignEnabled(),
     settings.getStalledAlertConfig(),
     settings.getEmailSenderConfig(),
-    settings.getWorkHoursConfig()
+    settings.getWorkHoursConfig(),
+    settings.getWhatsAppAutoReply()
   ]);
   return {
     autoAssignSales,
@@ -457,7 +458,9 @@ async function getSettings() {
     workDays: String(workHours.days).split(",").map((d) => parseInt(d, 10)).filter((d) => d >= 1 && d <= 7),
     workStart: workHours.start,
     workEnd: workHours.end,
-    workTimezone: workHours.timezone
+    workTimezone: workHours.timezone,
+    whatsappAutoReplyEnabled: whatsappAutoReply.enabled,
+    whatsappAutoReplyText: whatsappAutoReply.text
   };
 }
 
@@ -531,6 +534,16 @@ async function updateSettings(body) {
     if (problem) throw fail(`Rien n'a été enregistré. ${problem}`, 400);
 
     await settings.setEmailSenderConfig({ fromName, fromAddress, appPassword, smtpHost, smtpPort });
+  }
+
+  if (body.whatsappAutoReplyEnabled !== undefined || body.whatsappAutoReplyText !== undefined) {
+    const text = body.whatsappAutoReplyText !== undefined ? String(body.whatsappAutoReplyText).trim() : undefined;
+    if (text !== undefined && !text) throw fail("Le message de réponse automatique ne peut pas être vide.", 400);
+    if (text !== undefined && text.length > 1000) throw fail("Le message de réponse automatique est trop long (1000 caractères maximum).", 400);
+    await settings.setWhatsAppAutoReply({
+      enabled: body.whatsappAutoReplyEnabled !== undefined ? Boolean(body.whatsappAutoReplyEnabled) : undefined,
+      text
+    });
   }
 
   const touchesWorkHours =

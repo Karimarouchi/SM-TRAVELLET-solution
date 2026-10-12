@@ -31,6 +31,29 @@ async function sendMessage(req, res) {
   }
 }
 
+async function sendMedia(req, res) {
+  try {
+    const { file, filename, caption } = req.body || {};
+    res.status(201).json(await whatsappService.sendMedia(req.auth, req.params.contactId, { file, filename, caption }));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
+async function getMedia(req, res) {
+  try {
+    const media = await whatsappService.getMedia(req.auth, req.params.contactId, req.params.messageId);
+    const inline = /^image\//.test(media.mime || "");
+    res.setHeader("Content-Type", media.mime || "application/octet-stream");
+    res.setHeader("Content-Disposition", `${inline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(media.name)}`);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    res.sendFile(media.absolutePath);
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function hideMessage(req, res) {
   try {
     res.json(await whatsappService.hideMessage(req.auth, req.params.contactId, req.params.messageId));
@@ -93,4 +116,4 @@ async function unreadCount(req, res) {
   }
 }
 
-module.exports = { listConversations, getMessages, sendMessage, hideMessage, diagnostic, setMuted, setBlocked, linkStudent, assignOwner, unreadCount };
+module.exports = { listConversations, getMessages, sendMessage, hideMessage, sendMedia, getMedia, diagnostic, setMuted, setBlocked, linkStudent, assignOwner, unreadCount };

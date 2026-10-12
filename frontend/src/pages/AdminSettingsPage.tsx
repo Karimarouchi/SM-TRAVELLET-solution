@@ -1,6 +1,6 @@
 import { fetchAdminSettings, updateAdminSettings, type AdminSettings, type StalledAlertFrequency } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, CheckCircle2, Clock, KeyRound, Mail, Save, Settings as SettingsIcon, ShieldCheck } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, KeyRound, Mail, MessageCircle, Save, Settings as SettingsIcon, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import BackupPanel from "@/components/admin/BackupPanel";
 import GoogleCalendarCard from "@/components/admin/GoogleCalendarCard";
@@ -42,6 +42,9 @@ export default function AdminSettingsPage() {
   const [workForm, setWorkForm] = useState({ workDays: [1, 2, 3, 4, 5] as number[], workStart: "09:00", workEnd: "18:00" });
   const [workSaving, setWorkSaving] = useState(false);
   const [workSaved, setWorkSaved] = useState(false);
+  const [autoReply, setAutoReply] = useState({ enabled: true, text: "" });
+  const [autoReplySaving, setAutoReplySaving] = useState(false);
+  const [autoReplySaved, setAutoReplySaved] = useState(false);
 
   useEffect(() => {
     fetchAdminSettings()
@@ -64,6 +67,7 @@ export default function AdminSettingsPage() {
           workStart: data.workStart || "09:00",
           workEnd: data.workEnd || "18:00"
         });
+        setAutoReply({ enabled: data.whatsappAutoReplyEnabled !== false, text: data.whatsappAutoReplyText || "" });
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Impossible de charger les paramètres."))
       .finally(() => setLoading(false));
@@ -134,6 +138,29 @@ export default function AdminSettingsPage() {
       setWorkSaving(false);
     }
   }
+
+  async function saveAutoReply() {
+    setAutoReplySaving(true);
+    setError("");
+    setAutoReplySaved(false);
+    try {
+      if (!autoReply.text.trim()) throw new Error("Le message de réponse automatique ne peut pas être vide.");
+      const updated = await updateAdminSettings({ whatsappAutoReplyEnabled: autoReply.enabled, whatsappAutoReplyText: autoReply.text });
+      setSettings(updated);
+      setAutoReplySaved(true);
+      window.setTimeout(() => setAutoReplySaved(false), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Enregistrement impossible.");
+    } finally {
+      setAutoReplySaving(false);
+    }
+  }
+
+  // Jours non travaillés (déduits des jours ouvrés ci-dessus) et aperçu de la reprise annoncée au client.
+  const closedDays = WEEKDAYS.filter((d) => !workForm.workDays.includes(d.id));
+  const resumeDay = WEEKDAYS.find((d) => workForm.workDays.includes(d.id));
+  const resumeLabel = resumeDay ? `${resumeDay.label.toLowerCase()} à ${workForm.workStart.replace(":", "h")}` : "dès que possible";
+  const autoReplyPreview = autoReply.text.replace(/\{reprise\}/g, resumeLabel);
 
   return (
     <main className="mx-auto max-w-4xl px-4 sm:px-6 pb-16">
@@ -382,6 +409,49 @@ export default function AdminSettingsPage() {
               {workSaved && (
                 <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
                   <CheckCircle2 className="h-4 w-4" /> Horaires enregistrés
+                </span>
+              )}
+            </div>
+          </section>
+
+          {/* ── Réponse automatique WhatsApp ─────────────────────────────── */}
+          <section className="mt-4 rounded-[24px] border border-line bg-white p-6">
+            <h2 className="flex items-center gap-2 font-display text-xl font-bold text-dark">
+              <MessageCircle className="h-5 w-5 text-emerald-600" /> Réponse automatique WhatsApp
+            </h2>
+            <p className="mt-1 text-xs text-muted">
+              Quand un client écrit un jour non travaillé, il reçoit automatiquement ce message lui demandant de vous réécrire à la reprise. Il n'est envoyé qu'une fois par période de fermeture et par client, et ne compte jamais comme une réponse d'un conseiller. Les jours non travaillés sont ceux décochés dans « Horaires de travail » ci-dessus.
+            </p>
+            <p className={cn("mt-3 rounded-xl px-3 py-2 text-xs font-semibold", closedDays.length ? "bg-slate-50 text-mid" : "bg-amber-50 text-amber-800")}>
+              {closedDays.length ? `Jours non travaillés actuellement : ${closedDays.map((d) => d.label.toLowerCase()).join(", ")}.` : "Tous les jours sont travaillés : aucune réponse automatique ne sera envoyée. Décochez les jours de repos dans « Horaires de travail » (puis enregistrez les horaires)."}
+            </p>
+            <label className="mt-4 flex items-center gap-2.5 text-sm font-semibold text-dark">
+              <input type="checkbox" checked={autoReply.enabled} onChange={(e) => setAutoReply({ ...autoReply, enabled: e.target.checked })} className="h-4 w-4 accent-violet-600" />
+              Envoyer la réponse automatique les jours non travaillés
+            </label>
+            <div className="mt-3">
+              <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-muted">Message envoyé au client</label>
+              <textarea
+                value={autoReply.text}
+                onChange={(e) => setAutoReply({ ...autoReply, text: e.target.value.slice(0, 1000) })}
+                rows={9}
+                className="w-full resize-y rounded-xl border border-line bg-slate-50 px-3 py-2.5 text-sm leading-relaxed outline-none focus:border-brand"
+              />
+              <p className="mt-1 text-[11px] text-muted">
+                <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-dark">{"{reprise}"}</code> est remplacé par le prochain jour de travail et l'heure d'ouverture, par exemple « {resumeLabel} ». {autoReply.text.length}/1000
+              </p>
+            </div>
+            <div className="mt-3 rounded-2xl bg-[#e7f8f3] p-4">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">Aperçu chez le client</p>
+              <p className="mt-1.5 whitespace-pre-wrap break-words text-sm text-[#111b21]">{autoReplyPreview}</p>
+            </div>
+            <div className="mt-5 flex items-center gap-3">
+              <button type="button" disabled={autoReplySaving} onClick={saveAutoReply} className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white disabled:opacity-60">
+                <Save className="h-4 w-4" /> {autoReplySaving ? "Enregistrement..." : "Enregistrer la réponse automatique"}
+              </button>
+              {autoReplySaved && (
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
+                  <CheckCircle2 className="h-4 w-4" /> Enregistré
                 </span>
               )}
             </div>

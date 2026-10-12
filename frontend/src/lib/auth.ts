@@ -463,6 +463,9 @@ export type AdminSettings = {
   workStart: string;
   workEnd: string;
   workTimezone: string;
+  /** Réponse automatique WhatsApp des jours non travaillés. */
+  whatsappAutoReplyEnabled: boolean;
+  whatsappAutoReplyText: string;
 };
 
 export async function fetchAdminSettings() {

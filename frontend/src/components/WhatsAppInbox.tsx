@@ -10,14 +10,19 @@ import {
   hideWhatsAppMessage,
   linkWhatsAppStudent,
   muteWhatsAppConversation,
+  sendWhatsAppMedia,
   sendWhatsAppMessage,
   segmentOf,
+  WA_ACCEPTED_FILES,
+  WA_MAX_DOCUMENT_BYTES,
+  WA_MAX_IMAGE_BYTES,
   WHATSAPP_SEGMENTS,
   type WhatsAppConversation,
   type WhatsAppMessage,
   type WhatsAppSegment
 } from "@/lib/whatsapp";
 import { playWhatsAppSound } from "@/lib/sounds";
+import WhatsAppMedia from "@/components/WhatsAppMedia";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import {
@@ -27,16 +32,19 @@ import {
   Ban,
   Bell,
   BellOff,
+  Bot,
   Check,
   CheckCheck,
   ChevronDown,
   Clock,
   ExternalLink,
   EyeOff,
+  FileText,
   FileWarning,
   Link2,
   Link2Off,
   MessageCircle,
+  Paperclip,
   Search,
   Send,
   ShieldCheck,
@@ -312,6 +320,9 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [text, setText] = useState("");
+  // Fichier en cours d'envoi (image ou document) : le texte devient sa légende.
+  const [attachment, setAttachment] = useState<{ file: File; previewUrl: string | null } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [linkOpen, setLinkOpen] = useState(false);
@@ -433,17 +444,50 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
   function openConversation(id: string) {
     setError("");
     setText("");
+    clearAttachment();
     setActiveId(id);
     setMobileChat(true);
   }
 
+  // Fichier à joindre (image ou document) : le texte saisi devient sa légende.
+  function onPickFile(file: File | undefined) {
+    if (!file) return;
+    setError("");
+    const isImage = /^image\/(jpeg|png)$/.test(file.type);
+    const limit = isImage ? WA_MAX_IMAGE_BYTES : WA_MAX_DOCUMENT_BYTES;
+    if (file.size > limit) {
+      setError(`Fichier trop lourd : ${isImage ? "5 Mo" : "16 Mo"} au maximum pour ${isImage ? "une image" : "un document"}.`);
+      return;
+    }
+    setAttachment({ file, previewUrl: isImage ? URL.createObjectURL(file) : null });
+  }
+
+  function clearAttachment() {
+    setAttachment((current) => {
+      if (current?.previewUrl) URL.revokeObjectURL(current.previewUrl);
+      return null;
+    });
+  }
+
   async function onSend() {
     const body = text.trim();
-    if (!activeId || !body || sending) return;
+    if (!activeId || sending || (!body && !attachment)) return;
     setSending(true);
     setError("");
     try {
-      const message = await sendWhatsAppMessage(activeId, body);
+      let message: WhatsAppMessage;
+      if (attachment) {
+        const file = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = () => reject(new Error("Lecture du fichier impossible."));
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(attachment.file);
+        });
+        message = await sendWhatsAppMedia(activeId, { file, filename: attachment.file.name, caption: body });
+        clearAttachment();
+      } else {
+        message = await sendWhatsAppMessage(activeId, body);
+      }
       setText("");
       setThread((previous) => [...previous, message]);
       loadList();
@@ -863,13 +907,18 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
                               mine ? "rounded-lg rounded-tr-none bg-[#d9fdd3]" : "rounded-lg rounded-tl-none bg-white"
                             )}
                           >
-                            {mine && item.senderName && (
+                            {mine && item.senderName && !item.auto && (
                               <p className="mb-0.5 text-[11px] font-semibold text-[#008069]">
                                 {item.senderName}
                                 {item.sentByAdmin && <span className="ml-1 font-medium text-[#667781]">· envoyé par l'admin</span>}
                               </p>
                             )}
-                            {isMedia ? (
+                            {item.auto && (
+                              <p className="mb-0.5 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-[#8696a0]"><Bot className="h-3 w-3" aria-hidden /> Réponse automatique</p>
+                            )}
+                            {item.media && active ? (
+                              <WhatsAppMedia contactId={active.id} message={item} />
+                            ) : isMedia ? (
                               <p className="flex items-start gap-1.5 italic text-[#667781]">
                                 <FileWarning className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {item.body}
                               </p>
@@ -931,14 +980,49 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
                   className="flex items-end gap-2 bg-[#f0f2f5] px-2 pt-2 md:px-3"
                   style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
                 >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={WA_ACCEPTED_FILES}
+                    className="sr-only"
+                    tabIndex={-1}
+                    onChange={(event) => {
+                      onPickFile(event.target.files?.[0]);
+                      event.target.value = "";
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    aria-label="Joindre une image ou un document"
+                    title="Joindre une image ou un document"
+                    disabled={!active.windowOpen || sending}
+                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#54656f] transition hover:bg-black/5 disabled:opacity-40"
+                  >
+                    <Paperclip className="h-5 w-5" />
+                  </button>
                   <div className="relative flex-1">
+                    {attachment && (
+                      <div className="mb-1.5 flex items-center gap-2.5 rounded-2xl bg-white px-3 py-2 shadow-sm">
+                        {attachment.previewUrl ? (
+                          <img src={attachment.previewUrl} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+                        ) : (
+                          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[#e7f8f3] text-[#00a884]"><FileText className="h-6 w-6" /></span>
+                        )}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[13px] font-semibold text-[#111b21]">{attachment.file.name}</span>
+                          <span className="block text-[11px] text-[#667781]">{attachment.file.size >= 1024 * 1024 ? `${(attachment.file.size / 1024 / 1024).toFixed(1)} Mo` : `${Math.max(1, Math.round(attachment.file.size / 1024))} Ko`} · le texte ci-dessous sera la légende</span>
+                        </span>
+                        <button type="button" onClick={clearAttachment} aria-label="Retirer le fichier" className="shrink-0 rounded-full p-1.5 text-[#667781] hover:bg-black/5"><X className="h-4 w-4" /></button>
+                      </div>
+                    )}
                     <textarea
                       value={text}
                       onChange={(event) => setText(event.target.value.slice(0, MAX_LENGTH))}
                       onKeyDown={onKeyDown}
                       disabled={!active.windowOpen || sending}
                       rows={Math.min(5, Math.max(1, text.split("\n").length))}
-                      placeholder={active.windowOpen ? "Message" : "Réponse impossible pour l'instant"}
+                      placeholder={active.windowOpen ? (attachment ? "Ajouter une légende (facultatif)" : "Message") : "Réponse impossible pour l'instant"}
                       className="block w-full resize-none rounded-3xl border-0 bg-white px-4 py-2.5 text-[15px] text-[#111b21] shadow-sm outline-none placeholder:text-[#8696a0] disabled:cursor-not-allowed disabled:opacity-70"
                     />
                     {text.length > MAX_LENGTH - 200 && (
@@ -949,7 +1033,7 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
                     type="button"
                     onClick={onSend}
                     aria-label="Envoyer"
-                    disabled={!active.windowOpen || sending || !text.trim()}
+                    disabled={!active.windowOpen || sending || (!text.trim() && !attachment)}
                     className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#00a884] text-white shadow-md transition hover:bg-[#008f6f] disabled:opacity-40"
                   >
                     <Send className="h-[18px] w-[18px]" />
