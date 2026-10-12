@@ -246,7 +246,7 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
               <p className="mt-1 text-[11px] text-amber-800">Le dépôt de la candidature (tranche 1) ou du visa (tranche 2) reste bloqué tant que la tranche n'est pas payée en totalité.</p>
             </div>
           )}
-          <p className="text-[11px] text-muted">Montant vide = tout le reste dû de la tranche. La date proposée est celle d'aujourd'hui : modifiez-la si le paiement a eu lieu un autre jour. Chèque : numéro du chèque ; virement : code du virement. Chaque paiement reçoit un numéro de reçu automatique (ex. 001-2026), envoyé par e-mail à l'étudiant.</p>
+          <p className="text-[11px] text-muted">Montant vide = tout le reste dû de la tranche. La date proposée est celle d'aujourd'hui : modifiez-la si le paiement a eu lieu un autre jour. Chèque : numéro du chèque. Chaque paiement reçoit un numéro de reçu automatique (ex. 001-2026), envoyé par e-mail à l'étudiant.</p>
           {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
           <div className="flex justify-end gap-2">
             <button type="button" onClick={reset} className="rounded-xl border border-line bg-white px-4 py-2 text-xs font-bold text-muted hover:bg-slate-50">Annuler</button>

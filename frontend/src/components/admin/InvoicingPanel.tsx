@@ -203,7 +203,7 @@ export default function InvoicingPanel() {
                             <td className="px-2 py-2.5 font-bold text-dark">{p.receiptNumber || "—"}</td>
                             <td className="px-2 py-2.5">{p.tranche === 1 ? "Tranche 1 · inscription" : "Tranche 2 · visa"} — {p.countryName}</td>
                             <td className="px-2 py-2.5">
-                              <span className="inline-flex items-center gap-1"><Landmark className="h-3 w-3" /> {p.methodLabel} {p.referenceLabel} {p.reference || "—"}</span>
+                              <span className="inline-flex items-center gap-1"><Landmark className="h-3 w-3" /> {p.methodLabel}{p.method === "CHEQUE" || p.reference ? ` ${p.referenceLabel || ""} ${p.reference || "—"}` : ""}</span>
                             </td>
                             <td className="whitespace-nowrap px-2 py-2.5">{frDate(p.paidAt)}</td>
                             <td className="whitespace-nowrap px-2 py-2.5 text-right font-bold text-dark">{formatMoney(p.amount, p.currency)}</td>

@@ -1872,8 +1872,7 @@ export type StudentPayment = {
 
 /** Mode de paiement qui demande un numéro à saisir, avec son libellé. */
 export const PAYMENT_REFERENCE_LABELS: Partial<Record<PaymentMethod, string>> = {
-  CHEQUE: "Numéro du chèque",
-  TRANSFER: "Code du virement"
+  CHEQUE: "Numéro du chèque"
 };
 
 export type StudentPaymentsSummary = { plans: PaymentPlan[]; payments: StudentPayment[]; canCancel: boolean };

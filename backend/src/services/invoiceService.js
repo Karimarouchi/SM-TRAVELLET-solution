@@ -261,7 +261,8 @@ function drawInvoice(doc, { invoice, lines }) {
 
   lines.forEach((line, index) => {
     const designation = `${Number(line.tranche) === 1 ? "Tranche 1 · inscription" : "Tranche 2 · visa"} — ${line.country_name}`;
-    const mode = `${METHOD_LABELS[line.method]} ${REFERENCE_LABELS[line.method]} ${line.reference || "—"}`;
+    // Chèque : numéro ; virement : aucun code à saisir (les anciens virements gardent leur code).
+    const mode = line.method === "CHEQUE" || line.reference ? `${METHOD_LABELS[line.method]} ${REFERENCE_LABELS[line.method]} ${line.reference || "—"}` : METHOD_LABELS[line.method];
     const rowHeight = Math.max(
       doc.heightOfString(designation, { width: cols[0].w }),
       doc.heightOfString(mode, { width: cols[2].w })

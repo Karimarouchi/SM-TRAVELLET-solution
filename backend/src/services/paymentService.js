@@ -60,10 +60,12 @@ function dateOnly(value) {
 // Numéro du chèque / code du virement : obligatoire selon le mode, pour pouvoir
 // retrouver le paiement. Espèces et carte n'ont pas de référence à saisir : le
 // numéro de reçu automatique suffit.
+// Libellés d'affichage (l'historique garde le code des anciens virements) ; seul le chèque demande une saisie.
 const REFERENCE_LABELS = { CHEQUE: "Numéro du chèque", TRANSFER: "Code du virement" };
+const INPUT_REFERENCE_METHODS = new Set(["CHEQUE"]);
 
 async function normalizeMethodReference(method, raw) {
-  if (!REFERENCE_LABELS[method]) return null;
+  if (!INPUT_REFERENCE_METHODS.has(method)) return null;
   const reference = String(raw || "").trim().replace(/\s+/g, " ");
   if (!reference) throw fail(`${REFERENCE_LABELS[method]} obligatoire.`, 400);
   if (!/^[A-Za-z0-9][A-Za-z0-9 \-/.]{2,39}$/.test(reference)) {
