@@ -20,6 +20,7 @@ const documentRequirementController = require("./controllers/documentRequirement
 const studentDocumentController = require("./controllers/studentDocumentController");
 const salesCodeController = require("./controllers/salesCodeController");
 const mailController = require("./controllers/mailController");
+const studentNoteController = require("./controllers/studentNoteController");
 const countryUniversityController = require("./controllers/countryUniversityController");
 const universityApplicationController = require("./controllers/universityApplicationController");
 const universityChoiceController = require("./controllers/universityChoiceController");
@@ -94,6 +95,11 @@ app.get("/api/whatsapp/webhook", whatsappWebhookController.verifyWebhook);
 app.post("/api/whatsapp/webhook", whatsappWebhookController.receiveWebhook);
 
 app.get("/api/whatsapp/conversations", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.listConversations);
+// Remarques internes sur un étudiant : équipe SM seulement (jamais visibles par l'étudiant).
+app.get("/api/students/:id/notes", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), studentNoteController.list);
+app.post("/api/students/:id/notes", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), studentNoteController.create);
+app.delete("/api/student-notes/:noteId", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), studentNoteController.remove);
+
 // Boîte mail commune de l'agence : toute l'équipe SM (admin, conseillers, responsables dossier).
 const mailSendLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
