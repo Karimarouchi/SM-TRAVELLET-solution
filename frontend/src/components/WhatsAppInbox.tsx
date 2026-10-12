@@ -17,6 +17,7 @@ import {
   type WhatsAppMessage,
   type WhatsAppSegment
 } from "@/lib/whatsapp";
+import { playWhatsAppSound } from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import {
@@ -320,6 +321,8 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastMessageIdRef = useRef<string | null>(null);
+  // Dernier message reçu de la conversation ouverte : un son part quand un nouveau arrive pendant qu'on la regarde.
+  const lastInboundIdRef = useRef<string | null | undefined>(undefined);
   const preserveScrollRef = useRef<number | null>(null);
 
   // Lien direct (?open=<id>, depuis le Dashboard) : ouvre cette conversation une
@@ -369,6 +372,9 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
   const loadThread = useCallback(async (contactId: string) => {
     try {
       const data = await fetchWhatsAppMessages(contactId);
+      const lastInbound = [...data.messages].reverse().find((item) => item.direction === "in")?.id || null;
+      if (lastInboundIdRef.current !== undefined && lastInbound && lastInbound !== lastInboundIdRef.current) playWhatsAppSound();
+      lastInboundIdRef.current = lastInbound;
       setThread((previous) => {
         // Les messages plus anciens déjà chargés (pagination) sont conservés.
         const olderKept = previous.filter((item) => data.messages.length && item.createdAt < data.messages[0].createdAt);
@@ -386,6 +392,7 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
     setThread([]);
     setHasMore(false);
     lastMessageIdRef.current = null;
+    lastInboundIdRef.current = undefined;
     loadThread(activeId);
     const interval = window.setInterval(() => loadThread(activeId), THREAD_POLL_MS);
     return () => window.clearInterval(interval);

@@ -11,6 +11,8 @@ import { useLanguage } from "@/lib/i18n";
 import { VITRINE_URL } from "@/lib/site";
 import { cn } from "@/lib/utils";
 import NotificationBell from "@/components/NotificationBell";
+import SoundToggle from "@/components/SoundToggle";
+import { isStaffRole, playWhatsAppSound } from "@/lib/sounds";
 
 type NavLinkItem = { label: string; href?: string; external?: boolean; children?: { label: string; href: string }[] };
 
@@ -93,11 +95,18 @@ const Navbar1 = () => {
   const childCount = (href: string) =>
     href === WHATSAPP_HREF ? waUnread.registered + waUnread.prospects : href === WHATSAPP_REGISTERED_HREF ? waUnread.registered : href === WHATSAPP_PROSPECTS_HREF ? waUnread.prospects : 0;
 
+  // Dernier total de messages WhatsApp non lus : un son part quand il augmente (jamais au premier chargement).
+  const lastWaTotal = React.useRef<number | null>(null);
   React.useEffect(() => {
     if (role !== "ADMIN" && role !== "SALES") return;
     function refresh() {
       fetchWhatsAppUnread()
-        .then((data) => setWaUnread({ registered: data.registered, prospects: data.prospects }))
+        .then((data) => {
+          const total = data.registered + data.prospects;
+          if (lastWaTotal.current !== null && total > lastWaTotal.current) playWhatsAppSound();
+          lastWaTotal.current = total;
+          setWaUnread({ registered: data.registered, prospects: data.prospects });
+        })
         .catch(() => undefined);
     }
     refresh();
@@ -209,6 +218,7 @@ const Navbar1 = () => {
         </nav>
 
         <div className="flex shrink-0 items-center gap-3">
+        {isStaffRole(role) && <SoundToggle />}
         <NotificationBell />
         <div className="hidden items-center gap-3 lg:flex">
           {role === "ADMIN" && (

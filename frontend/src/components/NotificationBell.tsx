@@ -8,6 +8,8 @@ import {
   markNotificationRead,
   type AppNotification
 } from "@/lib/notifications";
+import { getSession } from "@/lib/auth";
+import { isStaffRole, playNotificationSound } from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "motion/react";
 import { Bell, CheckCheck } from "lucide-react";
@@ -25,9 +27,19 @@ export default function NotificationBell() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const previousUnread = useRef<number | null>(null);
+  const staff = isStaffRole(getSession()?.user.role);
+
   const refreshCount = useCallback(() => {
-    fetchNotificationUnread().then(setUnread).catch(() => undefined);
-  }, []);
+    fetchNotificationUnread()
+      .then((count) => {
+        // Son uniquement quand une nouvelle notification arrive (pas au premier chargement) et seulement pour l'équipe SM.
+        if (staff && previousUnread.current !== null && count > previousUnread.current) playNotificationSound();
+        previousUnread.current = count;
+        setUnread(count);
+      })
+      .catch(() => undefined);
+  }, [staff]);
 
   useEffect(() => {
     refreshCount();
