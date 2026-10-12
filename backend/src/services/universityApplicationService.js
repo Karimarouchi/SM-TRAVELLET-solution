@@ -15,6 +15,7 @@ const googleCalendar = require("./googleCalendarService");
 const commissionService = require("./commissionService");
 const logger = require("../logger");
 const secretBox = require("../security/secretBox");
+const translationRepo = require("../repositories/translationRepository");
 const { canViewStudent } = require("../security/studentView");
 const { canAccessStudent, canAccessApplication, authRoles } = require("../security/rbac");
 
@@ -401,6 +402,12 @@ async function markApplied(auth, applicationId, payload) {
 
   // Paiement : la tranche inscription doit être réglée avant le dépôt de la candidature.
   await paymentService.assertRegistrationPaid(application);
+
+  // Une traduction demandée par le conseiller doit être déposée puis validée avant le dépôt de la candidature.
+  const pendingTranslations = await translationRepo.pendingNames(application.student_id);
+  if (pendingTranslations.length) {
+    throw fail(`Traduction à valider avant le dépôt : ${pendingTranslations.join(", ")}.`, 409);
+  }
 
   // Un document refusé (par le Responsable Dossier) doit être redéposé puis revalidé par le conseiller.
   const requiredStatuses = [
@@ -1177,7 +1184,8 @@ async function listMineForRdv(auth) {
       // Tranche visa non réglée : le dépôt du visa sera refusé tant qu'elle reste due.
       visaPaymentDue: r.visa_status === "PREPARATION" ? await paymentService.visaPaymentDue(r.student_id, r.country_id) : null,
       // Tranche inscription non réglée : le dépôt de la candidature sera refusé tant qu'elle reste due.
-      registrationPaymentDue: r.status === "READY_TO_APPLY" ? await paymentService.registrationPaymentDue(r.student_id, r.country_id) : null
+      registrationPaymentDue: r.status === "READY_TO_APPLY" ? await paymentService.registrationPaymentDue(r.student_id, r.country_id) : null,
+      translationsPending: r.status === "READY_TO_APPLY" ? await translationRepo.pendingNames(r.student_id) : []
     }))
   );
 }

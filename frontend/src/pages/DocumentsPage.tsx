@@ -1,4 +1,5 @@
 import VisaDocumentsChecklist from "@/components/VisaDocumentsChecklist";
+import TranslationSlot from "@/components/TranslationSlot";
 import { fetchMyDocuments, fetchMyVisaChecklist, uploadMyDocument, type StudentDocumentChecklistItem, type VisaDocumentChecklistItem } from "@/lib/auth";
 import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -38,7 +39,7 @@ function typeLabel(type: StudentDocumentChecklistItem["acceptedFileTypes"], t: (
   return t("Image ou PDF", "Image or PDF");
 }
 
-function DocumentRow({ doc, onUploaded }: { doc: StudentDocumentChecklistItem; onUploaded: (updated: StudentDocumentChecklistItem) => void }) {
+function DocumentRow({ doc, onUploaded, onReload }: { doc: StudentDocumentChecklistItem; onUploaded: (updated: StudentDocumentChecklistItem) => void; onReload: () => void }) {
   const { t } = useLanguage();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -129,6 +130,7 @@ function DocumentRow({ doc, onUploaded }: { doc: StudentDocumentChecklistItem; o
         <input ref={inputRef} type="file" accept={acceptAttr(doc.acceptedFileTypes)} className="hidden" onChange={onChange} />
       </div>
       {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
+      {doc.translation && <TranslationSlot translation={doc.translation} docName={doc.name} mode="student" onChanged={onReload} />}
     </div>
   );
 }
@@ -269,7 +271,7 @@ export default function DocumentsPage() {
                     {t(`Spécifique à ${doc.universityName}`, `Specific to ${doc.universityName}`)}
                   </p>
                 )}
-                <DocumentRow doc={doc} onUploaded={handleUploaded} />
+                <DocumentRow doc={doc} onUploaded={handleUploaded} onReload={load} />
               </div>
             ))}
           </div>

@@ -145,6 +145,12 @@ function ApplicationCard({ app, canAct, canMarkTranslation, onChanged }: { app: 
           )}
         </div>
       )}
+      {app.status === "READY_TO_APPLY" && Boolean((app as UniversityApplication & { translationsPending?: string[] }).translationsPending?.length) && (
+        <p className="mt-2 flex items-start gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          Traduction à valider avant le dépôt : {(app as UniversityApplication & { translationsPending?: string[] }).translationsPending!.join(", ")}. Le dépôt de la candidature est bloqué, prévenez le conseiller.
+        </p>
+      )}
       {app.status === "READY_TO_APPLY" && app.registrationPaymentDue && (
         <p className="mt-2 flex items-start gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -218,7 +224,7 @@ function ApplicationCard({ app, canAct, canMarkTranslation, onChanged }: { app: 
               <button type="button" disabled={busy} onClick={() => setModal("meet")} className="inline-flex items-center gap-1.5 rounded-lg bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-700 hover:bg-sky-100">
                 <Video className="h-3 w-3" /> {app.staffMeetAt ? "Modifier le Meet (optionnel)" : "Planifier un Meet (optionnel)"}
               </button>
-              <button type="button" disabled={busy || Boolean(app.registrationPaymentDue)} title={app.registrationPaymentDue ? "Paiement de l'inscription non réglé." : undefined} onClick={() => setModal("apply")} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50">
+              <button type="button" disabled={busy || Boolean(app.registrationPaymentDue) || Boolean((app as UniversityApplication & { translationsPending?: string[] }).translationsPending?.length)} title={app.registrationPaymentDue ? "Paiement de l'inscription non réglé." : (app as UniversityApplication & { translationsPending?: string[] }).translationsPending?.length ? "Une traduction demandée n'est pas encore validée." : undefined} onClick={() => setModal("apply")} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50">
                 <Send className="h-3 w-3" /> Marquer comme candidature déposée
               </button>
             </>

@@ -1209,6 +1209,34 @@ export async function deleteCountryUniversity(id: string): Promise<{ success: bo
 // ==========================================
 export type StudentDocumentStatus = "PENDING" | "SUBMITTED" | "VALIDATED" | "REJECTED";
 
+/** Traduction demandée pour un document validé (champ supplémentaire à remplir). */
+export type TranslationSlot = {
+  id: string;
+  status: "PENDING" | "SUBMITTED" | "VALIDATED" | "REJECTED";
+  fileUrl: string | null;
+  originalFilename: string | null;
+  rejectionReason: string | null;
+  requestedAt: string;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+};
+
+export async function requestTranslation(studentId: string, name: string, universityId?: string | null) {
+  return request<TranslationSlot>(`/api/students/${studentId}/translations`, { method: "POST", body: JSON.stringify({ name, universityId: universityId || undefined }) });
+}
+export async function deleteTranslation(translationId: string) {
+  return request<{ id: string }>(`/api/translations/${translationId}`, { method: "DELETE" });
+}
+export async function uploadMyTranslation(translationId: string, file: string, originalFilename?: string) {
+  return request<TranslationSlot>(`/api/students/me/translations/${translationId}/file`, { method: "POST", body: JSON.stringify({ file, originalFilename }) });
+}
+export async function uploadTranslationAsStaff(translationId: string, file: string, originalFilename?: string) {
+  return request<TranslationSlot>(`/api/translations/${translationId}/file`, { method: "POST", body: JSON.stringify({ file, originalFilename }) });
+}
+export async function reviewTranslation(translationId: string, status: "VALIDATED" | "REJECTED", reason?: string) {
+  return request<TranslationSlot>(`/api/translations/${translationId}/review`, { method: "PATCH", body: JSON.stringify({ status, reason }) });
+}
+
 export type StudentDocumentChecklistItem = {
   name: string;
   /** Document propre à une université (absent = commun au pays). */
@@ -1224,6 +1252,8 @@ export type StudentDocumentChecklistItem = {
   rejectionReason: string | null;
   submittedAt: string | null;
   reviewedAt: string | null;
+  /** Traduction demandée par le conseiller pour ce document validé. */
+  translation?: TranslationSlot | null;
 };
 
 export async function fetchMyDocuments(): Promise<StudentDocumentChecklistItem[]> {
@@ -1562,7 +1592,7 @@ export async function scheduleVisaEmbassyAppointment(applicationId: string, date
 /** Tranche visa encore due : le dépôt du visa est bloqué tant qu'elle n'est pas payée. */
 export type VisaPaymentDue = { remaining: number; currency: Currency };
 
-export type RdvMyApplication = UniversityApplication & { studentName: string; studentEmail: string; visaPaymentDue?: VisaPaymentDue | null };
+export type RdvMyApplication = UniversityApplication & { studentName: string; studentEmail: string; visaPaymentDue?: VisaPaymentDue | null; translationsPending?: string[] };
 
 export async function fetchMyRdvApplications(): Promise<RdvMyApplication[]> {
   return request<RdvMyApplication[]>("/api/rdv/me/applications");

@@ -140,7 +140,11 @@ async function findFileForAccess(storedFilename, userId) {
               SELECT 1 FROM university_applications ua
               WHERE ua.student_id = sd.student_id AND ua.assigned_rdv_id = $2
             ) AS rdv_assigned
-     FROM student_documents sd
+     FROM (
+       SELECT student_id, stored_filename, mime_type, original_filename FROM student_documents
+       UNION ALL
+       SELECT student_id, stored_filename, mime_type, original_filename FROM student_translations
+     ) sd
      LEFT JOIN student_profiles sp ON sp.user_id = sd.student_id
      WHERE sd.stored_filename = $1
      LIMIT 1`,

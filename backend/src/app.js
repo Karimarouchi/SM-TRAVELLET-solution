@@ -22,6 +22,7 @@ const salesCodeController = require("./controllers/salesCodeController");
 const mailController = require("./controllers/mailController");
 const studentNoteController = require("./controllers/studentNoteController");
 const studentMailController = require("./controllers/studentMailController");
+const translationController = require("./controllers/translationController");
 const countryUniversityController = require("./controllers/countryUniversityController");
 const universityApplicationController = require("./controllers/universityApplicationController");
 const universityChoiceController = require("./controllers/universityChoiceController");
@@ -57,7 +58,7 @@ app.use((req, res, next) => {
 });
 // Documents de l'étudiant (5 Mo max) : un fichier de 5 Mo pèse environ 6,7 Mo une fois encodé en base64,
 // donc la limite JSON de 5 Mo refusait déjà les fichiers de plus de 3,7 Mo avec une erreur 500.
-app.use(["/api/students/me/documents", "/api/students/me/visa-documents", "/api/students/:id/documents", "/api/applications/:id/visa-documents"], express.json({ limit: "9mb" }));
+app.use(["/api/students/me/documents", "/api/students/me/visa-documents", "/api/students/:id/documents", "/api/applications/:id/visa-documents", "/api/students/me/translations", "/api/translations"], express.json({ limit: "9mb" }));
 // Envoi d'un fichier WhatsApp (16 Mo max, soit environ 22 Mo en base64) : limite dédiée à cette route.
 app.use("/api/whatsapp/conversations/:contactId/media", express.json({ limit: "25mb" }));
 // Envoi de mail avec pièces jointes (10 Mo, soit environ 14 Mo en base64) : limite dédiée à cette seule route.
@@ -117,6 +118,12 @@ const mailSendLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Trop de mails envoyés en peu de temps. Réessayez dans quelques minutes." }
 });
+// Traductions de documents : demandées par le conseiller (ou l'admin), déposées par l'étudiant ou le conseiller.
+app.post("/api/students/:id/translations", requireAuth, requireRoles("SALES", "ADMIN"), translationController.request);
+app.delete("/api/translations/:translationId", requireAuth, requireRoles("SALES", "ADMIN"), translationController.remove);
+app.post("/api/students/me/translations/:translationId/file", requireAuth, requireRoles("STUDENT"), translationController.uploadByStudent);
+app.post("/api/translations/:translationId/file", requireAuth, requireRoles("SALES", "ADMIN"), translationController.uploadByStaff);
+app.patch("/api/translations/:translationId/review", requireAuth, requireRoles("SALES", "ADMIN"), translationController.review);
 // Mails reçus par l'étudiant (envoyés depuis la page Mail) : son espace, sa preuve de réception.
 app.get("/api/students/me/mails", requireAuth, requireRoles("STUDENT"), studentMailController.listMine);
 app.get("/api/students/me/mails/unread-count", requireAuth, requireRoles("STUDENT"), studentMailController.unreadMine);

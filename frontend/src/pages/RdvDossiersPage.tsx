@@ -16,7 +16,7 @@ import { openProtectedFile } from "@/lib/auth";
 import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { MeetLinkButton } from "@/components/MeetLinkButton";
-import { AlertTriangle, ArrowRight, Banknote, Calendar, CalendarClock, CheckCircle2, ClipboardList, Clock, FileText, GraduationCap, Landmark, Plane, Send, Sparkles, ThumbsDown, ThumbsUp, Video, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowRight, Banknote, Calendar, CalendarClock, CheckCircle2, ClipboardList, Clock, FileText, GraduationCap, Landmark, Languages, Plane, Send, Sparkles, ThumbsDown, ThumbsUp, Video, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import ApplicationTimeline, { PostponeModal } from "@/components/admin/ApplicationTimeline";
 import MyCommissionsCard, { RDV_INSCRIPTION_STAGES, RDV_VISA_STAGES } from "@/components/MyCommissionsCard";
@@ -512,7 +512,10 @@ export default function RdvDossiersPage() {
     for (const a of toApply.filter((x) => x.registrationPaymentDue)) {
       tasks.push({ key: `regpay-${a.id}`, tone: "danger", icon: Banknote, weight: 100, title: t("Paiement inscription non réglé", "Registration payment not settled"), text: `${a.studentName} · ${t("reste", "left")} ${formatMoney(a.registrationPaymentDue!.remaining, a.registrationPaymentDue!.currency)} · ${t("dépôt bloqué, prévenez le conseiller", "filing blocked, notify the advisor")}`, target: "candidatures", cta: t("Voir", "View"), profileOf: a.studentId });
     }
-    for (const a of toApply.filter((x) => !x.registrationPaymentDue)) {
+    for (const a of toApply.filter((x) => !x.registrationPaymentDue && x.translationsPending?.length)) {
+      tasks.push({ key: `trad-${a.id}`, tone: "danger", icon: Languages, weight: 95, title: t("Traduction à valider", "Translation to approve"), text: `${a.studentName} · ${a.translationsPending!.join(", ")} · ${t("dépôt bloqué, prévenez le conseiller", "filing blocked, notify the advisor")}`, target: `app-${a.id}`, cta: t("Voir", "View"), profileOf: a.studentId });
+    }
+    for (const a of toApply.filter((x) => !x.registrationPaymentDue && !x.translationsPending?.length)) {
       tasks.push({ key: `apply-${a.id}`, tone: "warning", icon: GraduationCap, weight: 80, title: t("Déposer la candidature", "Submit the application"), text: `${a.studentName} · ${a.universityName}${a.fieldOfStudy ? ` · ${a.fieldOfStudy}` : ""}`, target: `app-${a.id}`, cta: t("Ouvrir", "Open") });
     }
     for (const a of interviews) {

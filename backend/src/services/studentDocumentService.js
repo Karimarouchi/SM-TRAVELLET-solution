@@ -4,6 +4,7 @@ const studentDocRepo = require("../repositories/studentDocumentRepository");
 const studentRepo = require("../repositories/studentRepository");
 const appRepo = require("../repositories/universityApplicationRepository");
 const choiceRepo = require("../repositories/universityChoiceRepository");
+const translationRepo = require("../repositories/translationRepository");
 const userRepo = require("../repositories/userRepository");
 const notificationService = require("./notificationService");
 const { canAccessStudent, authRoles } = require("../security/rbac");
@@ -71,6 +72,21 @@ async function getDocumentFile(auth, rawFilename) {
   return { absolutePath, mimeType: file.mime_type, originalFilename: file.original_filename || filename };
 }
 
+// Traduction demandée pour un document validé : champ supplémentaire à remplir (étudiant ou conseiller).
+function translationDto(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    status: row.status,
+    fileUrl: protectedFileUrl(row),
+    originalFilename: row.original_filename,
+    rejectionReason: row.rejection_reason,
+    requestedAt: row.requested_at,
+    submittedAt: row.submitted_at,
+    reviewedAt: row.reviewed_at
+  };
+}
+
 function mergedDto(name, group, studentDocsByReqId) {
   const representative = group.map((g) => studentDocsByReqId.get(g.id)).find(Boolean) || null;
   return {
@@ -124,6 +140,9 @@ async function getChecklist(studentUserId) {
   const items = Array.from(groupByName(countryRequirements).entries()).map(([name, group]) => mergedDto(name, group, byReqId));
   // Un document propre à une université n'est jamais fusionné avec un autre.
   for (const r of universityRequirements) items.push(mergedDto(r.name, [r], byReqId));
+
+  const translations = new Map((await translationRepo.listForStudent(studentUserId)).map((t) => [`${t.university_id || ""}:${t.doc_name}`, t]));
+  for (const item of items) item.translation = translationDto(translations.get(`${item.universityId || ""}:${item.name}`));
   return items;
 }
 
@@ -562,6 +581,8 @@ async function reviewVisaDocument(auth, applicationId, requirementId, status, re
 }
 
 module.exports = {
+  translationDto,
+  protectedFileUrl,
   getDocumentFile,
   getChecklist,
   getChecklistFor,

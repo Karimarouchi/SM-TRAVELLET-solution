@@ -11,6 +11,7 @@ import {
   getSession,
   reviewApplicationVisaDocument,
   rejectDocumentAsRdv,
+  requestTranslation,
   reviewStudentDocument,
   uploadStudentDocumentAsStaff,
   type ApplicationHistoryEntry,
@@ -32,6 +33,7 @@ import UniversityChoicesPanel from "@/components/UniversityChoicesPanel";
 import ApplicationBlockers from "@/components/ApplicationBlockers";
 import StudentNotes from "@/components/StudentNotes";
 import StudentMailLog from "@/components/StudentMailLog";
+import TranslationSlot from "@/components/TranslationSlot";
 import NonPartnerDocsCard from "@/components/NonPartnerDocsCard";
 import StudentPaymentsPanel from "@/components/StudentPaymentsPanel";
 import StaffVisaUploadButton from "@/components/StaffVisaUploadButton";
@@ -58,6 +60,7 @@ import {
   ThumbsUp,
   Upload,
   CircleHelp,
+  Languages,
   UserRound,
   XCircle
 } from "lucide-react";
@@ -448,7 +451,7 @@ export default function StudentDetailPage() {
                     </p>
                   ) : (
                     documents.map((doc) => (
-                      <DocumentReviewRow key={`${doc.universityId || "pays"}:${doc.name}`} doc={doc} reviewFor={reviewFor} onReviewed={handleReviewed} canReview={isReviewer} rejectOnly={role === "RDV"} onUpload={isReviewer && profile?.onboardingCompleted && id ? (file) => uploadFor(doc, file) : undefined} />
+                      <DocumentReviewRow key={`${doc.universityId || "pays"}:${doc.name}`} doc={doc} reviewFor={reviewFor} onReviewed={handleReviewed} canReview={isReviewer} rejectOnly={role === "RDV"} onUpload={isReviewer && profile?.onboardingCompleted && id ? (file) => uploadFor(doc, file) : undefined} translationMode={isReviewer ? "staff" : "readonly"} onTranslationChanged={() => id && fetchStudentDocuments(id).then(setDocuments).catch(() => undefined)} studentId={id} />
                     ))
                   )}
                 </div>
@@ -660,8 +663,15 @@ function DocumentReviewRow({
   onReviewed,
   canReview = true,
   rejectOnly = false,
-  onUpload
+  onUpload,
+  translationMode = "readonly",
+  onTranslationChanged,
+  studentId
 }: {
+  /** staff : demander / suivre / valider la traduction ; readonly : simple suivi. */
+  translationMode?: "staff" | "readonly";
+  onTranslationChanged?: () => void;
+  studentId?: string;
   /** Conseiller / admin : dépose un fichier à la place de l'étudiant (validé automatiquement). */
   onUpload?: (file: File) => Promise<StudentDocumentChecklistItem>;
   canReview?: boolean;
@@ -836,6 +846,33 @@ function DocumentReviewRow({
         </div>
       )}
       {open && error && <p className="mt-2 text-xs text-red-500">{error}</p>}
+
+      {/* Traduction : le conseiller / l'admin choisit les documents validés qui doivent aussi être traduits. */}
+      {doc.translation && <TranslationSlot translation={doc.translation} docName={doc.name} mode={translationMode} onChanged={() => onTranslationChanged?.()} />}
+      {open && !doc.translation && doc.status === "VALIDATED" && translationMode === "staff" && studentId && (
+        <div className="mt-3">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setError("");
+              try {
+                await requestTranslation(studentId, doc.name, doc.universityId);
+                onTranslationChanged?.();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : t("Demande impossible.", "Request failed."));
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700 transition hover:bg-violet-100 disabled:opacity-60"
+          >
+            <Languages className="h-3 w-3" aria-hidden /> {t("Demander la traduction", "Request the translation")}
+          </button>
+          <span className="ml-2 text-[11px] text-muted">{t("Ouvre un champ « traduction » pour l'étudiant et pour vous.", "Opens a “translation” field for the student and for you.")}</span>
+        </div>
+      )}
     </div>
   );
 }
