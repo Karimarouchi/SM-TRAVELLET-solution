@@ -157,6 +157,8 @@ export default function SalesCodesPage() {
   const [payMethod, setPayMethod] = useState<PaymentMethod | "">("");
   const [payReference, setPayReference] = useState("");
   const [payDate, setPayDate] = useState(todayLocal());
+  const [payAmount, setPayAmount] = useState("");
+  const [payDeadline, setPayDeadline] = useState("");
 
   const load = () => {
     setLoading(true);
@@ -176,6 +178,8 @@ export default function SalesCodesPage() {
     setPayMethod("");
     setPayReference("");
     setPayDate(todayLocal());
+    setPayAmount("");
+    setPayDeadline("");
     setPricing(null);
     if (form.countryId) fetchCountryPricing(form.countryId).then(setPricing).catch(() => setPricing(null));
   }, [form.countryId]);
@@ -183,6 +187,10 @@ export default function SalesCodesPage() {
   if (!session?.user) return null;
 
   const needsPayment = Boolean(pricing?.configured && (pricing.tranche1 || 0) > 0);
+  // Montant encaissé : toute la tranche 1 par défaut ; moins = paiement partiel (date limite pour le reste).
+  const fullAmount = pricing?.tranche1 || 0;
+  const paidNumber = payAmount.trim() ? Number(payAmount.replace(",", ".")) : fullAmount;
+  const isPartial = needsPayment && Number.isFinite(paidNumber) && paidNumber > 0 && paidNumber < fullAmount;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -198,12 +206,20 @@ export default function SalesCodesPage() {
       setError(`${PAYMENT_REFERENCE_LABELS[payMethod]} ${t("obligatoire.", "required.")}`);
       return;
     }
+    if (needsPayment && (!Number.isFinite(paidNumber) || paidNumber <= 0 || paidNumber > fullAmount)) {
+      setError(t("Le montant encaissé doit être supérieur à 0 et ne pas dépasser la tranche 1.", "The collected amount must be above 0 and not exceed instalment 1."));
+      return;
+    }
+    if (isPartial && !payDeadline) {
+      setError(t("Paiement partiel : indiquez la date limite pour payer le reste.", "Partial payment: enter the deadline to pay the rest."));
+      return;
+    }
     setSaving(true);
     setError("");
     setWarning("");
     try {
       const created = await createSalesCode({
-        payment: needsPayment ? { confirmed: true, method: payMethod as PaymentMethod, reference: payReference.trim() || undefined, paidAt: payDate || undefined } : undefined,
+        payment: needsPayment ? { confirmed: true, method: payMethod as PaymentMethod, reference: payReference.trim() || undefined, paidAt: payDate || undefined, amount: isPartial ? paidNumber : undefined, deadline: isPartial ? payDeadline : undefined } : undefined,
         countryId: form.countryId,
         prefillCurrentStudyLevel: form.prefillCurrentStudyLevel || undefined,
         prefillTargetLevel: form.prefillTargetLevel || undefined,
@@ -313,7 +329,7 @@ export default function SalesCodesPage() {
               </p>
               <label className="mt-3 flex items-start gap-2 text-sm font-semibold text-dark">
                 <input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} className="mt-0.5 h-4 w-4 accent-violet-600" />
-                {t("J'ai encaissé la tranche 1 auprès du client", "I have collected instalment 1 from the client")}
+                {t("J'ai encaissé la tranche 1 (ou une partie) auprès du client", "I have collected instalment 1 (or part of it) from the client")}
               </label>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <FancySelect
@@ -343,7 +359,34 @@ export default function SalesCodesPage() {
                     className="w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm outline-none focus:border-brand"
                   />
                 </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold text-amber-900">{t("Montant encaissé", "Amount collected")}</label>
+                  <input
+                    value={payAmount}
+                    onChange={(e) => setPayAmount(e.target.value)}
+                    inputMode="decimal"
+                    placeholder={formatMoney(fullAmount, pricing.currency)}
+                    className="w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm outline-none focus:border-brand"
+                  />
+                </div>
+                {isPartial && (
+                  <div>
+                    <label className="mb-1 block text-[11px] font-bold text-amber-900">{t("Date limite pour le reste", "Deadline for the rest")} *</label>
+                    <input
+                      type="date"
+                      value={payDeadline}
+                      min={todayLocal()}
+                      onChange={(e) => setPayDeadline(e.target.value)}
+                      className="w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm outline-none focus:border-brand"
+                    />
+                  </div>
+                )}
               </div>
+              {isPartial && (
+                <p className="mt-2 rounded-lg bg-white/70 px-3 py-2 text-[11px] font-semibold text-amber-900">
+                  {t(`Paiement partiel : il restera ${formatMoney(fullAmount - paidNumber, pricing.currency)} à payer. Le dépôt de la candidature restera bloqué tant que la tranche 1 n'est pas payée en totalité.`, `Partial payment: ${formatMoney(fullAmount - paidNumber, pricing.currency)} will remain. The application filing stays blocked until instalment 1 is fully paid.`)}
+                </p>
+              )}
               <p className="mt-2 text-[11px] text-amber-800">
                 {t(
                   "Un numéro de reçu automatique (ex. 001-2026) est attribué à chaque encaissement, quel que soit le mode, et le reçu est envoyé par e-mail à l'étudiant à son inscription.",

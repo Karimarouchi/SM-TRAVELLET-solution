@@ -644,7 +644,7 @@ export type SalesCodePayload = {
   expiresAt?: string;
   whatsappContactId?: string;
   /** Tranche 1 (inscription) encaissée : obligatoire quand le pays a un tarif. */
-  payment?: { confirmed: boolean; method: PaymentMethod; reference?: string; paidAt?: string };
+  payment?: { confirmed: boolean; method: PaymentMethod; reference?: string; paidAt?: string; amount?: number; deadline?: string };
 };
 
 export async function fetchMySalesCodes(): Promise<SalesCode[]> {
@@ -1802,7 +1802,7 @@ export type CountryPricing = {
   tranche2: number | null;
 };
 
-export type TrancheState = { due: number; paid: number; remaining: number; complete: boolean };
+export type TrancheState = { due: number; paid: number; remaining: number; complete: boolean; /** Date limite promise pour payer le reste (AAAA-MM-JJ). */ deadline?: string | null };
 
 export type PaymentPlan = {
   id: string;
@@ -1862,6 +1862,8 @@ export type RecordPaymentPayload = {
   method: PaymentMethod;
   paidAt?: string;
   reference?: string;
+  /** Paiement partiel : date limite pour payer le reste. */
+  deadline?: string;
 };
 
 type CurrencyBucket = { collected: number; remaining: number };

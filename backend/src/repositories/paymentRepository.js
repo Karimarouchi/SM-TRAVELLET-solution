@@ -66,15 +66,21 @@ async function findPlanById(id) {
   return result.rows[0] || null;
 }
 
-async function createPlan({ studentId, countryId, currency, tranche1Due, tranche2Due }) {
+async function createPlan({ studentId, countryId, currency, tranche1Due, tranche2Due, tranche1Deadline = null }) {
   const result = await query(
-    `INSERT INTO payment_plans (student_id, country_id, currency, tranche1_due, tranche2_due)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO payment_plans (student_id, country_id, currency, tranche1_due, tranche2_due, tranche1_deadline)
+     VALUES ($1, $2, $3, $4, $5, $6)
      ON CONFLICT (student_id, country_id) DO UPDATE SET student_id = EXCLUDED.student_id
      RETURNING *`,
-    [studentId, countryId, currency, tranche1Due, tranche2Due]
+    [studentId, countryId, currency, tranche1Due, tranche2Due, tranche1Deadline]
   );
   return result.rows[0];
+}
+
+// Date limite promise à l'étudiant pour payer le reste d'une tranche (null = plus de reste).
+async function setPlanDeadline(planId, tranche, deadline) {
+  const column = Number(tranche) === 1 ? "tranche1_deadline" : "tranche2_deadline";
+  await query(`UPDATE payment_plans SET ${column} = $2 WHERE id = $1`, [planId, deadline]);
 }
 
 // ── Paiements ──
@@ -238,6 +244,7 @@ module.exports = {
   findActiveByMethodReference,
   listJournal,
   cancelPayment,
+  setPlanDeadline,
   updatePaymentDate,
   collectedTotals
 };

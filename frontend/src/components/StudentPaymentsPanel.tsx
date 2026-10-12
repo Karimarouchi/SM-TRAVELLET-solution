@@ -37,7 +37,16 @@ function TrancheBox({ title, hint, state, currency }: { title: string; hint: str
       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white">
         <div className={cn("h-full rounded-full", state.complete ? "bg-emerald-500" : "bg-amber-500")} style={{ width: `${percent}%` }} />
       </div>
-      {!state.complete && <p className="mt-1.5 text-[11px] font-semibold text-amber-800">Reste {formatMoney(state.remaining, currency)}</p>}
+      {!state.complete && (
+        <p className="mt-1.5 text-[11px] font-semibold text-amber-800">
+          Reste {formatMoney(state.remaining, currency)}
+          {state.deadline && (
+            <span className={cn("ml-1", state.deadline < todayLocal() ? "text-red-600" : "")}>
+              · à payer avant le {new Date(`${state.deadline}T12:00:00`).toLocaleDateString("fr-FR")}{state.deadline < todayLocal() ? " (dépassée)" : ""}
+            </span>
+          )}
+        </p>
+      )}
     </div>
   );
 }
@@ -57,6 +66,7 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
   // Date du paiement : aujourd'hui par défaut, modifiable.
   const [paidAt, setPaidAt] = useState(todayLocal());
   const [reference, setReference] = useState("");
+  const [deadline, setDeadline] = useState("");
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
 
@@ -76,12 +86,16 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
 
   const plan: PaymentPlan | undefined = summary?.plans.find((p) => p.countryId === countryId);
   const selectedState = plan ? (tranche === "1" ? plan.tranche1 : plan.tranche2) : null;
+  // Paiement partiel : un montant inférieur au reste dû exige la date limite pour le solde.
+  const typedAmount = amount.trim() ? Number(amount.replace(",", ".")) : null;
+  const isPartial = Boolean(selectedState && typedAmount !== null && typedAmount > 0 && typedAmount < selectedState.remaining);
 
   const reset = () => {
     setAdding(false);
     setAmount("");
     setMethod("");
     setPaidAt(todayLocal());
+    setDeadline("");
     setReference("");
     setError("");
   };
@@ -91,6 +105,7 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
     if (!countryId) return setError("Choisissez le pays concerné.");
     if (!method) return setError("Choisissez le mode de paiement.");
     if (PAYMENT_REFERENCE_LABELS[method] && !reference.trim()) return setError(`${PAYMENT_REFERENCE_LABELS[method]} obligatoire.`);
+    if (isPartial && !deadline && !selectedState?.deadline) return setError("Paiement partiel : indiquez la date limite pour payer le reste.");
     setBusy(true);
     try {
       const next = await recordStudentPayment(studentId, {
@@ -99,6 +114,7 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
         method,
         amount: amount.trim() ? Number(amount.replace(",", ".")) : undefined,
         paidAt: paidAt || undefined,
+        deadline: isPartial && deadline ? deadline : undefined,
         reference: PAYMENT_REFERENCE_LABELS[method] ? reference.trim() : undefined
       });
       setSummary(next);
@@ -214,6 +230,22 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
               )}
             </div>
           </div>
+          {isPartial && selectedState && plan && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+              <p className="text-xs font-bold text-amber-900">
+                Paiement partiel : il restera {formatMoney(selectedState.remaining - (typedAmount || 0), plan.currency)} à payer.
+              </p>
+              <label className="mb-1 mt-2 block text-[11px] font-bold text-amber-900">Date limite pour payer le reste *</label>
+              <input
+                type="date"
+                value={deadline || selectedState.deadline || ""}
+                min={todayLocal()}
+                onChange={(e) => setDeadline(e.target.value)}
+                className="w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              />
+              <p className="mt-1 text-[11px] text-amber-800">Le dépôt de la candidature (tranche 1) ou du visa (tranche 2) reste bloqué tant que la tranche n'est pas payée en totalité.</p>
+            </div>
+          )}
           <p className="text-[11px] text-muted">Montant vide = tout le reste dû de la tranche. La date proposée est celle d'aujourd'hui : modifiez-la si le paiement a eu lieu un autre jour. Chèque : numéro du chèque ; virement : code du virement. Chaque paiement reçoit un numéro de reçu automatique (ex. 001-2026), envoyé par e-mail à l'étudiant.</p>
           {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
           <div className="flex justify-end gap-2">

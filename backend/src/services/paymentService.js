@@ -129,9 +129,30 @@ function trancheState(due, paid) {
   };
 }
 
+// Aujourd'hui (AAAA-MM-JJ) et validation d'une date limite : jamais dans le passé.
+function todayYmd() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function normalizeDeadline(raw) {
+  if (!raw) return null;
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) throw fail("Date limite invalide.", 400);
+  const day = date.toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 24 * 3600 * 1000).toISOString().slice(0, 10);
+  if (day < yesterday) throw fail("La date limite ne peut pas être dans le passé.", 400);
+  return day;
+}
+
 function planDto(row) {
-  const t1 = trancheState(row.tranche1_due, row.paid1);
-  const t2 = trancheState(row.tranche2_due, row.paid2);
+  const deadline1 = dateOnly(row.tranche1_deadline);
+  const deadline2 = dateOnly(row.tranche2_deadline);
+  const t1 = { ...trancheState(row.tranche1_due, row.paid1), deadline: deadline1 };
+  const t2 = { ...trancheState(row.tranche2_due, row.paid2), deadline: deadline2 };
+  const today = todayYmd();
+  // Tant que la date limite promise n'est pas dépassée, le reste à payer n'est pas « en retard ».
+  const waiting1 = Boolean(deadline1) && deadline1 >= today;
+  const waiting2 = Boolean(deadline2) && deadline2 >= today;
   return {
     id: row.id,
     studentId: row.student_id,
@@ -149,7 +170,7 @@ function planDto(row) {
     remainingTotal: t1.remaining + t2.remaining,
     status: t1.complete && t2.complete ? "PAID" : t1.paid + t2.paid > 0 ? "PARTIAL" : "UNPAID",
     // Retard : la tranche 2 est exigible dès que le dossier est en phase visa.
-    late: !t1.complete || (row.dossier_stage === "VISA" && !t2.complete),
+    late: (!t1.complete && !waiting1) || (row.dossier_stage === "VISA" && !t2.complete && !waiting2),
     createdAt: row.created_at
   };
 }
@@ -252,6 +273,15 @@ async function recordPayment(auth, studentId, payload) {
     throw fail(`Le montant dépasse le reste dû pour la tranche ${tranche} (${formatAmount(state.remaining, plan.currency)}).`, 400);
   }
 
+  // Paiement partiel : la date limite promise à l'étudiant pour payer le reste est obligatoire.
+  const remainingAfter = cents(state.remaining) - cents(amount);
+  let deadline = null;
+  if (remainingAfter > 0) {
+    deadline = normalizeDeadline(payload.deadline);
+    const existingDeadline = dateOnly(tranche === 1 ? plan.tranche1_deadline : plan.tranche2_deadline);
+    if (!deadline && !existingDeadline) throw fail("Paiement partiel : indiquez la date limite pour payer le reste.", 400);
+  }
+
   const created = await paymentRepo.createPayment({
     planId: plan.id,
     studentId,
@@ -265,6 +295,9 @@ async function recordPayment(auth, studentId, payload) {
     recordedBy: auth.sub,
     recordedByRole: roles.includes("ADMIN") ? "ADMIN" : "SALES"
   });
+  // Tranche soldée : plus de date limite ; sinon la nouvelle date remplace l'ancienne.
+  if (remainingAfter <= 0) await paymentRepo.setPlanDeadline(plan.id, tranche, null);
+  else if (deadline) await paymentRepo.setPlanDeadline(plan.id, tranche, deadline);
   await sendReceiptEmail(studentId, created);
   return summaryForStudent(auth, studentId);
 }
@@ -336,7 +369,24 @@ async function prepareCodePayment(countryId, payment) {
   const paying = cents(pricing.tranche1_amount) > 0;
   const method = paying ? normalizeMethod(payment.method) : null;
   const reference = paying ? await normalizeMethodReference(method, payment.reference) : null;
+
+  // Montant encaissé : toute la tranche 1 par défaut, ou une partie (avec la date limite pour le reste).
+  let paidAmount = null;
+  let deadline = null;
+  if (paying) {
+    const full = money(pricing.tranche1_amount);
+    paidAmount = payment.amount === undefined || payment.amount === null || payment.amount === "" ? full : normalizeAmount(payment.amount, "Le montant encaissé");
+    if (cents(paidAmount) > cents(full)) {
+      throw fail(`Le montant encaissé dépasse la tranche 1 (${formatAmount(full, pricing.currency)}).`, 400);
+    }
+    if (cents(paidAmount) < cents(full)) {
+      deadline = normalizeDeadline(payment.deadline);
+      if (!deadline) throw fail("Paiement partiel : indiquez la date limite pour payer le reste de la tranche 1.", 400);
+    }
+  }
   return {
+    paidAmount,
+    deadline,
     currency: pricing.currency,
     tranche1: money(pricing.tranche1_amount),
     tranche2: money(pricing.tranche2_amount),
@@ -358,14 +408,15 @@ async function applyCodePayment(studentId, claimed) {
     countryId: claimed.country_id,
     currency: claimed.payment_currency,
     tranche1Due: claimed.payment_tranche1,
-    tranche2Due: claimed.payment_tranche2
+    tranche2Due: claimed.payment_tranche2,
+    tranche1Deadline: dateOnly(claimed.payment_deadline)
   });
   if (cents(claimed.payment_tranche1) > 0) {
     const created = await paymentRepo.createPayment({
       planId: plan.id,
       studentId,
       tranche: 1,
-      amount: claimed.payment_tranche1,
+      amount: claimed.payment_paid_amount !== null && claimed.payment_paid_amount !== undefined ? claimed.payment_paid_amount : claimed.payment_tranche1,
       currency: claimed.payment_currency,
       method: claimed.payment_method,
       paidAt: dateOnly(claimed.payment_paid_at) || dateOnly(claimed.created_at),
