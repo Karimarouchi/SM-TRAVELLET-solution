@@ -59,7 +59,7 @@ import {
   XCircle
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { PassportBadge } from "@/components/PassportBadge";
 import { monthsLeft, parseExpiry } from "@/lib/passport";
 
@@ -356,7 +356,10 @@ export default function StudentDetailPage() {
           <div className="flex flex-wrap gap-2">
             {phoneDigits && <ContactButton href={`https://wa.me/${phoneDigits}`} icon={MessageCircle} label="WhatsApp" tone="bg-emerald-500 text-white hover:bg-emerald-600" />}
             {phoneDigits && <ContactButton href={`tel:+${phoneDigits}`} icon={Phone} label={t("Appeler", "Call")} tone="bg-white/15 text-white ring-1 ring-white/25 hover:bg-white/25" />}
-            <ContactButton href={`mailto:${user.email}`} icon={Mail} label={t("E-mail", "Email")} tone="bg-white/15 text-white ring-1 ring-white/25 hover:bg-white/25" />
+            {/* Écrire depuis la boîte mail de l'agence (équipe SM) ; le lien mailto reste le repli pour l'ouvrir dans un autre logiciel. */}
+            <Link to={`/mail?compose=1&to=${encodeURIComponent(user.email)}`} className="inline-flex items-center gap-1.5 rounded-xl bg-white/15 px-4 py-2 text-xs font-bold text-white ring-1 ring-white/25 transition hover:bg-white/25">
+              <Mail className="h-3.5 w-3.5" aria-hidden /> {t("Écrire un mail", "Write an email")}
+            </Link>
           </div>
         </div>
 

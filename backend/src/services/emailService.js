@@ -47,6 +47,20 @@ async function verifySmtp({ host, port, user, pass }) {
   }
 }
 
+// Adresse, mot de passe et serveur d'envoi courants (Paramètres, sinon .env) : la boîte mail de l'application les suit.
+async function resolveMailboxConfig() {
+  const secrets = await settingsRepository.getEmailSenderSecrets();
+  const user = secrets.fromAddress || env.smtp.user;
+  const pass = secrets.appPassword || env.smtp.pass;
+  return {
+    user,
+    pass,
+    fromName: secrets.fromName || env.smtp.fromName,
+    smtpHost: secrets.smtpHost || guessSmtpHost(user) || env.smtp.host,
+    smtpPort: secrets.smtpPort || env.smtp.port
+  };
+}
+
 async function resolveSender() {
   const secrets = await settingsRepository.getEmailSenderSecrets();
   const user = secrets.fromAddress || env.smtp.user;
@@ -344,6 +358,8 @@ const templates = {
 };
 
 module.exports = {
+  resolveSender,
+  resolveMailboxConfig,
   templates,
   sendPaymentReceiptEmail,
   sendApplicationDecisionEmail,

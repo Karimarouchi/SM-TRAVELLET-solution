@@ -25,6 +25,7 @@ import SalesCodesPage from "@/pages/SalesCodesPage";
 import StudentDetailPage from "@/pages/StudentDetailPage";
 import RdvDossiersPage, { RdvVisasPage } from "@/pages/RdvDossiersPage";
 import WhatsAppPage from "@/pages/WhatsAppPage";
+import MailPage from "@/pages/MailPage";
 import NotificationsPage from "@/pages/NotificationsPage";
 import ArchivePage from "@/pages/ArchivePage";
 
@@ -64,6 +65,7 @@ export default function App() {
           {/* /whatsapp seul (anciens liens, notifications) ouvre la messagerie des non inscrits. */}
           <Route path="/whatsapp" element={<Navigate to="/whatsapp/prospects" replace />} />
           <Route path="/whatsapp/:segment" element={<WhatsAppPage />} />
+          <Route path="/mail" element={<MailPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/archive" element={<ArchivePage />} />
         </Route>

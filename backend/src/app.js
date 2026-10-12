@@ -19,6 +19,7 @@ const countryController = require("./controllers/countryController");
 const documentRequirementController = require("./controllers/documentRequirementController");
 const studentDocumentController = require("./controllers/studentDocumentController");
 const salesCodeController = require("./controllers/salesCodeController");
+const mailController = require("./controllers/mailController");
 const countryUniversityController = require("./controllers/countryUniversityController");
 const universityApplicationController = require("./controllers/universityApplicationController");
 const universityChoiceController = require("./controllers/universityChoiceController");
@@ -52,6 +53,8 @@ app.use((req, res, next) => {
   };
   next();
 });
+// Envoi de mail avec pièces jointes (10 Mo, soit environ 14 Mo en base64) : limite dédiée à cette seule route.
+app.use("/api/mail/send", express.json({ limit: "15mb" }));
 app.use(express.json({
   limit: "5mb",
   // Corps brut conservé pour le webhook WhatsApp uniquement : la signature
@@ -91,6 +94,21 @@ app.get("/api/whatsapp/webhook", whatsappWebhookController.verifyWebhook);
 app.post("/api/whatsapp/webhook", whatsappWebhookController.receiveWebhook);
 
 app.get("/api/whatsapp/conversations", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.listConversations);
+// Boîte mail commune de l'agence : toute l'équipe SM (admin, conseillers, responsables dossier).
+const mailSendLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 30,
+  keyGenerator: (req) => req.auth?.sub || "anonymous",
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Trop de mails envoyés en peu de temps. Réessayez dans quelques minutes." }
+});
+app.get("/api/mail/status", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), mailController.status);
+app.get("/api/mail/unread-count", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), mailController.unreadCount);
+app.get("/api/mail/messages", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), mailController.list);
+app.get("/api/mail/messages/:folder/:uid", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), mailController.read);
+app.get("/api/mail/messages/:folder/:uid/attachments/:index", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), mailController.attachment);
+app.post("/api/mail/send", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), mailSendLimiter, mailController.send);
 app.get("/api/whatsapp/diagnostic", requireAuth, requireRoles("ADMIN"), whatsappController.diagnostic);
 app.get("/api/whatsapp/unread-count", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.unreadCount);
 app.get("/api/whatsapp/conversations/:contactId/messages", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.getMessages);

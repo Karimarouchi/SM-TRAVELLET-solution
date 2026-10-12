@@ -29,7 +29,7 @@ export default function AppLayout() {
     // sans permission supplémentaire à accorder.
     const hasVisaDocsAccess = Boolean(session.user.permissions?.includes("MANAGE_VISA_DOCUMENTS")) || role === "RDV";
     const onVisaDocsPage = path.startsWith("/admin/visa-documents");
-    const shared = path === "/notifications" || path === "/archive";
+    const shared = path === "/notifications" || path === "/archive" || path === "/mail";
     if (role === "ADMIN" && !path.startsWith("/admin") && !shared && !path.startsWith("/whatsapp") && !path.startsWith("/conseiller/etudiants")) {
       navigate("/admin", { replace: true });
       return;

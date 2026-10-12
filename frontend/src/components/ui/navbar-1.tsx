@@ -4,9 +4,10 @@ import * as React from "react";
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
-import { Menu, Settings, X } from "lucide-react";
+import { Mail, Menu, Settings, X } from "lucide-react";
 import { clearSession, getSession, logout } from "@/lib/auth";
 import { fetchWhatsAppUnread } from "@/lib/whatsapp";
+import { fetchMailUnread } from "@/lib/mail";
 import { useLanguage } from "@/lib/i18n";
 import { VITRINE_URL } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,8 @@ type NavLinkItem = { label: string; href?: string; external?: boolean; children?
 const WHATSAPP_HREF = "/whatsapp";
 const WHATSAPP_REGISTERED_HREF = "/whatsapp/inscrits";
 const WHATSAPP_PROSPECTS_HREF = "/whatsapp/prospects";
+
+const MAIL_HREF = "/mail";
 
 function CountBadge({ count }: { count: number }) {
   if (count <= 0) return null;
@@ -95,6 +98,18 @@ const Navbar1 = () => {
   const childCount = (href: string) =>
     href === WHATSAPP_HREF ? waUnread.registered + waUnread.prospects : href === WHATSAPP_REGISTERED_HREF ? waUnread.registered : href === WHATSAPP_PROSPECTS_HREF ? waUnread.prospects : 0;
 
+  // Mails non lus de la boîte commune (équipe SM), actualisés chaque minute.
+  const [mailUnread, setMailUnread] = React.useState(0);
+  React.useEffect(() => {
+    if (role !== "ADMIN" && role !== "SALES" && role !== "RDV") return;
+    function refresh() {
+      fetchMailUnread().then((data) => setMailUnread(data.unread)).catch(() => setMailUnread(0));
+    }
+    refresh();
+    const timer = window.setInterval(refresh, 60000);
+    return () => window.clearInterval(timer);
+  }, [role]);
+
   // Dernier total de messages WhatsApp non lus : un son part quand il augmente (jamais au premier chargement).
   const lastWaTotal = React.useRef<number | null>(null);
   React.useEffect(() => {
@@ -156,7 +171,7 @@ const Navbar1 = () => {
           </motion.a>
         </div>
 
-        <nav className="hidden min-w-0 items-center gap-6 lg:flex xl:gap-7">
+        <nav className="hidden min-w-0 items-center gap-3 lg:flex xl:gap-6">
           {links.map((item) => {
             const active = !item.external && item.href && (item.href === WHATSAPP_HREF ? location.pathname.startsWith(WHATSAPP_HREF) : location.pathname === item.href);
             const isChildActive = item.children?.some(child => currentPath === child.href);
@@ -217,7 +232,23 @@ const Navbar1 = () => {
           })}
         </nav>
 
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex shrink-0 items-center gap-1.5 xl:gap-3">
+        {isStaffRole(role) && (
+          <Link
+            to={MAIL_HREF}
+            title={t("Mail de l'agence", "Agency mail")}
+            aria-label={t("Mail de l'agence", "Agency mail")}
+            className={cn(
+              "relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-line bg-white transition hover:border-brand hover:text-brand",
+              location.pathname === MAIL_HREF ? "border-brand text-brand" : "text-gray-900"
+            )}
+          >
+            <Mail className="h-4 w-4" />
+            {mailUnread > 0 && (
+              <span className="absolute -right-1 -top-1 inline-flex min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 text-[9px] font-bold leading-4 text-white">{mailUnread > 99 ? "99+" : mailUnread}</span>
+            )}
+          </Link>
+        )}
         {isStaffRole(role) && <SoundToggle />}
         <NotificationBell />
         <div className="hidden items-center gap-3 lg:flex">
