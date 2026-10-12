@@ -2,7 +2,10 @@ const { ImapFlow } = require("imapflow");
 const { simpleParser } = require("mailparser");
 const sanitizeHtml = require("sanitize-html");
 const MailComposer = require("nodemailer/lib/mail-composer");
+const { query } = require("../../db");
+const { authRoles } = require("../security/rbac");
 const emailService = require("./emailService");
+const studentMailService = require("./studentMailService");
 const userRepo = require("../repositories/userRepository");
 const logger = require("../logger");
 
@@ -127,6 +130,81 @@ async function countUnseen(client) {
   }
 }
 
+// ── Étudiants : noms affichés et droits d'écriture ────────────────────────
+// Adresse → étudiant inscrit avec cet e-mail : la page Mail montre son nom plutôt que l'adresse brute.
+async function studentsByEmail(emails) {
+  const list = [...new Set(emails.map((e) => String(e || "").trim().toLowerCase()).filter(Boolean))];
+  if (!list.length) return new Map();
+  const result = await query("SELECT id, prenom, nom, LOWER(email) AS email FROM users WHERE role = 'STUDENT' AND LOWER(email) = ANY($1::text[])", [list]);
+  return new Map(result.rows.map((r) => [r.email, { id: r.id, name: `${r.prenom || ""} ${r.nom || ""}`.trim() }]));
+}
+
+async function enrichAddresses(groups) {
+  const all = groups.flat().filter(Boolean);
+  const map = await studentsByEmail(all.map((a) => a.address));
+  for (const a of all) {
+    const student = map.get(String(a.address || "").toLowerCase());
+    if (student) {
+      a.studentId = student.id;
+      a.studentName = student.name;
+    }
+  }
+}
+
+// Étudiants à qui l'utilisateur peut écrire : tous pour l'admin ; le conseiller, ses étudiants assignés ;
+// le Responsable Dossier, les étudiants dont une candidature lui est affectée.
+function recipientsFilterSql(auth) {
+  const roles = authRoles(auth);
+  if (roles.includes("ADMIN")) return { where: "TRUE", params: [] };
+  const clauses = [];
+  if (roles.includes("SALES")) clauses.push("sp.assigned_sales_id = $1");
+  if (roles.includes("RDV")) clauses.push("EXISTS (SELECT 1 FROM university_applications ua WHERE ua.student_id = u.id AND ua.assigned_rdv_id = $1)");
+  if (!clauses.length) return { where: "FALSE", params: [] };
+  return { where: `(${clauses.join(" OR ")})`, params: [auth.sub] };
+}
+
+async function searchRecipients(auth, q) {
+  const filter = recipientsFilterSql(auth);
+  const params = [...filter.params];
+  let search = "";
+  const text = String(q || "").trim().toLowerCase().slice(0, 60);
+  if (text) {
+    params.push(`%${text}%`);
+    search = `AND (LOWER(u.prenom || ' ' || u.nom) LIKE $${params.length} OR LOWER(u.nom || ' ' || u.prenom) LIKE $${params.length} OR LOWER(u.email) LIKE $${params.length})`;
+  }
+  const result = await query(
+    `SELECT u.id, u.prenom, u.nom, u.email
+     FROM users u LEFT JOIN student_profiles sp ON sp.user_id = u.id
+     WHERE u.role = 'STUDENT' AND u.email IS NOT NULL AND ${filter.where} ${search}
+     ORDER BY u.prenom, u.nom LIMIT 15`,
+    params
+  );
+  return result.rows.map((r) => ({ id: r.id, name: `${r.prenom || ""} ${r.nom || ""}`.trim(), email: r.email }));
+}
+
+async function assertCanWriteTo(auth, emails) {
+  if (authRoles(auth).includes("ADMIN")) return;
+  const filter = recipientsFilterSql(auth);
+  const params = [...filter.params, emails.map((e) => e.toLowerCase())];
+  const result = await query(
+    `SELECT LOWER(u.email) AS email FROM users u LEFT JOIN student_profiles sp ON sp.user_id = u.id
+     WHERE u.role = 'STUDENT' AND ${filter.where} AND LOWER(u.email) = ANY($${params.length}::text[])`,
+    params
+  );
+  const allowed = new Set(result.rows.map((r) => r.email));
+  const refused = emails.find((e) => !allowed.has(e.toLowerCase()));
+  if (refused) throw fail(`Vous ne pouvez écrire qu'aux étudiants qui vous sont assignés : ${refused} n'en fait pas partie.`, 403);
+}
+
+async function searchStudentEmails(text) {
+  const like = `%${text.toLowerCase()}%`;
+  const result = await query(
+    "SELECT email FROM users WHERE role = 'STUDENT' AND email IS NOT NULL AND (LOWER(prenom || ' ' || nom) LIKE $1 OR LOWER(nom || ' ' || prenom) LIKE $1) LIMIT 5",
+    [like]
+  );
+  return result.rows.map((r) => r.email);
+}
+
 // ── Statut (test de connexion) ─────────────────────────────────────────────
 async function status() {
   const cfg = await mailboxConfig();
@@ -156,7 +234,11 @@ async function listMessages({ folder = "inbox", page = 1, q = "" }) {
     if (!path) return { items: [], total: 0, page: currentPage, pageSize: PAGE_SIZE, folderMissing: true };
     const lock = await client.getMailboxLock(path, { readOnly: true });
     try {
-      const criteria = query ? { or: [{ from: query }, { to: query }, { subject: query }, { body: query }] } : { all: true };
+      // La recherche trouve aussi un étudiant par son nom : ses adresses s'ajoutent aux critères.
+      const byName = query.length >= 2 ? await searchStudentEmails(query) : [];
+      const criteria = query
+        ? { or: [{ from: query }, { to: query }, { subject: query }, { body: query }, ...byName.flatMap((email) => [{ from: email }, { to: email }])] }
+        : { all: true };
       const found = (await client.search(criteria, { uid: true })) || [];
       const uids = [...found].sort((a, b) => b - a);
       const pageUids = uids.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -167,6 +249,7 @@ async function listMessages({ folder = "inbox", page = 1, q = "" }) {
         }
       }
       items.sort((a, b) => b.uid - a.uid);
+      await enrichAddresses([items.map((i) => i.from), items.flatMap((i) => i.to)]);
       return { items, total: uids.length, page: currentPage, pageSize: PAGE_SIZE };
     } finally {
       lock.release();
@@ -246,12 +329,16 @@ async function getMessage({ folder = "inbox", uid }) {
         }
       }
     }
+    const fromAddress = address((parsed.from?.value || [])[0]);
+    const toAddresses = addresses(parsed.to?.value);
+    const ccAddresses = addresses(parsed.cc?.value);
+    await enrichAddresses([[fromAddress], toAddresses, ccAddresses]);
     return {
       uid: id,
       folder: folder === "sent" ? "sent" : "inbox",
-      from: address((parsed.from?.value || [])[0]),
-      to: addresses(parsed.to?.value),
-      cc: addresses(parsed.cc?.value),
+      from: fromAddress,
+      to: toAddresses,
+      cc: ccAddresses,
       subject: parsed.subject || "",
       date: parsed.date ? parsed.date.toISOString() : null,
       messageId: parsed.messageId || null,
@@ -304,6 +391,8 @@ async function send(auth, payload) {
   const cc = parseRecipients(payload.cc, "copie");
   if (!to.length) throw fail("Indiquez au moins un destinataire.", 400);
   if (to.length + cc.length > 20) throw fail("Trop de destinataires (20 maximum).", 400);
+  // Le conseiller n'écrit qu'à ses étudiants, le Responsable Dossier qu'aux étudiants de ses candidatures ; l'admin à tous.
+  await assertCanWriteTo(auth, [...to, ...cc]);
   const subject = String(payload.subject || "").trim().slice(0, 300);
   if (!subject) throw fail("Indiquez l'objet du mail.", 400);
   const text = String(payload.text || "");
@@ -341,8 +430,9 @@ async function send(auth, payload) {
   };
   const raw = await new MailComposer(mail).compile().build();
 
+  let sentInfo = null;
   try {
-    await sender.transporter.sendMail({ envelope: { from: cfg.user, to: [...to, ...cc] }, raw });
+    sentInfo = await sender.transporter.sendMail({ envelope: { from: cfg.user, to: [...to, ...cc] }, raw });
   } catch (error) {
     logger.error("Boîte mail : envoi refusé", { message: error.message, code: error.code });
     throw fail(`Le mail n'a pas pu être envoyé : ${String(error.response || error.message).slice(0, 160)}`, 502);
@@ -350,6 +440,23 @@ async function send(auth, payload) {
     sender.transporter.close?.();
   }
   logger.info("Boîte mail : mail envoyé", { by: auth.sub, to: to.length, attachments: attachments.length });
+
+  // Une copie du mail est conservée dans l'espace de chaque étudiant concerné (preuve d'envoi et de réception).
+  try {
+    const students = await studentsByEmail([...to, ...cc]);
+    for (const student of students.values()) {
+      await studentMailService.record({
+        studentId: student.id,
+        sentBy: auth.sub,
+        subject,
+        body: text,
+        attachments: attachments.map((a) => ({ filename: a.filename, size: a.content.length })),
+        messageId: sentInfo?.messageId
+      });
+    }
+  } catch (error) {
+    logger.warn("Boîte mail : copie dans l'espace de l'étudiant impossible", { message: error.message });
+  }
 
   // Copie dans « Envoyés » pour les serveurs qui ne la gardent pas eux-mêmes (Hostinger…). Gmail et Outlook
   // enregistrent déjà le mail envoyé : on n'ajoute rien pour ne pas le dupliquer. Sans conséquence si la copie échoue.
@@ -366,4 +473,4 @@ async function send(auth, payload) {
   return { ok: true };
 }
 
-module.exports = { status, unreadCount, listMessages, getMessage, getAttachment, send, deriveImapHost };
+module.exports = { status, unreadCount, listMessages, getMessage, getAttachment, send, searchRecipients, deriveImapHost };

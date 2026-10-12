@@ -14,15 +14,17 @@ import {
   type OutgoingAttachment
 } from "@/lib/mail";
 import { getSession } from "@/lib/auth";
+import RecipientInput from "@/components/RecipientInput";
 import { useLanguage } from "@/lib/i18n";
-import { cn } from "@/lib/utils";
+import { cn, studentProfilePath } from "@/lib/utils";
 import { ArrowLeft, ChevronLeft, ChevronRight, Download, Inbox, Loader2, Mail, Paperclip, PenSquare, Reply, RefreshCw, Search, Send, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 const MAX_ATTACHMENTS_BYTES = 10 * 1024 * 1024;
 
-const nameOf = (a: MailAddress | null | undefined) => (a ? a.name || a.address : "—");
+// Un étudiant inscrit avec cette adresse s'affiche par son nom.
+const nameOf = (a: MailAddress | null | undefined) => (a ? a.studentName || a.name || a.address : "—");
 
 function shortDate(value: string | null) {
   if (!value) return "";
@@ -35,7 +37,21 @@ function shortDate(value: string | null) {
 
 const longDate = (value: string | null) => (value ? new Date(value).toLocaleString("fr-FR", { weekday: "short", day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
 
-type Draft = { to: string; cc: string; subject: string; text: string; inReplyTo?: string; references?: string[] };
+type Draft = { to: string; cc: string; subject: string; text: string; inReplyTo?: string; references?: string[]; names?: Record<string, string> };
+
+// Une personne : le nom de l'étudiant inscrit (avec accès à son profil) ou l'adresse brute.
+function PersonLine({ a }: { a: MailAddress }) {
+  const role = getSession()?.user.role;
+  if (a.studentId) {
+    return (
+      <span>
+        <Link to={studentProfilePath(role, a.studentId)} className="font-semibold text-brand hover:underline">{a.studentName}</Link>
+        <span className="text-muted"> &lt;{a.address}&gt;</span>
+      </span>
+    );
+  }
+  return <span>{a.name ? `${a.name} ` : ""}&lt;{a.address}&gt;</span>;
+}
 
 function signature() {
   const user = getSession()?.user;
@@ -58,6 +74,7 @@ function MessageBody({ message, showImages }: { message: MailMessage; showImages
 function ComposeModal({ initial, onClose, onSent }: { initial: Draft; onClose: () => void; onSent: () => void }) {
   const { t } = useLanguage();
   const [draft, setDraft] = useState<Draft>(initial);
+  const isAdmin = getSession()?.user.role === "ADMIN";
   const [showCc, setShowCc] = useState(Boolean(initial.cc));
   const [attachments, setAttachments] = useState<Array<OutgoingAttachment & { size: number }>>([]);
   const [busy, setBusy] = useState(false);
@@ -127,12 +144,13 @@ function ComposeModal({ initial, onClose, onSent }: { initial: Draft; onClose: (
               <label className="text-[11px] font-bold uppercase tracking-wide text-muted">{t("À", "To")}</label>
               {!showCc && <button type="button" onClick={() => setShowCc(true)} className="text-[11px] font-bold text-brand hover:underline">{t("Ajouter Cc", "Add Cc")}</button>}
             </div>
-            <input value={draft.to} onChange={(e) => setDraft({ ...draft, to: e.target.value })} placeholder="nom@exemple.com" className={field} autoFocus={!draft.to} />
+            <RecipientInput value={draft.to} onChange={(to) => setDraft({ ...draft, to })} allowFree={isAdmin} names={draft.names} placeholder={isAdmin ? t("Nom d'un étudiant ou adresse e-mail", "Student name or email address") : t("Nom d'un de vos étudiants", "Name of one of your students")} />
+            {!isAdmin && <p className="mt-1 text-[11px] text-muted">{t("Vous pouvez écrire aux étudiants qui vous sont assignés.", "You can write to the students assigned to you.")}</p>}
           </div>
           {showCc && (
             <div>
               <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Cc</label>
-              <input value={draft.cc} onChange={(e) => setDraft({ ...draft, cc: e.target.value })} placeholder="nom@exemple.com, autre@exemple.com" className={field} />
+              <RecipientInput value={draft.cc} onChange={(cc) => setDraft({ ...draft, cc })} allowFree={isAdmin} names={draft.names} placeholder={isAdmin ? t("Nom d'un étudiant ou adresse e-mail", "Student name or email address") : t("Nom d'un de vos étudiants", "Name of one of your students")} />
             </div>
           )}
           <div>
@@ -223,7 +241,9 @@ export default function MailPage() {
   // Lien depuis un profil étudiant : /mail?compose=1&to=…
   useEffect(() => {
     if (searchParams.get("compose")) {
-      setDraft({ to: searchParams.get("to") || "", cc: "", subject: searchParams.get("subject") || "", text: signature() });
+      const to = searchParams.get("to") || "";
+      const toName = searchParams.get("name") || "";
+      setDraft({ to, cc: "", subject: searchParams.get("subject") || "", text: signature(), names: to && toName ? { [to.toLowerCase()]: toName } : undefined });
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, setSearchParams]);
@@ -260,7 +280,8 @@ export default function MailPage() {
       subject,
       text: `${signature()}\n\nLe ${longDate(message.date)}, ${nameOf(message.from)} a écrit :\n${quoted}`,
       inReplyTo: message.messageId || undefined,
-      references: [...message.references, ...(message.messageId ? [message.messageId] : [])]
+      references: [...message.references, ...(message.messageId ? [message.messageId] : [])],
+      names: target?.address && target.studentName ? { [target.address.toLowerCase()]: target.studentName } : undefined
     });
   };
 
@@ -324,7 +345,10 @@ export default function MailPage() {
                       <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", item.seen ? "bg-transparent" : "bg-brand")} aria-hidden />
                       <span className="min-w-0 flex-1">
                         <span className="flex items-baseline justify-between gap-2">
-                          <span className={cn("truncate text-sm", item.seen ? "font-semibold text-mid" : "font-extrabold text-dark")}>{who}</span>
+                          <span className={cn("flex min-w-0 items-center gap-1.5 text-sm", item.seen ? "font-semibold text-mid" : "font-extrabold text-dark")}>
+                            <span className="truncate">{who}</span>
+                            {(folder === "sent" ? item.to[0]?.studentId : item.from?.studentId) && <span className="shrink-0 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-700">{t("Étudiant", "Student")}</span>}
+                          </span>
                           <span className="shrink-0 text-[11px] text-muted">{shortDate(item.date)}</span>
                         </span>
                         <span className={cn("block truncate text-xs", item.seen ? "text-muted" : "font-bold text-dark")}>
@@ -367,9 +391,9 @@ export default function MailPage() {
                   <button type="button" onClick={reply} className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-xs font-bold text-white transition hover:bg-brand-hover"><Reply className="h-3.5 w-3.5" aria-hidden /> {t("Répondre", "Reply")}</button>
                 </div>
                 <dl className="mt-3 space-y-0.5 text-xs text-mid">
-                  <div><dt className="inline font-bold text-muted">{t("De", "From")} : </dt><dd className="inline">{message.from ? `${message.from.name ? `${message.from.name} ` : ""}<${message.from.address}>` : "—"}</dd></div>
-                  <div><dt className="inline font-bold text-muted">{t("À", "To")} : </dt><dd className="inline">{message.to.map((a) => a.address).join(", ") || "—"}</dd></div>
-                  {message.cc.length > 0 && <div><dt className="inline font-bold text-muted">Cc : </dt><dd className="inline">{message.cc.map((a) => a.address).join(", ")}</dd></div>}
+                  <div><dt className="inline font-bold text-muted">{t("De", "From")} : </dt><dd className="inline">{message.from ? <PersonLine a={message.from} /> : "—"}</dd></div>
+                  <div><dt className="inline font-bold text-muted">{t("À", "To")} : </dt><dd className="inline">{message.to.length ? message.to.map((a, i) => <span key={a.address}>{i > 0 && ", "}<PersonLine a={a} /></span>) : "—"}</dd></div>
+                  {message.cc.length > 0 && <div><dt className="inline font-bold text-muted">Cc : </dt><dd className="inline">{message.cc.map((a, i) => <span key={a.address}>{i > 0 && ", "}<PersonLine a={a} /></span>)}</dd></div>}
                   <div><dt className="inline font-bold text-muted">{t("Date", "Date")} : </dt><dd className="inline">{longDate(message.date)}</dd></div>
                 </dl>
 

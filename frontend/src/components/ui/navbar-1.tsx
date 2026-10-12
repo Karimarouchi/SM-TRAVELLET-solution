@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Mail, Menu, Settings, X } from "lucide-react";
 import { clearSession, getSession, logout } from "@/lib/auth";
 import { fetchWhatsAppUnread } from "@/lib/whatsapp";
-import { fetchMailUnread } from "@/lib/mail";
+import { fetchMailUnread, fetchMyMailsUnread } from "@/lib/mail";
 import { useLanguage } from "@/lib/i18n";
 import { VITRINE_URL } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -22,6 +22,7 @@ const WHATSAPP_REGISTERED_HREF = "/whatsapp/inscrits";
 const WHATSAPP_PROSPECTS_HREF = "/whatsapp/prospects";
 
 const MAIL_HREF = "/mail";
+const STUDENT_MAIL_HREF = "/mes-mails";
 
 function CountBadge({ count }: { count: number }) {
   if (count <= 0) return null;
@@ -101,13 +102,17 @@ const Navbar1 = () => {
   // Mails non lus de la boîte commune (équipe SM), actualisés chaque minute.
   const [mailUnread, setMailUnread] = React.useState(0);
   React.useEffect(() => {
-    if (role !== "ADMIN" && role !== "SALES" && role !== "RDV") return;
+    if (role !== "ADMIN" && role !== "SALES" && role !== "RDV" && role !== "STUDENT") return;
     function refresh() {
-      fetchMailUnread().then((data) => setMailUnread(data.unread)).catch(() => setMailUnread(0));
+      (role === "STUDENT" ? fetchMyMailsUnread() : fetchMailUnread()).then((data) => setMailUnread(data.unread)).catch(() => setMailUnread(0));
     }
     refresh();
     const timer = window.setInterval(refresh, 60000);
-    return () => window.clearInterval(timer);
+    window.addEventListener("student-mails-changed", refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("student-mails-changed", refresh);
+    };
   }, [role]);
 
   // Dernier total de messages WhatsApp non lus : un son part quand il augmente (jamais au premier chargement).
@@ -233,14 +238,14 @@ const Navbar1 = () => {
         </nav>
 
         <div className="flex shrink-0 items-center gap-1.5 xl:gap-3">
-        {isStaffRole(role) && (
+        {(isStaffRole(role) || role === "STUDENT") && (
           <Link
-            to={MAIL_HREF}
-            title={t("Mail de l'agence", "Agency mail")}
-            aria-label={t("Mail de l'agence", "Agency mail")}
+            to={role === "STUDENT" ? STUDENT_MAIL_HREF : MAIL_HREF}
+            title={role === "STUDENT" ? t("Mes e-mails", "My emails") : t("Mail de l'agence", "Agency mail")}
+            aria-label={role === "STUDENT" ? t("Mes e-mails", "My emails") : t("Mail de l'agence", "Agency mail")}
             className={cn(
               "relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-line bg-white transition hover:border-brand hover:text-brand",
-              location.pathname === MAIL_HREF ? "border-brand text-brand" : "text-gray-900"
+              location.pathname === (role === "STUDENT" ? STUDENT_MAIL_HREF : MAIL_HREF) ? "border-brand text-brand" : "text-gray-900"
             )}
           >
             <Mail className="h-4 w-4" />

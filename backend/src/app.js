@@ -21,6 +21,7 @@ const studentDocumentController = require("./controllers/studentDocumentControll
 const salesCodeController = require("./controllers/salesCodeController");
 const mailController = require("./controllers/mailController");
 const studentNoteController = require("./controllers/studentNoteController");
+const studentMailController = require("./controllers/studentMailController");
 const countryUniversityController = require("./controllers/countryUniversityController");
 const universityApplicationController = require("./controllers/universityApplicationController");
 const universityChoiceController = require("./controllers/universityChoiceController");
@@ -116,6 +117,12 @@ const mailSendLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Trop de mails envoyés en peu de temps. Réessayez dans quelques minutes." }
 });
+// Mails reçus par l'étudiant (envoyés depuis la page Mail) : son espace, sa preuve de réception.
+app.get("/api/students/me/mails", requireAuth, requireRoles("STUDENT"), studentMailController.listMine);
+app.get("/api/students/me/mails/unread-count", requireAuth, requireRoles("STUDENT"), studentMailController.unreadMine);
+app.patch("/api/students/me/mails/:mailId/read", requireAuth, requireRoles("STUDENT"), studentMailController.markRead);
+app.get("/api/students/:id/mails", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), studentMailController.listForStaff);
+app.get("/api/mail/recipients", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), mailController.recipients);
 app.get("/api/mail/status", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), mailController.status);
 app.get("/api/mail/unread-count", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), mailController.unreadCount);
 app.get("/api/mail/messages", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), mailController.list);

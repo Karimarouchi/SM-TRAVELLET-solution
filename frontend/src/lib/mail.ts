@@ -1,7 +1,21 @@
 import { API_URL, getSession, request } from "@/lib/auth";
 
 export type MailFolder = "inbox" | "sent";
-export type MailAddress = { name: string; address: string };
+export type MailAddress = { name: string; address: string; /** Étudiant inscrit avec cette adresse. */ studentId?: string; studentName?: string };
+export type MailRecipient = { id: string; name: string; email: string };
+
+/** Mail envoyé à un étudiant depuis la page Mail. */
+export type StudentMail = {
+  id: string;
+  subject: string;
+  body: string;
+  attachments: Array<{ filename: string; size: number }>;
+  sentAt: string;
+  senderName: string;
+  read: boolean;
+  /** Équipe seulement : date d'ouverture par l'étudiant. */
+  readAt?: string | null;
+};
 
 export type MailStatus = {
   configured: boolean;
@@ -54,6 +68,11 @@ export type SendMailPayload = {
   references?: string[];
 };
 
+export const fetchMailRecipients = (q: string) => request<MailRecipient[]>(`/api/mail/recipients?q=${encodeURIComponent(q.trim())}`);
+export const fetchMyMails = () => request<StudentMail[]>("/api/students/me/mails");
+export const fetchMyMailsUnread = () => request<{ unread: number }>("/api/students/me/mails/unread-count");
+export const markMyMailRead = (id: string) => request<{ id: string }>(`/api/students/me/mails/${id}/read`, { method: "PATCH" });
+export const fetchStudentMails = (studentId: string) => request<StudentMail[]>(`/api/students/${studentId}/mails`);
 export const fetchMailStatus = () => request<MailStatus>("/api/mail/status");
 export const fetchMailUnread = () => request<{ unread: number }>("/api/mail/unread-count");
 

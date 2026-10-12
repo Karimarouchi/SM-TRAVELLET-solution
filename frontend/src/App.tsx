@@ -26,6 +26,7 @@ import StudentDetailPage from "@/pages/StudentDetailPage";
 import RdvDossiersPage, { RdvVisasPage } from "@/pages/RdvDossiersPage";
 import WhatsAppPage from "@/pages/WhatsAppPage";
 import MailPage from "@/pages/MailPage";
+import StudentMailsPage from "@/pages/StudentMailsPage";
 import NotificationsPage from "@/pages/NotificationsPage";
 import ArchivePage from "@/pages/ArchivePage";
 
@@ -66,6 +67,7 @@ export default function App() {
           <Route path="/whatsapp" element={<Navigate to="/whatsapp/prospects" replace />} />
           <Route path="/whatsapp/:segment" element={<WhatsAppPage />} />
           <Route path="/mail" element={<MailPage />} />
+          <Route path="/mes-mails" element={<StudentMailsPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/archive" element={<ArchivePage />} />
         </Route>

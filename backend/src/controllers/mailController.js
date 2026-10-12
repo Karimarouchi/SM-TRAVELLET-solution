@@ -49,6 +49,14 @@ async function attachment(req, res) {
   }
 }
 
+async function recipients(req, res) {
+  try {
+    res.json(await mailService.searchRecipients(req.auth, req.query.q));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function send(req, res) {
   try {
     res.status(201).json(await mailService.send(req.auth, req.body || {}));
@@ -57,4 +65,4 @@ async function send(req, res) {
   }
 }
 
-module.exports = { status, unreadCount, list, read, attachment, send };
+module.exports = { status, unreadCount, list, read, attachment, send, recipients };
