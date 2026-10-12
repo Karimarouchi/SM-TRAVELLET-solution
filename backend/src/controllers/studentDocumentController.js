@@ -54,6 +54,15 @@ async function review(req, res) {
   }
 }
 
+async function uploadForStudent(req, res) {
+  try {
+    const { name, file, originalFilename, universityId } = req.body;
+    res.json(await studentDocumentService.uploadDocumentForStudent(req.auth, req.params.id, name, file, originalFilename, universityId));
+  } catch (error) {
+    res.status(error.status || 400).json({ error: error.message || "Requête invalide." });
+  }
+}
+
 async function rdvReject(req, res) {
   try {
     const { name, reason, universityId } = req.body;
@@ -102,6 +111,7 @@ async function reviewVisa(req, res) {
 }
 
 module.exports = {
+  uploadForStudent,
   rdvReject,
   file,
   list,

@@ -131,7 +131,7 @@ function findItem(checklist, name, universityId) {
   return checklist.find((d) => d.name === name && (d.universityId || null) === (universityId || null));
 }
 
-async function uploadDocument(studentUserId, name, fileBase64, originalFilename, universityId = null) {
+async function uploadDocument(studentUserId, name, fileBase64, originalFilename, universityId = null, options = {}) {
   const trimmedName = String(name || "").trim();
   if (!trimmedName) throw fail("Nom de document manquant.", 400);
   if (!fileBase64 || typeof fileBase64 !== "string") throw fail("Aucun fichier fourni.", 400);
@@ -176,7 +176,7 @@ async function uploadDocument(studentUserId, name, fileBase64, originalFilename,
     fileSize: buffer.length
   });
 
-  if (profile?.assigned_sales_id) {
+  if (profile?.assigned_sales_id && !options.silent) {
     await notificationService.notify(profile.assigned_sales_id, {
       type: "DOCUMENT_UPLOADED",
       title: "Document déposé à vérifier",
@@ -186,6 +186,42 @@ async function uploadDocument(studentUserId, name, fileBase64, originalFilename,
   }
 
   const checklist = await getChecklist(studentUserId);
+  return findItem(checklist, trimmedName, universityId);
+}
+
+// Le conseiller de l'étudiant (ou l'admin) dépose un document à sa place, une fois l'onboarding terminé :
+// le document est validé automatiquement et peut remplacer un fichier existant (même refusé).
+async function uploadDocumentForStudent(auth, studentId, name, fileBase64, originalFilename, universityId = null) {
+  const roles = authRoles(auth);
+  if (!roles.includes("SALES") && !roles.includes("ADMIN")) {
+    throw fail("Seul le conseiller de l'étudiant ou un administrateur peut déposer un document à sa place.", 403);
+  }
+  const profile = await studentRepo.ensureProfile(studentId);
+  if (!canAccessStudent(auth, studentId, profile.assigned_sales_id)) {
+    throw fail("Vous n’avez pas accès à ce dossier.", 403);
+  }
+  if (!profile.onboarding_completed) {
+    throw fail("L'étudiant doit d'abord terminer son onboarding (pays et projet d'études) avant d'ajouter ses documents.", 409);
+  }
+
+  await uploadDocument(studentId, name, fileBase64, originalFilename, universityId, { silent: true });
+
+  const trimmedName = String(name || "").trim();
+  const fresh = await studentRepo.findByUserId(studentId);
+  const group = await requirementGroup(studentId, fresh, trimmedName, universityId || null);
+  await studentDocRepo.updateStatusForRequirementIds(studentId, group.map((g) => g.id), "VALIDATED", auth.sub, null);
+
+  await notificationService.notify(studentId, {
+    type: "DOCUMENT_VALIDATED",
+    title: `Document ajouté et validé : ${trimmedName}`,
+    body: "Votre conseiller a ajouté ce document à votre dossier.",
+    link: "/documents"
+  });
+  await universityApplicationService.checkAndAdvanceReadyToApply(studentId).catch((err) => {
+    logger.error("Échec du calcul READY_TO_APPLY", { message: err.message, stack: err.stack });
+  });
+
+  const checklist = await getChecklist(studentId);
   return findItem(checklist, trimmedName, universityId);
 }
 
@@ -498,6 +534,7 @@ module.exports = {
   uploadDocument,
   reviewDocument,
   rejectDocumentAsRdv,
+  uploadDocumentForStudent,
   getMyVisaChecklist,
   uploadVisaDocument,
   getVisaChecklistForApplication,

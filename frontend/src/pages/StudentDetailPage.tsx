@@ -11,6 +11,7 @@ import {
   reviewApplicationVisaDocument,
   rejectDocumentAsRdv,
   reviewStudentDocument,
+  uploadStudentDocumentAsStaff,
   type ApplicationHistoryEntry,
   type AuthUser,
   type PaymentPlan,
@@ -49,6 +50,7 @@ import {
   Mail,
   ThumbsDown,
   ThumbsUp,
+  Upload,
   UserRound,
   XCircle
 } from "lucide-react";
@@ -248,6 +250,16 @@ export default function StudentDetailPage() {
         : reviewStudentDocument(id, name, status, reason, universityId)
       : Promise.reject(new Error(t("Étudiant inconnu.", "Unknown student.")));
 
+  // Dépôt d'un document à la place de l'étudiant (conseiller / admin) : lu en base64 puis validé d'office.
+  const uploadFor = (doc: StudentDocumentChecklistItem, file: File) =>
+    new Promise<StudentDocumentChecklistItem>((resolve, reject) => {
+      if (!id) return reject(new Error(t("Étudiant inconnu.", "Unknown student.")));
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error(t("Lecture du fichier impossible.", "Unable to read the file.")));
+      reader.onload = () => uploadStudentDocumentAsStaff(id, doc.name, reader.result as string, file.name, doc.universityId).then(resolve, reject);
+      reader.readAsDataURL(file);
+    });
+
   const stage = useMemo(() => stageOf(Boolean(profile?.onboardingCompleted), applications), [profile, applications]);
   const docsToReview = documents.filter((d) => d.status === "SUBMITTED").length;
   const docsRejected = documents.filter((d) => d.status === "REJECTED").length;
@@ -401,7 +413,7 @@ export default function StudentDetailPage() {
                     </p>
                   ) : (
                     documents.map((doc) => (
-                      <DocumentReviewRow key={`${doc.universityId || "pays"}:${doc.name}`} doc={doc} reviewFor={reviewFor} onReviewed={handleReviewed} canReview={isReviewer} rejectOnly={role === "RDV"} />
+                      <DocumentReviewRow key={`${doc.universityId || "pays"}:${doc.name}`} doc={doc} reviewFor={reviewFor} onReviewed={handleReviewed} canReview={isReviewer} rejectOnly={role === "RDV"} onUpload={isReviewer && profile?.onboardingCompleted && id ? (file) => uploadFor(doc, file) : undefined} />
                     ))
                   )}
                 </div>
@@ -612,8 +624,11 @@ function DocumentReviewRow({
   reviewFor,
   onReviewed,
   canReview = true,
-  rejectOnly = false
+  rejectOnly = false,
+  onUpload
 }: {
+  /** Conseiller / admin : dépose un fichier à la place de l'étudiant (validé automatiquement). */
+  onUpload?: (file: File) => Promise<StudentDocumentChecklistItem>;
   canReview?: boolean;
   /** Responsable Dossier : peut seulement refuser (avec motif) un document déjà validé. */
   rejectOnly?: boolean;
@@ -698,6 +713,34 @@ function DocumentReviewRow({
           <ChevronDown className={cn("h-4 w-4 text-muted transition-transform duration-200", open && "rotate-180")} aria-hidden />
         </span>
       </div>
+
+      {open && onUpload && (
+        <div className="mt-3 flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <label className={cn("inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-brand/10 px-3 py-1.5 text-xs font-bold text-brand transition hover:bg-brand/20", busy && "pointer-events-none opacity-60")}>
+            <Upload className="h-3 w-3" /> {doc.fileUrl ? t("Remplacer le fichier", "Replace the file") : t("Ajouter le document", "Add the document")}
+            <input
+              type="file"
+              className="sr-only"
+              accept={doc.acceptedFileTypes === "PDF" ? "application/pdf" : doc.acceptedFileTypes === "IMAGE" ? "image/png,image/jpeg,image/webp" : "image/png,image/jpeg,image/webp,application/pdf"}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (!file) return;
+                setBusy(true);
+                setError("");
+                try {
+                  onReviewed(await onUpload(file));
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : t("Échec de l'envoi.", "Upload failed."));
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            />
+          </label>
+          <span className="text-[11px] text-muted">{t("Le document est validé automatiquement.", "The document is approved automatically.")}</span>
+        </div>
+      )}
 
       {open && doc.status === "REJECTED" && doc.rejectionReason && (
         <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{t("Motif", "Reason")} : {doc.rejectionReason}</p>

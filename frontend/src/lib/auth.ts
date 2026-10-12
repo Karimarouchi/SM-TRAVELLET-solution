@@ -1217,6 +1217,20 @@ export async function fetchMyDocuments(): Promise<StudentDocumentChecklistItem[]
   return request<StudentDocumentChecklistItem[]>("/api/students/me/documents");
 }
 
+// Le conseiller (ou l'admin) dépose un document à la place de l'étudiant : validé automatiquement.
+export async function uploadStudentDocumentAsStaff(
+  studentId: string,
+  name: string,
+  file: string,
+  originalFilename?: string,
+  universityId?: string | null
+): Promise<StudentDocumentChecklistItem> {
+  return request<StudentDocumentChecklistItem>(`/api/students/${studentId}/documents`, {
+    method: "POST",
+    body: JSON.stringify({ name, file, originalFilename, universityId: universityId || undefined })
+  });
+}
+
 export async function uploadMyDocument(
   name: string,
   file: string,
