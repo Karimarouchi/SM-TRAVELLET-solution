@@ -54,6 +54,9 @@ app.use((req, res, next) => {
   };
   next();
 });
+// Documents de l'étudiant (5 Mo max) : un fichier de 5 Mo pèse environ 6,7 Mo une fois encodé en base64,
+// donc la limite JSON de 5 Mo refusait déjà les fichiers de plus de 3,7 Mo avec une erreur 500.
+app.use(["/api/students/me/documents", "/api/students/me/visa-documents"], express.json({ limit: "9mb" }));
 // Envoi d'un fichier WhatsApp (16 Mo max, soit environ 22 Mo en base64) : limite dédiée à cette route.
 app.use("/api/whatsapp/conversations/:contactId/media", express.json({ limit: "25mb" }));
 // Envoi de mail avec pièces jointes (10 Mo, soit environ 14 Mo en base64) : limite dédiée à cette seule route.
@@ -338,6 +341,14 @@ app.use((_req, res) => {
 });
 
 app.use((error, req, res, _next) => {
+  // Erreurs de lecture de la requête (trop volumineuse, JSON invalide) : une réponse claire, jamais une erreur 500.
+  if (error.type === "entity.too.large") {
+    logger.warn("Requête trop volumineuse refusée", { method: req.method, path: req.originalUrl, length: error.length, limit: error.limit });
+    return res.status(413).json({ error: "Le fichier est trop volumineux. Taille maximale : 5 Mo pour un document." });
+  }
+  if (error.type === "entity.parse.failed") {
+    return res.status(400).json({ error: "Requête invalide." });
+  }
   logger.error("Erreur non gérée sur une requête", {
     message: error.message,
     stack: error.stack,
