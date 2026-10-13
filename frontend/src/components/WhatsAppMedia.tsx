@@ -2,32 +2,52 @@ import { fetchWhatsAppMediaBlob, type WhatsAppMessage } from "@/lib/whatsapp";
 import { FileText, Download, Loader2, Play } from "lucide-react";
 import { useEffect, useState } from "react";
 
+// Adresses de lecture déjà créées : un fichier n'est téléchargé qu'une fois, même quand la conversation se rafraîchit
+// ou qu'on change de discussion. Sans cela, le rafraîchissement (toutes les 5 s) recréait l'adresse et coupait le vocal en cours de lecture.
+const URL_CACHE = new Map<string, string>();
+const URL_CACHE_MAX = 60;
+
+function cacheUrl(key: string, url: string) {
+  URL_CACHE.set(key, url);
+  if (URL_CACHE.size > URL_CACHE_MAX) {
+    const oldest = URL_CACHE.keys().next().value as string;
+    const old = URL_CACHE.get(oldest);
+    URL_CACHE.delete(oldest);
+    if (old) URL.revokeObjectURL(old);
+  }
+}
+
 // Fichier joint d'un message WhatsApp : image (clic = taille réelle), message vocal ou audio (lecteur), vidéo (lecteur, chargée au clic)
 // ou pastille du document (clic = téléchargement).
 export default function WhatsAppMedia({ contactId, message }: { contactId: string; message: WhatsAppMessage }) {
   const media = message.media;
-  const [url, setUrl] = useState<string | null>(null);
+  const [url, setUrl] = useState<string | null>(URL_CACHE.get(message.id) || null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   // Images et messages vocaux se chargent tout de suite ; la vidéo (plus lourde) seulement quand on le demande.
   const [wantVideo, setWantVideo] = useState(false);
+  // Dépendances simples (jamais l'objet « media » entier, recréé à chaque rafraîchissement) : la lecture n'est plus jamais interrompue.
+  const kind = media?.kind;
   useEffect(() => {
-    if (!media || (media.kind !== "image" && media.kind !== "audio" && !(media.kind === "video" && wantVideo))) return;
-    let objectUrl = "";
+    if (!kind || (kind !== "image" && kind !== "audio" && !(kind === "video" && wantVideo))) return;
+    const cached = URL_CACHE.get(message.id);
+    if (cached) {
+      setUrl(cached);
+      return;
+    }
     let cancelled = false;
     fetchWhatsAppMediaBlob(contactId, message.id)
       .then((blob) => {
-        if (cancelled) return;
-        objectUrl = URL.createObjectURL(blob);
-        setUrl(objectUrl);
+        const objectUrl = URL.createObjectURL(blob);
+        cacheUrl(message.id, objectUrl);
+        if (!cancelled) setUrl(objectUrl);
       })
-      .catch((err) => !cancelled && setError(err instanceof Error ? err.message : "Image indisponible."));
+      .catch((err) => !cancelled && setError(err instanceof Error ? err.message : "Fichier indisponible."));
     return () => {
       cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [contactId, message.id, media, wantVideo]);
+  }, [contactId, message.id, kind, wantVideo]);
 
   if (!media) return null;
 
