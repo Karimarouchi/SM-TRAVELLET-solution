@@ -1,16 +1,19 @@
 import { fetchWhatsAppMediaBlob, type WhatsAppMessage } from "@/lib/whatsapp";
-import { FileText, Download, Loader2 } from "lucide-react";
+import { FileText, Download, Loader2, Play } from "lucide-react";
 import { useEffect, useState } from "react";
 
-// Fichier joint d'un message WhatsApp : aperçu de l'image (clic = taille réelle) ou pastille du document (clic = téléchargement).
+// Fichier joint d'un message WhatsApp : image (clic = taille réelle), message vocal ou audio (lecteur), vidéo (lecteur, chargée au clic)
+// ou pastille du document (clic = téléchargement).
 export default function WhatsAppMedia({ contactId, message }: { contactId: string; message: WhatsAppMessage }) {
   const media = message.media;
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // Images et messages vocaux se chargent tout de suite ; la vidéo (plus lourde) seulement quand on le demande.
+  const [wantVideo, setWantVideo] = useState(false);
   useEffect(() => {
-    if (!media || media.kind !== "image") return;
+    if (!media || (media.kind !== "image" && media.kind !== "audio" && !(media.kind === "video" && wantVideo))) return;
     let objectUrl = "";
     let cancelled = false;
     fetchWhatsAppMediaBlob(contactId, message.id)
@@ -24,7 +27,7 @@ export default function WhatsAppMedia({ contactId, message }: { contactId: strin
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [contactId, message.id, media]);
+  }, [contactId, message.id, media, wantVideo]);
 
   if (!media) return null;
 
@@ -47,6 +50,35 @@ export default function WhatsAppMedia({ contactId, message }: { contactId: strin
       setBusy(false);
     }
   };
+
+  if (media.kind === "audio") {
+    return (
+      <div className="mb-1 min-w-[230px]">
+        {url ? (
+          <audio controls preload="metadata" src={url} className="h-10 w-full" aria-label="Message vocal" />
+        ) : (
+          <div className="flex h-10 items-center gap-2 text-xs text-[#667781]">{error ? error : <><Loader2 className="h-4 w-4 animate-spin" /> Chargement du message vocal…</>}</div>
+        )}
+        {message.caption && <p className="mt-1 whitespace-pre-wrap break-words">{message.caption}</p>}
+      </div>
+    );
+  }
+
+  if (media.kind === "video") {
+    return (
+      <div className="mb-1">
+        {url ? (
+          <video controls preload="metadata" src={url} className="max-h-72 w-full rounded-md bg-black" aria-label={media.name} />
+        ) : (
+          <button type="button" onClick={() => setWantVideo(true)} disabled={wantVideo} className="flex h-28 w-52 flex-col items-center justify-center gap-1 rounded-md bg-black/5 text-xs font-semibold text-[#54656f] transition hover:bg-black/10">
+            {wantVideo && !error ? <Loader2 className="h-5 w-5 animate-spin" /> : <Play className="h-6 w-6" aria-hidden />}
+            {error ? error : wantVideo ? "Chargement…" : "Charger la vidéo"}
+          </button>
+        )}
+        {message.caption && <p className="mt-1 whitespace-pre-wrap break-words">{message.caption}</p>}
+      </div>
+    );
+  }
 
   if (media.kind === "image") {
     return (

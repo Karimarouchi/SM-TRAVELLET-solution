@@ -43,7 +43,7 @@ async function sendMedia(req, res) {
 async function getMedia(req, res) {
   try {
     const media = await whatsappService.getMedia(req.auth, req.params.contactId, req.params.messageId);
-    const inline = /^image\//.test(media.mime || "");
+    const inline = /^(image|audio|video)\//.test(media.mime || "");
     res.setHeader("Content-Type", media.mime || "application/octet-stream");
     res.setHeader("Content-Disposition", `${inline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(media.name)}`);
     res.setHeader("X-Content-Type-Options", "nosniff");

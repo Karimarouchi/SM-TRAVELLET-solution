@@ -17,7 +17,7 @@ const maskPhone = (phone) => (phone && phone.length > 6 ? `${phone.slice(0, 4)}�
 const MAX_TEXT_LENGTH = 4096;
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 const MEDIA_TYPES = ["image", "document", "audio", "video", "sticker"];
-const MEDIA_PLACEHOLDER = "[Fichier reçu — les documents doivent être déposés sur la plateforme, pas par WhatsApp]";
+const MEDIA_PLACEHOLDER = "[Fichier reçu mais impossible à ouvrir ici — demandez au client de le renvoyer]";
 
 function fail(message, status) {
   const error = new Error(message);
@@ -116,6 +116,54 @@ async function ensureOwner(contactId, { isNew = false } = {}) {
   }
 }
 
+// ── Fichiers reçus (photos, vocaux, vidéos, documents) ───────────────────
+const MAX_INBOUND_BYTES = 25 * 1024 * 1024;
+const MIME_EXTENSIONS = {
+  "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
+  "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/aac": "aac", "audio/amr": "amr", "audio/opus": "opus",
+  "video/mp4": "mp4", "video/3gpp": "3gp",
+  "application/pdf": "pdf", "application/msword": "doc", "application/vnd.ms-excel": "xls", "application/vnd.ms-powerpoint": "ppt",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+  "text/plain": "txt"
+};
+
+// Meta ne garde le fichier que peu de temps et son adresse expire vite : on le télécharge dès l'arrivée du message.
+async function downloadInboundMedia(mediaId) {
+  const headers = { Authorization: `Bearer ${env.whatsapp.token}` };
+  const info = await fetch(`https://graph.facebook.com/${env.whatsapp.graphVersion}/${mediaId}`, { headers });
+  const meta = await info.json().catch(() => ({}));
+  if (!info.ok || !meta.url) throw new Error(meta.error?.message || `Meta a répondu ${info.status}`);
+  if (meta.file_size && Number(meta.file_size) > MAX_INBOUND_BYTES) throw new Error("Fichier trop volumineux");
+  const file = await fetch(meta.url, { headers });
+  if (!file.ok) throw new Error(`Téléchargement refusé (${file.status})`);
+  const buffer = Buffer.from(await file.arrayBuffer());
+  if (!buffer.length || buffer.length > MAX_INBOUND_BYTES) throw new Error("Fichier vide ou trop volumineux");
+  return { buffer, mime: String(meta.mime_type || file.headers.get("content-type") || "application/octet-stream").split(";")[0].trim().toLowerCase() };
+}
+
+// Fichier joint d'un message reçu : téléchargé et conservé sur le serveur. En cas d'échec, le message reste avec un texte de repli.
+async function fetchInboundMedia(message) {
+  const media = message[message.type];
+  if (!media?.id || !env.whatsapp.token) return null;
+  try {
+    const { buffer, mime } = await downloadInboundMedia(media.id);
+    const ext = MIME_EXTENSIONS[mime] || "bin";
+    fs.mkdirSync(WA_MEDIA_DIR, { recursive: true });
+    const stored = `wa_in_${Date.now()}_${crypto.randomBytes(4).toString("hex")}.${ext}`;
+    fs.writeFileSync(path.join(WA_MEDIA_DIR, stored), buffer);
+    const kind = mediaKindOf(mime);
+    const name = cleanFileName(media.filename, kind === "image" ? `photo.${ext}` : kind === "audio" ? `message-vocal.${ext}` : kind === "video" ? `video.${ext}` : `document.${ext}`);
+    const caption = String(media.caption || "").trim();
+    const label = kind === "image" ? IMAGE_LABEL : kind === "audio" ? AUDIO_LABEL : kind === "video" ? VIDEO_LABEL : documentLabel(name);
+    return { mediaPath: stored, mediaName: name, mediaMime: mime, body: caption || label };
+  } catch (error) {
+    logger.warn("WhatsApp : fichier reçu non téléchargé", { type: message.type, message: error.message });
+    return null;
+  }
+}
+
 async function handleIncomingMessage(message, profileNames, metadata = {}) {
   if (message.type === "reaction") return;
 
@@ -147,14 +195,19 @@ async function handleIncomingMessage(message, profileNames, metadata = {}) {
   }
 
   const createdAt = message.timestamp ? new Date(Number(message.timestamp) * 1000) : new Date();
+  // Photo, vocal, vidéo ou document : le fichier est téléchargé (sauf si Meta renvoie un message déjà reçu).
+  const downloaded = MEDIA_TYPES.includes(message.type) && !(await repo.messageExists(message.id)) ? await fetchInboundMedia(message) : null;
   const inserted = await repo.insertMessage({
     contactId: contact.id,
     waMessageId: message.id,
     direction: "in",
     type: message.type || "unknown",
-    body: extractBody(message),
+    body: downloaded ? downloaded.body : extractBody(message),
     status: "received",
-    createdAt
+    createdAt,
+    mediaPath: downloaded?.mediaPath || null,
+    mediaName: downloaded?.mediaName || null,
+    mediaMime: downloaded?.mediaMime || null
   });
   if (!inserted) return;
 
@@ -242,8 +295,13 @@ function mapConversation(row) {
 // conseiller ; les conseillers voient simplement le nom affiché.
 // Texte de repli (aperçu de la liste) quand un fichier est envoyé sans légende.
 const IMAGE_LABEL = "📷 Photo";
+const AUDIO_LABEL = "🎤 Message vocal";
+const VIDEO_LABEL = "🎬 Vidéo";
 const documentLabel = (name) => `📄 ${name}`;
-const isMediaLabel = (body) => body === IMAGE_LABEL || String(body || "").startsWith("📄 ");
+const isMediaLabel = (body) => [IMAGE_LABEL, AUDIO_LABEL, VIDEO_LABEL].includes(body) || String(body || "").startsWith("📄 ");
+
+// Famille d'un fichier d'après son type : image, vocal / audio, vidéo ou document.
+const mediaKindOf = (mime) => (/^image\//.test(mime || "") ? "image" : /^audio\//.test(mime || "") ? "audio" : /^video\//.test(mime || "") ? "video" : "document");
 
 function mapMessage(row, { forAdmin = false } = {}) {
   const hidden = Boolean(row.hidden_at);
@@ -261,7 +319,7 @@ function mapMessage(row, { forAdmin = false } = {}) {
     auto: Boolean(row.is_auto),
     // Fichier joint : jamais le chemin du serveur, seulement de quoi l'afficher.
     media: row.media_name
-      ? { name: row.media_name, mime: row.media_mime || "", kind: /^image\//.test(row.media_mime || "") ? "image" : "document" }
+      ? { name: row.media_name, mime: row.media_mime || "", kind: mediaKindOf(row.media_mime) }
       : null,
     caption: row.media_name && !isMediaLabel(row.body) ? row.body || "" : "",
     createdAt: new Date(row.created_at).toISOString()

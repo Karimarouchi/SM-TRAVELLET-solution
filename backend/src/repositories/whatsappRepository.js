@@ -167,6 +167,12 @@ async function insertMessage({ contactId, waMessageId, direction, type, body, st
   return result.rows[0] || null;
 }
 
+async function messageExists(waMessageId) {
+  if (!waMessageId) return false;
+  const result = await query("SELECT 1 FROM whatsapp_messages WHERE wa_message_id = $1 LIMIT 1", [waMessageId]);
+  return result.rowCount > 0;
+}
+
 // Réponse automatique : une seule par période de fermeture et par contact.
 async function getLastAutoReplyAt(contactId) {
   const result = await query("SELECT last_auto_reply_at FROM whatsapp_contacts WHERE id = $1", [contactId]);
@@ -369,6 +375,7 @@ module.exports = {
   updateStatus,
   listConversations,
   listMessages,
+  messageExists,
   getLastAutoReplyAt,
   setLastAutoReplyAt,
   findMessageMedia,

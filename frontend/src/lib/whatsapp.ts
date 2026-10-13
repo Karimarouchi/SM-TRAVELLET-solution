@@ -39,7 +39,7 @@ export type WhatsAppMessage = {
   /** Réponse automatique d'un jour non travaillé (jamais comptée comme une réponse d'un conseiller). */
   auto?: boolean;
   /** Fichier joint (image ou document) envoyé depuis l'application. */
-  media?: { name: string; mime: string; kind: "image" | "document" } | null;
+  media?: { name: string; mime: string; kind: "image" | "document" | "audio" | "video" } | null;
   caption?: string;
   createdAt: string;
 };
