@@ -6,6 +6,24 @@ const countryRepo = require("../repositories/countryRepository");
 const PROGRAMME_IMG_DIR = path.join(__dirname, "../../uploads/programmes");
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB max
 
+// Niveaux de la fenêtre « Voir les détails » : un seul format, à plat
+// { name, desc, lang, fees, dates, status, scholarship }. Les anciens programmes avaient les infos
+// regroupées dans un sous-objet « details » : ils sont lus des deux façons et toujours renvoyés à plat.
+const LEVEL_FIELDS = ["lang", "fees", "dates", "status", "scholarship"];
+
+function normalizeDetails(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((level) => level && typeof level === "object")
+    .map((level) => {
+      const nested = level.details && typeof level.details === "object" ? level.details : {};
+      const flat = { name: String(level.name || "").trim(), desc: String(level.desc || "").trim() };
+      for (const key of LEVEL_FIELDS) flat[key] = String(level[key] ?? nested[key] ?? "").trim();
+      return flat;
+    })
+    .filter((level) => level.name || level.desc);
+}
+
 function programmeDto(row) {
   if (!row) return null;
   return {
@@ -21,7 +39,7 @@ function programmeDto(row) {
     gradientStyle: row.gradient_style,
     isFeatured: row.is_featured,
     displayOrder: row.display_order,
-    details: Array.isArray(row.details) ? row.details : [],
+    details: normalizeDetails(row.details),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -174,7 +192,7 @@ async function createProgramme(payload) {
     gradientStyle: payload.gradientStyle?.trim() || "linear-gradient(135deg,#0f172a 0%,#4c1d95 52%,#1d4ed8 100%)",
     isFeatured: Boolean(payload.isFeatured),
     displayOrder: Number(payload.displayOrder) || 0,
-    details: Array.isArray(payload.details) ? payload.details : []
+    details: normalizeDetails(payload.details)
   });
 
   return programmeDto(row);
@@ -206,7 +224,7 @@ async function updateProgramme(id, payload) {
     gradientStyle: payload.gradientStyle !== undefined ? payload.gradientStyle.trim() : existing.gradient_style,
     isFeatured: payload.isFeatured !== undefined ? Boolean(payload.isFeatured) : existing.is_featured,
     displayOrder: payload.displayOrder !== undefined ? Number(payload.displayOrder) : existing.display_order,
-    details: payload.details !== undefined ? (Array.isArray(payload.details) ? payload.details : []) : (Array.isArray(existing.details) ? existing.details : [])
+    details: payload.details !== undefined ? normalizeDetails(payload.details) : normalizeDetails(existing.details)
   });
 
   return programmeDto(row);

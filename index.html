@@ -4558,10 +4558,30 @@
       var activeKey = null;
       var activeDynamicData = null;
 
+      // Un niveau peut avoir ses infos à plat (programmes créés dans l'admin) ou dans « details »
+      // (anciennes données) : les deux formats sont acceptés.
+      function levelInfo(level) {
+        var nested = level.details && typeof level.details === 'object' ? level.details : {};
+        var pick = function (key) { return level[key] || nested[key] || ''; };
+        return { name: level.name || '', desc: level.desc || '', details: { lang: pick('lang'), fees: pick('fees'), dates: pick('dates'), status: pick('status'), scholarship: pick('scholarship') } };
+      }
+
+      // Texte saisi dans l'admin affiché tel quel, jamais interprété comme du HTML.
+      function esc(value) {
+        return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+
       function renderProgram(key, tabIdx) {
         var d = activeDynamicData || destData[key];
         if (!d || !d.programs || !d.programs[tabIdx]) return;
-        var p = d.programs[tabIdx];
+        var p = levelInfo(d.programs[tabIdx]);
+        p.details.lang = esc(p.details.lang);
+        p.details.fees = esc(p.details.fees);
+        p.details.dates = esc(p.details.dates);
+        p.details.status = esc(p.details.status);
+        p.details.scholarship = esc(p.details.scholarship);
 
         dmDesc.textContent = p.desc;
 
@@ -4646,7 +4666,7 @@
             var tabBtn = document.createElement('button');
             tabBtn.type = 'button';
             tabBtn.className = 'dm-tab' + (idx === 0 ? ' active' : '');
-            tabBtn.textContent = p.name;
+            tabBtn.textContent = levelInfo(p).name;
             tabBtn.addEventListener('click', function () {
               dmTabs.querySelectorAll('.dm-tab').forEach(function (btn) { btn.classList.remove('active'); });
               tabBtn.classList.add('active');
