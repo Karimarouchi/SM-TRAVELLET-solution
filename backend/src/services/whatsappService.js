@@ -6,8 +6,9 @@ const logger = require("../logger");
 const repo = require("../repositories/whatsappRepository");
 const notificationService = require("./notificationService");
 const settings = require("../repositories/settingsRepository");
-const { parseWorkHours, zonedParts, zonedLocalToUtc, addDays } = require("./businessHours");
+const { parseWorkHours, zonedParts, zonedLocalToUtc, addDays, nextOpenDay, isoDate } = require("./businessHours");
 const autoAssign = require("./autoAssignService");
+const leaveCover = require("./leaveCover");
 
 // Dernières traces (en mémoire, remises à zéro au redémarrage) : alimentent le diagnostic WhatsApp.
 const trace = { inbound: null, status: null, send: null };
@@ -66,6 +67,11 @@ function extractBody(message) {
   }
 }
 
+// Clé de remplacement d'une conversation : l'étudiant lié (même remplaçant que son dossier), sinon le contact.
+function conversationKey(conversation) {
+  return conversation.student_id || conversation.id;
+}
+
 function contactLabel(conversation) {
   return fullName(conversation.student_prenom, conversation.student_nom)
     || conversation.profile_name
@@ -104,7 +110,10 @@ async function ensureOwner(contactId, { isNew = false } = {}) {
       type: "WHATSAPP_ASSIGNED",
       title: "Nouvelle conversation WhatsApp",
       body: `${contactLabel(conversation)} vous a été attribué(e) sur WhatsApp.`,
-      link: "/whatsapp"
+      link: "/whatsapp",
+      // Conseiller en congé : son remplaçant pour ce contact reçoit aussi la notification.
+      coverItem: conversationKey(conversation),
+      coverScope: "SALES"
     });
   } else if (!after && (isNew || before)) {
     await notificationService.notifyAdmins({
@@ -213,6 +222,8 @@ async function handleIncomingMessage(message, profileNames, metadata = {}) {
 
   await repo.touchInbound(contact.id, createdAt);
   await ensureOwner(contact.id, { isNew });
+  // Tout premier message d'un nouveau client : message de bienvenue (la conversation reste non lue).
+  if (isNew) await maybeWelcome(contact.id);
   // Jour non travaillé : réponse automatique (sans jamais bloquer la réception du message).
   await maybeAutoReply(contact.id);
 }
@@ -316,6 +327,7 @@ function mapMessage(row, { forAdmin = false } = {}) {
     status: row.status,
     error: row.error,
     senderName: row.is_auto ? "Message automatique" : fullName(row.sender_prenom, row.sender_nom),
+    coverAuthorName: row.cover_author_name || null,
     auto: Boolean(row.is_auto),
     // Fichier joint : jamais le chemin du serveur, seulement de quoi l'afficher.
     media: row.media_name
@@ -330,8 +342,22 @@ async function getAccessibleConversation(auth, contactId) {
   if (!/^[0-9a-f-]{36}$/i.test(String(contactId))) throw fail("Conversation introuvable.", 404);
   const conversation = await repo.findConversation(contactId);
   if (!conversation) throw fail("Conversation introuvable.", 404);
-  if (!isAdmin(auth) && conversation.owner_id !== auth.sub) throw fail("Cette conversation est gérée par un autre conseiller.", 403);
+  if (!isAdmin(auth) && !leaveCover.handles(auth, conversation.owner_id, conversationKey(conversation), "SALES")) {
+    throw fail("Cette conversation est gérée par un autre conseiller.", 403);
+  }
   return conversation;
+}
+
+// Le message part au nom du conseiller de la conversation quand quelqu'un d'autre écrit (admin, ou
+// remplaçant pendant un congé) ; l'auteur réel reste en base (sent_by), et le congé est noté.
+function senderFields(auth, conversation) {
+  const onBehalf = conversation.owner_id && conversation.owner_id !== auth.sub;
+  const cover = onBehalf && !isAdmin(auth) && leaveCover.covers(auth, conversation.owner_id, conversationKey(conversation), "SALES");
+  return {
+    sentBy: auth.sub,
+    sentAs: onBehalf ? conversation.owner_id : null,
+    coverLeaveId: cover ? leaveCover.absenceOf(conversation.owner_id)?.leaveId || null : null
+  };
 }
 
 async function listConversations(auth, search) {
@@ -342,7 +368,14 @@ async function listConversations(auth, search) {
     answeredIsRead: isAdmin(auth),
     search: String(search || "").trim().slice(0, 80)
   });
-  return rows.map(mapConversation);
+  return rows.map((row) => withCover(auth, row));
+}
+
+// Conversation d'un conseiller en congé, traitée par le remplaçant connecté : on l'indique.
+function withCover(auth, row) {
+  const mapped = mapConversation(row);
+  mapped.coverOwnerName = !isAdmin(auth) && row.owner_id && row.owner_id !== auth.sub ? fullName(row.owner_prenom, row.owner_nom) : null;
+  return mapped;
 }
 
 async function getMessages(auth, contactId, { before, limit }) {
@@ -433,11 +466,10 @@ async function sendText(auth, contactId, text) {
     type: "text",
     body,
     status: "sent",
-    sentBy: auth.sub,
-    // L'admin qui répond dans la conversation d'un conseiller écrit au nom de ce
+    // L'admin (ou le remplaçant) qui répond dans la conversation d'un conseiller écrit au nom de ce
     // conseiller (l'auteur réel reste en base). Sur WhatsApp l'étudiant ne voit
     // de toute façon que le numéro de l'agence, jamais un nom d'employé.
-    sentAs: isAdmin(auth) && conversation.owner_id && conversation.owner_id !== auth.sub ? conversation.owner_id : null
+    ...senderFields(auth, conversation)
   });
   await repo.touchOutbound(contactId);
   await repo.markRead(contactId, auth.sub);
@@ -543,8 +575,7 @@ async function sendMedia(auth, contactId, { file, filename, caption }) {
     type: format.kind,
     body: text || (format.kind === "image" ? IMAGE_LABEL : documentLabel(name)),
     status: "sent",
-    sentBy: auth.sub,
-    sentAs: isAdmin(auth) && conversation.owner_id && conversation.owner_id !== auth.sub ? conversation.owner_id : null,
+    ...senderFields(auth, conversation),
     mediaPath: stored,
     mediaName: name,
     mediaMime: mime
@@ -569,7 +600,18 @@ async function getMedia(auth, contactId, messageId) {
 // ── Réponse automatique des jours non travaillés ─────────────────────────
 const DAY_NAMES = ["", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
 
-// Dernier jour ouvré avant `parts`, puis début de la période de fermeture (minuit qui suit ce jour) et prochaine reprise.
+const HOLIDAY_AUTO_REPLY = [
+  "Bonjour,",
+  "",
+  "Aujourd'hui est un jour férié : nous ne travaillons pas.",
+  "",
+  "Écrivez-nous {reprise}.",
+  "",
+  "L'équipe SM Travel"
+].join("\n");
+
+// Dernier jour ouvré avant `parts`, puis début de la période de fermeture (minuit qui suit ce jour).
+// La reprise saute les week-ends et les fériés payés.
 function closurePeriod(hours, parts) {
   let lastWorkDelta = null;
   for (let delta = 1; delta <= 7; delta += 1) {
@@ -578,14 +620,13 @@ function closurePeriod(hours, parts) {
   }
   const startDay = addDays(parts.year, parts.month, parts.day, -(lastWorkDelta === null ? 0 : lastWorkDelta - 1));
   const closureStart = zonedLocalToUtc(startDay.year, startDay.month, startDay.day, 0, 0, 0, hours.timezone);
+  const next = nextOpenDay(hours, parts);
+  return { closureStart, nextWeekday: next ? next.isoWeekday : null };
+}
 
-  let nextDelta = null;
-  for (let delta = 1; delta <= 7; delta += 1) {
-    const weekday = ((parts.isoWeekday - 1 + delta) % 7) + 1;
-    if (hours.days.includes(weekday)) { nextDelta = delta; break; }
-  }
-  const nextWeekday = nextDelta === null ? null : ((parts.isoWeekday - 1 + nextDelta) % 7) + 1;
-  return { closureStart, nextWeekday };
+async function paidHolidayDates() {
+  const rows = await require("../repositories/hrRepository").listHolidays();
+  return new Set(rows.filter((row) => row && row.paid !== false && row.day).map((row) => String(row.day).slice(0, 10)));
 }
 
 function buildAutoReplyText(template, hours, nextWeekday) {
@@ -594,29 +635,80 @@ function buildAutoReplyText(template, hours, nextWeekday) {
   return String(template).replace(/\{reprise\}/g, reprise);
 }
 
-// Un jour non travaillé, le client reçoit un message pour nous réécrire à la reprise. Une seule fois par période de
-// fermeture et par contact ; ce message ne compte jamais comme une réponse d'un conseiller. Ne bloque jamais la réception.
+// Jour non travaillé ou férié payé : un message demande d'écrire à la reprise. Une seule fois par fermeture
+// (une fois par jour férié) et par contact. Ce message ne compte jamais comme une réponse d'un conseiller.
 async function maybeAutoReply(contactId) {
   try {
     const config = await settings.getWhatsAppAutoReply();
     if (!config.enabled) return;
     const hours = parseWorkHours(await settings.getWorkHoursConfig());
+    hours.closedDates = await paidHolidayDates();
     const parts = zonedParts(new Date(), hours.timezone);
-    if (hours.days.includes(parts.isoWeekday)) return; // jour ouvré : aucune réponse automatique
+    const todayKey = isoDate(parts.year, parts.month, parts.day);
+    const paidHoliday = hours.closedDates.has(todayKey);
+    if (hours.days.includes(parts.isoWeekday) && !paidHoliday) return;
 
-    const { closureStart, nextWeekday } = closurePeriod(hours, parts);
+    const period = closurePeriod(hours, parts);
+    const closureStart = paidHoliday
+      ? zonedLocalToUtc(parts.year, parts.month, parts.day, 0, 0, 0, hours.timezone)
+      : period.closureStart;
+    const nextWeekday = period.nextWeekday;
     const last = await repo.getLastAutoReplyAt(contactId);
     if (last && new Date(last).getTime() >= closureStart.getTime()) return;
 
     const conversation = await repo.findConversation(contactId);
     if (!conversation || conversation.blocked_at) return;
-    const body = buildAutoReplyText(config.text, hours, nextWeekday);
+    const template = paidHoliday ? HOLIDAY_AUTO_REPLY : config.text;
+    const body = buildAutoReplyText(template, hours, nextWeekday);
     const waMessageId = await postToMeta(conversation, contactId, { type: "text", text: { preview_url: false, body } });
     await repo.insertMessage({ contactId, waMessageId, direction: "out", type: "text", body, status: "sent", sentBy: null, isAuto: true });
     await repo.setLastAutoReplyAt(contactId);
-    logger.info("WhatsApp : réponse automatique envoyée (jour non travaillé)", { contactId, to: maskPhone(conversation.phone) });
+    logger.info(paidHoliday ? "WhatsApp : réponse automatique envoyée (jour férié)" : "WhatsApp : réponse automatique envoyée (jour non travaillé)", { contactId, to: maskPhone(conversation.phone) });
   } catch (error) {
     logger.warn("WhatsApp : réponse automatique impossible", { contactId, message: error.message });
+  }
+}
+
+// Bienvenue d'un nouveau client : une seule fois, jamais à un étudiant déjà inscrit (lié par son numéro).
+// Message système (is_auto) : il ne marque pas la conversation comme lue et ne compte jamais comme
+// une réponse d'un conseiller, donc la conversation reste « à traiter ».
+async function maybeWelcome(contactId) {
+  try {
+    const config = await settings.getWhatsAppWelcome();
+    if (!config.enabled) return;
+    const conversation = await repo.findConversation(contactId);
+    if (!conversation || conversation.blocked_at || conversation.student_id) return;
+    if (!(await repo.claimWelcome(contactId))) return;
+    const body = String(config.text).trim();
+    let waMessageId;
+    try {
+      waMessageId = await postToMeta(conversation, contactId, { type: "text", text: { preview_url: false, body } });
+    } catch (error) {
+      await repo.releaseWelcome(contactId);
+      throw error;
+    }
+    await repo.insertMessage({ contactId, waMessageId, direction: "out", type: "text", body, status: "sent", sentBy: null, isAuto: true });
+    logger.info("WhatsApp : message de bienvenue envoyé", { contactId, to: maskPhone(conversation.phone) });
+  } catch (error) {
+    logger.warn("WhatsApp : message de bienvenue impossible", { contactId, message: error.message });
+  }
+}
+
+// Le matin d'un férié payé : le même message part vers chaque conversation qui attend déjà une réponse.
+// Un client qui écrit plus tard dans la journée le reçoit par maybeAutoReply, une seule fois.
+async function sendHolidayMorningReplies() {
+  try {
+    const config = await settings.getWhatsAppAutoReply();
+    if (!config.enabled) return;
+    const hours = parseWorkHours(await settings.getWorkHoursConfig());
+    hours.closedDates = await paidHolidayDates();
+    const parts = zonedParts(new Date(), hours.timezone);
+    if (!hours.closedDates.has(isoDate(parts.year, parts.month, parts.day))) return;
+    if (parts.hour * 60 + parts.minute < hours.startMin) return;
+    const ids = await repo.listAwaitingReplyContactIds();
+    for (const contactId of ids) await maybeAutoReply(contactId);
+  } catch (error) {
+    logger.warn("WhatsApp : envoi du matin (jour férié) impossible", { message: error.message });
   }
 }
 
@@ -686,7 +778,7 @@ async function linkStudent(auth, contactId, studentId) {
 
   const student = await repo.findStudentForLink(String(studentId));
   if (!student) throw fail("Étudiant introuvable.", 404);
-  if (!isAdmin(auth) && student.assigned_sales_id !== auth.sub) {
+  if (!isAdmin(auth) && !leaveCover.handles(auth, student.assigned_sales_id, student.id, "SALES")) {
     throw fail("Vous ne pouvez lier une conversation qu'à l'un de vos étudiants.", 403);
   }
 
@@ -731,7 +823,7 @@ async function assignOwner(auth, contactId, salesId) {
 
 async function mapConversationById(auth, contactId) {
   const [row] = await repo.listConversations({ userId: auth.sub, ownerId: null, search: "", contactId, answeredIsRead: isAdmin(auth) });
-  return row ? mapConversation(row) : null;
+  return row ? withCover(auth, row) : null;
 }
 
 async function unreadCount(auth) {
@@ -804,6 +896,7 @@ module.exports = {
   getMedia,
   buildAutoReplyText,
   maybeAutoReply,
+  sendHolidayMorningReplies,
   diagnostic,
   setMuted,
   setBlocked,

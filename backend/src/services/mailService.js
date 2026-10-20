@@ -8,6 +8,7 @@ const emailService = require("./emailService");
 const studentMailService = require("./studentMailService");
 const userRepo = require("../repositories/userRepository");
 const logger = require("../logger");
+const leaveCover = require("./leaveCover");
 
 // Boîte mail commune de l'agence, dans l'application : elle suit toujours l'adresse et le mot de passe
 // saisis dans Paramètres (Hostinger, Gmail…). Réception par IMAP, envoi par le même serveur SMTP que les
@@ -157,8 +158,9 @@ function recipientsFilterSql(auth) {
   const roles = authRoles(auth);
   if (roles.includes("ADMIN")) return { where: "TRUE", params: [] };
   const clauses = [];
-  if (roles.includes("SALES")) clauses.push("sp.assigned_sales_id = $1");
-  if (roles.includes("RDV")) clauses.push("EXISTS (SELECT 1 FROM university_applications ua WHERE ua.student_id = u.id AND ua.assigned_rdv_id = $1)");
+  // Remplaçant pendant un congé : aussi les étudiants qui lui sont confiés.
+  if (roles.includes("SALES")) clauses.push("(sp.assigned_sales_id = $1 OR leave_handler(sp.assigned_sales_id, u.id, 'SALES') = $1)");
+  if (roles.includes("RDV")) clauses.push("EXISTS (SELECT 1 FROM university_applications ua WHERE ua.student_id = u.id AND (ua.assigned_rdv_id = $1 OR leave_handler(ua.assigned_rdv_id, ua.student_id, 'RDV') = $1))");
   if (!clauses.length) return { where: "FALSE", params: [] };
   return { where: `(${clauses.join(" OR ")})`, params: [auth.sub] };
 }
@@ -194,6 +196,24 @@ async function assertCanWriteTo(auth, emails) {
   const allowed = new Set(result.rows.map((r) => r.email));
   const refused = emails.find((e) => !allowed.has(e.toLowerCase()));
   if (refused) throw fail(`Vous ne pouvez écrire qu'aux étudiants qui vous sont assignés : ${refused} n'en fait pas partie.`, 403);
+}
+
+// Remplaçant pendant un congé : un mail adressé uniquement à des étudiants d'un même conseiller absent
+// part au nom de ce conseiller (continuité pour l'étudiant). L'auteur réel reste enregistré (sentBy).
+async function coverSenderName(auth, emails) {
+  if (!emails.length) return null;
+  const result = await query(
+    `SELECT u.id, sp.assigned_sales_id FROM users u JOIN student_profiles sp ON sp.user_id = u.id
+     WHERE u.role = 'STUDENT' AND LOWER(u.email) = ANY($1::text[])`,
+    [emails.map((e) => e.toLowerCase())]
+  );
+  if (result.rows.length !== new Set(emails.map((e) => e.toLowerCase())).size) return null;
+  const owners = new Set(result.rows.map((row) => row.assigned_sales_id));
+  if (owners.size !== 1) return null;
+  const [owner] = owners;
+  if (!result.rows.every((row) => leaveCover.covers(auth, owner, row.id, "SALES"))) return null;
+  const user = await userRepo.findById(owner);
+  return user ? `${user.prenom || ""} ${user.nom || ""}`.trim() : null;
 }
 
 async function searchStudentEmails(text) {
@@ -414,7 +434,7 @@ async function send(auth, payload) {
 
   const [sender, cfg, user] = await Promise.all([emailService.resolveSender(), mailboxConfig(), userRepo.findById(auth.sub)]);
   if (!cfg.user || !cfg.pass) throw fail("Boîte mail non configurée : renseignez l'adresse et le mot de passe dans Paramètres.", 503);
-  const staffName = user ? `${user.prenom || ""} ${user.nom || ""}`.trim() : "";
+  const staffName = (await coverSenderName(auth, [...to, ...cc])) || (user ? `${user.prenom || ""} ${user.nom || ""}`.trim() : "");
 
   const mail = {
     from: sender.from(staffName ? ` — ${staffName}` : ""),

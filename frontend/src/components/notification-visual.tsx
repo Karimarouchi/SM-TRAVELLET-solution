@@ -1,14 +1,17 @@
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
+  CalendarClock,
   Bell,
   CheckCircle2,
   Coins,
+  FileText,
   FileUp,
   GraduationCap,
   MessageCircle,
   PlaneTakeoff,
   UserPlus,
+  UserRoundCheck,
   XCircle,
   type LucideIcon
 } from "lucide-react";
@@ -30,7 +33,15 @@ const VISUALS: Record<string, { icon: LucideIcon; tone: string }> = {
   VISA_REJECTED: { icon: XCircle, tone: "bg-red-100 text-red-600" },
   STALLED_DOSSIER: { icon: AlertTriangle, tone: "bg-amber-100 text-amber-600" },
   BACKUP_FAILED: { icon: AlertTriangle, tone: "bg-red-100 text-red-600" },
-  PASSPORT_EXPIRING: { icon: AlertTriangle, tone: "bg-amber-100 text-amber-600" }
+  PASSPORT_EXPIRING: { icon: AlertTriangle, tone: "bg-amber-100 text-amber-600" },
+  HR_CERTIFICATE: { icon: FileUp, tone: "bg-orange-100 text-orange-600" },
+  HR_CONTRACT_ENDING: { icon: CalendarClock, tone: "bg-orange-100 text-orange-600" },
+  HR_DOCUMENT_REQUEST: { icon: FileText, tone: "bg-orange-100 text-orange-600" },
+  HR_DOCUMENT_READY: { icon: CheckCircle2, tone: "bg-emerald-100 text-emerald-600" },
+  STUDENT_NOTE: { icon: MessageCircle, tone: "bg-amber-100 text-amber-700" },
+  LEAVE_COVER: { icon: UserRoundCheck, tone: "bg-orange-100 text-orange-600" },
+  LEAVE_COVER_END: { icon: CheckCircle2, tone: "bg-emerald-100 text-emerald-600" },
+  LEAVE_COVER_SUMMARY: { icon: CalendarClock, tone: "bg-orange-100 text-orange-600" }
 };
 
 export function NotificationIcon({ type, className }: { type: string; className?: string }) {

@@ -73,13 +73,16 @@ async function update(id, fields) {
 async function listForRdv(rdvUserId) {
   const result = await query(
     `SELECT ua.*, c.name AS country_name, cu.name AS university_name, p.title AS programme_title,
-            u.prenom AS student_prenom, u.nom AS student_nom, u.email AS student_email
+            u.prenom AS student_prenom, u.nom AS student_nom, u.email AS student_email,
+            -- Dossier d'un Responsable Dossier en congé, confié à $1 en remplacement.
+            CASE WHEN ua.assigned_rdv_id IS DISTINCT FROM $1 THEN TRIM(ro.prenom || ' ' || ro.nom) END AS cover_owner_name
      FROM university_applications ua
      JOIN countries c ON c.id = ua.country_id
      JOIN country_universities cu ON cu.id = ua.university_id
      JOIN users u ON u.id = ua.student_id
      LEFT JOIN programmes p ON p.id = ua.programme_id
-     WHERE ua.assigned_rdv_id = $1
+     LEFT JOIN users ro ON ro.id = ua.assigned_rdv_id
+     WHERE (ua.assigned_rdv_id = $1 OR leave_handler(ua.assigned_rdv_id, ua.student_id, 'RDV') = $1)
      ORDER BY ua.updated_at DESC`,
     [rdvUserId]
   );
@@ -124,10 +127,10 @@ async function listArchived(auth, filters = {}) {
   // Role-based scoping
   if (auth.role === "SALES") {
     params.push(auth.sub);
-    conditions.push(`ua.sales_id = $${params.length}`);
+    conditions.push(`(ua.sales_id = $${params.length} OR leave_handler(ua.sales_id, ua.student_id, 'SALES') = $${params.length})`);
   } else if (auth.role === "RDV") {
     params.push(auth.sub);
-    conditions.push(`ua.assigned_rdv_id = $${params.length}`);
+    conditions.push(`(ua.assigned_rdv_id = $${params.length} OR leave_handler(ua.assigned_rdv_id, ua.student_id, 'RDV') = $${params.length})`);
   }
 
   // Archived = COMPLETED dossier, CLOSED/REJECTED application, or POSTPONED one: reporté depuis plus
@@ -281,7 +284,8 @@ async function findAcceptedWithoutRdv() {
 // Candidatures « prêtes à postuler » (pas encore déposées) d'un étudiant, affectées à ce Responsable Dossier.
 async function listReadyForRdv(rdvUserId, studentId) {
   const result = await query(
-    "SELECT * FROM university_applications WHERE assigned_rdv_id = $1 AND student_id = $2 AND status = 'READY_TO_APPLY'",
+    `SELECT * FROM university_applications
+     WHERE (assigned_rdv_id = $1 OR leave_handler(assigned_rdv_id, student_id, 'RDV') = $1) AND student_id = $2 AND status = 'READY_TO_APPLY'`,
     [rdvUserId, studentId]
   );
   return result.rows;
@@ -289,7 +293,7 @@ async function listReadyForRdv(rdvUserId, studentId) {
 
 async function rdvHasStudent(rdvUserId, studentId) {
   const result = await query(
-    "SELECT 1 FROM university_applications WHERE assigned_rdv_id = $1 AND student_id = $2 LIMIT 1",
+    "SELECT 1 FROM university_applications WHERE (assigned_rdv_id = $1 OR leave_handler(assigned_rdv_id, student_id, 'RDV') = $1) AND student_id = $2 LIMIT 1",
     [rdvUserId, studentId]
   );
   return result.rowCount > 0;

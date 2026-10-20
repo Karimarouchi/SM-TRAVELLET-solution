@@ -179,11 +179,35 @@ async function setWhatsAppAutoReply({ enabled, text }) {
   return getWhatsAppAutoReply();
 }
 
+// Bienvenue : premier message d'un nouveau client sur WhatsApp (une seule fois).
+const DEFAULT_WELCOME = [
+  "Bonjour et bienvenue chez SM Travel ! 👋",
+  "",
+  "Merci pour votre message. Un conseiller va vous répondre très rapidement.",
+  "",
+  "Pour bien préparer votre projet d'études, pouvez-vous nous envoyer votre numéro de téléphone (avec l'indicatif du pays) ? 📱",
+  "",
+  "L'équipe SM Travel"
+].join("\n");
+
+async function getWhatsAppWelcome() {
+  const [enabled, text] = await Promise.all([get("whatsapp_welcome_enabled"), get("whatsapp_welcome_text")]);
+  return { enabled: enabled === null || enabled === undefined || enabled === "" ? true : enabled === "1", text: text || DEFAULT_WELCOME };
+}
+
+async function setWhatsAppWelcome({ enabled, text }) {
+  if (enabled !== undefined) await set("whatsapp_welcome_enabled", enabled ? "1" : "0");
+  if (text !== undefined) await set("whatsapp_welcome_text", String(text));
+  return getWhatsAppWelcome();
+}
+
 module.exports = {
   get,
   set,
   getWhatsAppAutoReply,
   setWhatsAppAutoReply,
+  getWhatsAppWelcome,
+  setWhatsAppWelcome,
   DEFAULT_AUTO_REPLY,
   isAutoAssignEnabled,
   getArchivePurgeConfig,

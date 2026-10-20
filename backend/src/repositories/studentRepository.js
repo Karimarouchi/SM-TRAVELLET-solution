@@ -163,10 +163,12 @@ async function listForSales(salesUserId, { page = 1, pageSize = 50, search = "" 
     `SELECT u.id, u.prenom, u.nom, u.email, u.date_naissance, u.created_at, u.avatar_url,
             sp.onboarding_completed, sp.assigned_sales_id, sp.residence_country,
             sp.target_field, sp.phone, sp.city, sp.current_study_level, sp.preferred_countries,
+            CASE WHEN sp.assigned_sales_id IS DISTINCT FROM $1 THEN TRIM(so.prenom || ' ' || so.nom) END AS cover_owner_name,
             COUNT(*) OVER()::int AS total_count
      FROM student_profiles sp
      JOIN users u ON u.id = sp.user_id
-     WHERE sp.assigned_sales_id = $1 ${clause}
+     LEFT JOIN users so ON so.id = sp.assigned_sales_id
+     WHERE (sp.assigned_sales_id = $1 OR leave_handler(sp.assigned_sales_id, sp.user_id, 'SALES') = $1) ${clause}
      ORDER BY u.created_at DESC
      LIMIT $2 OFFSET ${offset}`,
     [salesUserId, pageSize, ...params]

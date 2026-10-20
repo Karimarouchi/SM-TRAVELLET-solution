@@ -7,10 +7,13 @@ async function listStudents(salesId) {
   const result = await query(
     `SELECT u.id, u.prenom, u.nom, u.email, u.created_at, u.avatar_url, u.is_active,
             sp.onboarding_completed, sp.onboarding_completed_at, sp.dossier_stage, sp.phone, sp.city,
-            sp.preferred_countries, sp.target_field, sp.has_passport, sp.passport_expires_on
+            sp.preferred_countries, sp.target_field, sp.has_passport, sp.passport_expires_on,
+            -- Étudiant d'un conseiller en congé, confié à $1 en remplacement.
+            CASE WHEN sp.assigned_sales_id IS DISTINCT FROM $1 THEN TRIM(so.prenom || ' ' || so.nom) END AS cover_owner_name
      FROM student_profiles sp
      JOIN users u ON u.id = sp.user_id
-     WHERE sp.assigned_sales_id = $1 AND u.role = 'STUDENT'
+     LEFT JOIN users so ON so.id = sp.assigned_sales_id
+     WHERE (sp.assigned_sales_id = $1 OR leave_handler(sp.assigned_sales_id, sp.user_id, 'SALES') = $1) AND u.role = 'STUDENT'
      ORDER BY u.created_at DESC`,
     [salesId]
   );
@@ -27,7 +30,7 @@ async function documentCounts(salesId) {
             COUNT(DISTINCT sd.stored_filename) FILTER (WHERE sd.status = 'VALIDATED') AS validated
      FROM student_documents sd
      JOIN student_profiles sp ON sp.user_id = sd.student_id
-     WHERE sp.assigned_sales_id = $1
+     WHERE (sp.assigned_sales_id = $1 OR leave_handler(sp.assigned_sales_id, sp.user_id, 'SALES') = $1)
      GROUP BY sd.student_id`,
     [salesId]
   );
@@ -43,7 +46,7 @@ async function activeApplications(salesId) {
      JOIN student_profiles sp ON sp.user_id = ua.student_id
      JOIN countries c ON c.id = ua.country_id
      JOIN country_universities cu ON cu.id = ua.university_id
-     WHERE sp.assigned_sales_id = $1 AND ua.status <> 'CLOSED'
+     WHERE (sp.assigned_sales_id = $1 OR leave_handler(sp.assigned_sales_id, sp.user_id, 'SALES') = $1) AND ua.status <> 'CLOSED'
      ORDER BY ua.updated_at DESC`,
     [salesId]
   );
@@ -56,7 +59,7 @@ async function choiceCounts(salesId) {
     `SELECT ch.student_id, COUNT(*)::int AS n
      FROM student_university_choices ch
      JOIN student_profiles sp ON sp.user_id = ch.student_id
-     WHERE sp.assigned_sales_id = $1 AND ch.withdrawn_at IS NULL
+     WHERE (sp.assigned_sales_id = $1 OR leave_handler(sp.assigned_sales_id, sp.user_id, 'SALES') = $1) AND ch.withdrawn_at IS NULL
      GROUP BY ch.student_id`,
     [salesId]
   );

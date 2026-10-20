@@ -638,6 +638,9 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
             </span>
           )}
         </span>
+        {!isAdmin && item.coverOwnerName && (
+          <span className="mt-1 block truncate text-[10px] font-semibold text-orange-700">Remplacement de {item.coverOwnerName}</span>
+        )}
         {/* En liste groupée, le conseiller est déjà dans l'en-tête du groupe. */}
         {isAdmin && !groupByOwner && (
           <span className={cn("mt-1 block truncate text-[10px] font-semibold", item.ownerName ? "text-brand/70" : "text-amber-600")}>
@@ -911,6 +914,7 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
                               <p className="mb-0.5 text-[11px] font-semibold text-[#008069]">
                                 {item.senderName}
                                 {item.sentByAdmin && <span className="ml-1 font-medium text-[#667781]">· envoyé par l'admin</span>}
+                                {item.coverAuthorName && <span className="ml-1 font-medium text-[#667781]">· envoyé par {item.coverAuthorName} (remplacement)</span>}
                               </p>
                             )}
                             {item.auto && (
@@ -940,12 +944,12 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
                   })}
                 </div>
 
-                {/* L'admin qui répond dans la discussion d'un conseiller écrit AU NOM de ce conseiller. */}
-                {isAdmin && active.ownerId && active.ownerId !== me.id && active.windowOpen && (
+                {/* L'admin (ou le remplaçant pendant un congé) qui répond dans la discussion d'un conseiller écrit AU NOM de ce conseiller. */}
+                {(isAdmin || active.coverOwnerName) && active.ownerId && active.ownerId !== me.id && active.windowOpen && (
                   <div className="flex items-start gap-2 bg-emerald-50 px-4 py-1.5 text-[12px] leading-snug text-emerald-900">
                     <UserCog className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <span>
-                      Vous répondez au nom de <strong>{active.ownerName}</strong> : la discussion apparaîtra comme envoyée par ce conseiller.
+                      {active.coverOwnerName && !isAdmin ? "Remplacement pendant son congé : vous" : "Vous"} répondez au nom de <strong>{active.ownerName}</strong> : la discussion apparaîtra comme envoyée par ce conseiller.
                     </span>
                   </div>
                 )}

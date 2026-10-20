@@ -116,7 +116,7 @@ async function notifyAdvisorOfNewChoice({ studentId, profile, university, countr
     link: `/conseiller/etudiants/${studentId}`
   };
   if (profile.assigned_sales_id) await notificationService.notify(profile.assigned_sales_id, payload);
-  else await notificationService.notifyAdmins({ ...payload, link: `/admin/students/${studentId}` });
+  else await notificationService.notifyAdmins({ ...payload, link: `/conseiller/etudiants/${studentId}` });
 }
 
 // Ajout d'un vœu par l'étudiant, son conseiller ou un admin.

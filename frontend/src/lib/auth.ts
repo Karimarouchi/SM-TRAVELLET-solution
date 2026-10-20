@@ -70,6 +70,10 @@ export type StudentProfile = {
   onboardingCompleted: boolean;
   assignedSalesId: string | null;
   assignedSalesName?: string;
+  assignedSalesEmail?: string | null;
+  assignedSalesPhone?: string | null;
+  /** Dossier confié à l'utilisateur connecté pendant le congé de ce conseiller. */
+  coverOwnerName?: string | null;
   lockedFields: string[];
   dossierStage: string;
 };
@@ -467,6 +471,9 @@ export type AdminSettings = {
   /** Réponse automatique WhatsApp des jours non travaillés. */
   whatsappAutoReplyEnabled: boolean;
   whatsappAutoReplyText: string;
+  /** Message de bienvenue au tout premier message d'un nouveau client WhatsApp. */
+  whatsappWelcomeEnabled: boolean;
+  whatsappWelcomeText: string;
 };
 
 export async function fetchAdminSettings() {
@@ -679,6 +686,18 @@ export async function openProtectedFile(pathname: string) {
   const tab = window.open("", "_blank");
   try {
     const session = getSession();
+    // Documents étudiants : lien signé de quelques minutes dont l'adresse se termine par le nom
+    // d'origine du fichier. L'onglet et « Enregistrer sous » gardent ce nom (jamais un nom aléatoire).
+    if (/^\/api\/documents\/files\/[^/]+$/.test(pathname)) {
+      const link = await fetch(`${API_URL}${pathname}/link`, {
+        headers: session?.token ? { Authorization: `Bearer ${session.token}` } : {}
+      });
+      const data = await link.json().catch(() => ({}));
+      if (!link.ok || !data.url) throw new Error(data.error || "Impossible d'ouvrir ce document.");
+      if (tab) tab.location.href = `${API_URL}${data.url}`;
+      else window.location.href = `${API_URL}${data.url}`;
+      return;
+    }
     const response = await fetch(`${API_URL}${pathname}`, {
       headers: session?.token ? { Authorization: `Bearer ${session.token}` } : {}
     });
@@ -1592,7 +1611,7 @@ export async function scheduleVisaEmbassyAppointment(applicationId: string, date
 /** Tranche visa encore due : le dépôt du visa est bloqué tant qu'elle n'est pas payée. */
 export type VisaPaymentDue = { remaining: number; currency: Currency };
 
-export type RdvMyApplication = UniversityApplication & { studentName: string; studentEmail: string; visaPaymentDue?: VisaPaymentDue | null; translationsPending?: string[] };
+export type RdvMyApplication = UniversityApplication & { studentName: string; studentEmail: string; visaPaymentDue?: VisaPaymentDue | null; translationsPending?: string[]; coverOwnerName?: string | null };
 
 export async function fetchMyRdvApplications(): Promise<RdvMyApplication[]> {
   return request<RdvMyApplication[]>("/api/rdv/me/applications");
@@ -2090,6 +2109,8 @@ export type SalesAttentionItem = { key: string; tone: "danger" | "warning" | "in
 
 export type SalesOverviewStudent = {
   id: string;
+  /** Étudiant d'un conseiller en congé, traité en remplacement. */
+  coverOwnerName?: string | null;
   prenom: string;
   nom: string;
   email: string;

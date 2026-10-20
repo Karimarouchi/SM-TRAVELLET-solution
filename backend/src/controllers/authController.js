@@ -29,7 +29,14 @@ async function me(req, res) {
   }
 }
 
-async function logout(_req, res) {
+async function logout(req, res) {
+  try {
+    if (req.auth?.sub && req.auth.role !== "STUDENT") {
+      await require("../repositories/hrAttendanceRepository").record(req.auth.sub, "LOGOUT");
+    }
+  } catch (error) {
+    require("../logger").error("Pointage de déconnexion impossible", { message: error.message });
+  }
   res.json({ ok: true });
 }
 

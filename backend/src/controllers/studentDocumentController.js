@@ -16,6 +16,42 @@ async function file(req, res) {
   }
 }
 
+// Lien d'ouverture : l'adresse se termine par le nom d'origine du fichier, pour que l'onglet et
+// l'enregistrement gardent le nom donné par l'étudiant ou le conseiller (jamais un nom aléatoire).
+async function fileLink(req, res) {
+  try {
+    const found = await studentDocumentService.getDocumentFile(req.auth, req.params.filename);
+    const filename = require("path").basename(found.absolutePath);
+    const token = require("../security/jwt").signFileLink(filename);
+    res.set("Cache-Control", "private, no-store");
+    res.json({ url: `/api/documents/open/${token}/${encodeURIComponent(found.originalFilename)}` });
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message || "Erreur serveur." });
+  }
+}
+
+async function openWithLink(req, res) {
+  try {
+    let payload;
+    try {
+      payload = require("../security/jwt").verifyFileLink(req.params.token);
+    } catch {
+      return res.status(401).json({ error: "Lien expiré : rouvrez le document depuis l'application." });
+    }
+    const found = await studentDocumentService.getDocumentFileUnchecked(payload.f);
+    res.set({
+      "Content-Type": found.mimeType || "application/octet-stream",
+      "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(found.originalFilename)}`,
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "no-referrer"
+    });
+    res.sendFile(found.absolutePath);
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message || "Erreur serveur." });
+  }
+}
+
 async function list(req, res) {
   try {
     const checklist = await studentDocumentService.getChecklist(req.auth.sub);
@@ -123,6 +159,8 @@ module.exports = {
   uploadForStudent,
   rdvReject,
   file,
+  fileLink,
+  openWithLink,
   list,
   upload,
   listForStudent,

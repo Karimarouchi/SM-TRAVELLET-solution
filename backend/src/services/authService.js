@@ -180,6 +180,13 @@ async function login(email, password) {
     throw error;
   }
   await users.touchLogin(user.id);
+  if (user.role !== "STUDENT") {
+    try {
+      await require("../repositories/hrAttendanceRepository").record(user.id, "LOGIN");
+    } catch (error) {
+      logger.error("Pointage de connexion impossible", { message: error.message });
+    }
+  }
   return buildSession(user);
 }
 

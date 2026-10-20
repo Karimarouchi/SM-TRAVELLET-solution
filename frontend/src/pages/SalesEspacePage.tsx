@@ -95,6 +95,12 @@ function fullName(student: SalesOverviewStudent) {
   return `${student.prenom} ${student.nom}`.trim();
 }
 
+// Étudiant d'un collègue en congé, confié en remplacement.
+function CoverTag({ student }: { student: SalesOverviewStudent }) {
+  if (!student.coverOwnerName) return null;
+  return <span className="inline-flex shrink-0 items-center rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700">Remplacement de {student.coverOwnerName}</span>;
+}
+
 function AttentionChips({ items, limit = 3 }: { items: SalesAttentionItem[]; limit?: number }) {
   if (!items.length) return null;
   return (
@@ -333,6 +339,7 @@ export default function SalesEspacePage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <Link to={`/conseiller/etudiants/${student.id}`} className="truncate text-sm font-extrabold text-dark hover:text-brand">{fullName(student)}</Link>
                       <StageBadge stage={student.stage} />
+                      <CoverTag student={student} />
                     </div>
                     <div className="mt-1.5"><AttentionChips items={student.attention} /></div>
                     {student.stage === "no_application" && <ApplicationBlockers blockers={student.blockers} compact className="mt-2" />}
@@ -466,6 +473,7 @@ export default function SalesEspacePage() {
                           <div className="min-w-0">
                             <Link to={`/conseiller/etudiants/${student.id}`} className="block truncate text-sm font-bold text-dark hover:text-brand">{fullName(student)}</Link>
                             <p className="truncate text-[11px] text-muted">{student.preferredCountries.join(", ") || student.email}</p>
+                            <CoverTag student={student} />
                             {student.attention.length > 0 && <div className="mt-1.5"><AttentionChips items={student.attention} limit={2} /></div>}
                             {student.stage === "no_application" && <ApplicationBlockers blockers={student.blockers} compact className="mt-2 max-w-sm" />}
                           </div>
@@ -499,7 +507,7 @@ export default function SalesEspacePage() {
                     <div className="min-w-0 flex-1">
                       <Link to={`/conseiller/etudiants/${student.id}`} className="block truncate text-sm font-extrabold text-dark">{fullName(student)}</Link>
                       <p className="truncate text-[11px] text-muted">{student.preferredCountries.join(", ") || student.email}</p>
-                      <div className="mt-2"><StageBadge stage={student.stage} /></div>
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5"><StageBadge stage={student.stage} /><CoverTag student={student} /></div>
                     </div>
                   </div>
                   {student.attention.length > 0 && <div className="mt-3"><AttentionChips items={student.attention} limit={3} /></div>}

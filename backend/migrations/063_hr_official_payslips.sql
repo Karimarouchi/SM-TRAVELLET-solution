@@ -1,0 +1,33 @@
+-- Bulletin de paie importé par l'admin. Il remplace la fiche calculée du mois.
+
+CREATE TABLE IF NOT EXISTS hr_official_payslips (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  month DATE NOT NULL,
+  employee_name TEXT NOT NULL DEFAULT '',
+  matricule TEXT NOT NULL DEFAULT '',
+  cnss_number TEXT NOT NULL DEFAULT '',
+  base_salary NUMERIC(12, 3) NOT NULL DEFAULT 0,
+  presence_days NUMERIC(8, 2) NOT NULL DEFAULT 0,
+  presence_rate NUMERIC(12, 3) NOT NULL DEFAULT 0,
+  presence_amount NUMERIC(12, 3) NOT NULL DEFAULT 0,
+  leave_days NUMERIC(8, 2) NOT NULL DEFAULT 0,
+  leave_rate NUMERIC(12, 3) NOT NULL DEFAULT 0,
+  leave_amount NUMERIC(12, 3) NOT NULL DEFAULT 0,
+  transport NUMERIC(12, 3) NOT NULL DEFAULT 0,
+  presence_bonus NUMERIC(12, 3) NOT NULL DEFAULT 0,
+  function_allowance NUMERIC(12, 3) NOT NULL DEFAULT 0,
+  responsibility_bonus NUMERIC(12, 3) NOT NULL DEFAULT 0,
+  gross NUMERIC(12, 3) NOT NULL DEFAULT 0,
+  cnss NUMERIC(12, 3) NOT NULL DEFAULT 0,
+  taxable NUMERIC(12, 3) NOT NULL DEFAULT 0,
+  irpp NUMERIC(12, 3) NOT NULL DEFAULT 0,
+  css NUMERIC(12, 3) NOT NULL DEFAULT 0,
+  net NUMERIC(12, 3) NOT NULL DEFAULT 0,
+  net_to_pay NUMERIC(12, 3) NOT NULL DEFAULT 0,
+  stored_filename VARCHAR(180) NOT NULL,
+  original_filename VARCHAR(200) NOT NULL DEFAULT '',
+  confirmed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  confirmed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, month)
+);

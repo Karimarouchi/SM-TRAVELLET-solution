@@ -71,7 +71,35 @@ function parseWorkHours(raw) {
   };
 }
 
+function isoDate(year, month, day) {
+  return `${year}-${pad(month)}-${pad(day)}`;
+}
+
+function weekdayOf(year, month, day) {
+  const js = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  return js === 0 ? 7 : js;
+}
+
+// Jour ouvré qui n'est pas un férié payé (config.closedDates : "YYYY-MM-DD").
+function isOpenDay(config, year, month, day) {
+  if (!config.days.includes(weekdayOf(year, month, day))) return false;
+  if (config.closedDates && config.closedDates.has(isoDate(year, month, day))) return false;
+  return true;
+}
+
+// Prochain jour où l'agence est ouverte, à partir du lendemain de `parts`.
+function nextOpenDay(config, parts) {
+  for (let delta = 1; delta <= 21; delta += 1) {
+    const date = addDays(parts.year, parts.month, parts.day, delta);
+    if (isOpenDay(config, date.year, date.month, date.day)) {
+      return { ...date, isoWeekday: weekdayOf(date.year, date.month, date.day) };
+    }
+  }
+  return null;
+}
+
 function minutesOnDay(config, year, month, day, fromDate, toDate) {
+  if (config.closedDates && config.closedDates.has(isoDate(year, month, day))) return 0;
   const weekday = zonedParts(zonedLocalToUtc(year, month, day, 12, 0, 0, config.timezone), config.timezone).isoWeekday;
   if (!config.days.includes(weekday)) return 0;
   const dayStart = zonedLocalToUtc(year, month, day, config.start.h, config.start.m, 0, config.timezone);
@@ -123,5 +151,8 @@ module.exports = {
   parseWorkHours,
   businessMinutesBetween,
   formatMinutes,
-  average
+  average,
+  isoDate,
+  isOpenDay,
+  nextOpenDay
 };

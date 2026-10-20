@@ -62,7 +62,8 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
       { label: t("Codes", "Codes"), href: "/conseiller/codes" },
       { label: t("Archive", "Archive"), href: "/archive" },
       ...(hasVisaDocsPermission ? [visaDocs] : []),
-      whatsapp
+      whatsapp,
+      { label: t("Mon espace RH", "My HR space"), href: "/rh" }
     ];
   }
   if (role === "RDV") {
@@ -75,7 +76,8 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
       { label: t("Inscriptions universités", "University applications"), href: "/rdv" },
       { label: t("Mes dossiers visa", "My visa files"), href: "/rdv/visas" },
       { label: t("Archive", "Archive"), href: "/archive" },
-      visaDocs
+      visaDocs,
+      { label: t("Mon espace RH", "My HR space"), href: "/rh" }
     ];
   }
   return [
@@ -94,7 +96,17 @@ const Navbar1 = () => {
   const role = getSession()?.user.role;
   const permissions = getSession()?.user.permissions || [];
   const { lang, setLang, t } = useLanguage();
-  const links = linksForRole(role, permissions, t);
+  const rhMode = role === "ADMIN" && location.pathname.startsWith("/admin/rh");
+  const links = rhMode
+    ? [
+        { label: t("Tableau de bord", "Dashboard"), href: "/admin/rh" },
+        { label: t("Employés", "Employees"), href: "/admin/rh/employes" },
+        { label: t("Congés", "Leave"), href: "/admin/rh/conges" },
+        { label: t("Présences", "Attendance"), href: "/admin/rh/presences" },
+        { label: t("Paie", "Payroll"), href: "/admin/rh/paie" },
+        { label: t("Absences", "Absences"), href: "/admin/rh/absences" }
+      ]
+    : linksForRole(role, permissions, t);
   const currentPath = location.pathname + location.search;
   const childCount = (href: string) =>
     href === WHATSAPP_HREF ? waUnread.registered + waUnread.prospects : href === WHATSAPP_REGISTERED_HREF ? waUnread.registered : href === WHATSAPP_PROSPECTS_HREF ? waUnread.prospects : 0;
@@ -163,17 +175,37 @@ const Navbar1 = () => {
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-[9999] flex justify-center px-4 pt-4">
       <div className="pointer-events-auto relative flex w-full max-w-7xl items-center justify-between gap-4 rounded-full border border-white/70 bg-white/85 px-6 py-3 shadow-[0_12px_40px_rgba(15,23,42,0.12)] backdrop-blur-xl">
-        <div className="flex items-center">
-          <motion.a
-            href={VITRINE_URL}
-            className="flex shrink-0 items-center"
-            initial={{ scale: 0.8 }}
-            animate={{ scale: 1 }}
-            whileHover={{ rotate: 4, scale: 1.04 }}
-            transition={{ duration: 0.3 }}
-          >
-            <img src={`${import.meta.env.BASE_URL}images/logo-color.png`} alt="SM Travel" className="h-8 w-auto" />
-          </motion.a>
+        <div className="flex min-w-0 items-center gap-3">
+          {role === "ADMIN" && (
+            <div className="inline-flex shrink-0 items-center rounded-full bg-slate-100 p-1" role="group" aria-label={t("Espace", "Area")}>
+              <button
+                type="button"
+                onClick={() => rhMode && navigate("/admin")}
+                className={cn("rounded-full px-3 py-1.5 text-xs font-bold transition sm:px-4", !rhMode ? "bg-brand text-white shadow" : "text-mid hover:text-dark")}
+              >
+                {t("Clients", "Clients")}
+              </button>
+              <button
+                type="button"
+                onClick={() => !rhMode && navigate("/admin/rh")}
+                className={cn("rounded-full px-3 py-1.5 text-xs font-bold transition sm:px-4", rhMode ? "bg-orange-500 text-white shadow" : "text-mid hover:text-dark")}
+              >
+                RH
+              </button>
+            </div>
+          )}
+          {role !== "ADMIN" && (
+            <motion.a
+              href={VITRINE_URL}
+              className="flex shrink-0 items-center"
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              whileHover={{ rotate: 4, scale: 1.04 }}
+              transition={{ duration: 0.3 }}
+            >
+              <img src={`${import.meta.env.BASE_URL}images/logo-color.png`} alt="SM Travel" className="h-8 w-auto" />
+            </motion.a>
+          )}
         </div>
 
         <nav className="hidden shrink-0 items-center gap-3 lg:flex xl:gap-5">
@@ -181,7 +213,7 @@ const Navbar1 = () => {
             const active = !item.external && item.href && (item.href === WHATSAPP_HREF ? location.pathname.startsWith(WHATSAPP_HREF) : location.pathname === item.href);
             const isChildActive = item.children?.some(child => currentPath === child.href);
             const className = `text-[13px] font-medium transition-colors xl:text-sm ${
-              active || isChildActive ? "text-brand" : "text-gray-900 hover:text-brand"
+              active || isChildActive ? (rhMode ? "text-orange-600" : "text-brand") : "text-gray-900 hover:text-brand"
             }`;
 
             if (item.children) {
@@ -259,11 +291,11 @@ const Navbar1 = () => {
         <div className="hidden items-center gap-3 lg:flex">
           {role === "ADMIN" && (
             <Link
-              to="/admin/settings"
-              title={t("Paramètres", "Settings")}
+              to={rhMode ? "/admin/rh/parametres" : "/admin/settings"}
+              title={rhMode ? t("Paramètres RH", "HR settings") : t("Paramètres", "Settings")}
               className={cn(
                 "inline-flex h-9 w-9 items-center justify-center rounded-full border border-line bg-white transition hover:border-brand hover:text-brand",
-                location.pathname === "/admin/settings" ? "border-brand text-brand" : "text-gray-900"
+                location.pathname === (rhMode ? "/admin/rh/parametres" : "/admin/settings") ? "border-brand text-brand" : "text-gray-900"
               )}
             >
               <Settings className="h-4 w-4" />
@@ -324,8 +356,14 @@ const Navbar1 = () => {
             </motion.button>
             <div className="flex flex-col space-y-6">
               {role === "ADMIN" && (
-                <Link to="/admin/settings" className={mobileLinkClass("/admin/settings")} onClick={toggleMenu}>
-                  <Settings className="h-4 w-4" /> {t("Paramètres", "Settings")}
+                <div className="inline-flex w-max items-center rounded-full bg-slate-100 p-1">
+                  <button type="button" onClick={() => { navigate("/admin"); toggleMenu(); }} className={cn("rounded-full px-4 py-1.5 text-sm font-bold", !rhMode ? "bg-brand text-white" : "text-mid")}>Clients</button>
+                  <button type="button" onClick={() => { navigate("/admin/rh"); toggleMenu(); }} className={cn("rounded-full px-4 py-1.5 text-sm font-bold", rhMode ? "bg-orange-500 text-white" : "text-mid")}>RH</button>
+                </div>
+              )}
+              {role === "ADMIN" && (
+                <Link to={rhMode ? "/admin/rh/parametres" : "/admin/settings"} className={mobileLinkClass(rhMode ? "/admin/rh/parametres" : "/admin/settings")} onClick={toggleMenu}>
+                  <Settings className="h-4 w-4" /> {rhMode ? t("Paramètres RH", "HR settings") : t("Paramètres", "Settings")}
                 </Link>
               )}
               {links.map((item, i) => (

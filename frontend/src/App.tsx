@@ -20,6 +20,14 @@ import AdminPipelineStagePage from "@/pages/AdminPipelineStagePage";
 import AdminProgrammesPage from "@/pages/AdminProgrammesPage";
 import AdminVisaDocumentsPage from "@/pages/AdminVisaDocumentsPage";
 import AdminAvisPage from "@/pages/AdminAvisPage";
+import RhHomePage from "@/pages/rh/RhHomePage";
+import RhEmployeesPage from "@/pages/rh/RhEmployeesPage";
+import RhSettingsPage from "@/pages/rh/RhSettingsPage";
+import RhLeavePage from "@/pages/rh/RhLeavePage";
+import RhAttendancePage from "@/pages/rh/RhAttendancePage";
+import RhPayrollPage from "@/pages/rh/RhPayrollPage";
+import RhAbsencesPage from "@/pages/rh/RhAbsencesPage";
+import MyRhPage from "@/pages/rh/MyRhPage";
 import SalesEspacePage from "@/pages/SalesEspacePage";
 import SalesCodesPage from "@/pages/SalesCodesPage";
 import StudentDetailPage from "@/pages/StudentDetailPage";
@@ -57,6 +65,14 @@ export default function App() {
           <Route path="/admin/programmes" element={<AdminProgrammesPage />} />
           <Route path="/admin/visa-documents" element={<AdminVisaDocumentsPage />} />
           <Route path="/admin/avis" element={<AdminAvisPage />} />
+          <Route path="/admin/rh" element={<RhHomePage />} />
+          <Route path="/admin/rh/employes" element={<RhEmployeesPage />} />
+          <Route path="/admin/rh/conges" element={<RhLeavePage />} />
+          <Route path="/admin/rh/presences" element={<RhAttendancePage />} />
+          <Route path="/admin/rh/paie" element={<RhPayrollPage />} />
+          <Route path="/admin/rh/absences" element={<RhAbsencesPage />} />
+          <Route path="/admin/rh/parametres" element={<RhSettingsPage />} />
+          <Route path="/rh" element={<MyRhPage />} />
           <Route path="/conseiller" element={<SalesEspacePage />} />
           <Route path="/conseiller/codes" element={<SalesCodesPage />} />
           <Route path="/conseiller/etudiants/:id" element={<StudentDetailPage />} />

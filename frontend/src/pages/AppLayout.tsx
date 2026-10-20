@@ -1,3 +1,4 @@
+import LeaveCoverBanner from "@/components/LeaveCoverBanner";
 import { Navbar1 } from "@/components/ui/navbar-1";
 import { getSession } from "@/lib/auth";
 import { useEffect } from "react";
@@ -29,7 +30,7 @@ export default function AppLayout() {
     // sans permission supplémentaire à accorder.
     const hasVisaDocsAccess = Boolean(session.user.permissions?.includes("MANAGE_VISA_DOCUMENTS")) || role === "RDV";
     const onVisaDocsPage = path.startsWith("/admin/visa-documents");
-    const shared = path === "/notifications" || path === "/archive" || path === "/mail";
+    const shared = path === "/notifications" || path === "/archive" || path === "/mail" || path === "/rh";
     if (role === "ADMIN" && !path.startsWith("/admin") && !shared && !path.startsWith("/whatsapp") && !path.startsWith("/conseiller/etudiants")) {
       navigate("/admin", { replace: true });
       return;
@@ -42,7 +43,7 @@ export default function AppLayout() {
       navigate("/rdv", { replace: true });
       return;
     }
-    if (role === "STUDENT" && (path.startsWith("/admin") || path.startsWith("/conseiller") || path.startsWith("/rdv") || path.startsWith("/whatsapp"))) {
+    if (role === "STUDENT" && (path.startsWith("/admin") || path.startsWith("/conseiller") || path.startsWith("/rdv") || path.startsWith("/whatsapp") || path.startsWith("/rh"))) {
       navigate("/espace", { replace: true });
     }
   }, [navigate, location.pathname]);
@@ -63,6 +64,7 @@ export default function AppLayout() {
       <Navbar1 />
 
       <div className="relative z-10 min-h-screen pt-24 text-dark">
+        <LeaveCoverBanner />
         <Outlet />
       </div>
     </div>

@@ -156,13 +156,13 @@ async function findLeastLoadedActiveSales() {
   return result.rows[0] || null;
 }
 
-async function insertMessage({ contactId, waMessageId, direction, type, body, status, sentBy, sentAs, createdAt, isAuto = false, mediaPath = null, mediaName = null, mediaMime = null }) {
+async function insertMessage({ contactId, waMessageId, direction, type, body, status, sentBy, sentAs, createdAt, isAuto = false, mediaPath = null, mediaName = null, mediaMime = null, coverLeaveId = null }) {
   const result = await query(
-    `INSERT INTO whatsapp_messages (contact_id, wa_message_id, direction, type, body, status, sent_by, sent_as_id, created_at, is_auto, media_path, media_name, media_mime)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, NOW()), $10, $11, $12, $13)
+    `INSERT INTO whatsapp_messages (contact_id, wa_message_id, direction, type, body, status, sent_by, sent_as_id, created_at, is_auto, media_path, media_name, media_mime, cover_leave_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, NOW()), $10, $11, $12, $13, $14)
      ON CONFLICT (wa_message_id) DO NOTHING
      RETURNING *`,
-    [contactId, waMessageId || null, direction, type, body, status, sentBy || null, sentAs || null, createdAt || null, isAuto, mediaPath, mediaName, mediaMime]
+    [contactId, waMessageId || null, direction, type, body, status, sentBy || null, sentAs || null, createdAt || null, isAuto, mediaPath, mediaName, mediaMime, coverLeaveId]
   );
   return result.rows[0] || null;
 }
@@ -179,8 +179,35 @@ async function getLastAutoReplyAt(contactId) {
   return result.rows[0]?.last_auto_reply_at || null;
 }
 
+// Réserve l'envoi du message de bienvenue : vrai une seule fois par contact, même si deux messages arrivent ensemble.
+async function claimWelcome(contactId) {
+  const result = await query("UPDATE whatsapp_contacts SET welcome_sent_at = NOW() WHERE id = $1 AND welcome_sent_at IS NULL", [contactId]);
+  return result.rowCount > 0;
+}
+
+async function releaseWelcome(contactId) {
+  await query("UPDATE whatsapp_contacts SET welcome_sent_at = NULL WHERE id = $1", [contactId]);
+}
+
 async function setLastAutoReplyAt(contactId) {
   await query("UPDATE whatsapp_contacts SET last_auto_reply_at = NOW() WHERE id = $1", [contactId]);
+}
+
+// Conversations dont le dernier message humain est celui du client.
+async function listAwaitingReplyContactIds() {
+  const result = await query(
+    `SELECT c.id
+     FROM whatsapp_contacts c
+     WHERE c.blocked_at IS NULL
+       AND (
+         SELECT m.direction
+         FROM whatsapp_messages m
+         WHERE m.contact_id = c.id AND m.is_auto = FALSE
+         ORDER BY m.created_at DESC
+         LIMIT 1
+       ) = 'in'`
+  );
+  return result.rows.map((row) => row.id);
 }
 
 // Fichier d'un message (jamais exposé en lien public : servi par une route authentifiée).
@@ -242,10 +269,11 @@ async function listConversations({ userId, ownerId, search, contactId = null, an
      LEFT JOIN users ou ON ou.id = c.owner_id
      LEFT JOIN whatsapp_reads r ON r.contact_id = c.id AND r.user_id = $1
      LEFT JOIN LATERAL (
+       -- Aperçu : dernier message humain (bienvenue et réponses automatiques ignorées).
        SELECT body, direction, status, hidden_at FROM whatsapp_messages
-       WHERE contact_id = c.id ORDER BY created_at DESC LIMIT 1
+       WHERE contact_id = c.id ORDER BY is_auto ASC, created_at DESC LIMIT 1
      ) lm ON TRUE
-     WHERE ($2::uuid IS NULL OR c.owner_id = $2)
+     WHERE ($2::uuid IS NULL OR c.owner_id = $2 OR leave_handler(c.owner_id, COALESCE(c.student_id, c.id), 'SALES') = $2)
        AND ($4::uuid IS NULL OR c.id = $4)
        AND (
          $3 = ''
@@ -265,7 +293,9 @@ async function listMessages(contactId, { before, limit }) {
     `SELECT m.id, m.direction, m.type, m.body, m.status, m.error, m.created_at, m.is_auto, m.media_name, m.media_mime,
             -- Auteur AFFICHÉ : le conseiller au nom de qui l'admin a répondu, sinon l'expéditeur réel.
             COALESCE(sa.prenom, u.prenom) AS sender_prenom, COALESCE(sa.nom, u.nom) AS sender_nom,
-            (m.sent_as_id IS NOT NULL AND m.sent_as_id IS DISTINCT FROM m.sent_by) AS sent_by_admin,
+            (m.sent_as_id IS NOT NULL AND m.sent_as_id IS DISTINCT FROM m.sent_by AND m.cover_leave_id IS NULL) AS sent_by_admin,
+            -- Envoyé par un remplaçant pendant le congé du conseiller : visible par toute l'équipe.
+            CASE WHEN m.cover_leave_id IS NOT NULL THEN TRIM(u.prenom || ' ' || u.nom) END AS cover_author_name,
             m.hidden_at, h.prenom AS hidden_prenom, h.nom AS hidden_nom
      FROM whatsapp_messages m
      LEFT JOIN users u ON u.id = m.sent_by
@@ -316,7 +346,7 @@ async function unreadCount({ userId, ownerId, answeredIsRead = false }) {
        WHERE m.contact_id = c.id AND m.direction = 'in'
          AND m.created_at > GREATEST(COALESCE(r.last_read_at, 'epoch'::timestamptz), CASE WHEN $3 THEN COALESCE((SELECT MAX(o.created_at) FROM whatsapp_messages o WHERE o.contact_id = c.id AND o.direction = 'out' AND o.is_auto = FALSE), 'epoch'::timestamptz) ELSE 'epoch'::timestamptz END)
      ) u
-     WHERE ($2::uuid IS NULL OR c.owner_id = $2)
+     WHERE ($2::uuid IS NULL OR c.owner_id = $2 OR leave_handler(c.owner_id, COALESCE(c.student_id, c.id), 'SALES') = $2)
        AND c.muted_at IS NULL AND c.blocked_at IS NULL`,
     [userId, ownerId, answeredIsRead]
   );
@@ -378,6 +408,9 @@ module.exports = {
   messageExists,
   getLastAutoReplyAt,
   setLastAutoReplyAt,
+  claimWelcome,
+  releaseWelcome,
+  listAwaitingReplyContactIds,
   findMessageMedia,
   findMessage,
   hideMessage,

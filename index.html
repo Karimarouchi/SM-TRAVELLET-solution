@@ -17,7 +17,7 @@
     "name": "SM Travel",
     "url": "https://smtravel.fr",
     "email": "smtravel.contact@gmail.com ",
-    "telephone": "+21656819899",
+    "telephone": "+21654819879",
     "address": {
       "@type": "PostalAddress",
       "streetAddress": "4 Bis Rue du Mali, 4e étage, bureau n°4",
@@ -39,64 +39,6 @@
   <link rel="stylesheet" href="tailwind.css" />
   <link rel="preload" as="image" href="IMAGE/hero-smtravel-mobile.webp" media="(max-width: 767px)">
   <link rel="preload" as="image" href="IMAGE/hero-smtravel-desktop.webp" media="(min-width: 768px)">
-  <script>
-    const RECAPTCHA_SITE_KEY = '6LdWjgItAAAAAPeCw5_C8iZlAv2x0PIQ2lNvQssi';
-    window._recaptchaWidgetId = null;
-    window._recaptchaReady = false;
-
-    window.onRecaptchaLoad = function () {
-      window._recaptchaReady = true;
-    };
-
-    window.ensureRecaptchaWidget = function () {
-      const wrap = document.getElementById('recaptchaWrap');
-      const recaptchaError = document.getElementById('err-recaptcha');
-      if (!wrap) return null;
-
-      wrap.style.display = 'block';
-
-      if (typeof grecaptcha === 'undefined' || !window._recaptchaReady) {
-        if (recaptchaError) {
-          recaptchaError.textContent = 'reCAPTCHA indisponible. Réessayez dans quelques secondes.';
-          recaptchaError.style.display = 'block';
-        }
-        return null;
-      }
-
-      if (window._recaptchaWidgetId !== null) return window._recaptchaWidgetId;
-
-      try {
-        window._recaptchaWidgetId = grecaptcha.render('recaptchaWidget', {
-          sitekey: RECAPTCHA_SITE_KEY,
-          theme: 'light',
-          callback: function () {
-            if (recaptchaError) recaptchaError.style.display = 'none';
-          },
-          'expired-callback': function () {
-            if (recaptchaError) {
-              recaptchaError.textContent = 'Le reCAPTCHA a expiré. Veuillez le valider à nouveau.';
-              recaptchaError.style.display = 'block';
-            }
-          },
-          'error-callback': function () {
-            if (recaptchaError) {
-              recaptchaError.textContent = 'Erreur reCAPTCHA. Vérifiez la clé (v2 case à cocher) et le domaine autorisé.';
-              recaptchaError.style.display = 'block';
-            }
-          }
-        });
-      } catch (err) {
-        if (recaptchaError) {
-          recaptchaError.textContent = 'Type de clé reCAPTCHA non valide. Créez une clé reCAPTCHA v2 case à cocher.';
-          recaptchaError.style.display = 'block';
-        }
-        return null;
-      }
-
-      return window._recaptchaWidgetId;
-    };
-  </script>
-  <script src="https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit" async defer></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
@@ -1809,104 +1751,6 @@
       }
     }
 
-    /* ═══ FORM SUCCESS OVERLAY ═══ */
-    #formSuccessOverlay {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      min-height: 420px;
-      padding: 2rem;
-      position: relative;
-      overflow: hidden;
-    }
-
-    #formSuccessOverlay.show {
-      display: flex;
-      animation: fsiFadeUp 0.65s cubic-bezier(.22, 1, .36, 1) both;
-    }
-
-    @keyframes fsiFadeUp {
-      from {
-        opacity: 0;
-        transform: translateY(24px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .fsi-circle {
-      width: 96px;
-      height: 96px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #6d28d9, #a78bfa);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 1.5rem;
-      box-shadow: 0 0 0 0 rgba(109, 40, 217, .45);
-      animation: fsiPulse 1.8s ease-out 0.4s infinite;
-      position: relative;
-      z-index: 1;
-    }
-
-    @keyframes fsiPulse {
-      0% {
-        box-shadow: 0 0 0 0 rgba(109, 40, 217, .45);
-      }
-
-      70% {
-        box-shadow: 0 0 0 22px rgba(109, 40, 217, 0);
-      }
-
-      100% {
-        box-shadow: 0 0 0 0 rgba(109, 40, 217, 0);
-      }
-    }
-
-    .fsi-svg {
-      width: 48px;
-      height: 48px;
-      overflow: visible;
-    }
-
-    .fsi-check {
-      fill: none;
-      stroke: #fff;
-      stroke-width: 3;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      stroke-dasharray: 60;
-      stroke-dashoffset: 60;
-      animation: fsiDraw 0.5s ease 0.5s forwards;
-    }
-
-    @keyframes fsiDraw {
-      to {
-        stroke-dashoffset: 0;
-      }
-    }
-
-    .fsi-particle {
-      position: absolute;
-      border-radius: 50%;
-      animation: fsiParticle 1.1s ease-out forwards;
-    }
-
-    @keyframes fsiParticle {
-      0% {
-        opacity: 1;
-        transform: translate(0, 0) scale(1);
-      }
-      100% {
-        opacity: 0;
-        transform: translate(var(--tx), var(--ty)) scale(0);
-      }
-    }
   </style>
 </head>
 
@@ -1981,7 +1825,6 @@
         <a href="#methode" class="nav-link">Méthode</a>
         <a href="#apropos" class="nav-link">À propos</a>
         <a href="#faq" class="nav-link">FAQ</a>
-        <a href="#contact" class="nav-link">Offre</a>
       </div>
 
       <!-- Auth + burger -->
@@ -2021,8 +1864,6 @@
         class="block text-mid font-medium py-2 hover:text-brand transition-colors">À propos</a>
       <a href="#faq" onclick="closeMobile()"
         class="block text-mid font-medium py-2 hover:text-brand transition-colors">FAQ</a>
-      <a href="#contact" onclick="closeMobile()"
-        class="block text-mid font-medium py-2 hover:text-brand transition-colors">Offre</a>
       <div id="mobileAuth">
         <a href="/app/#/login" class="mobile-menu-cta">Connexion</a>
         <a href="/app/#/register" class="mobile-menu-cta">S'inscrire</a>
@@ -2086,13 +1927,13 @@
 
         <!-- CTAs -->
         <div class="flex flex-wrap gap-4">
-          <a href="#contact"
+          <a href="/app/#/register"
             class="btn-shimmer inline-flex items-center gap-2 text-white font-bold px-9 py-4 rounded-full shadow-xl hover:-translate-y-1 transition-all"
             style="font-size:.95rem;">
             Démarrer mon dossier
             <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
           </a>
-          <a href="https://wa.me/48451041469?text=Bonjour%20SM%20Travel%2C%20je%20souhaite%20évaluer%20mon%20dossier%20pour%20étudier%20à%20l'étranger."
+          <a href="https://wa.me/21656819899?text=Bonjour%20SM%20Travel%2C%20je%20souhaite%20évaluer%20mon%20dossier%20pour%20étudier%20à%20l'étranger."
             target="_blank" rel="noopener noreferrer"
             class="liquid-glass-btn inline-flex items-center gap-2 font-bold px-8 py-4 rounded-full transition-all"
             style="font-size:.95rem;">
@@ -2206,7 +2047,7 @@
             <p class="text-sm leading-relaxed mb-5" style="color:rgba(196,181,253,.8);">Notre équipe d'experts gère
               l'intégralité de votre dossier visa avec 98% de taux d'acceptation et un traitement express disponible.
             </p>
-            <a href="https://wa.me/48451041469?text=Bonjour%20SM%20Travel%2C%20je%20souhaite%20des%20informations%20pour%20le%20traitement%20de%20mon%20dossier%20de%20Visa."
+            <a href="https://wa.me/21656819899?text=Bonjour%20SM%20Travel%2C%20je%20souhaite%20des%20informations%20pour%20le%20traitement%20de%20mon%20dossier%20de%20Visa."
               target="_blank" rel="noopener noreferrer"
               class="liquid-glass-btn inline-flex items-center gap-2 font-bold px-5 py-2.5 rounded-full text-sm">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -2230,7 +2071,7 @@
             <h3 class="font-display font-bold text-xl mb-3" style="color:#fff;">Consultation Stratégique</h3>
             <p class="text-sm leading-relaxed mb-5" style="color:rgba(196,181,253,.8);">Analyse personnalisée de votre
               profil pour identifier les meilleures destinations et programmes. Réseau dans 40+ pays.</p>
-            <a href="#contact"
+            <a href="https://wa.me/21656819899?text=Bonjour%20SM%20Travel%2C%20je%20souhaite%20prendre%20rendez-vous%20pour%20une%20consultation." target="_blank" rel="noopener noreferrer"
               class="liquid-glass-btn inline-flex items-center gap-2 font-bold px-5 py-2.5 rounded-full text-sm">
               Prendre rendez-vous <span class="material-symbols-outlined text-[16px]">calendar_month</span>
             </a>
@@ -2248,7 +2089,7 @@
             <h3 class="font-display font-bold text-xl mb-3" style="color:#fff;">Accueil à l'Aéroport</h3>
             <p class="text-sm leading-relaxed mb-5" style="color:rgba(196,181,253,.8);">Chauffeurs bilingues, gestion
               des bagages et transfert vers votre logement. Suivi des vols en temps réel, 24h/24.</p>
-            <a href="https://wa.me/48451041469?text=Bonjour%20SM%20Travel%2C%20je%20souhaite%20des%20informations%20pour%20l'accueil%20à%20l'aéroport."
+            <a href="https://wa.me/21656819899?text=Bonjour%20SM%20Travel%2C%20je%20souhaite%20des%20informations%20pour%20l'accueil%20à%20l'aéroport."
               target="_blank" rel="noopener noreferrer"
               class="liquid-glass-btn inline-flex items-center gap-2 font-bold px-5 py-2.5 rounded-full text-sm">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -2609,12 +2450,12 @@
 
       <!-- Buttons -->
       <div class="cta-item d3 flex flex-col sm:flex-row gap-4 justify-center">
-        <a href="#contact"
+        <a href="/app/#/register"
           class="btn-shimmer inline-flex items-center justify-center gap-2 text-white font-bold px-9 py-4 rounded-full shadow-xl hover:-translate-y-1 transition-all">
           Évaluer mon dossier
           <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
         </a>
-        <a href="https://wa.me/48451041469?text=Bonjour%20SM%20Travel%2C%20je%20voudrais%20évaluer%20mon%20dossier."
+        <a href="https://wa.me/21656819899?text=Bonjour%20SM%20Travel%2C%20je%20voudrais%20évaluer%20mon%20dossier."
           target="_blank" rel="noopener noreferrer"
           class="liquid-glass-btn inline-flex items-center justify-center gap-2 font-bold px-9 py-4 rounded-full">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -2628,367 +2469,15 @@
   </section>
 
 
-  <!-- ══════════════════════════════════════════════ OFFRES ════ -->
-  <section id="contact" class="py-24 relative overflow-hidden"
-    style="background:linear-gradient(150deg,#f5f3ff 0%,#ede9fe 40%,#f0fdf4 100%);">
-
-    <!-- Orbes décoratifs -->
-    <div class="absolute -top-32 -left-32 w-96 h-96 rounded-full pointer-events-none"
-      style="background:radial-gradient(circle,rgba(109,40,217,.12) 0%,transparent 70%);"></div>
-    <div class="absolute -bottom-24 -right-24 w-80 h-80 rounded-full pointer-events-none"
-      style="background:radial-gradient(circle,rgba(124,58,237,.1) 0%,transparent 70%);"></div>
-
-    <div class="relative max-w-6xl mx-auto px-6 lg:px-12">
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-
-        <!-- ── Gauche : pitch ── -->
-        <div class="reveal">
-          <span class="section-label">Notre offre</span>
-          <h2 class="font-display font-bold text-4xl md:text-5xl text-dark mt-3 mb-5" style="line-height:1.18;">
-            Découvrez <br />Notre offre
-          </h2>
-          <p class="text-muted text-base leading-relaxed mb-8 max-w-md">
-            Une consultation sur-mesure pour poser les bonnes bases de votre projet d'études à l'étranger —
-            sans stress, sans prise de tête.
-          </p>
-
-          <!-- Stats rapides -->
-          <div class="flex flex-wrap gap-8 mb-10">
-            <div>
-              <p class="font-display font-extrabold text-3xl text-dark">+500</p>
-              <p class="text-muted text-xs mt-1 uppercase tracking-wide">Étudiants accompagnés</p>
-            </div>
-            <div>
-              <p class="font-display font-extrabold text-3xl text-dark">7</p>
-              <p class="text-muted text-xs mt-1 uppercase tracking-wide">Pays partenaires</p>
-            </div>
-            <div>
-              <p class="font-display font-extrabold text-3xl text-dark">24h</p>
-              <p class="text-muted text-xs mt-1 uppercase tracking-wide">Délai de réponse</p>
-            </div>
-          </div>
-
-          <!-- Contacts rapides -->
-          <div class="flex flex-col sm:flex-row gap-4">
-            <a href="https://wa.me/48451041469" target="_blank" rel="noopener noreferrer"
-              class="inline-flex items-center gap-2 text-sm font-semibold px-5 py-3 rounded-full transition-all"
-              style="background:#dcfce7;color:#15803d;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path
-                  d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-              </svg>
-              WhatsApp
-            </a>
-            <a href="tel:+21656819899"
-              class="inline-flex items-center gap-2 text-sm font-semibold px-5 py-3 rounded-full transition-all"
-              style="background:#ede9fe;color:#6d28d9;">
-              <span class="material-symbols-outlined text-[16px]">call</span>
-              +216 56 819 899
-            </a>
-          </div>
-        </div>
-
-        <!-- ── Droite : carte pricing ── -->
-        <div class="reveal" style="--reveal-delay:.15s;">
-          <!-- Badge populaire -->
-          <div class="flex justify-center mb-4">
-
-
-
-          </div>
-
-          <!-- Carte dark featured -->
-          <div class="relative rounded-3xl flex flex-col"
-            style="background:linear-gradient(160deg,#0f172a 0%,#1e1040 60%,#0f172a 100%);border:2px solid #6d28d9;box-shadow:0 16px 60px rgba(109,40,217,.45);">
-
-            <div class="p-8 flex-1 flex flex-col">
-              <!-- Icône + nom -->
-              <div class="flex items-center gap-3 mb-6">
-                <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style="background:rgba(139,92,246,.2);">
-                  <span class="material-symbols-outlined text-[22px]"
-                    style="color:#c4b5fd;font-variation-settings:'FILL' 1">support_agent</span>
-                </div>
-                <div>
-                  <p class="text-xs font-bold uppercase tracking-widest" style="color:rgba(196,181,253,.6);">Recommandé
-                  </p>
-                  <h3 class="font-display font-bold text-xl text-white">Consultation personnalisée</h3>
-                </div>
-              </div>
-
-              <!-- Prix -->
-              <div class="mb-8">
-                <div class="flex items-end gap-1">
-                  <span class="font-display font-extrabold text-5xl text-white leading-none">120</span>
-                  <span class="font-bold text-xl mb-1" style="color:rgba(196,181,253,.7);">TND</span>
-                </div>
-                <p class="text-sm mt-1" style="color:rgba(196,181,253,.55);">session de 30 minutes · paiement unique</p>
-              </div>
-
-              <!-- Features -->
-              <ul class="space-y-3 flex-1 mb-8">
-                <li class="flex items-center gap-3">
-                  <span class="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center"
-                    style="background:rgba(139,92,246,.2);">
-                    <span class="material-symbols-outlined text-[13px]"
-                      style="color:#c4b5fd;font-variation-settings:'FILL' 1">check</span>
-                  </span>
-                  <span class="text-sm" style="color:#ddd6fe;">Choix de la destination adaptée à votre profil</span>
-                </li>
-                <li class="flex items-center gap-3">
-                  <span class="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center"
-                    style="background:rgba(139,92,246,.2);">
-                    <span class="material-symbols-outlined text-[13px]"
-                      style="color:#c4b5fd;font-variation-settings:'FILL' 1">check</span>
-                  </span>
-                  <span class="text-sm" style="color:#ddd6fe;">Sélection des programmes et universités</span>
-                </li>
-                <li class="flex items-center gap-3">
-                  <span class="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center"
-                    style="background:rgba(139,92,246,.2);">
-                    <span class="material-symbols-outlined text-[13px]"
-                      style="color:#c4b5fd;font-variation-settings:'FILL' 1">check</span>
-                  </span>
-                  <span class="text-sm" style="color:#ddd6fe;">Orientation sur les démarches et critères
-                    d'admission</span>
-                </li>
-              </ul>
-
-              <!-- CTA consultation — bientôt disponible -->
-              <button type="button" disabled
-                class="btn-shimmer flex items-center justify-center gap-2 text-white font-bold py-4 rounded-2xl text-sm w-full cursor-not-allowed opacity-90">
-                <span class="material-symbols-outlined text-[18px]" style="font-variation-settings:'FILL' 1">lock</span>
-                Réserver ma consultation
-              </button>
-              <p class="text-center text-xs mt-3" style="color:rgba(196,181,253,.7);">Bientôt disponible</p>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-    <div style="display:none;">
-
-      <!-- Gauche : titre + info -->
-      <div>
-        <span class="section-label">Parlons de votre projet</span>
-        <h2 class="font-display font-bold text-4xl md:text-5xl mt-4 mb-6"
-          style="line-height:1.25;padding-bottom:0.1em;-webkit-text-fill-color:transparent;background:linear-gradient(110deg,#4c1d95 0%,#6d28d9 50%,#7c3aed 100%);-webkit-background-clip:text;background-clip:text;">
-          Nous sommes là pour vous guider
-        </h2>
-        <p class="text-muted text-base leading-relaxed mb-10">
-          Remplissez le formulaire et un expert SM Travel vous contacte sous 24h pour évaluer votre dossier
-          gratuitement.
-        </p>
-
-        <!-- Infos rapides -->
-        <div class="space-y-5">
-          <div class="flex items-center gap-4">
-            <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-              style="background:#ede9fe;">
-              <span class="material-symbols-outlined text-[18px]" style="color:#6d28d9;">call</span>
-            </div>
-            <a href="tel:+21656819899" class="text-sm text-mid hover:text-brand transition-colors">+216 56 819 899</a>
-          </div>
-          <div class="flex items-center gap-4">
-            <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-              style="background:#ede9fe;">
-              <span class="material-symbols-outlined text-[18px]" style="color:#6d28d9;">chat</span>
-            </div>
-            <a href="https://wa.me/48451041469" target="_blank" rel="noopener noreferrer"
-              class="text-sm text-mid hover:text-brand transition-colors">WhatsApp : +48 451 041 469</a>
-          </div>
-          <div class="flex items-center gap-4">
-            <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-              style="background:#ede9fe;">
-              <span class="material-symbols-outlined text-[18px]" style="color:#6d28d9;">alternate_email</span>
-            </div>
-            <a href="mailto:services@smtravel.fr"
-              class="text-sm text-mid hover:text-brand transition-colors">smtravel.contact@gmail.com </a>
-          </div>
-          <div class="flex items-center gap-4">
-            <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-              style="background:#ede9fe;">
-              <span class="material-symbols-outlined text-[18px]" style="color:#6d28d9;">location_on</span>
-            </div>
-            <p class="text-sm text-mid">4 Bis Rue du Mali, 4ᵉ étage, bureau n°4<br />Jeanne d'Arc, Tunis 1002</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Droite : formulaire -->
-      <div class="rounded-3xl p-8 md:p-10 shadow-sm"
-        style="background:#f8fafc;border:1px solid #e2e8f0;position:relative;overflow:hidden;">
-
-        <!-- ── Overlay succès ── -->
-        <div id="formSuccessOverlay">
-          <div class="fsi-circle" id="fsiCircle">
-            <svg class="fsi-svg" viewBox="0 0 48 48">
-              <polyline class="fsi-check" points="10,26 20,36 38,14" />
-            </svg>
-          </div>
-          <h3
-            style="font-family:'Plus Jakarta Sans',sans-serif;font-size:1.5rem;font-weight:800;color:#0f172a;margin-bottom:.6rem;">
-            Message envoyé avec succès !</h3>
-          <p style="color:#64748b;font-size:.95rem;max-width:320px;line-height:1.6;margin-bottom:2rem;">Merci pour
-            votre confiance&nbsp;✨<br>Notre équipe vous contactera sous <strong
-              style="color:#6d28d9;">24&nbsp;heures</strong>.</p>
-          <button type="button" onclick="resetContactForm()"
-            style="background:linear-gradient(135deg,#6d28d9,#a78bfa);color:#fff;border:none;border-radius:12px;padding:.85rem 2rem;font-size:.9rem;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(109,40,217,.35);transition:transform .2s;"
-            onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
-            ✉ Envoyer un autre message
-          </button>
-        </div>
-
-        <form id="contactForm" class="space-y-5" onsubmit="handleFormSubmit(event)" novalidate>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <div>
-              <label for="f-prenom" class="block text-xs font-caps uppercase tracking-widest text-mid mb-2">Prénom
-                *</label>
-              <input id="f-prenom" name="prenom" type="text" placeholder="Votre prénom" required minlength="2"
-                maxlength="15" autocomplete="given-name"
-                class="w-full rounded-xl px-4 py-3 text-sm text-dark outline-none transition-all bg-white"
-                style="border:1px solid #e2e8f0;"
-                onfocus="this.style.borderColor='#6d28d9';this.style.boxShadow='0 0 0 3px rgba(109,40,217,.12)'"
-                onblur="validateField(this)" oninput="clearError(this)" />
-              <p class="field-error" id="err-prenom"
-                style="display:none;color:#dc2626;font-size:.75rem;margin-top:4px;"></p>
-            </div>
-            <div>
-              <label for="f-nom" class="block text-xs font-caps uppercase tracking-widest text-mid mb-2">Nom *</label>
-              <input id="f-nom" name="nom" type="text" placeholder="Votre nom" required minlength="2" maxlength="15"
-                autocomplete="family-name"
-                class="w-full rounded-xl px-4 py-3 text-sm text-dark outline-none transition-all bg-white"
-                style="border:1px solid #e2e8f0;"
-                onfocus="this.style.borderColor='#6d28d9';this.style.boxShadow='0 0 0 3px rgba(109,40,217,.12)'"
-                onblur="validateField(this)" oninput="clearError(this)" />
-              <p class="field-error" id="err-nom" style="display:none;color:#dc2626;font-size:.75rem;margin-top:4px;">
-              </p>
-            </div>
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <div>
-              <label for="f-email" class="block text-xs font-caps uppercase tracking-widest text-mid mb-2">Email
-                *</label>
-              <input id="f-email" name="email" type="email" placeholder="votre@email.com" required maxlength="150"
-                autocomplete="email"
-                class="w-full rounded-xl px-4 py-3 text-sm text-dark outline-none transition-all bg-white"
-                style="border:1px solid #e2e8f0;"
-                onfocus="this.style.borderColor='#6d28d9';this.style.boxShadow='0 0 0 3px rgba(109,40,217,.12)'"
-                onblur="validateField(this)" oninput="clearError(this)" />
-              <p class="field-error" id="err-email" style="display:none;color:#dc2626;font-size:.75rem;margin-top:4px;">
-              </p>
-            </div>
-            <div>
-              <label for="f-tel" class="block text-xs font-caps uppercase tracking-widest text-mid mb-2">Téléphone
-                <span style="color:#94a3b8;font-size:.7rem;">(8 chiffres)</span></label>
-              <input id="f-tel" name="telephone" type="tel" placeholder="56 819 899" maxlength="8" pattern="[0-9]{8}"
-                autocomplete="tel"
-                class="w-full rounded-xl px-4 py-3 text-sm text-dark outline-none transition-all bg-white"
-                style="border:1px solid #e2e8f0;"
-                onfocus="this.style.borderColor='#6d28d9';this.style.boxShadow='0 0 0 3px rgba(109,40,217,.12)'"
-                onblur="validateField(this)"
-                oninput="this.value=this.value.replace(/\D/g,'').slice(0,8);clearError(this)" />
-              <p class="field-error" id="err-tel" style="display:none;color:#dc2626;font-size:.75rem;margin-top:4px;">
-              </p>
-            </div>
-          </div>
-          <div>
-            <label class="block text-xs font-caps uppercase tracking-widest text-mid mb-2">Destination souhaitée
-              *</label>
-            <!-- Hidden real input for form validation -->
-            <input type="hidden" id="f-destination" name="destination" required />
-            <!-- Custom dropdown -->
-            <div id="destDropdown" style="position:relative;user-select:none;">
-              <!-- Trigger -->
-              <div id="destTrigger" tabindex="0" role="combobox" aria-haspopup="listbox" aria-expanded="false"
-                aria-controls="destList"
-                style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-radius:12px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;font-size:.875rem;transition:border-color .2s,box-shadow .2s;"
-                onclick="toggleDestDropdown()" onkeydown="destKeyNav(event)">
-                <span id="destLabel" style="color:#94a3b8;">Choisissez une destination</span>
-                <svg id="destChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6d28d9"
-                  stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
-                  style="flex-shrink:0;transition:transform .25s;">
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </div>
-              <!-- List -->
-              <ul id="destList" role="listbox" aria-label="Destination"
-                style="display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:50;background:#fff;border-radius:14px;border:1px solid #e2e8f0;box-shadow:0 8px 32px rgba(109,40,217,.13);overflow:hidden;padding:6px 0;list-style:none;margin:0;">
-                <li role="option" data-value="Lettonie 🇱🇻" tabindex="-1" onclick="selectDest(this)"
-                  style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:.875rem;cursor:pointer;transition:background .15s;"
-                  onmouseenter="this.style.background='#f5f3ff'" onmouseleave="this.style.background=''">
-                  <span style="font-size:1.2rem;">🇱🇻</span><span>Lettonie</span>
-                </li>
-                <li role="option" data-value="Autriche 🇦🇹" tabindex="-1" onclick="selectDest(this)"
-                  style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:.875rem;cursor:pointer;transition:background .15s;"
-                  onmouseenter="this.style.background='#f5f3ff'" onmouseleave="this.style.background=''">
-                  <span style="font-size:1.2rem;">🇦🇹</span><span>Autriche</span>
-                </li>
-                <li role="option" data-value="Lituanie 🇱🇹" tabindex="-1" onclick="selectDest(this)"
-                  style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:.875rem;cursor:pointer;transition:background .15s;"
-                  onmouseenter="this.style.background='#f5f3ff'" onmouseleave="this.style.background=''">
-                  <span style="font-size:1.2rem;">🇱🇹</span><span>Lituanie</span>
-                </li>
-                <li role="option" data-value="Autre pays" tabindex="-1" onclick="selectDest(this)"
-                  style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:.875rem;cursor:pointer;transition:background .15s;"
-                  onmouseenter="this.style.background='#f5f3ff'" onmouseleave="this.style.background=''">
-                  <span style="font-size:1.2rem;">🌍</span><span>Autre pays</span>
-                </li>
-                <li role="option" data-value="Je ne sais pas encore — conseillez-moi" tabindex="-1"
-                  onclick="selectDest(this)"
-                  style="display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:.875rem;cursor:pointer;transition:background .15s;border-top:1px solid #f1f5f9;"
-                  onmouseenter="this.style.background='#f5f3ff'" onmouseleave="this.style.background=''">
-                  <span style="font-size:1.2rem;">✨</span><span>Je ne sais pas encore — conseillez-moi</span>
-                </li>
-              </ul>
-            </div>
-            <p class="field-error" id="err-destination"
-              style="display:none;color:#dc2626;font-size:.75rem;margin-top:4px;"></p>
-          </div>
-          <div>
-            <label for="f-message" class="block text-xs font-caps uppercase tracking-widest text-mid mb-2">Votre
-              message <span style="color:#94a3b8;font-size:.7rem;">(optionnel)</span></label>
-            <textarea id="f-message" name="message" rows="4" placeholder="Décrivez votre projet d'études…"
-              maxlength="1000"
-              class="w-full rounded-xl px-4 py-3 text-sm text-dark outline-none transition-all resize-none bg-white"
-              style="border:1px solid #e2e8f0;"
-              onfocus="this.style.borderColor='#6d28d9';this.style.boxShadow='0 0 0 3px rgba(109,40,217,.12)'"
-              onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'"></textarea>
-            <p style="color:#94a3b8;font-size:.7rem;text-align:right;margin-top:2px;"><span id="msg-count">0</span> /
-              1000</p>
-          </div>
-          <div id="recaptchaWrap" style="display:none;">
-            <div id="recaptchaWidget"></div>
-            <p class="field-error" id="err-recaptcha"
-              style="display:none;color:#dc2626;font-size:.75rem;margin-top:6px;">Veuillez valider le reCAPTCHA.</p>
-          </div>
-          <button type="submit"
-            class="btn-shimmer w-full text-white font-bold py-4 rounded-xl text-sm flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[.98] transition-transform shadow-lg">
-            Envoyer ma demande
-            <span class="material-symbols-outlined text-[18px]">send</span>
-          </button>
-          <div id="formToast"
-            style="display:none;align-items:center;gap:10px;padding:.85rem 1.1rem;border-radius:12px;font-size:.875rem;font-weight:600;background:#fef3c7;border:1px solid #fde68a;color:#92400e;">
-            <span class="material-symbols-outlined" style="font-size:18px;color:#d97706;">schedule</span>
-            <span id="formToastMsg">Veuillez patienter quelques secondes avant de renvoyer.</span>
-          </div>
-        </form>
-      </div>
-    </div>
-  </section>
-
-
   <!-- ═══════════════════════════════════════════════ FOOTER ════ -->
-  <footer class="bg-dark text-white pt-16 pb-8">
+  <footer class="bg-dark text-white pt-16 pb-24 md:pb-10">
     <div class="max-w-7xl mx-auto px-6 lg:px-12">
-      <div class="grid grid-cols-1 md:grid-cols-[1.3fr_1fr_1fr] gap-10 mb-12">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr] gap-x-10 gap-y-12 mb-12">
 
         <!-- Marque -->
-        <div>
-          <img src="IMAGE/Logo blanc.png" alt="SM Travel" style="height:32px;" loading="lazy" decoding="async" />
-          <p class="text-slate-400 text-sm leading-relaxed mt-4 max-w-xs">
+        <div class="sm:col-span-2 lg:col-span-1">
+          <img src="IMAGE/Logo blanc.png" alt="SM Travel" style="height:34px;" loading="lazy" decoding="async" />
+          <p class="text-slate-400 text-sm leading-relaxed mt-5 max-w-sm">
             Votre agence experte en orientation internationale : visa, admission, logement et accueil aéroport, de A à Z.
           </p>
           <div class="flex gap-2 mt-5">
@@ -3029,32 +2518,50 @@
 
         <!-- Contact -->
         <div>
-          <h5 class="text-slate-500 text-[10px] uppercase tracking-widest mb-4">Contact</h5>
-          <ul class="space-y-3">
-            <li><a href="tel:+21656819899" class="text-slate-300 text-sm hover:text-white transition-colors">+216 56 819 899</a></li>
-            <li><a href="https://wa.me/48451041469" target="_blank" rel="noopener noreferrer" class="text-slate-300 text-sm hover:text-white transition-colors">WhatsApp : +48 451 041 469</a></li>
-            <li><a href="mailto:services@smtravel.fr" class="text-slate-300 text-sm hover:text-white transition-colors">services@smtravel.fr</a></li>
-            <li class="text-slate-300 text-sm leading-relaxed">4 Bis Rue du Mali, 4ᵉ étage, bureau n°4,<br />Jeanne d'Arc, Tunis 1002</li>
+          <h5 class="font-caps text-slate-300 text-xs font-bold uppercase tracking-widest mb-5">Contact</h5>
+          <ul class="space-y-4">
+            <li>
+              <a href="tel:+21654819879" class="group flex items-center gap-3 text-slate-300 text-sm hover:text-white transition-colors">
+                <span class="material-symbols-outlined text-[18px] text-slate-500 group-hover:text-white">call</span>
+                +216 54 819 879
+              </a>
+            </li>
+            <li>
+              <a href="https://wa.me/21656819899" target="_blank" rel="noopener noreferrer" class="group flex items-center gap-3 text-slate-300 text-sm hover:text-white transition-colors">
+                <span class="material-symbols-outlined text-[18px] text-slate-500 group-hover:text-white">chat</span>
+                WhatsApp : +216 56 819 899
+              </a>
+            </li>
+            <li>
+              <a href="mailto:services@smtravel.fr" class="group flex items-center gap-3 text-slate-300 text-sm hover:text-white transition-colors">
+                <span class="material-symbols-outlined text-[18px] text-slate-500 group-hover:text-white">mail</span>
+                services@smtravel.fr
+              </a>
+            </li>
+            <li class="flex items-start gap-3 text-slate-300 text-sm leading-relaxed">
+              <span class="material-symbols-outlined text-[18px] text-slate-500 mt-0.5">location_on</span>
+              <span>4 Bis Rue du Mali, 4ᵉ étage, bureau n°4,<br />Jeanne d'Arc, Tunis 1002</span>
+            </li>
           </ul>
-      </div>
+        </div>
 
         <!-- Informations légales -->
-          <div>
-          <h5 class="text-slate-500 text-[10px] uppercase tracking-widest mb-4">Informations légales</h5>
+        <div>
+          <h5 class="font-caps text-slate-300 text-xs font-bold uppercase tracking-widest mb-5">Informations légales</h5>
           <ul class="space-y-3">
-              <li><a href="mentions-legales/index.html" class="text-slate-300 text-sm hover:text-white transition-colors">Mentions légales</a></li>
+            <li><a href="mentions-legales/index.html" class="text-slate-300 text-sm hover:text-white transition-colors">Mentions légales</a></li>
             <li><a href="conditions-generales-de-vente/index.html" class="text-slate-300 text-sm hover:text-white transition-colors">Conditions générales de vente</a></li>
             <li><a href="politique-annulation-remboursement/index.html" class="text-slate-300 text-sm hover:text-white transition-colors">Annulation et remboursement</a></li>
-              <li><a href="politique-confidentialite/index.html" class="text-slate-300 text-sm hover:text-white transition-colors">Politique de confidentialité</a></li>
-              <li><a href="politique-cookies/index.html" class="text-slate-300 text-sm hover:text-white transition-colors">Politique relative aux cookies</a></li>
-            </ul>
-          </div>
+            <li><a href="politique-confidentialite/index.html" class="text-slate-300 text-sm hover:text-white transition-colors">Politique de confidentialité</a></li>
+            <li><a href="politique-cookies/index.html" class="text-slate-300 text-sm hover:text-white transition-colors">Politique relative aux cookies</a></li>
+          </ul>
+        </div>
 
       </div>
 
-      <div class="border-t border-slate-800 pt-6 flex flex-col md:flex-row justify-between items-center gap-2">
+      <div class="border-t border-slate-800 pt-6 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <p class="text-slate-500 text-xs">© 2026 SM Travel — SM services &amp; consulting. Tous droits réservés.</p>
-        <p class="text-slate-600 text-xs">Matricule fiscal : 1915331L</p>
+        <p class="text-slate-500 text-xs">Matricule fiscal : 1915331L</p>
       </div>
     </div>
   </footer>
@@ -3088,7 +2595,7 @@
             <div class="lm-dl-row"><dt class="lm-dt">Matricule fiscal</dt><dd class="lm-dd lm-mono">1915331L</dd></div>
             <div class="lm-dl-row"><dt class="lm-dt">Forme juridique</dt><dd class="lm-dd">SARL</dd></div>
             <div class="lm-dl-row"><dt class="lm-dt">Adresse</dt><dd class="lm-dd">4 Bis Rue du Mali, 4e étage, bureau n°4,<br>Jeanne d’Arc, Tunis 1002, Tunisie</dd></div>
-            <div class="lm-dl-row"><dt class="lm-dt">Téléphone</dt><dd class="lm-dd"><a href="tel:+21656819899" class="lm-link">+216 56 819 899</a></dd></div>
+            <div class="lm-dl-row"><dt class="lm-dt">Téléphone</dt><dd class="lm-dd"><a href="tel:+21654819879" class="lm-link">+216 54 819 879</a></dd></div>
             <div class="lm-dl-row"><dt class="lm-dt">Email administratif</dt><dd class="lm-dd"><a href="mailto:sahbimars3@gmail.com" class="lm-link">sahbimars3@gmail.com</a></dd></div>
             <div class="lm-dl-row"><dt class="lm-dt">Email commercial</dt><dd class="lm-dd"><a href="mailto:services@smtravel.fr" class="lm-link">services@smtravel.fr</a></dd></div>
             <div class="lm-dl-row"><dt class="lm-dt">Responsable de publication</dt><dd class="lm-dd">Direction de SM services &amp; consulting</dd></div>
@@ -3927,285 +3434,6 @@
       }
     }
 
-    /* ── Custom Destination Dropdown ── */
-    function toggleDestDropdown(forceClose) {
-      const list = document.getElementById('destList');
-      const trigger = document.getElementById('destTrigger');
-      const chevron = document.getElementById('destChevron');
-      const open = list.style.display === 'block';
-      if (forceClose || open) {
-        list.style.display = 'none';
-        trigger.setAttribute('aria-expanded', 'false');
-        chevron.style.transform = '';
-        trigger.style.borderColor = '#e2e8f0';
-        trigger.style.boxShadow = 'none';
-      } else {
-        list.style.display = 'block';
-        trigger.setAttribute('aria-expanded', 'true');
-        chevron.style.transform = 'rotate(180deg)';
-        trigger.style.borderColor = '#6d28d9';
-        trigger.style.boxShadow = '0 0 0 3px rgba(109,40,217,.12)';
-      }
-    }
-    function selectDest(el) {
-      const val = el.dataset.value;
-      document.getElementById('f-destination').value = val;
-      document.getElementById('destLabel').textContent = el.querySelector('span:last-child').textContent;
-      document.getElementById('destLabel').style.color = '#1e1b4b';
-      // Mark selected item
-      document.querySelectorAll('#destList li').forEach(li => {
-        li.style.background = '';
-        li.style.fontWeight = '';
-        li.style.color = '';
-        const dot = li.querySelector('.dest-dot');
-        if (dot) dot.remove();
-      });
-      el.style.background = 'linear-gradient(90deg,#f5f3ff,#ede9fe)';
-      el.style.fontWeight = '600';
-      el.style.color = '#6d28d9';
-      // Add check dot
-      const dot = document.createElement('span');
-      dot.className = 'dest-dot';
-      dot.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-left:auto"><polyline points="20 6 9 17 4 12"/></svg>';
-      dot.style.marginLeft = 'auto';
-      el.appendChild(dot);
-      toggleDestDropdown(true);
-      // Clear error
-      const errEl = document.getElementById('err-destination');
-      if (errEl) errEl.style.display = 'none';
-      const trigger = document.getElementById('destTrigger');
-      trigger.style.borderColor = '#10b981';
-      trigger.style.boxShadow = '0 0 0 3px rgba(16,185,129,.1)';
-    }
-    function destKeyNav(e) {
-      const list = document.getElementById('destList');
-      const open = list.style.display === 'block';
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleDestDropdown(); }
-      if (e.key === 'Escape') toggleDestDropdown(true);
-      if (!open) return;
-      const items = [...list.querySelectorAll('li')];
-      const cur = document.activeElement;
-      const idx = items.indexOf(cur);
-      if (e.key === 'ArrowDown') { e.preventDefault(); (items[idx + 1] || items[0]).focus(); }
-      if (e.key === 'ArrowUp') { e.preventDefault(); (items[idx - 1] || items[items.length - 1]).focus(); }
-      if (e.key === 'Enter' && idx >= 0) { e.preventDefault(); selectDest(items[idx]); }
-    }
-    // Close dropdown on outside click
-    document.addEventListener('click', function (e) {
-      if (!document.getElementById('destDropdown').contains(e.target)) toggleDestDropdown(true);
-    });
-
-    /* ── Validation champs ── */
-    function showError(field, msg) {
-      const errEl = document.getElementById('err-' + field.id.replace('f-', ''));
-      if (!errEl) return;
-      errEl.textContent = msg;
-      errEl.style.display = 'block';
-      field.style.borderColor = '#dc2626';
-      field.style.boxShadow = '0 0 0 3px rgba(220,38,38,.1)';
-    }
-    function clearError(field) {
-      const errEl = document.getElementById('err-' + field.id.replace('f-', ''));
-      if (errEl) errEl.style.display = 'none';
-      field.style.borderColor = '#e2e8f0';
-      field.style.boxShadow = 'none';
-    }
-    function validateField(field) {
-      // Custom dropdown: validate via trigger visual instead
-      if (field.id === 'f-destination') {
-        const v = field.value.trim();
-        const trigger = document.getElementById('destTrigger');
-        const errEl = document.getElementById('err-destination');
-        if (!v) {
-          if (errEl) { errEl.textContent = 'Veuillez choisir une destination.'; errEl.style.display = 'block'; }
-          trigger.style.borderColor = '#dc2626';
-          trigger.style.boxShadow = '0 0 0 3px rgba(220,38,38,.1)';
-          return false;
-        }
-        if (errEl) errEl.style.display = 'none';
-        trigger.style.borderColor = '#10b981';
-        trigger.style.boxShadow = '0 0 0 3px rgba(16,185,129,.1)';
-        return true;
-      }
-      const v = field.value.trim();
-      if (field.required && !v) { showError(field, 'Ce champ est obligatoire.'); return false; }
-      if (field.minLength > 0 && v.length < field.minLength) { showError(field, `Minimum ${field.minLength} caractères.`); return false; }
-      if (field.id === 'f-email' && v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) { showError(field, 'Adresse email invalide.'); return false; }
-      if (field.id === 'f-tel' && v && !/^[0-9]{8}$/.test(v)) { showError(field, '8 chiffres requis (ex: 56819899).'); return false; }
-      clearError(field);
-      field.style.borderColor = '#10b981';
-      field.style.boxShadow = '0 0 0 3px rgba(16,185,129,.1)';
-      return true;
-    }
-    function validateForm() {
-      const fields = ['f-prenom', 'f-nom', 'f-email', 'f-tel', 'f-destination'];
-      return fields.map(id => validateField(document.getElementById(id))).every(Boolean);
-    }
-    /* ── Compteur message ── */
-    document.getElementById('f-message').addEventListener('input', function () {
-      document.getElementById('msg-count').textContent = this.value.length;
-    });
-
-    /* ── Form submit ── */
-    async function handleFormSubmit(e) {
-      e.preventDefault();
-      const form = e.target;
-      const btn = form.querySelector('button[type="submit"]');
-      const originalHTML = btn.innerHTML;
-
-      // Validation complète avant envoi
-      if (!validateForm()) {
-        const firstErr = form.querySelector('.field-error[style*="block"]');
-        if (firstErr) firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
-      }
-
-      const recaptchaError = document.getElementById('err-recaptcha');
-      if (recaptchaError) recaptchaError.style.display = 'none';
-      const widgetId = window.ensureRecaptchaWidget ? window.ensureRecaptchaWidget() : null;
-      if (widgetId === null) {
-        if (recaptchaError) recaptchaError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
-      }
-
-      const recaptchaToken = grecaptcha.getResponse(widgetId);
-      if (!recaptchaToken) {
-        if (recaptchaError) {
-          recaptchaError.textContent = 'Veuillez valider le reCAPTCHA puis cliquer à nouveau sur Envoyer.';
-          recaptchaError.style.display = 'block';
-          recaptchaError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-        return;
-      }
-
-      // Show spinner
-      btn.disabled = true;
-      btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" style="animation:spin .8s linear infinite;margin-right:6px"><path d="M12 2a10 10 0 0 1 10 10"/></svg>Envoi en cours…';
-      if (!document.getElementById('fsiSpinStyle')) {
-        const s = document.createElement('style');
-        s.id = 'fsiSpinStyle';
-        s.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
-        document.head.appendChild(s);
-      }
-
-      const payload = {
-        prenom: document.getElementById('f-prenom').value,
-        nom: document.getElementById('f-nom').value,
-        email: document.getElementById('f-email').value,
-        telephone: document.getElementById('f-tel').value,
-        destination: document.getElementById('f-destination').value,
-        message: document.getElementById('f-message').value,
-        recaptchaToken,
-      };
-
-      // Anti-spam : 30s de délai entre deux envois
-      if (handleFormSubmit._lastSent && Date.now() - handleFormSubmit._lastSent < 30000) {
-        const remaining = Math.ceil((30000 - (Date.now() - handleFormSubmit._lastSent)) / 1000);
-        const toast = document.getElementById('formToast');
-        document.getElementById('formToastMsg').textContent = `Veuillez patienter encore ${remaining} seconde${remaining > 1 ? 's' : ''} avant de renvoyer.`;
-        toast.style.display = 'flex';
-        setTimeout(() => { toast.style.display = 'none'; }, 4000);
-        btn.disabled = false;
-        btn.innerHTML = originalHTML;
-        return;
-      }
-      handleFormSubmit._lastSent = Date.now();
-
-      const urls = [
-        'https://n8n.courtlinker.com/webhook/smtravell',
-      ];
-      const jsonStr = JSON.stringify(payload);
-
-      for (const url of urls) {
-        // Méthode 1 : fetch normal avec application/json (n8n cloud supporte CORS)
-        try {
-          const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: jsonStr,
-          });
-          console.log('[SM Travel] fetch OK →', url, res.status);
-          continue;
-        } catch (err1) {
-          console.warn('[SM Travel] fetch application/json échoué :', err1.message);
-        }
-
-        // Méthode 2 : no-cors + text/plain (simple request, pas de preflight)
-        try {
-          await fetch(url, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'text/plain' },
-            body: jsonStr,
-          });
-          console.log('[SM Travel] fetch no-cors OK →', url);
-          continue;
-        } catch (err2) {
-          console.warn('[SM Travel] fetch no-cors échoué :', err2.message);
-        }
-
-        // Méthode 3 : sendBeacon (fire-and-forget, ignore CORS response)
-        try {
-          const ok = navigator.sendBeacon(url, new Blob([jsonStr], { type: 'application/json' }));
-          console.log('[SM Travel] sendBeacon →', url, ok ? 'accepté' : 'refusé');
-        } catch (err3) {
-          console.error('[SM Travel] sendBeacon échoué :', err3.message);
-        }
-      }
-
-      form.reset();
-      if (typeof grecaptcha !== 'undefined' && window._recaptchaWidgetId !== null) {
-        grecaptcha.reset(window._recaptchaWidgetId);
-      }
-      btn.disabled = false;
-      btn.innerHTML = originalHTML;
-
-      // Show success overlay
-      form.style.display = 'none';
-      const overlay = document.getElementById('formSuccessOverlay');
-      overlay.style.display = ''; // efface tout style inline pour laisser la classe CSS agir
-      overlay.classList.add('show');
-      spawnSuccessParticles();
-    }
-
-    function resetContactForm() {
-      const overlay = document.getElementById('formSuccessOverlay');
-      overlay.classList.remove('show');
-      overlay.style.display = ''; // laisse le CSS reprendre (display:none par défaut)
-      document.getElementById('contactForm').style.display = '';
-      document.getElementById('formToast').style.display = 'none';
-      const recaptchaError = document.getElementById('err-recaptcha');
-      if (recaptchaError) recaptchaError.style.display = 'none';
-      if (typeof grecaptcha !== 'undefined' && window._recaptchaWidgetId !== null) {
-        grecaptcha.reset(window._recaptchaWidgetId);
-      }
-      const recaptchaWrap = document.getElementById('recaptchaWrap');
-      if (recaptchaWrap) recaptchaWrap.style.display = 'none';
-    }
-
-    function spawnSuccessParticles() {
-      const overlay = document.getElementById('formSuccessOverlay');
-      const colors = ['#6d28d9', '#a78bfa', '#0ea5e9', '#f59e0b', '#10b981', '#ec4899'];
-      for (let i = 0; i < 24; i++) {
-        const p = document.createElement('div');
-        p.className = 'fsi-particle';
-        const size = 6 + Math.random() * 8;
-        const angle = (Math.PI * 2 * i) / 24;
-        const dist = 80 + Math.random() * 100;
-        p.style.cssText = [
-          'width:' + size + 'px',
-          'height:' + size + 'px',
-          'background:' + colors[i % colors.length],
-          'left:calc(50% - ' + size / 2 + 'px)',
-          'top:calc(50% - 120px)',
-          '--tx:' + (Math.cos(angle) * dist).toFixed(1) + 'px',
-          '--ty:' + (Math.sin(angle) * dist).toFixed(1) + 'px',
-          'animation-delay:' + (Math.random() * 0.3).toFixed(2) + 's',
-        ].join(';');
-        overlay.appendChild(p);
-        p.addEventListener('animationend', () => p.remove());
-      }
-    }
   </script>
 
   <!-- ═══ CHATBOT SM TRAVEL ═══ -->
@@ -4689,7 +3917,7 @@
         {
           tags: ['contact', 'telephone', 'email', 'appel', 'rappel', 'joindre', 'conseiller', 'humain', 'whatsapp'],
           q: '📞 Contacter un conseiller',
-          a: 'Vous pouvez nous joindre par :<br>📱 <strong>WhatsApp : +48 451 041 469</strong><br>📞 <strong>+216 56 819 899</strong> / <strong>+216 54 819 879</strong><br>📧 <strong>services@smtravel.fr</strong><br>Ou venez au bureau : 4 Bis Rue du Mali, 4e étage, bureau n°4, Jeanne d’Arc, Tunis 1002.'
+          a: 'Vous pouvez nous joindre par :<br>📱 <strong>WhatsApp : +216 56 819 899</strong><br>📞 <strong>+216 54 819 879</strong><br>📧 <strong>services@smtravel.fr</strong><br>Ou venez au bureau : 4 Bis Rue du Mali, 4e étage, bureau n°4, Jeanne d’Arc, Tunis 1002.'
         },
         {
           tags: ['delai', 'duree', 'temps', 'quand', 'combien de temps', 'traitement'],
@@ -4785,7 +4013,7 @@
       const WEBHOOK_TIMEOUT_MS = 30000;
       const WEBHOOK_RETRIES = 3;
       const SESSION_KEY = 'smtravel_chat_session';
-      const FALLBACK = 'Pour clarifier votre projet, appelez-nous au <strong>+216 56 819 899</strong> / <strong>+216 54 819 879</strong>, écrivez sur WhatsApp au <strong>+48 451 041 469</strong>, ou venez au bureau à Tunis. Vous pouvez aussi remplir notre <a href="#contact" onclick="toggleChat()" style="color:#4f46e5;text-decoration:underline">formulaire de contact</a>.';
+      const FALLBACK = 'Pour clarifier votre projet, appelez-nous au <strong>+216 54 819 879</strong>, écrivez sur WhatsApp au <strong>+216 56 819 899</strong>, ou venez au bureau à Tunis.';
 
       /* ───── ÉTAT ───── */
       let open = false;
@@ -5123,7 +4351,7 @@
         <!-- Grille de caractéristiques premium -->
         <div class="dm-program-details" id="dmProgramDetails"></div>
 
-        <a href="#contact" class="dm-cta" id="dmCta">
+        <a href="https://wa.me/21656819899?text=Bonjour%20SM%20Travel%2C%20je%20souhaite%20des%20informations%20sur%20un%20programme." target="_blank" rel="noopener noreferrer" class="dm-cta" id="dmCta">
           Nous contacter
           <span class="material-symbols-outlined" style="font-size:18px">arrow_forward</span>
         </a>

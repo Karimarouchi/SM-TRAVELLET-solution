@@ -68,7 +68,7 @@ async function salesManagesUniversity(salesId, universityId) {
   const result = await query(
     `SELECT 1 FROM student_university_choices ch
      JOIN student_profiles sp ON sp.user_id = ch.student_id
-     WHERE ch.university_id = $1 AND sp.assigned_sales_id = $2 LIMIT 1`,
+     WHERE ch.university_id = $1 AND (sp.assigned_sales_id = $2 OR leave_handler(sp.assigned_sales_id, sp.user_id, 'SALES') = $2) LIMIT 1`,
     [universityId, salesId]
   );
   return result.rowCount > 0;

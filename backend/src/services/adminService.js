@@ -438,12 +438,13 @@ async function setStudentActive(studentId, isActive) {
 }
 
 async function getSettings() {
-  const [autoAssignSales, stalledAlert, emailSender, workHours, whatsappAutoReply] = await Promise.all([
+  const [autoAssignSales, stalledAlert, emailSender, workHours, whatsappAutoReply, whatsappWelcome] = await Promise.all([
     settings.isAutoAssignEnabled(),
     settings.getStalledAlertConfig(),
     settings.getEmailSenderConfig(),
     settings.getWorkHoursConfig(),
-    settings.getWhatsAppAutoReply()
+    settings.getWhatsAppAutoReply(),
+    settings.getWhatsAppWelcome()
   ]);
   return {
     autoAssignSales,
@@ -460,7 +461,9 @@ async function getSettings() {
     workEnd: workHours.end,
     workTimezone: workHours.timezone,
     whatsappAutoReplyEnabled: whatsappAutoReply.enabled,
-    whatsappAutoReplyText: whatsappAutoReply.text
+    whatsappAutoReplyText: whatsappAutoReply.text,
+    whatsappWelcomeEnabled: whatsappWelcome.enabled,
+    whatsappWelcomeText: whatsappWelcome.text
   };
 }
 
@@ -542,6 +545,16 @@ async function updateSettings(body) {
     if (text !== undefined && text.length > 1000) throw fail("Le message de réponse automatique est trop long (1000 caractères maximum).", 400);
     await settings.setWhatsAppAutoReply({
       enabled: body.whatsappAutoReplyEnabled !== undefined ? Boolean(body.whatsappAutoReplyEnabled) : undefined,
+      text
+    });
+  }
+
+  if (body.whatsappWelcomeEnabled !== undefined || body.whatsappWelcomeText !== undefined) {
+    const text = body.whatsappWelcomeText !== undefined ? String(body.whatsappWelcomeText).trim() : undefined;
+    if (text !== undefined && !text) throw fail("Le message de bienvenue ne peut pas être vide.", 400);
+    if (text !== undefined && text.length > 1000) throw fail("Le message de bienvenue est trop long (1000 caractères maximum).", 400);
+    await settings.setWhatsAppWelcome({
+      enabled: body.whatsappWelcomeEnabled !== undefined ? Boolean(body.whatsappWelcomeEnabled) : undefined,
       text
     });
   }

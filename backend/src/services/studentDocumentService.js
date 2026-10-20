@@ -7,7 +7,7 @@ const choiceRepo = require("../repositories/universityChoiceRepository");
 const translationRepo = require("../repositories/translationRepository");
 const userRepo = require("../repositories/userRepository");
 const notificationService = require("./notificationService");
-const { canAccessStudent, authRoles } = require("../security/rbac");
+const { canAccessStudent, handlesApplication, authRoles } = require("../security/rbac");
 const { canViewStudent } = require("../security/studentView");
 const universityApplicationService = require("./universityApplicationService");
 const logger = require("../logger");
@@ -67,6 +67,17 @@ async function getDocumentFile(auth, rawFilename) {
     (authRoles(auth).includes("RDV") && file.rdv_assigned);
   if (!allowed) throw fail("Vous n'avez pas accès à ce document.", 403);
 
+  const absolutePath = path.join(DOC_DIR, filename);
+  if (!fs.existsSync(absolutePath)) throw fail("Le fichier n'existe plus sur le serveur.", 404);
+  return { absolutePath, mimeType: file.mime_type, originalFilename: file.original_filename || filename };
+}
+
+// Ouverture par lien signé (droits déjà vérifiés à la création du lien, voir fileLink).
+async function getDocumentFileUnchecked(rawFilename) {
+  const filename = path.basename(String(rawFilename || ""));
+  if (!/^[\w.-]+$/.test(filename)) throw fail("Document introuvable.", 404);
+  const file = await studentDocRepo.findFileForAccess(filename, null);
+  if (!file) throw fail("Document introuvable.", 404);
   const absolutePath = path.join(DOC_DIR, filename);
   if (!fs.existsSync(absolutePath)) throw fail("Le fichier n'existe plus sur le serveur.", 404);
   return { absolutePath, mimeType: file.mime_type, originalFilename: file.original_filename || filename };
@@ -415,16 +426,16 @@ async function findActiveVisaApplicationForStudent(studentId) {
 function assertVisaDocAccess(auth, application) {
   const roles = authRoles(auth);
   if (roles.includes("ADMIN")) return;
-  if (roles.includes("SALES") && application.sales_id === auth.sub) return;
-  if (roles.includes("RDV") && application.assigned_rdv_id === auth.sub && application.visa_status) return;
+  if (handlesApplication(auth, application, "SALES")) return;
+  if (handlesApplication(auth, application, "RDV") && application.visa_status) return;
   throw fail("Vous n’avez pas accès à ce dossier visa.", 403);
 }
 
 function assertVisaDocReview(auth, application) {
   const roles = authRoles(auth);
   if (roles.includes("ADMIN")) return;
-  if (roles.includes("SALES") && application.sales_id === auth.sub && !application.visa_status) return;
-  if (roles.includes("RDV") && application.assigned_rdv_id === auth.sub && application.visa_status) return;
+  if (handlesApplication(auth, application, "SALES") && !application.visa_status) return;
+  if (handlesApplication(auth, application, "RDV") && application.visa_status) return;
   throw fail("La validation des documents visa est réservée au conseiller tant que le dossier n'est pas revenu au Responsable Dossier.", 403);
 }
 
@@ -490,7 +501,9 @@ async function uploadVisaDocument(studentUserId, requirementId, fileBase64, orig
       type: "VISA_DOCUMENT_UPLOADED",
       title: "Document visa déposé à vérifier",
       body: `${await studentName(studentUserId)} a déposé « ${requirement.name} » (${application.country_name || "visa"}).`,
-      link: "/rdv/visas"
+      link: "/rdv/visas",
+      coverItem: studentUserId,
+      coverScope: "RDV"
     });
   }
 
@@ -584,6 +597,7 @@ module.exports = {
   translationDto,
   protectedFileUrl,
   getDocumentFile,
+  getDocumentFileUnchecked,
   getChecklist,
   getChecklistFor,
   uploadDocument,

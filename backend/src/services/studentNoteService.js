@@ -2,6 +2,8 @@ const { query } = require("../../db");
 const studentRepo = require("../repositories/studentRepository");
 const { authRoles } = require("../security/rbac");
 const { canViewStudent } = require("../security/studentView");
+const notificationService = require("./notificationService");
+const logger = require("../logger");
 
 const MAX_LENGTH = 2000;
 
@@ -56,7 +58,45 @@ async function create(auth, studentId, rawBody) {
     `SELECT n.*, u.prenom, u.nom, u.role FROM student_notes n LEFT JOIN users u ON u.id = n.author_id WHERE n.id = $1`,
     [inserted.rows[0].id]
   );
+  await notifyTeam(auth, studentId, result.rows[0]);
   return dto(result.rows[0], auth);
+}
+
+// Nouvelle remarque : toute l'équipe qui suit l'étudiant est prévenue (son conseiller, ses Responsables
+// Dossier, et leurs remplaçants pendant un congé) ainsi que les admins. L'auteur n'est jamais notifié.
+async function notifyTeam(auth, studentId, note) {
+  try {
+    const [team, admins] = await Promise.all([
+      query(
+        `SELECT u.prenom AS student_prenom, u.nom AS student_nom, sp.assigned_sales_id,
+                COALESCE((SELECT array_agg(DISTINCT ua.assigned_rdv_id) FROM university_applications ua
+                          WHERE ua.student_id = u.id AND ua.assigned_rdv_id IS NOT NULL AND ua.status <> 'CLOSED'), '{}') AS rdv_ids
+         FROM users u LEFT JOIN student_profiles sp ON sp.user_id = u.id WHERE u.id = $1`,
+        [studentId]
+      ),
+      query(
+        `SELECT DISTINCT u.id FROM users u LEFT JOIN user_roles ur ON ur.user_id = u.id
+         WHERE u.is_active = TRUE AND (u.role = 'ADMIN' OR ur.role = 'ADMIN')`
+      )
+    ]);
+    const row = team.rows[0];
+    if (!row) return;
+    const student = `${row.student_prenom || ""} ${row.student_nom || ""}`.trim() || "un étudiant";
+    const author = note.prenom ? `${note.prenom} ${note.nom || ""}`.trim() : "Un collaborateur";
+    const preview = note.body.length > 160 ? `${note.body.slice(0, 157)}…` : note.body;
+    const payload = { type: "STUDENT_NOTE", title: `Nouvelle remarque sur ${student}`, body: `${author} : ${preview}` };
+    const notified = new Set([auth.sub]);
+    const send = async (ids, extra) => {
+      const targets = [...new Set(ids)].filter((id) => id && !notified.has(id));
+      targets.forEach((id) => notified.add(id));
+      if (targets.length) await notificationService.notify(targets, { ...payload, ...extra });
+    };
+    await send(admins.rows.map((r) => r.id), { link: `/conseiller/etudiants/${studentId}` });
+    await send([row.assigned_sales_id], { link: `/conseiller/etudiants/${studentId}`, coverItem: studentId, coverScope: "SALES" });
+    await send(row.rdv_ids || [], { link: `/rdv/etudiants/${studentId}`, coverItem: studentId, coverScope: "RDV" });
+  } catch (error) {
+    logger.error("Remarque : notification de l'équipe impossible", { studentId, message: error.message });
+  }
 }
 
 async function remove(auth, noteId) {

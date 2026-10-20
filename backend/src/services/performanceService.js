@@ -1,6 +1,7 @@
 const settings = require("../repositories/settingsRepository");
 const performanceRepo = require("../repositories/performanceRepository");
-const { parseWorkHours, businessMinutesBetween, formatMinutes } = require("./businessHours");
+const hrRepo = require("../repositories/hrRepository");
+const { parseWorkHours, businessMinutesBetween, formatMinutes, zonedParts, isoDate } = require("./businessHours");
 
 // Statistiques Admin (Dashboard + page d'un employé). Toutes les durées sont
 // en heures ouvrées (jours et plages définis dans Paramètres).
@@ -98,7 +99,14 @@ function whatsappFunnel(conversations) {
 }
 
 async function computeReport(period) {
-  const config = parseWorkHours(await settings.getWorkHoursConfig());
+  const [rawHours, holidayRows] = await Promise.all([
+    settings.getWorkHoursConfig(),
+    hrRepo.listHolidays()
+  ]);
+  const config = parseWorkHours(rawHours);
+  config.closedDates = new Set(
+    (holidayRows || []).filter((row) => row && row.paid !== false && row.day).map((row) => String(row.day).slice(0, 10))
+  );
   const { key, since } = periodStart(period);
   const now = new Date();
   const minutes = (from, to) => businessMinutesBetween(from, to, config);
@@ -133,7 +141,10 @@ async function computeReport(period) {
     if (!turn.repliedAt) {
       if (conversation?.muted_at) continue;
       // En attente de réponse maintenant (quelle que soit la période).
+      // Un message reçu un férié payé n'est pas une attente tant que l'agence n'a pas rouvert.
       const waiting = minutes(turn.startedAt, now);
+      const started = zonedParts(new Date(turn.startedAt), config.timezone);
+      if (config.closedDates.has(isoDate(started.year, started.month, started.day)) && waiting === 0) continue;
       teamPending += 1;
       pendingAll.push({
         contactId: turn.contactId,

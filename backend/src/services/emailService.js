@@ -306,6 +306,73 @@ async function sendApplicationDecisionEmail(to, prenom, details) {
   });
 }
 
+// Étapes du dossier envoyées par le système : candidature déposée, visa accepté, visa refusé.
+const STEP_EMAILS = {
+  APPLIED: {
+    badge: { label: "Candidature déposée", tone: "info" },
+    subject: (target) => `Candidature déposée : ${target}`,
+    title: (prenom) => `Bonjour ${prenom}`,
+    intro: (university) => `Votre candidature à <strong>${esc(university)}</strong> vient d'être <strong>déposée</strong> par votre Responsable Dossier. Nous attendons maintenant la réponse de l'université : vous serez prévenu(e) dès qu'elle arrive.`,
+    text: (prenom, target) => `Bonjour ${prenom}, votre candidature à ${target} a été déposée. Nous attendons la réponse de l'université et vous préviendrons dès qu'elle arrive.`,
+    decision: "Déposée",
+    accent: "#4f46e5",
+    cta: { label: "Suivre ma candidature", tone: "info" }
+  },
+  VISA_ACCEPTED: {
+    badge: { label: "Visa accepté", tone: "success" },
+    subject: (target) => `Félicitations — visa accepté : ${target}`,
+    title: (prenom) => `Félicitations ${prenom} !`,
+    intro: (university) => `Excellente nouvelle : votre <strong>visa a été accepté</strong> pour vos études à <strong>${esc(university)}</strong>. Votre dossier est désormais complet. Votre conseiller reste disponible pour la suite (logement, voyage, accueil).`,
+    text: (prenom, target) => `Félicitations ${prenom}, votre visa a été accepté pour ${target}. Votre dossier est désormais complet.`,
+    decision: "Visa accepté",
+    accent: "#059669",
+    cta: { label: "Voir mon dossier", tone: "success" }
+  },
+  VISA_REJECTED: {
+    badge: { label: "Visa refusé", tone: "danger" },
+    subject: (target) => `Réponse à votre demande de visa : ${target}`,
+    title: (prenom) => `Bonjour ${prenom}`,
+    intro: (university) => `Nous avons le regret de vous informer que votre <strong>demande de visa a été refusée</strong> pour vos études à <strong>${esc(university)}</strong>. Votre conseiller va vous contacter pour étudier avec vous la suite : une nouvelle demande reste possible.`,
+    text: (prenom, target) => `Bonjour ${prenom}, votre demande de visa pour ${target} a été refusée. Votre conseiller va vous contacter pour étudier la suite.`,
+    decision: "Visa refusé",
+    accent: "#dc2626",
+    cta: { label: "Voir mon dossier", tone: "info" }
+  }
+};
+
+function applicationStepEmailHtml(prenom, { step, universityName, fieldOfStudy, countryName, reason }) {
+  const config = STEP_EMAILS[step];
+  return renderEmail({
+    preheader: config.subject(universityName),
+    headerLabel: step === "APPLIED" ? "Candidature universitaire" : "Demande de visa",
+    badge: config.badge,
+    title: config.title(prenom),
+    introHtml: config.intro(universityName),
+    blocks: [
+      rowsBlock([
+        ["Université", universityName],
+        ["Filière", fieldOfStudy],
+        ["Pays", countryName],
+        ["Étape", config.decision, { strong: true }]
+      ], { accent: config.accent }),
+      step === "VISA_REJECTED" && reason ? calloutBlock({ tone: "danger", title: "Motif communiqué", html: escLines(reason) }) : ""
+    ],
+    cta: { label: config.cta.label, url: appUrl("/espace"), tone: config.cta.tone }
+  });
+}
+
+// Renvoie l'objet et le texte envoyés (une copie est gardée dans l'espace de l'étudiant).
+async function sendApplicationStepEmail(to, prenom, details) {
+  const config = STEP_EMAILS[details.step];
+  if (!config) throw new Error(`Étape d'e-mail inconnue : ${details.step}`);
+  const target = details.fieldOfStudy ? `${details.universityName} (${details.fieldOfStudy})` : details.universityName;
+  const subject = config.subject(target);
+  const text = `${config.text(prenom, target)}${details.step === "VISA_REJECTED" && details.reason ? ` Motif : ${details.reason}.` : ""}`;
+  const sender = await resolveSender();
+  const info = await sender.transporter.sendMail({ from: sender.from(), to, subject, html: applicationStepEmailHtml(prenom, details), text });
+  return { subject, text, messageId: info?.messageId || null };
+}
+
 // Reçu de paiement : envoyé à l'étudiant à chaque paiement enregistré.
 function paymentReceiptEmailHtml(prenom, d) {
   const settled = /soldé/i.test(d.remainingLabel || "");
@@ -354,6 +421,7 @@ const templates = {
   visaMeeting: visaMeetingEmailHtml,
   alert: alertEmailHtml,
   applicationDecision: applicationDecisionEmailHtml,
+  applicationStep: applicationStepEmailHtml,
   paymentReceipt: paymentReceiptEmailHtml
 };
 
@@ -363,6 +431,7 @@ module.exports = {
   templates,
   sendPaymentReceiptEmail,
   sendApplicationDecisionEmail,
+  sendApplicationStepEmail,
   verifySmtp,
   guessSmtpHost,
   sendPasswordResetEmail,

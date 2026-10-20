@@ -138,7 +138,8 @@ async function findFileForAccess(storedFilename, userId) {
             sp.assigned_sales_id,
             EXISTS (
               SELECT 1 FROM university_applications ua
-              WHERE ua.student_id = sd.student_id AND ua.assigned_rdv_id = $2
+              WHERE ua.student_id = sd.student_id
+                AND (ua.assigned_rdv_id = $2 OR leave_handler(ua.assigned_rdv_id, ua.student_id, 'RDV') = $2)
             ) AS rdv_assigned
      FROM (
        SELECT student_id, stored_filename, mime_type, original_filename FROM student_documents

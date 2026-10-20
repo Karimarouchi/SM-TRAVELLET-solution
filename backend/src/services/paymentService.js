@@ -6,6 +6,7 @@ const notificationService = require("./notificationService");
 const emailService = require("./emailService");
 const logger = require("../logger");
 const { canAccessStudent, authRoles } = require("../security/rbac");
+const leaveCover = require("./leaveCover");
 const { canViewStudent } = require("../security/studentView");
 
 // Deux tranches par pays : 1 = inscription (à la création du code), 2 = avant le
@@ -573,6 +574,8 @@ async function listPlans(filters = {}) {
   else if (["PAID", "PARTIAL", "UNPAID"].includes(filters.status)) plans = plans.filter((p) => p.status === filters.status);
   if (filters.countryId) plans = plans.filter((p) => p.countryId === filters.countryId);
   if (filters.salesId) plans = plans.filter((p) => p.salesId === filters.salesId);
+  // Conseiller connecté : ses étudiants et ceux qu'il remplace pendant un congé.
+  if (filters.handledBy) plans = plans.filter((p) => leaveCover.handles(filters.handledBy, p.salesId, p.studentId, "SALES"));
   const q = String(filters.q || "").trim().toLowerCase();
   if (q) plans = plans.filter((p) => p.studentName.toLowerCase().includes(q));
   return plans.slice(0, 500);

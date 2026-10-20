@@ -27,6 +27,7 @@ const countryUniversityController = require("./controllers/countryUniversityCont
 const universityApplicationController = require("./controllers/universityApplicationController");
 const universityChoiceController = require("./controllers/universityChoiceController");
 const paymentController = require("./controllers/paymentController");
+const hrController = require("./controllers/hrController");
 const salesDashboardController = require("./controllers/salesDashboardController");
 const backupController = require("./controllers/backupController");
 const commissionController = require("./controllers/commissionController");
@@ -63,6 +64,7 @@ app.use(["/api/students/me/documents", "/api/students/me/visa-documents", "/api/
 app.use("/api/whatsapp/conversations/:contactId/media", express.json({ limit: "25mb" }));
 // Envoi de mail avec pièces jointes (10 Mo, soit environ 14 Mo en base64) : limite dédiée à cette seule route.
 app.use("/api/mail/send", express.json({ limit: "15mb" }));
+app.use("/api/admin/hr/payroll/import", express.json({ limit: "12mb" }));
 app.use(express.json({
   limit: "5mb",
   // Corps brut conservé pour le webhook WhatsApp uniquement : la signature
@@ -74,6 +76,7 @@ app.use(express.json({
 // Documents des étudiants (passeports, diplômes...) : jamais en accès libre,
 // uniquement via /api/documents/files/:filename, qui vérifie les droits.
 app.use("/uploads/documents", (_req, res) => res.status(404).json({ error: "Introuvable." }));
+app.use("/uploads/hr", (_req, res) => res.status(404).json({ error: "Introuvable." }));
 // Fichiers envoyés sur WhatsApp : jamais en accès libre, uniquement via la route authentifiée de la conversation.
 app.use("/uploads/whatsapp", (_req, res) => res.status(404).json({ error: "Introuvable." }));
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
@@ -163,7 +166,7 @@ const authBruteForceLimiter = process.env.NODE_ENV === "production"
 
 app.post("/api/auth/register", authController.register);
 app.post("/api/auth/login", authBruteForceLimiter, authController.login);
-app.post("/api/auth/logout", authController.logout);
+app.post("/api/auth/logout", requireAuth, authController.logout);
 app.post("/api/auth/forgot-password", authBruteForceLimiter, authController.forgotPassword);
 app.post("/api/auth/verify-reset-code", authBruteForceLimiter, authController.verifyResetCode);
 app.post("/api/auth/reset-password", authBruteForceLimiter, authController.resetPassword);
@@ -182,6 +185,9 @@ app.get("/api/students/:id", requireAuth, requireRoles("SALES", "ADMIN", "RDV"),
 app.patch("/api/students/:id/assign", requireAuth, requireRoles("ADMIN"), studentController.assign);
 app.post("/api/students/avis", requireAuth, requireRoles("STUDENT"), avisController.createStudentAvis);
 app.get("/api/documents/files/:filename", requireAuth, studentDocumentController.file);
+app.get("/api/documents/files/:filename/link", requireAuth, studentDocumentController.fileLink);
+// Ouverture par lien signé de 5 min (créé ci-dessus) : l'adresse porte le nom d'origine du fichier.
+app.get("/api/documents/open/:token/:name", studentDocumentController.openWithLink);
 app.get("/api/students/me/documents", requireAuth, requireRoles("STUDENT"), studentDocumentController.list);
 app.post("/api/students/me/documents", requireAuth, requireRoles("STUDENT"), studentDocumentController.upload);
 app.get("/api/students/me/university-choices", requireAuth, requireRoles("STUDENT"), universityChoiceController.listMine);
@@ -278,6 +284,73 @@ app.get("/api/admin/commission-payouts/users/:userId", requireAuth, requireRoles
 app.post("/api/admin/commission-payouts/users/:userId/pay", requireAuth, requireRoles("ADMIN"), commissionPayoutController.payUser);
 app.post("/api/admin/commission-payouts/pay-all", requireAuth, requireRoles("ADMIN"), commissionPayoutController.payAll);
 app.get("/api/me/commissions", requireAuth, requireRoles("SALES", "RDV"), commissionController.myEarnings);
+app.get("/api/admin/hr/inbox", requireAuth, requireRoles("ADMIN"), hrController.inbox);
+app.get("/api/admin/hr/employees", requireAuth, requireRoles("ADMIN"), hrController.employees);
+app.patch("/api/admin/hr/employees/:id", requireAuth, requireRoles("ADMIN"), hrController.updateEmployee);
+app.get("/api/admin/hr/settings", requireAuth, requireRoles("ADMIN"), hrController.settings);
+app.put("/api/admin/hr/settings", requireAuth, requireRoles("ADMIN"), hrController.updateSettings);
+app.get("/api/admin/hr/holidays", requireAuth, requireRoles("ADMIN"), hrController.holidays);
+app.post("/api/admin/hr/holidays", requireAuth, requireRoles("ADMIN"), hrController.addHoliday);
+app.patch("/api/admin/hr/holidays/:id", requireAuth, requireRoles("ADMIN"), hrController.setHolidayPaid);
+app.delete("/api/admin/hr/holidays/:id", requireAuth, requireRoles("ADMIN"), hrController.removeHoliday);
+app.get("/api/admin/hr/leave", requireAuth, requireRoles("ADMIN"), hrController.leaveOverview);
+app.post("/api/admin/hr/leave", requireAuth, requireRoles("ADMIN"), hrController.createLeave);
+app.get("/api/admin/hr/leave/cover-options", requireAuth, requireRoles("ADMIN"), hrController.leaveCoverOptions);
+app.patch("/api/admin/hr/leave/:id", requireAuth, requireRoles("ADMIN"), hrController.decideLeave);
+app.put("/api/admin/hr/leave/:id/cover", requireAuth, requireRoles("ADMIN"), hrController.updateLeaveCover);
+app.post("/api/admin/hr/leave/settle", requireAuth, requireRoles("ADMIN"), hrController.settleLeave);
+app.post("/api/admin/hr/leave/balance", requireAuth, requireRoles("ADMIN"), hrController.setLeaveBalance);
+app.get("/api/admin/hr/leave/absences", requireAuth, requireRoles("ADMIN"), hrController.leaveAbsences);
+app.post("/api/admin/hr/leave/absences", requireAuth, requireRoles("ADMIN"), hrController.coverLeaveAbsences);
+app.get("/api/hr/me", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), hrController.myLeave);
+// Congé en cours (lecture seule) et collègues remplacés : bandeaux de l'application.
+app.get("/api/hr/me/leave-cover", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), hrController.myLeaveCover);
+app.get("/api/hr/me/holidays", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), hrController.myHolidays);
+app.post("/api/hr/me/leave/preview", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), hrController.previewMyLeave);
+app.post("/api/hr/me/leave", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), hrController.requestMyLeave);
+app.get("/api/admin/hr/attendance", requireAuth, requireRoles("ADMIN"), hrController.attendanceMonth);
+app.put("/api/admin/hr/attendance/day", requireAuth, requireRoles("ADMIN"), hrController.saveAttendanceDay);
+app.put("/api/admin/hr/attendance/month", requireAuth, requireRoles("ADMIN"), hrController.saveAttendanceAmount);
+app.post("/api/admin/hr/attendance/absences", requireAuth, requireRoles("ADMIN"), hrController.confirmAttendanceAbsences);
+app.get("/api/admin/hr/payroll", requireAuth, requireRoles("ADMIN"), hrController.payrollMonth);
+app.put("/api/admin/hr/payroll/adjustment", requireAuth, requireRoles("ADMIN"), hrController.savePayrollAdjustment);
+app.put("/api/admin/hr/payroll/commissions", requireAuth, requireRoles("ADMIN"), hrController.setPayrollCommission);
+app.post("/api/admin/hr/payroll/entries", requireAuth, requireRoles("ADMIN"), hrController.addPayrollEntry);
+app.delete("/api/admin/hr/payroll/entries/:id", requireAuth, requireRoles("ADMIN"), hrController.removePayrollEntry);
+app.post("/api/admin/hr/payroll/import", requireAuth, requireRoles("ADMIN"), hrController.importPayslipPreview);
+app.post("/api/admin/hr/payroll/import/confirm", requireAuth, requireRoles("ADMIN"), hrController.confirmPayslipImport);
+app.delete("/api/admin/hr/payroll/bulletin", requireAuth, requireRoles("ADMIN"), hrController.removeOfficialPayslip);
+app.get("/api/admin/hr/payroll/:userId/bulletin", requireAuth, requireRoles("ADMIN"), hrController.officialPayslipPdf);
+app.get("/api/admin/hr/payroll/:userId/accountant", requireAuth, requireRoles("ADMIN"), hrController.accountantPdf);
+app.get("/api/admin/hr/payroll/:userId/fiches", requireAuth, requireRoles("ADMIN"), hrController.fichesPdf);
+app.post("/api/admin/hr/payroll/issue", requireAuth, requireRoles("ADMIN"), hrController.issuePayslip);
+app.delete("/api/admin/hr/payroll/issue", requireAuth, requireRoles("ADMIN"), hrController.reopenPayslip);
+app.get("/api/admin/hr/payroll/:userId/pdf", requireAuth, requireRoles("ADMIN"), hrController.payslipPdf);
+app.get("/api/admin/hr/attestations/:userId/pdf", requireAuth, requireRoles("ADMIN"), hrController.attestationPdf);
+app.get("/api/admin/hr/branding", requireAuth, requireRoles("ADMIN"), hrController.payrollBranding);
+app.put("/api/admin/hr/branding/:kind", requireAuth, requireRoles("ADMIN"), hrController.savePayrollBrand);
+app.get("/api/admin/hr/branding/:kind/file", requireAuth, requireRoles("ADMIN"), hrController.payrollBrandFile);
+app.get("/api/admin/hr/employees/:id/dossier", requireAuth, requireRoles("ADMIN"), hrController.employeeDossier);
+app.post("/api/admin/hr/employees/:id/documents", requireAuth, requireRoles("ADMIN"), hrController.addEmployeeDocument);
+app.get("/api/admin/hr/documents/:id/file", requireAuth, requireRoles("ADMIN"), hrController.employeeDocumentFile);
+app.delete("/api/admin/hr/documents/:id", requireAuth, requireRoles("ADMIN"), hrController.removeEmployeeDocument);
+app.get("/api/admin/hr/document-requests", requireAuth, requireRoles("ADMIN"), hrController.documentRequests);
+app.patch("/api/admin/hr/document-requests/:id", requireAuth, requireRoles("ADMIN"), hrController.decideDocumentRequest);
+app.get("/api/hr/me/payslips", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), hrController.myPayslips);
+app.get("/api/hr/me/document-requests", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), hrController.myDocumentRequests);
+app.post("/api/hr/me/document-requests", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), hrController.requestDocument);
+app.get("/api/hr/me/payslips/pdf", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), hrController.myPayslipPdf);
+app.get("/api/hr/me/attestations/pdf", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), hrController.myAttestationPdf);
+app.get("/api/hr/me/documents", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), hrController.myDocuments);
+app.get("/api/hr/me/documents/:id/file", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), hrController.myDocumentFile);
+app.get("/api/admin/hr/absences", requireAuth, requireRoles("ADMIN"), hrController.absenceMonth);
+app.post("/api/admin/hr/absences", requireAuth, requireRoles("ADMIN"), hrController.submitAbsenceCertificate);
+app.post("/api/admin/hr/absences/accept", requireAuth, requireRoles("ADMIN"), hrController.acceptAbsenceCertificate);
+app.get("/api/admin/hr/absences/file", requireAuth, requireRoles("ADMIN"), hrController.absenceCertificateFile);
+app.get("/api/hr/me/absences", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), hrController.myAbsences);
+app.post("/api/hr/me/absences", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), hrController.submitMyAbsenceCertificate);
+app.get("/api/hr/me/absences/file", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), hrController.myAbsenceCertificateFile);
+
 app.get("/api/admin/insights", requireAuth, requireRoles("ADMIN"), adminController.insights);
 app.get("/api/admin/dashboard", requireAuth, requireRoles("ADMIN"), adminController.dashboard);
 app.get("/api/admin/board", requireAuth, requireRoles("ADMIN"), adminController.board);
@@ -410,5 +483,38 @@ function scheduledBackup() {
 }
 setInterval(scheduledBackup, 30 * 60 * 1000);
 setTimeout(scheduledBackup, 2 * 60 * 1000);
+
+function holidayAutoReplies() {
+  require("./services/whatsappService").sendHolidayMorningReplies().catch((error) => logger.error("Échec de la réponse automatique des jours fériés", { message: error.message }));
+}
+setInterval(holidayAutoReplies, 15 * 60 * 1000);
+setTimeout(holidayAutoReplies, 2 * 60 * 1000);
+
+function certificateReminders() {
+  require("./services/hrAbsenceService").remind().catch((error) => logger.error("Échec du rappel de certificat", { message: error.message }));
+}
+setInterval(certificateReminders, 60 * 60 * 1000);
+setTimeout(certificateReminders, 150 * 1000);
+
+function payslipDueReminders() {
+  require("./services/hrPayrollService").remindDuePayslips().catch((error) => logger.error("Échec du rappel de fiche de paie", { message: error.message }));
+}
+setInterval(payslipDueReminders, 60 * 60 * 1000);
+setTimeout(payslipDueReminders, 170 * 1000);
+
+function contractReminders() {
+  const hr = require("./services/hrService");
+  hr.promoteCivp().catch((error) => logger.error("Échec du passage CIVP vers CDI", { message: error.message }));
+  hr.remindEndingContracts().catch((error) => logger.error("Échec du rappel de fin de CDD", { message: error.message }));
+}
+setInterval(contractReminders, 60 * 60 * 1000);
+setTimeout(contractReminders, 160 * 1000);
+
+// Fin d'un congé avec remplaçants : résumé envoyé à l'absent et fin du remplacement (une fois par congé).
+function leaveCoverSummaries() {
+  require("./services/hrLeaveCoverService").sendReturnSummaries().catch((error) => logger.error("Échec du résumé de fin de remplacement", { message: error.message }));
+}
+setInterval(leaveCoverSummaries, 60 * 60 * 1000);
+setTimeout(leaveCoverSummaries, 180 * 1000);
 
 module.exports = app;

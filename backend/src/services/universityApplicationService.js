@@ -17,7 +17,7 @@ const logger = require("../logger");
 const secretBox = require("../security/secretBox");
 const translationRepo = require("../repositories/translationRepository");
 const { canViewStudent } = require("../security/studentView");
-const { canAccessStudent, canAccessApplication, authRoles } = require("../security/rbac");
+const { canAccessStudent, canAccessApplication, handlesApplication, authRoles } = require("../security/rbac");
 
 function fail(message, status) {
   const error = new Error(message);
@@ -195,7 +195,7 @@ async function getHistoryForStudent(auth, studentId) {
 
 async function assertApplicationAccess(auth, application) {
   if (application.sales_id) {
-    if (!canAccessApplication(auth, application.sales_id, application.assigned_rdv_id)) {
+    if (!canAccessApplication(auth, application.sales_id, application.assigned_rdv_id, application.student_id)) {
       throw fail("Vous n’avez pas accès à cette candidature.", 403);
     }
     return;
@@ -217,21 +217,21 @@ function assertSalesOrAdmin(auth) {
 function assertRdvOrAdmin(auth, application) {
   const roles = authRoles(auth);
   if (roles.includes("ADMIN")) return;
-  if (roles.includes("RDV") && application.assigned_rdv_id === auth.sub) return;
+  if (handlesApplication(auth, application, "RDV")) return;
   throw fail("Action réservée au Responsable Dossier Visa assigné ou à l’administrateur.", 403);
 }
 
 function assertUniversityActor(auth, application) {
   const roles = authRoles(auth);
   if (roles.includes("ADMIN")) return;
-  if (roles.includes("RDV") && application.assigned_rdv_id === auth.sub) return;
+  if (handlesApplication(auth, application, "RDV")) return;
   throw fail("Le dépôt et le suivi universitaire sont gérés par le Responsable Dossier assigné.", 403);
 }
 
 function assertSalesAdminOrOwnerStudent(auth, application) {
   const roles = authRoles(auth);
   if (roles.includes("ADMIN") || roles.includes("SALES")) return;
-  if (roles.includes("RDV") && application.assigned_rdv_id === auth.sub) return;
+  if (handlesApplication(auth, application, "RDV")) return;
   if (auth.role === "STUDENT" && auth.sub === application.student_id) return;
   throw fail("Action non autorisée.", 403);
 }
@@ -272,7 +272,9 @@ async function applyRdvAssignment(application, pick, { visaPreparation, actorId,
       body: visaPreparation
         ? "Les documents visa sont validés. Vous pouvez déposer le dossier."
         : "Les documents d'études sont validés. Un Meet avec l'étudiant est optionnel, puis déposez la candidature.",
-      link: visaPreparation ? "/rdv/visas" : "/rdv"
+      link: visaPreparation ? "/rdv/visas" : "/rdv",
+      coverItem: application.student_id,
+      coverScope: "RDV"
     });
   }
   return updated;
@@ -449,6 +451,7 @@ async function markApplied(auth, applicationId, payload) {
 
   await recordHistory(applicationId, application.student_id, application.status, "WAITING_UNIVERSITY_RESPONSE", auth.sub, "Candidature déposée.");
   await notifyStudent(application, `Votre candidature a été déposée. En attente de la réponse de l'université.`, auth.sub);
+  await emailApplicationStep(updated, "APPLIED");
 
   if (application.assigned_rdv_id) {
     await commissionService.awardCommission({
@@ -511,13 +514,15 @@ async function announceDecision(application, { accepted, reason }) {
         type: "APPLICATION_ACCEPTED",
         title: `${who} est accepté(e) : ${target}`,
         body: "Le conseiller valide d'abord les documents visa. Vous serez prévenu dès que le dossier visa vous revient pour le dépôt.",
-        link: "/rdv/visas"
+        link: "/rdv/visas",
+        coverItem: application.student_id,
+        coverScope: "RDV"
       });
     }
-    await notificationService.notifyAdmins({ ...staffPayload, link: `/admin/students/${application.student_id}` });
+    await notificationService.notifyAdmins({ ...staffPayload, link: `/conseiller/etudiants/${application.student_id}` });
   } else {
     if (salesId) await notificationService.notify(salesId, { ...staffPayload, link: `/conseiller/etudiants/${application.student_id}` });
-    await notificationService.notifyAdmins({ ...staffPayload, link: `/admin/students/${application.student_id}` });
+    await notificationService.notifyAdmins({ ...staffPayload, link: `/conseiller/etudiants/${application.student_id}` });
   }
 
   try {
@@ -532,6 +537,29 @@ async function announceDecision(application, { accepted, reason }) {
     }
   } catch (err) {
     logger.error("Échec de l'envoi de l'email de décision", { message: err.message, stack: err.stack });
+  }
+}
+
+// E-mail système à l'étudiant pour une étape clé (candidature déposée, visa accepté ou refusé),
+// avec une copie dans son espace « Mes e-mails ». Ne fait jamais échouer l'action en cours.
+async function emailApplicationStep(application, step, reason = null) {
+  try {
+    const [student, university, country] = await Promise.all([
+      userRepo.findById(application.student_id),
+      universityRepo.findById(application.university_id),
+      countryRepo.findById(application.country_id)
+    ]);
+    if (!student?.email) return;
+    const sent = await emailService.sendApplicationStepEmail(student.email, student.prenom, {
+      step,
+      universityName: university?.name || "l'université",
+      fieldOfStudy: application.field_of_study || "",
+      countryName: country?.name || "",
+      reason
+    });
+    await require("./studentMailService").record({ studentId: student.id, sentBy: null, subject: sent.subject, body: sent.text, attachments: [], messageId: sent.messageId });
+  } catch (err) {
+    logger.error("Échec de l'e-mail d'étape du dossier", { step, applicationId: application.id, message: err.message });
   }
 }
 
@@ -837,7 +865,7 @@ async function markTranslationDone(auth, applicationId) {
   const application = await appRepo.findById(applicationId);
   if (!application) throw fail("Candidature introuvable.", 404);
   const roles = authRoles(auth);
-  if (!roles.includes("ADMIN") && !(roles.includes("SALES") && application.sales_id === auth.sub)) {
+  if (!roles.includes("ADMIN") && !handlesApplication(auth, application, "SALES")) {
     throw fail("Seul le conseiller de l'étudiant ou un administrateur peut confirmer la traduction.", 403);
   }
   if (application.status !== "READY_TO_APPLY" || application.translation_done_at) {
@@ -1007,6 +1035,7 @@ async function markVisaAccepted(auth, applicationId, payload) {
   await recordHistory(applicationId, application.student_id, "VISA_SUBMITTED", "VISA_ACCEPTED", auth.sub, comment || "Visa accepté.");
   await notifyStudent(updated, "Félicitations, votre visa a été accepté ! Votre dossier est désormais complet.", auth.sub);
   await notifyAdminsOfVisaDecision(application, true);
+  await emailApplicationStep(updated, "VISA_ACCEPTED");
   await studentRepo.setDossierStage(application.student_id, "COMPLETED");
 
   if (application.assigned_rdv_id) {
@@ -1064,19 +1093,29 @@ async function markVisaRejected(auth, applicationId, reason) {
   await recordHistory(applicationId, application.student_id, "VISA_SUBMITTED", "VISA_REJECTED", auth.sub, trimmed);
   await notifyStudent(updated, `Votre visa a été refusé. Motif : ${trimmed}. Une nouvelle candidature peut être ouverte si vous le souhaitez.`, auth.sub);
   await notifyAdminsOfVisaDecision(application, false, trimmed);
+  await emailApplicationStep(updated, "VISA_REJECTED", trimmed);
   return dto({ ...updated, country_name: (await countryRepo.findById(updated.country_id))?.name, university_name: (await universityRepo.findById(updated.university_id))?.name });
 }
 
+// Les créneaux d'ambassade se réservent souvent des semaines à l'avance : le Responsable Dossier
+// (ou l'admin, jamais le conseiller) peut planifier réunion et rendez-vous dès que l'université a
+// accepté l'étudiant, même si les documents visa ne sont pas encore déposés ni validés.
+function assertVisaSchedulable(application) {
+  if (application.status !== "ACCEPTED") {
+    throw fail("Un rendez-vous visa se planifie une fois l'étudiant accepté par l'université.", 400);
+  }
+  if (application.visa_status === "ACCEPTED" || application.visa_status === "REJECTED") {
+    throw fail("La décision du visa est déjà rendue pour ce dossier.", 400);
+  }
+}
+
 // §Visa — le RDV planifie une réunion de préparation à l'entretien visa
-// (en ligne ou en présentiel), une fois le dossier visa déposé (donc les
-// documents obligatoires déjà validés). Peut être reprogrammée librement.
+// (en ligne ou en présentiel). Peut être reprogrammée librement.
 async function scheduleVisaPrepMeeting(auth, applicationId, payload) {
   const application = await appRepo.findById(applicationId);
   if (!application) throw fail("Candidature introuvable.", 404);
   assertRdvOrAdmin(auth, application);
-  if (!application.visa_status || application.visa_status === "PREPARATION") {
-    throw fail("Le dossier visa doit être déposé (documents validés) avant de planifier cette réunion.", 400);
-  }
+  assertVisaSchedulable(application);
 
   const date = payload.date ? new Date(payload.date) : null;
   if (!date || Number.isNaN(date.getTime())) throw fail("Date/heure de réunion invalide.", 400);
@@ -1093,11 +1132,12 @@ async function scheduleVisaPrepMeeting(auth, applicationId, payload) {
     visa_prep_meeting_instructions: instructions
   });
 
+  // Avant la transmission au visa, l'étape visa est vide : l'historique garde le statut de la candidature.
   await recordHistory(
     applicationId,
     application.student_id,
-    application.visa_status,
-    application.visa_status,
+    application.visa_status || application.status,
+    application.visa_status || application.status,
     auth.sub,
     `Réunion de préparation à l'entretien visa ${wasScheduled ? "reprogrammée" : "planifiée"} le ${date.toLocaleString("fr-FR")}.`
   );
@@ -1130,9 +1170,7 @@ async function scheduleVisaEmbassyAppointment(auth, applicationId, payload) {
   const application = await appRepo.findById(applicationId);
   if (!application) throw fail("Candidature introuvable.", 404);
   assertRdvOrAdmin(auth, application);
-  if (!application.visa_status || application.visa_status === "PREPARATION") {
-    throw fail("Le dossier visa doit être déposé (documents validés) avant d’enregistrer ce rendez-vous.", 400);
-  }
+  assertVisaSchedulable(application);
 
   const date = payload.date ? new Date(payload.date) : null;
   if (!date || Number.isNaN(date.getTime())) throw fail("Date/heure de rendez-vous invalide.", 400);
@@ -1140,11 +1178,12 @@ async function scheduleVisaEmbassyAppointment(auth, applicationId, payload) {
   const wasScheduled = Boolean(application.visa_embassy_appointment_at);
   const updated = await appRepo.update(applicationId, { visa_embassy_appointment_at: date });
 
+  // Avant la transmission au visa, l'étape visa est vide : l'historique garde le statut de la candidature.
   await recordHistory(
     applicationId,
     application.student_id,
-    application.visa_status,
-    application.visa_status,
+    application.visa_status || application.status,
+    application.visa_status || application.status,
     auth.sub,
     `Rendez-vous à l'ambassade ${wasScheduled ? "reprogrammé" : "enregistré"} le ${date.toLocaleString("fr-FR")}.`
   );
@@ -1181,6 +1220,7 @@ async function listMineForRdv(auth) {
       ...dto(r),
       studentName: `${r.student_prenom} ${r.student_nom}`.trim(),
       studentEmail: r.student_email,
+      coverOwnerName: r.cover_owner_name || null,
       // Tranche visa non réglée : le dépôt du visa sera refusé tant qu'elle reste due.
       visaPaymentDue: r.visa_status === "PREPARATION" ? await paymentService.visaPaymentDue(r.student_id, r.country_id) : null,
       // Tranche inscription non réglée : le dépôt de la candidature sera refusé tant qu'elle reste due.
@@ -1280,7 +1320,7 @@ async function sendRetryReminders() {
       body: `${row.university_name} (${row.country_name}) : nouvelle tentative prévue le ${dateOnly(row.retry_on)}.`
     };
     const link = row.postponed_kind === "VISA" ? "/rdv/visas" : "/rdv";
-    if (row.assigned_rdv_id) await notificationService.notify(row.assigned_rdv_id, { ...payload, link });
+    if (row.assigned_rdv_id) await notificationService.notify(row.assigned_rdv_id, { ...payload, link, coverItem: row.student_id, coverScope: "RDV" });
     if (row.sales_id) await notificationService.notify(row.sales_id, { ...payload, link: `/conseiller/etudiants/${row.student_id}` });
     await appRepo.update(row.id, { retry_reminder_sent_at: new Date() });
   }

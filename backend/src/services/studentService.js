@@ -6,6 +6,7 @@ const sales = require("../repositories/salesRepository");
 const settings = require("../repositories/settingsRepository");
 const { studentProfileDto, userDto, formatPgDate, lockedFieldsFromRow } = require("../dto/userDto");
 const { canAccessStudent } = require("../security/rbac");
+const leaveCover = require("./leaveCover");
 const { canViewStudent } = require("../security/studentView");
 const countryUniversityService = require("./countryUniversityService");
 const notificationService = require("./notificationService");
@@ -461,6 +462,7 @@ function mapListRow(row) {
     dateNaissance: formatPgDate(row.date_naissance),
     onboardingCompleted: Boolean(row.onboarding_completed),
     assignedSalesId: row.assigned_sales_id || null,
+    coverOwnerName: row.cover_owner_name || null,
     residenceCountry: row.residence_country || "",
     preferredCountries: row.preferred_countries || [],
     targetField: row.target_field || "",
@@ -517,8 +519,15 @@ async function getDetail(auth, studentUserId) {
   const profile = studentProfileDto(row);
   if (profile.assignedSalesId) {
     const advisor = await users.findById(profile.assignedSalesId);
-    if (advisor) profile.assignedSalesName = `${advisor.prenom} ${advisor.nom}`.trim();
+    if (advisor) {
+      profile.assignedSalesName = `${advisor.prenom} ${advisor.nom}`.trim();
+      // Contact du conseiller, affiché dans l'en-tête de la fiche (équipe en charge).
+      profile.assignedSalesEmail = advisor.email || null;
+      profile.assignedSalesPhone = (await sales.findByUserId(advisor.id))?.phone || null;
+    }
   }
+  // Dossier confié au conseiller connecté pendant le congé de son conseiller.
+  profile.coverOwnerName = leaveCover.covers(auth, profile.assignedSalesId, studentUserId, "SALES") ? profile.assignedSalesName || null : null;
   return { user: userDto(student, { onboardingCompleted: profile.onboardingCompleted }), profile };
 }
 

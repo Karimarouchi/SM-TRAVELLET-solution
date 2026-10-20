@@ -1,0 +1,329 @@
+# Lit un bulletin de paie scanné (une page = un mois) et écrit un JSON sur la sortie standard.
+import asyncio
+import json
+import re
+import sys
+import unicodedata
+
+import pdfplumber
+import winocr
+from pypdf import PdfReader, PdfWriter
+
+MONTHS = {
+    "janvier": 1,
+    "fevrier": 2,
+    "mars": 3,
+    "avril": 4,
+    "mai": 5,
+    "juin": 6,
+    "juillet": 7,
+    "aout": 8,
+    "septembre": 9,
+    "octobre": 10,
+    "novembre": 11,
+    "decembre": 12,
+}
+
+LABELS = [
+    ("netToPay", ("net a payer", "netapayer")),
+    ("css", ("solidarite", "c.soc", "csoc")),
+    ("taxable", ("imposable",)),
+    ("grossIrpp", ("brut irpp", "brut (irpp)", "brut(irpp)")),
+    ("irpp", ("impot", "irpp")),
+    ("gross", ("brut cnss", "brut (cnss)", "brut(cnss)")),
+    ("cnss", ("cnss",)),
+    ("responsibilityBonus", ("responsabilite",)),
+    ("functionAllowance", ("ind. de fonction", "ind de fonction", "de fonction")),
+    ("presenceBonus", ("prime de presence",)),
+    ("transport", ("transport", "transp")),
+    ("leave", ("j.conges", "j conges", "conges")),
+    ("presence", ("j.presence", "j presence")),
+    ("total", ("total",)),
+    ("net", ("net",)),
+]
+
+
+def fold(value):
+    text = unicodedata.normalize("NFD", str(value or ""))
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+    text = text.lower().replace("œ", "oe")
+    return re.sub(r"[^a-z0-9]+", " ", text).strip()
+
+
+def parse_number(raw):
+    token = str(raw or "").replace("O", "0").replace("o", "0").replace(" ", "")
+    token = token.replace(".", "").replace(",", ".")
+    if token.startswith("."):
+        token = f"0{token}"
+    if not re.fullmatch(r"\d+(\.\d+)?", token):
+        return None
+    return float(token)
+
+
+def words_of(line):
+    return [
+        {"text": word.text, "x": float(word.bounding_rect.x), "y": float(word.bounding_rect.y)}
+        for word in line.words
+    ]
+
+
+def cluster_rows(words):
+    rows = []
+    for word in sorted(words, key=lambda item: (item["y"], item["x"])):
+        if rows and abs(word["y"] - rows[-1]["y"]) <= 16:
+            rows[-1]["words"].append(word)
+            rows[-1]["y"] = (rows[-1]["y"] * (len(rows[-1]["words"]) - 1) + word["y"]) / len(rows[-1]["words"])
+        else:
+            rows.append({"y": word["y"], "words": [word]})
+    for row in rows:
+        row["words"].sort(key=lambda item: item["x"])
+        row["text"] = fold(" ".join(word["text"] for word in row["words"]))
+    return rows
+
+
+def merge_amounts(words):
+    amounts = []
+    index = 0
+    while index < len(words):
+        current = parse_number(words[index]["text"])
+        nxt = parse_number(words[index + 1]["text"]) if index + 1 < len(words) else None
+        nxt_raw = str(words[index + 1]["text"]).replace(" ", "") if index + 1 < len(words) else ""
+        gap = words[index + 1]["x"] - words[index]["x"] if index + 1 < len(words) else 999
+        if current is not None and current < 1000 and gap < 70 and re.fullmatch(r"\d{3},\d{3}", nxt_raw.replace("O", "0").replace("o", "0")):
+            joined = parse_number(f"{int(current)}{nxt_raw}")
+            if joined is not None:
+                amounts.append(joined)
+                index += 2
+                continue
+        if current is not None and nxt is not None and 0 < nxt < 1 and gap < 70 and (nxt_raw.startswith(",") or nxt_raw.startswith(".")):
+            amounts.append(round(current + nxt, 3))
+            index += 2
+            continue
+        if current is not None:
+            amounts.append(current)
+        index += 1
+    return amounts
+
+
+def label_for(text):
+    if "affiliation" in text or "matricule fiscal" in text or "salaire de base" in text:
+        return None
+    if text in {"cnss", "n cnss"} or text.startswith("n cnss") or text.startswith("no cnss"):
+        return None
+    for key, needles in LABELS:
+        if any(needle in text for needle in needles):
+            if key == "cnss" and ("affiliation" in text or len(text) > 24):
+                continue
+            if key == "irpp" and "brut" in text:
+                continue
+            if key == "presence" and "prime" in text:
+                continue
+            if key == "net" and "payer" in text:
+                continue
+            return key
+    return None
+
+
+def header_value(rows, needle):
+    for row in rows:
+        if needle in row["text"]:
+            return row
+    return None
+
+
+def year_in(text):
+    match = re.search(r"20\d{2}", str(text or "").replace("O", "0").replace("o", "0"))
+    return int(match.group(0)) if match else None
+
+
+def month_of(rows, words):
+    month = None
+    year = None
+    for row in rows:
+        for name, number in MONTHS.items():
+            if name in row["text"]:
+                month = number
+                for word in row["words"]:
+                    year = year_in(word["text"]) or year
+                break
+        if month:
+            break
+    if year is None:
+        top = [year_in(word["text"]) for word in words if word["y"] < 250]
+        top = [value for value in top if value]
+        if len(set(top)) == 1:
+            year = top[0]
+    if year is None:
+        found = {year_in(word["text"]) for word in words}
+        found.discard(None)
+        if len(found) == 1:
+            year = found.pop()
+    return month, year
+
+
+def digits(value):
+    return re.sub(r"\D", "", str(value or ""))
+
+
+def read_page(result):
+    words = []
+    for line in result.lines:
+        words.extend(words_of(line))
+    rows = cluster_rows(words)
+    month, year = month_of(rows, words)
+    name = ""
+    nom = header_value(rows, "nom")
+    if nom:
+        kept = []
+        started = False
+        for word in nom["words"]:
+            token = fold(word["text"])
+            if token in {"nom", "fonction", "matricule"} or token.startswith("fonction"):
+                if started:
+                    break
+                started = token == "nom"
+                continue
+            if token in {":", ""}:
+                continue
+            started = True
+            kept.append(word["text"])
+        name = " ".join(kept).strip(" :-")
+    matricule = ""
+    for row in rows:
+        if "matricule" in row["text"] and "fiscal" not in row["text"]:
+            for word in row["words"]:
+                if re.fullmatch(r"\d{3,6}", word["text"].replace("O", "0").replace("o", "0")):
+                    matricule = word["text"].replace("O", "0").replace("o", "0")
+    cnss = ""
+    for row in rows:
+        if "cnss" in row["text"] and "affiliation" not in row["text"] and "brut" not in row["text"]:
+            for word in row["words"]:
+                found = digits(word["text"].replace("O", "0").replace("o", "0"))
+                if 8 <= len(found) <= 12:
+                    cnss = found
+                    break
+            if cnss:
+                break
+    base_salary = None
+    base = header_value(rows, "salaire de base")
+    if base:
+        numbers = merge_amounts(base["words"])
+        base_salary = numbers[-1] if numbers else None
+    anchors = []
+    for row in rows:
+        key = label_for(row["text"])
+        if key and not any(item["key"] == key for item in anchors):
+            anchors.append({"key": key, "y": row["y"]})
+    number_words = []
+    for row in rows:
+        for word in row["words"]:
+            if word["x"] < 180:
+                continue
+            if parse_number(word["text"]) is not None:
+                number_words.append(word)
+    buckets = {item["key"]: [] for item in anchors}
+    for word in number_words:
+        nearest = None
+        for anchor in anchors:
+            distance = abs(word["y"] - anchor["y"])
+            if distance <= 34 and (nearest is None or distance < nearest[0]):
+                nearest = (distance, anchor["key"])
+        if nearest:
+            buckets[nearest[1]].append(word)
+    fields = {key: merge_amounts(sorted(value, key=lambda item: item["x"])) for key, value in buckets.items()}
+
+    def one(key, index=-1):
+        values = fields.get(key) or []
+        if not values:
+            return None
+        return values[index]
+
+    def deduction(key):
+        values = fields.get(key) or []
+        gross_values = fields.get("gross") or []
+        gross = gross_values[-1] if gross_values else None
+        if gross is not None:
+            smaller = [value for value in values if value < gross - 0.5]
+            if smaller:
+                return smaller[-1]
+        return values[-1] if values else None
+
+    def triple(key):
+        values = fields.get(key) or []
+        if len(values) >= 3:
+            return values[0], values[1], values[-1]
+        if len(values) == 2:
+            return values[0], None, values[1]
+        if len(values) == 1:
+            return None, None, values[0]
+        return None, None, None
+
+    presence_days, presence_rate, presence_amount = triple("presence")
+    leave_days, leave_rate, leave_amount = triple("leave")
+    return {
+        "month": month,
+        "year": year,
+        "employeeName": name,
+        "matricule": matricule,
+        "cnss": cnss,
+        "baseSalary": base_salary,
+        "presenceDays": presence_days,
+        "presenceRate": presence_rate,
+        "presenceAmount": presence_amount,
+        "leaveDays": leave_days,
+        "leaveRate": leave_rate,
+        "leaveAmount": leave_amount,
+        "transport": one("transport"),
+        "presenceBonus": one("presenceBonus"),
+        "functionAllowance": one("functionAllowance"),
+        "responsibilityBonus": one("responsibilityBonus"),
+        "total": one("total"),
+        "gross": one("gross"),
+        "cnssDeduction": deduction("cnss"),
+        "taxable": one("taxable"),
+        "irpp": deduction("irpp"),
+        "css": deduction("css"),
+        "net": one("net"),
+        "netToPay": one("netToPay"),
+    }
+
+
+async def extract(path):
+    pages = []
+    with pdfplumber.open(path) as pdf:
+        for index, page in enumerate(pdf.pages):
+            image = page.to_image(resolution=170).original
+            result = await winocr.recognize_pil(image, "fr")
+            slip = read_page(result)
+            slip["page"] = index
+            pages.append(slip)
+    return pages
+
+
+def split(path, page_index, dest):
+    reader = PdfReader(path)
+    if page_index < 0 or page_index >= len(reader.pages):
+        raise SystemExit("Page introuvable.")
+    writer = PdfWriter()
+    writer.add_page(reader.pages[page_index])
+    with open(dest, "wb") as handle:
+        writer.write(handle)
+
+
+def main():
+    if len(sys.argv) < 3:
+        raise SystemExit("usage: read_payslip.py extract|split ...")
+    command = sys.argv[1]
+    if command == "extract":
+        pages = asyncio.run(extract(sys.argv[2]))
+        sys.stdout.reconfigure(encoding="utf-8")
+        print(json.dumps(pages, ensure_ascii=False))
+        return
+    if command == "split":
+        split(sys.argv[2], int(sys.argv[3]), sys.argv[4])
+        return
+    raise SystemExit("Commande inconnue.")
+
+
+if __name__ == "__main__":
+    main()

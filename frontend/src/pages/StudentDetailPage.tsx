@@ -62,6 +62,7 @@ import {
   CircleHelp,
   Languages,
   UserRound,
+  UsersRound,
   XCircle
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -352,8 +353,8 @@ export default function StudentDetailPage() {
               <p className="mt-1 flex items-center gap-1.5 truncate text-sm text-white/85"><Mail className="h-3.5 w-3.5 shrink-0" /> {user.email}</p>
               <div className="mt-2.5 flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-white px-1 py-0.5"><StageBadge stage={stage} /></span>
-                {rdvContacts.length > 0 && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold"><Plane className="h-3 w-3" aria-hidden /> Responsable Dossier : {rdvContacts.map((r) => r.name).join(", ")}</span>
+                {profile.coverOwnerName && (
+                  <span className="inline-flex items-center rounded-full bg-orange-100 px-3 py-1 text-[11px] font-bold text-orange-700">Remplacement de {profile.coverOwnerName} pendant son congé</span>
                 )}
                 {profile.preferredCountries.length > 0 && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold"><Globe2 className="h-3 w-3" aria-hidden /> {profile.preferredCountries.join(", ")}</span>
@@ -368,6 +369,46 @@ export default function StudentDetailPage() {
             <Link to={`/mail?compose=1&to=${encodeURIComponent(user.email)}&name=${encodeURIComponent(fullName)}`} className="inline-flex items-center gap-1.5 rounded-xl bg-white/15 px-4 py-2 text-xs font-bold text-white ring-1 ring-white/25 transition hover:bg-white/25">
               <Mail className="h-3.5 w-3.5" aria-hidden /> {t("Écrire un mail", "Write an email")}
             </Link>
+          </div>
+        </div>
+
+        {/* Équipe en charge : le conseiller et le(s) Responsable(s) Dossier de l'étudiant. */}
+        <div className="mt-5">
+          <p className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white/70">
+            <UsersRound className="h-3.5 w-3.5" aria-hidden /> {t("Équipe en charge", "Team in charge")}
+          </p>
+          <div className="grid gap-2.5 md:grid-cols-2">
+            <TeamCard
+              role={t("Conseiller", "Advisor")}
+              icon={UserRound}
+              name={profile.assignedSalesName || null}
+              detail={profile.coverOwnerName ? t("En congé : vous le remplacez", "On leave: you are covering") : null}
+              email={profile.assignedSalesEmail || null}
+              phone={profile.assignedSalesPhone || null}
+              empty={t("Aucun conseiller assigné.", "No advisor assigned.")}
+            />
+            {rdvContacts.length === 0 ? (
+              <TeamCard
+                role={t("Responsable Dossier", "Visa officer")}
+                icon={Plane}
+                name={null}
+                empty={openApplications.length
+                  ? t("Pas encore assigné : choisi automatiquement dès que les documents sont validés et traduits.", "Not assigned yet: picked automatically once documents are approved and translated.")
+                  : t("Assigné dès la première candidature.", "Assigned with the first application.")}
+              />
+            ) : (
+              rdvContacts.map((rdv) => (
+                <TeamCard
+                  key={rdv.id}
+                  role={t("Responsable Dossier", "Visa officer")}
+                  icon={Plane}
+                  name={rdv.name}
+                  detail={`${t("Suit", "Handles")} : ${rdv.universities.join(", ")}`}
+                  email={rdv.email}
+                  phone={rdv.phone}
+                />
+              ))
+            )}
           </div>
         </div>
 
@@ -524,45 +565,6 @@ export default function StudentDetailPage() {
 
             {/* Colonne latérale : profil et paiements */}
             <aside className="min-w-0 space-y-6">
-              {openApplications.length > 0 && (
-                <section id="rdv" className="scroll-mt-24 rounded-[24px] border border-line bg-white p-5 shadow-sm">
-                  <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark">
-                    <Plane className="h-5 w-5 text-brand" /> {t("Responsable Dossier", "Visa officer")}
-                  </h2>
-                  {rdvContacts.length === 0 ? (
-                    <p className="mt-2 text-xs text-muted">
-                      {t("Aucun Responsable Dossier assigné pour l'instant : il est choisi automatiquement dès que les documents sont validés et traduits.", "No visa officer assigned yet: one is picked automatically as soon as the documents are approved and translated.")}
-                    </p>
-                  ) : (
-                    <ul className="mt-3 space-y-3">
-                      {rdvContacts.map((rdv) => (
-                        <li key={rdv.id} className="rounded-2xl bg-slate-50 p-3">
-                          <div className="flex items-center gap-2.5">
-                            <UserAvatar name={rdv.name} size="sm" className="h-9 w-9 shrink-0 text-xs" />
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-bold text-dark">{rdv.name}</p>
-                              <p className="truncate text-[11px] text-muted">{t("Suit", "Handles")} : {rdv.universities.join(", ")}</p>
-                            </div>
-                          </div>
-                          <div className="mt-2.5 flex flex-wrap gap-2">
-                            {rdv.email && (
-                              <a href={`mailto:${rdv.email}`} className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-bold text-mid ring-1 ring-line transition hover:text-brand">
-                                <Mail className="h-3 w-3" /> {rdv.email}
-                              </a>
-                            )}
-                            {rdv.phone && (
-                              <a href={`tel:${rdv.phone}`} className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-bold text-mid ring-1 ring-line transition hover:text-brand">
-                                <Phone className="h-3 w-3" /> {rdv.phone}
-                              </a>
-                            )}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </section>
-              )}
-
               <section id="profil" className="scroll-mt-24 rounded-[24px] border border-line bg-white p-5 shadow-sm">
                 <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark">
                   <UserRound className="h-5 w-5 text-brand" /> {t("Profil", "Profile")}
@@ -982,6 +984,42 @@ function VisaSalesReviewRow({
         </div>
       )}
       {open && error && <p className="mt-2 text-xs text-red-500">{error}</p>}
+    </div>
+  );
+}
+
+// Carte « équipe en charge » dans l'en-tête violet de la fiche étudiant.
+function TeamCard({ role, icon: Icon, name, detail, email, phone, empty }: { role: string; icon: typeof Plane; name: string | null; detail?: string | null; email?: string | null; phone?: string | null; empty?: string }) {
+  return (
+    <div className="rounded-2xl bg-white/12 p-3.5 ring-1 ring-white/20">
+      <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white/70"><Icon className="h-3 w-3" aria-hidden /> {role}</p>
+      {name ? (
+        <>
+          <div className="mt-2 flex items-center gap-2.5">
+            <UserAvatar name={name} size="sm" className="h-9 w-9 shrink-0 text-xs ring-2 ring-white/30" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-extrabold text-white">{name}</p>
+              {detail && <p className="truncate text-[11px] text-white/75">{detail}</p>}
+            </div>
+          </div>
+          {(email || phone) && (
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {email && (
+                <a href={`mailto:${email}`} className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-lg bg-white/15 px-2.5 py-1.5 text-[11px] font-bold text-white ring-1 ring-white/20 transition hover:bg-white/25">
+                  <Mail className="h-3 w-3 shrink-0" /> <span className="truncate">{email}</span>
+                </a>
+              )}
+              {phone && (
+                <a href={`tel:${phone}`} className="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-2.5 py-1.5 text-[11px] font-bold text-white ring-1 ring-white/20 transition hover:bg-white/25">
+                  <Phone className="h-3 w-3 shrink-0" /> {phone}
+                </a>
+              )}
+            </div>
+          )}
+        </>
+      ) : (
+        <p className="mt-2 text-xs text-white/80">{empty}</p>
+      )}
     </div>
   );
 }

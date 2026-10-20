@@ -25,3 +25,5 @@ frontend/vite.log
 
 # Fichiers envoyés sur WhatsApp : jamais dans git
 backend/uploads/whatsapp/*
+# Documents RH (fiches de paie, CIN, contrats, signature) : données personnelles, jamais dans git
+backend/uploads/hr/

@@ -10,6 +10,8 @@ export type WhatsAppConversation = {
   studentName: string | null;
   ownerId: string | null;
   ownerName: string | null;
+  /** Conversation d'un conseiller en congé, que l'utilisateur connecté traite en remplacement. */
+  coverOwnerName?: string | null;
   lastMessageAt: string | null;
   lastBody: string;
   lastHidden: boolean;
@@ -36,6 +38,8 @@ export type WhatsAppMessage = {
   senderName: string | null;
   // Admin seulement : ce message a été envoyé par l'admin, au nom du conseiller affiché.
   sentByAdmin?: boolean;
+  /** Envoyé par un remplaçant pendant le congé du conseiller (auteur réel, visible par l'équipe). */
+  coverAuthorName?: string | null;
   /** Réponse automatique d'un jour non travaillé (jamais comptée comme une réponse d'un conseiller). */
   auto?: boolean;
   /** Fichier joint (image ou document) envoyé depuis l'application. */

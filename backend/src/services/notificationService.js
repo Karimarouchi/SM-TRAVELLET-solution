@@ -3,6 +3,7 @@ const repo = require("../repositories/notificationRepository");
 const userRepo = require("../repositories/userRepository");
 const studentRepo = require("../repositories/studentRepository");
 const passport = require("./passport");
+const leaveCover = require("./leaveCover");
 
 function fail(message, status) {
   const error = new Error(message);
@@ -13,12 +14,37 @@ function fail(message, status) {
 // Une notification ne doit jamais faire échouer l'action qui la déclenche
 // (valider un document, attribuer un étudiant...) : les erreurs sont
 // seulement journalisées.
+// payload.coverItem / payload.coverScope (facultatifs) : l'étudiant (ou le contact WhatsApp) concerné,
+// pour prévenir aussi le remplaçant d'un destinataire en congé. Sans eux, l'étudiant est lu dans le lien.
 async function notify(userIds, payload) {
-  const ids = [].concat(userIds).filter(Boolean);
+  const ids = [...new Set([].concat(userIds).filter(Boolean))];
+  const { coverItem, coverScope, ...stored } = payload;
   try {
-    await repo.createForUsers([...new Set(ids)], payload);
+    await repo.createForUsers(ids, stored);
+    await forwardToCovers(ids, stored, coverItem, coverScope);
   } catch (error) {
     logger.error("Échec de la création d'une notification", { message: error.message, type: payload.type });
+  }
+}
+
+const STUDENT_LINK = /^\/(?:conseiller\/etudiants|admin\/students)\/([0-9a-f-]{36})/i;
+
+// Destinataire en congé avec remplaçants : une copie va au remplaçant qui traite cet étudiant.
+// Les commissions restent personnelles et ne sont jamais copiées.
+async function forwardToCovers(ids, stored, coverItem, coverScope) {
+  if (String(stored.type || "").startsWith("COMMISSION")) return;
+  const item = coverItem || String(stored.link || "").match(STUDENT_LINK)?.[1] || null;
+  if (!item) return;
+  await leaveCover.ready();
+  const scope = coverScope || (String(stored.link || "").startsWith("/rdv") ? "RDV" : "SALES");
+  const copies = new Map();
+  for (const id of ids) {
+    if (!leaveCover.absenceOf(id)) continue;
+    const handler = leaveCover.handlerFor(id, item, scope);
+    if (handler && handler !== id && !ids.includes(handler)) copies.set(handler, leaveCover.ownerName(id));
+  }
+  for (const [handler, ownerName] of copies) {
+    await repo.createForUsers([handler], { ...stored, title: `Remplacement de ${ownerName || "un collègue"} · ${stored.title}` });
   }
 }
 

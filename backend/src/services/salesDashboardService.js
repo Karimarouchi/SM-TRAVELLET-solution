@@ -58,7 +58,7 @@ async function getOverview(auth) {
     repo.documentCounts(salesId),
     repo.activeApplications(salesId),
     repo.choiceCounts(salesId),
-    paymentService.listPlans({ salesId }),
+    paymentService.listPlans({ handledBy: auth }),
     settings.getStalledAlertConfig()
   ]);
 
@@ -120,6 +120,7 @@ async function getOverview(auth) {
       city: row.city || "",
       avatarUrl: row.avatar_url || "",
       isActive: row.is_active !== false,
+      coverOwnerName: row.cover_owner_name || null,
       createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
       preferredCountries: row.preferred_countries || [],
       targetField: row.target_field || "",
