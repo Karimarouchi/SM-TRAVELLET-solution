@@ -44,6 +44,14 @@ async function markApplied(req, res) {
   }
 }
 
+async function updatePortalAccount(req, res) {
+  try {
+    res.json(await service.updatePortalAccount(req.auth, req.params.id, req.body));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function scheduleInterview(req, res) {
   try {
     res.json(await service.scheduleInterview(req.auth, req.params.id, req.body));
@@ -197,6 +205,7 @@ async function scheduleVisaEmbassyAppointment(req, res) {
 }
 
 module.exports = {
+  updatePortalAccount,
   assignRdv,
   suggestRdv,
   listMineForRdv,

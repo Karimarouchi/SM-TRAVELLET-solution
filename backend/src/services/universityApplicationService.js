@@ -467,6 +467,41 @@ async function markApplied(auth, applicationId, payload) {
   return dto({ ...updated, country_name: (await countryRepo.findById(updated.country_id))?.name });
 }
 
+// Le Responsable Dossier qui suit la candidature (ou l'admin) corrige le compte créé sur la plateforme
+// de l'université après le dépôt : lien, identifiant, mot de passe (laissé vide = inchangé).
+async function updatePortalAccount(auth, applicationId, payload) {
+  const application = await appRepo.findById(applicationId);
+  if (!application) throw fail("Candidature introuvable.", 404);
+  assertUniversityActor(auth, application);
+  await assertApplicationAccess(auth, application);
+  if (!application.applied_at && !application.portal_login) {
+    throw fail("Le compte de la plateforme se renseigne au dépôt de la candidature.", 400);
+  }
+
+  const portalLogin = String(payload?.portalLogin || "").trim();
+  const portalPassword = String(payload?.portalPassword || "");
+  const portalUrl = String(payload?.portalUrl || "").trim();
+  if (!portalUrl) throw fail("Saisissez le lien de la plateforme de l'université.", 400);
+  if (!portalLogin) throw fail("Saisissez l'identifiant du compte (e-mail ou identifiant de la plateforme).", 400);
+  if (!portalPassword && !application.portal_password_enc) throw fail("Saisissez le mot de passe du compte créé sur la plateforme de l'université.", 400);
+  if (portalLogin.length > 200 || portalPassword.length > 200) throw fail("Identifiant ou mot de passe trop long.", 400);
+  if (portalUrl.length > 500 || !/^https?:\/\/\S+$/i.test(portalUrl)) throw fail("Le lien de la plateforme doit commencer par http:// ou https://.", 400);
+
+  const fields = { portal_login: portalLogin, portal_url: portalUrl };
+  if (portalPassword) fields.portal_password_enc = secretBox.encrypt(portalPassword);
+  const updated = await appRepo.update(applicationId, fields);
+
+  const changes = [
+    portalLogin !== (application.portal_login || "") ? "identifiant" : null,
+    portalPassword ? "mot de passe" : null,
+    portalUrl !== (application.portal_url || "") ? "lien" : null
+  ].filter(Boolean);
+  if (changes.length) {
+    await recordHistory(applicationId, application.student_id, application.status, application.status, auth.sub, `Compte de la plateforme de l'université modifié (${changes.join(", ")}).`);
+  }
+  return dto({ ...updated, country_name: (await countryRepo.findById(updated.country_id))?.name, university_name: (await universityRepo.findById(updated.university_id))?.name });
+}
+
 // Décision de l'université pour UNE filière : l'étudiant (notification + e-mail),
 // son conseiller et les admins sont prévenus dès que le RDV l'enregistre.
 async function announceDecision(application, { accepted, reason }) {
@@ -1327,6 +1362,7 @@ async function sendRetryReminders() {
 }
 
 module.exports = {
+  updatePortalAccount,
   markTranslationDone,
   confirmVisaDocs,
   postpone,

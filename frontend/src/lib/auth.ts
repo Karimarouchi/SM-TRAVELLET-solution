@@ -1482,6 +1482,18 @@ export async function markApplicationApplied(
   });
 }
 
+// Correction du compte créé sur la plateforme de l'université (Responsable Dossier ou admin).
+// Mot de passe laissé vide = inchangé.
+export async function updateApplicationPortalAccount(
+  applicationId: string,
+  payload: { portalLogin: string; portalPassword?: string; portalUrl: string }
+): Promise<UniversityApplication> {
+  return request<UniversityApplication>(`/api/applications/${applicationId}/portal-account`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
 export async function scheduleStaffMeet(
   applicationId: string,
   payload: { date: string; link: string; instructions?: string }

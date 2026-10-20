@@ -8,6 +8,7 @@ import {
   fetchCountryUniversities,
   getSession,
   markApplicationApplied,
+  updateApplicationPortalAccount,
   markApplicationTranslationDone,
   reapplyApplication,
   rejectApplication,
@@ -27,6 +28,7 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
+  Pencil,
   RotateCcw,
   ExternalLink,
   GraduationCap,
@@ -164,7 +166,7 @@ function ApplicationCard({ app, canAct, canMarkTranslation, onChanged }: { app: 
         <p className="mt-2 text-xs text-muted">Déposée le {fmt(app.appliedAt)}{app.applicationReference ? ` · Réf. ${app.applicationReference}` : ""}</p>
       )}
       {app.portalLogin && (
-        <PortalAccount app={app} />
+        <PortalAccount app={app} onChanged={onChanged} />
       )}
       {app.interviewDate && (app.status === "INTERVIEW_SCHEDULED" || app.status === "WAITING_UNIVERSITY_RESPONSE") && (
         <div className="mt-2 rounded-xl bg-violet-50 px-3 py-2 text-xs text-violet-700">
@@ -421,11 +423,23 @@ function ModalShell({ title, onClose, children }: { title: string; onClose: () =
   );
 }
 
-function PortalAccount({ app }: { app: UniversityApplication }) {
+function PortalAccount({ app, onChanged }: { app: UniversityApplication; onChanged: () => void }) {
   const [show, setShow] = useState(false);
+  const [editing, setEditing] = useState(false);
+  // Le Responsable Dossier qui a déposé la candidature (ou l'admin) peut corriger ce compte ; le serveur vérifie l'affectation.
+  const user = getSession()?.user;
+  const roles = user?.roles?.length ? user.roles : [user?.role];
+  const canEdit = roles.includes("RDV") || roles.includes("ADMIN");
   return (
     <div className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-muted">
-      <p className="font-bold uppercase tracking-wide text-[10px]">Compte sur la plateforme de l'université</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-bold uppercase tracking-wide text-[10px]">Compte sur la plateforme de l'université</p>
+        {canEdit && (
+          <button type="button" onClick={() => setEditing(true)} className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-bold text-brand transition hover:bg-brand/10">
+            <Pencil className="h-3 w-3" /> Modifier
+          </button>
+        )}
+      </div>
       <p className="mt-1">Identifiant : <span className="font-semibold text-dark">{app.portalLogin}</span></p>
       <p className="flex items-center gap-1.5">
         Mot de passe : <span className="font-mono font-semibold text-dark">{show ? app.portalPassword || "—" : "••••••••"}</span>
@@ -434,11 +448,70 @@ function PortalAccount({ app }: { app: UniversityApplication }) {
         </button>
       </p>
       {app.portalUrl && (
-        <a href={app.portalUrl} target="_blank" rel="noreferrer" className="mt-1 flex items-center gap-1 text-brand underline">
-          <ExternalLink className="h-3 w-3" /> {app.portalUrl}
+        <a href={app.portalUrl} target="_blank" rel="noreferrer" className="mt-1 flex items-center gap-1 break-all text-brand underline">
+          <ExternalLink className="h-3 w-3 shrink-0" /> {app.portalUrl}
         </a>
       )}
+      {editing && <PortalAccountModal app={app} onClose={() => setEditing(false)} onDone={() => { setEditing(false); onChanged(); }} />}
     </div>
+  );
+}
+
+function PortalAccountModal({ app, onClose, onDone }: { app: UniversityApplication; onClose: () => void; onDone: () => void }) {
+  const [portalLogin, setPortalLogin] = useState(app.portalLogin || "");
+  const [portalPassword, setPortalPassword] = useState("");
+  const [portalUrl, setPortalUrl] = useState(app.portalUrl || "");
+  const [showPassword, setShowPassword] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async () => {
+    if (!portalUrl.trim()) return setError("Saisissez le lien de la plateforme de l'université.");
+    if (!/^https?:\/\/\S+$/i.test(portalUrl.trim())) return setError("Le lien de la plateforme doit commencer par http:// ou https://.");
+    if (!portalLogin.trim()) return setError("Saisissez l'identifiant du compte (e-mail ou identifiant de la plateforme).");
+    setBusy(true);
+    setError("");
+    try {
+      await updateApplicationPortalAccount(app.id, { portalLogin: portalLogin.trim(), portalPassword: portalPassword || undefined, portalUrl: portalUrl.trim() });
+      onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <ModalShell title="Modifier le compte de la plateforme" onClose={onClose}>
+      <div className="mt-4 space-y-3">
+        <div className="rounded-lg border border-brand/20 bg-brand/5 px-3 py-2">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-muted">Université</p>
+          <p className="mt-0.5 text-sm font-bold text-dark">{app.universityName || "—"}</p>
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Identifiant du compte *</label>
+          <input type="text" autoComplete="off" maxLength={200} value={portalLogin} onChange={(e) => setPortalLogin(e.target.value)} className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Nouveau mot de passe</label>
+          <div className="relative">
+            <input type={showPassword ? "text" : "password"} autoComplete="new-password" maxLength={200} value={portalPassword} onChange={(e) => setPortalPassword(e.target.value)} placeholder="Laisser vide pour garder l'actuel" className="w-full rounded-lg border border-line bg-slate-50 py-2 pl-3 pr-10 text-sm" />
+            <button type="button" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted transition hover:text-dark">
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Lien de la plateforme de l'université *</label>
+          <input type="url" maxLength={500} value={portalUrl} onChange={(e) => setPortalUrl(e.target.value)} placeholder="https://" className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />
+        </div>
+        {error && <p className="text-xs text-red-500">{error}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="rounded-lg border border-line px-4 py-2 text-xs font-bold text-muted">Annuler</button>
+          <button type="button" disabled={busy} onClick={submit} className="rounded-lg bg-brand px-4 py-2 text-xs font-bold text-white disabled:opacity-60">{busy ? "Enregistrement..." : "Enregistrer"}</button>
+        </div>
+      </div>
+    </ModalShell>
   );
 }
 

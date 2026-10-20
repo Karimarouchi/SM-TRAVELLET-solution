@@ -217,6 +217,8 @@ app.get("/api/students/:id/applications", requireAuth, requireRoles("SALES", "AD
 app.get("/api/students/:id/applications/history", requireAuth, requireRoles("SALES", "ADMIN", "RDV"), universityApplicationController.historyForStudent);
 app.patch("/api/applications/:id/translation-done", requireAuth, requireRoles("SALES", "ADMIN"), universityApplicationController.markTranslationDone);
 app.patch("/api/applications/:id/apply", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.markApplied);
+// Compte créé sur la plateforme de l'université : corrigeable après le dépôt (Responsable Dossier ou admin).
+app.patch("/api/applications/:id/portal-account", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.updatePortalAccount);
 app.patch("/api/applications/:id/interview", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.scheduleInterview);
 app.patch("/api/applications/:id/interview-completed", requireAuth, requireRoles("RDV", "ADMIN", "STUDENT"), universityApplicationController.completeInterview);
 app.patch("/api/applications/:id/accept", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.markAccepted);
