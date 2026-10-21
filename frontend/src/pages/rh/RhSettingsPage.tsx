@@ -221,14 +221,17 @@ function BrandSlot({ kind, label, ready, tick, busy, onDone, onError }: { kind: 
   const [preview, setPreview] = useState<string | null>(null);
   const [slotError, setSlotError] = useState("");
   const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(ready);
 
   useEffect(() => {
     if (!ready) {
       setPreview(null);
+      setLoading(false);
       return;
     }
     let cancelled = false;
     let url = "";
+    setLoading(true);
     fetchHrBrandPreview(kind).then((next) => {
       if (cancelled) {
         if (next) URL.revokeObjectURL(next);
@@ -236,9 +239,13 @@ function BrandSlot({ kind, label, ready, tick, busy, onDone, onError }: { kind: 
       }
       url = next || "";
       setPreview(next);
+      setLoading(false);
       if (!next) setSlotError("Le fichier est introuvable sur le serveur.");
     }).catch((err) => {
-      if (!cancelled) setSlotError(err instanceof Error ? err.message : "Aperçu impossible.");
+      if (!cancelled) {
+        setLoading(false);
+        setSlotError(err instanceof Error ? err.message : "Aperçu impossible.");
+      }
     });
     return () => {
       cancelled = true;
@@ -257,7 +264,7 @@ function BrandSlot({ kind, label, ready, tick, busy, onDone, onError }: { kind: 
       ) : (
         <p className="mt-3 flex h-28 items-center justify-center rounded-xl border border-dashed border-orange-200 bg-white text-xs text-muted">Aucune image</p>
       )}
-      <p className="mt-2 text-xs text-muted">{sending ? "Envoi de l'image..." : preview ? "Image enregistrée. Choisir un fichier le remplace." : "Pas encore déposée."}</p>
+      <p className="mt-2 text-xs text-muted">{sending ? "Envoi de l'image..." : preview ? "Image enregistrée. Choisir un fichier le remplace." : loading ? "Chargement de l'image..." : "Pas encore déposée."}</p>
       {slotError && <p className="mt-2 rounded-lg bg-red-50 px-2 py-1.5 text-xs text-red-600">{slotError}</p>}
       <label className="mt-2 block text-xs">
         <input
