@@ -1,5 +1,5 @@
 import EmployeePicker from "@/components/rh/EmployeePicker";
-import { confirmHrAbsences, confirmHrLateness, fetchHrAttendance, saveHrAttendanceAmount, saveHrAttendanceDay, type HrAttendanceDay, type HrAttendanceEmployee, type HrAttendanceMonth } from "@/lib/hr";
+import { confirmHrAbsences, fetchHrAttendance, saveHrAttendanceAmount, saveHrAttendanceDay, type HrAttendanceDay, type HrAttendanceEmployee, type HrAttendanceMonth } from "@/lib/hr";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -166,7 +166,6 @@ export default function RhAttendancePage() {
             picked={picked}
             onToggle={(day) => setPicked((current) => current.includes(day) ? current.filter((item) => item !== day) : [...current, day])}
             onConfirm={(absent) => void run(async () => { await confirmHrAbsences(selected.id, picked, absent); setPicked([]); })}
-            onConfirmLate={(day, late) => void run(() => confirmHrLateness(selected.id, day, late))}
           />
         </div>
       )}
@@ -176,7 +175,7 @@ export default function RhAttendancePage() {
 
 function EmployeeDetail({
   row, busy, editing, late, early, note, waived, absent, lateConfirmed, amount, picked,
-  onLate, onEarly, onNote, onWaived, onAbsent, onLateConfirmed, onAmount, onOpen, onSaveDay, onClearDay, onSaveAmount, onToggle, onConfirm, onConfirmLate
+  onLate, onEarly, onNote, onWaived, onAbsent, onLateConfirmed, onAmount, onOpen, onSaveDay, onClearDay,   onSaveAmount, onToggle, onConfirm
 }: {
   row: HrAttendanceEmployee;
   busy: boolean;
@@ -202,7 +201,6 @@ function EmployeeDetail({
   onSaveAmount: () => void;
   onToggle: (day: string) => void;
   onConfirm: (absent: boolean) => void;
-  onConfirmLate: (day: string, late: boolean) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -239,9 +237,11 @@ function EmployeeDetail({
           <label className="mt-3 flex items-center gap-2 text-xs font-semibold text-mid">
             <input type="checkbox" checked={absent} onChange={(e) => onAbsent(e.target.checked)} /> Mettre ce jour en absence
           </label>
-          <label className="mt-2 flex items-center gap-2 text-xs font-semibold text-mid">
-            <input type="checkbox" checked={lateConfirmed} onChange={(e) => onLateConfirmed(e.target.checked)} /> Valider le retard de ce jour
-          </label>
+          {editing.status === "PRESENT" && (editing.lateMinutes + editing.earlyMinutes > 0 || editing.confirmedLate) ? (
+            <label className="mt-2 flex items-center gap-2 text-xs font-semibold text-mid">
+              <input type="checkbox" checked={lateConfirmed} onChange={(e) => onLateConfirmed(e.target.checked)} /> Valider le retard de ce jour
+            </label>
+          ) : null}
           <label className="mt-2 flex items-center gap-2 text-xs font-semibold text-mid">
             <input type="checkbox" checked={waived} onChange={(e) => onWaived(e.target.checked)} /> Ne pas compter cette journée
           </label>
@@ -299,14 +299,7 @@ function EmployeeDetail({
                 </td>
                 <td className="px-4 py-2.5 text-right">
                   {day.status === "LEAVE" ? null : (
-                    <div className="flex flex-col items-end gap-1">
-                      {day.status === "PRESENT" && day.lateMinutes + day.earlyMinutes > 0 ? (
-                        <button type="button" disabled={busy} onClick={() => onConfirmLate(day.day, !day.confirmedLate)} className={`rounded-full px-3 py-1 text-[11px] font-bold disabled:opacity-50 ${day.confirmedLate ? "border border-line text-muted" : "bg-amber-600 text-white"}`}>
-                          {day.confirmedLate ? "Retirer le retard" : "Valider le retard"}
-                        </button>
-                      ) : null}
-                      <button type="button" onClick={() => onOpen(day)} className="text-[11px] font-bold text-orange-700">Corriger</button>
-                    </div>
+                    <button type="button" onClick={() => onOpen(day)} className="text-[11px] font-bold text-orange-700">Corriger</button>
                   )}
                 </td>
               </tr>
