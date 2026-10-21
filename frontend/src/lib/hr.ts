@@ -40,6 +40,8 @@ export type HrInbox = {
     contracts: { CDI: number; CIVP: number; CDD: number; none: number };
     onLeave: { userId: string; prenom: string; nom: string; endOn: string }[];
     openYears: number;
+    pendingLateDays: number;
+    pendingLateMinutes: number;
     presenceMinutes: number;
     presenceCost: number;
     payroll: {
@@ -56,6 +58,19 @@ export type HrInbox = {
 };
 
 export const fetchHrInbox = () => request<HrInbox>("/api/admin/hr/inbox");
+
+export function rhAttentionCount(inbox: HrInbox) {
+  const absencePeople = new Set(inbox.absences.map((row) => row.userId)).size;
+  return inbox.leave.length
+    + inbox.lateCertificates.length
+    + inbox.contracts.length
+    + absencePeople
+    + (inbox.summary.openYears > 0 ? 1 : 0)
+    + (inbox.summary.incomplete > 0 ? 1 : 0)
+    + (inbox.documentRequests || []).length
+    + inbox.payrollDrafts.length
+    + (!inbox.summary.payroll.hasSignature || !inbox.summary.payroll.hasStamp ? 1 : 0);
+}
 
 export const fetchHrEmployees = () => request<HrEmployee[]>("/api/admin/hr/employees");
 

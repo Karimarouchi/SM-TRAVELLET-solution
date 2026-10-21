@@ -4,14 +4,12 @@ import { cn } from "@/lib/utils";
 import {
   ArrowRight,
   CalendarClock,
-  CalendarDays,
   CheckCircle2,
   Clock,
   Eye,
   EyeOff,
   FileText,
   FileWarning,
-  HeartPulse,
   Palmtree,
   Users,
   Wallet
@@ -23,15 +21,6 @@ import { Link } from "react-router-dom";
 const money = (value: number) => `${value.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT`;
 const fr = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 const monthLabel = (key: string) => new Date(`${key}-01T12:00:00`).toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
-
-const SHORTCUTS = [
-  { href: "/admin/rh/employes", icon: Users, title: "Employés", text: "Contrat, embauche, salaire, CIN et RIB." },
-  { href: "/admin/rh/conges", icon: Palmtree, title: "Congés", text: "Soldes, demandes et années ouvertes." },
-  { href: "/admin/rh/presences", icon: Clock, title: "Présences", text: "Retards, départs et absences à valider." },
-  { href: "/admin/rh/paie", icon: Wallet, title: "Paie", text: "Fiches du mois, primes et attestations." },
-  { href: "/admin/rh/absences", icon: HeartPulse, title: "Absences", text: "Certificats et retenues de salaire." },
-  { href: "/admin/rh/parametres", icon: CalendarDays, title: "Règles", text: "Jours fériés, préavis, signature et cachet." }
-];
 
 type Tone = "danger" | "warning" | "accent";
 
@@ -302,6 +291,7 @@ export default function RhHomePage() {
         {!summary ? (
           <div className="mx-auto mt-10 h-8 w-8 animate-spin rounded-full border-2 border-line border-t-orange-500" />
         ) : (
+          <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Kpi icon={Users} title="Effectif" tone="bg-orange-100 text-orange-600">
               <p className="font-display text-4xl font-extrabold leading-none text-dark"><CountUp value={summary.headcount} /></p>
@@ -354,6 +344,37 @@ export default function RhHomePage() {
               </div>
             </Kpi>
           </div>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <Link to="/admin/rh/presences" className="block">
+              <Kpi icon={Clock} title="Retards à valider" tone="bg-orange-100 text-orange-600">
+                <p className="font-display text-4xl font-extrabold leading-none text-dark"><CountUp value={summary.pendingLateDays || 0} /></p>
+                <p className="mt-1 text-[11px] text-muted">jour{(summary.pendingLateDays || 0) > 1 ? "s" : ""} hors paie</p>
+                <p className="mt-4 border-t border-line pt-3 text-xs text-muted">{(summary.pendingLateMinutes || 0).toLocaleString("fr-FR")} min en attente de confirmation</p>
+              </Kpi>
+            </Link>
+            <Link to="/admin/rh/employes" className="block">
+              <Kpi icon={CalendarClock} title="CDD à échéance" tone="bg-rose-100 text-rose-600">
+                <p className="font-display text-4xl font-extrabold leading-none text-dark"><CountUp value={inbox.contracts.length} /></p>
+                <p className="mt-1 text-[11px] text-muted">contrat{inbox.contracts.length > 1 ? "s" : ""} dans le délai d'alerte</p>
+                <p className="mt-4 truncate border-t border-line pt-3 text-xs text-muted">{inbox.contracts[0] ? `${inbox.contracts[0].prenom} ${inbox.contracts[0].nom} · ${inbox.contracts[0].daysLeft} j` : "Aucun CDD proche de la fin."}</p>
+              </Kpi>
+            </Link>
+            <Link to="/admin/rh/absences" className="block">
+              <Kpi icon={FileWarning} title="Certificats" tone="bg-amber-100 text-amber-600">
+                <p className="font-display text-4xl font-extrabold leading-none text-dark"><CountUp value={inbox.lateCertificates.length} /></p>
+                <p className="mt-1 text-[11px] text-muted">certificat{inbox.lateCertificates.length > 1 ? "s" : ""} à examiner</p>
+                <p className="mt-4 border-t border-line pt-3 text-xs text-muted">Hors délai, pas encore acceptés.</p>
+              </Kpi>
+            </Link>
+            <Link to="/admin/rh/paie" className="block">
+              <Kpi icon={FileText} title="Demandes" tone="bg-emerald-100 text-emerald-600">
+                <p className="font-display text-4xl font-extrabold leading-none text-dark"><CountUp value={(inbox.documentRequests || []).length} /></p>
+                <p className="mt-1 text-[11px] text-muted">attestation{(inbox.documentRequests || []).length > 1 ? "s" : ""} ou fiche{((inbox.documentRequests || []).length) > 1 ? "s" : ""} demandée{((inbox.documentRequests || []).length) > 1 ? "s" : ""}</p>
+                <p className="mt-4 border-t border-line pt-3 text-xs text-muted">{inbox.payrollDrafts.length} fiche{inbox.payrollDrafts.length > 1 ? "s" : ""} encore en brouillon</p>
+              </Kpi>
+            </Link>
+          </div>
+          </>
         )}
       </section>
 
@@ -478,15 +499,6 @@ export default function RhHomePage() {
         )}
       </div>
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {SHORTCUTS.map((card) => (
-          <Link key={card.href} to={card.href} className="rounded-[24px] border border-line bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-300">
-            <card.icon className="h-5 w-5 text-orange-600" aria-hidden />
-            <h2 className="mt-3 font-display text-lg font-bold text-dark">{card.title}</h2>
-            <p className="mt-1 text-sm text-muted">{card.text}</p>
-          </Link>
-        ))}
-      </div>
       {approving && (
         <LeaveCoverDialog
           employeeName={`${approving.prenom} ${approving.nom}`.trim()}

@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Mail, Menu, Settings, X } from "lucide-react";
 import { clearSession, getSession, logout } from "@/lib/auth";
 import { fetchWhatsAppUnread } from "@/lib/whatsapp";
+import { fetchHrInbox, rhAttentionCount } from "@/lib/hr";
 import { fetchMailUnread, fetchMyMailsUnread } from "@/lib/mail";
 import { useLanguage } from "@/lib/i18n";
 import { VITRINE_URL } from "@/lib/site";
@@ -30,6 +31,31 @@ function CountBadge({ count }: { count: number }) {
     <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] font-bold text-white">
       {count}
     </span>
+  );
+}
+
+function AreaButton({ label, active, alert, tone, onClick }: { label: string; active: boolean; alert: boolean; tone: "brand" | "orange"; onClick: () => void }) {
+  const activeClass = tone === "orange" ? "bg-orange-500 text-white shadow" : "bg-brand text-white shadow";
+  const dot = tone === "orange" ? "bg-orange-500" : "bg-brand";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={alert ? `${label}, demandes en attente` : label}
+      className={cn(
+        "relative rounded-full px-3 py-1.5 text-xs font-bold transition sm:px-4",
+        active ? activeClass : "text-mid hover:text-dark",
+        alert && (tone === "orange" ? "animate-pulse bg-orange-100 text-orange-700" : "animate-pulse bg-brand/15 text-brand")
+      )}
+    >
+      {label}
+      {alert && (
+        <span className="absolute -right-0.5 -top-0.5 flex h-2.5 w-2.5" aria-hidden="true">
+          <span className={cn("absolute inline-flex h-full w-full animate-ping rounded-full opacity-75", dot)} />
+          <span className={cn("relative inline-flex h-2.5 w-2.5 rounded-full", dot)} />
+        </span>
+      )}
+    </button>
   );
 }
 
@@ -127,6 +153,25 @@ const Navbar1 = () => {
     };
   }, [role]);
 
+  const [rhAttention, setRhAttention] = React.useState(0);
+  React.useEffect(() => {
+    if (role !== "ADMIN") return;
+    let cancelled = false;
+    function refresh() {
+      fetchHrInbox()
+        .then((inbox) => { if (!cancelled) setRhAttention(rhAttentionCount(inbox)); })
+        .catch(() => { if (!cancelled) setRhAttention(0); });
+    }
+    refresh();
+    const timer = window.setInterval(refresh, 30000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [role, location.pathname]);
+
+  const clientAttention = waUnread.registered + waUnread.prospects + mailUnread;
+
   // Dernier total de messages WhatsApp non lus : un son part quand il augmente (jamais au premier chargement).
   const lastWaTotal = React.useRef<number | null>(null);
   React.useEffect(() => {
@@ -178,20 +223,8 @@ const Navbar1 = () => {
         <div className="flex min-w-0 items-center gap-3">
           {role === "ADMIN" && (
             <div className="inline-flex shrink-0 items-center rounded-full bg-slate-100 p-1" role="group" aria-label={t("Espace", "Area")}>
-              <button
-                type="button"
-                onClick={() => rhMode && navigate("/admin")}
-                className={cn("rounded-full px-3 py-1.5 text-xs font-bold transition sm:px-4", !rhMode ? "bg-brand text-white shadow" : "text-mid hover:text-dark")}
-              >
-                {t("Clients", "Clients")}
-              </button>
-              <button
-                type="button"
-                onClick={() => !rhMode && navigate("/admin/rh")}
-                className={cn("rounded-full px-3 py-1.5 text-xs font-bold transition sm:px-4", rhMode ? "bg-orange-500 text-white shadow" : "text-mid hover:text-dark")}
-              >
-                RH
-              </button>
+              <AreaButton label={t("Clients", "Clients")} active={!rhMode} alert={rhMode && clientAttention > 0} tone="brand" onClick={() => rhMode && navigate("/admin")} />
+              <AreaButton label="RH" active={rhMode} alert={!rhMode && rhAttention > 0} tone="orange" onClick={() => !rhMode && navigate("/admin/rh")} />
             </div>
           )}
           {role !== "ADMIN" && (
@@ -357,8 +390,8 @@ const Navbar1 = () => {
             <div className="flex flex-col space-y-6">
               {role === "ADMIN" && (
                 <div className="inline-flex w-max items-center rounded-full bg-slate-100 p-1">
-                  <button type="button" onClick={() => { navigate("/admin"); toggleMenu(); }} className={cn("rounded-full px-4 py-1.5 text-sm font-bold", !rhMode ? "bg-brand text-white" : "text-mid")}>Clients</button>
-                  <button type="button" onClick={() => { navigate("/admin/rh"); toggleMenu(); }} className={cn("rounded-full px-4 py-1.5 text-sm font-bold", rhMode ? "bg-orange-500 text-white" : "text-mid")}>RH</button>
+                  <AreaButton label="Clients" active={!rhMode} alert={rhMode && clientAttention > 0} tone="brand" onClick={() => { navigate("/admin"); toggleMenu(); }} />
+                  <AreaButton label="RH" active={rhMode} alert={!rhMode && rhAttention > 0} tone="orange" onClick={() => { navigate("/admin/rh"); toggleMenu(); }} />
                 </div>
               )}
               {role === "ADMIN" && (

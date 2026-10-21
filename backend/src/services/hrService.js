@@ -266,6 +266,17 @@ async function inbox(now = new Date()) {
     const current = person.requests.find((request) => request.status === "APPROVED" && request.startOn <= today && today <= request.endOn);
     if (current) onLeave.push({ userId: person.id, prenom: person.prenom, nom: person.nom, endOn: current.endOn });
   }
+  let pendingLateDays = 0;
+  let pendingLateMinutes = 0;
+  for (const person of presence.employees) {
+    for (const day of person.days || []) {
+      const detected = Number(day.lateMinutes || 0) + Number(day.earlyMinutes || 0);
+      if (day.status === "PRESENT" && !day.confirmedLate && detected > 0) {
+        pendingLateDays += 1;
+        pendingLateMinutes += detected;
+      }
+    }
+  }
   const summary = {
     month,
     today,
@@ -275,6 +286,8 @@ async function inbox(now = new Date()) {
     contracts: contractCounts,
     onLeave,
     openYears,
+    pendingLateDays,
+    pendingLateMinutes,
     presenceMinutes: sum(presence.employees, (row) => row.totalMinutes),
     presenceCost: sum(presence.employees, (row) => row.amount),
     payroll: {
