@@ -111,10 +111,14 @@ function decodeFile(fileBase64, allowed) {
 
 function storeFile(prefix, mimeType, buffer) {
   const ext = mimeType === "application/pdf" ? "pdf" : mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
-  fs.mkdirSync(HR_DIR, { recursive: true });
-  const storedFilename = `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  fs.writeFileSync(path.join(HR_DIR, storedFilename), buffer);
-  return storedFilename;
+  try {
+    fs.mkdirSync(HR_DIR, { recursive: true });
+    const storedFilename = `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    fs.writeFileSync(path.join(HR_DIR, storedFilename), buffer);
+    return storedFilename;
+  } catch {
+    throw fail("Le serveur n'a pas pu enregistrer l'image. Le dossier des fichiers n'est pas accessible.");
+  }
 }
 
 function removeFile(filename) {
@@ -126,7 +130,9 @@ function removeFile(filename) {
 async function brandingFiles() {
   const [signature, stamp] = await Promise.all([settings.get("hr_signature_file"), settings.get("hr_stamp_file")]);
   const file = (name) => (name && fs.existsSync(path.join(HR_DIR, path.basename(name))) ? path.join(HR_DIR, path.basename(name)) : null);
-  return { signature: file(signature), stamp: file(stamp), hasSignature: Boolean(signature), hasStamp: Boolean(stamp) };
+  const signaturePath = file(signature);
+  const stampPath = file(stamp);
+  return { signature: signaturePath, stamp: stampPath, hasSignature: Boolean(signaturePath), hasStamp: Boolean(stampPath) };
 }
 
 async function monthContext(monthValue) {

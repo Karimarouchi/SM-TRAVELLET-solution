@@ -1,5 +1,5 @@
-import { addHrHoliday, fetchHrBranding, fetchHrHolidays, fetchHrSettings, removeHrHoliday, saveHrBrandFile, saveHrSettings, setHrHolidayPaid, type HrHoliday, type HrSettings } from "@/lib/hr";
-import { Trash2 } from "lucide-react";
+import { addHrHoliday, fetchHrBrandPreview, fetchHrBranding, fetchHrHolidays, fetchHrSettings, removeHrHoliday, saveHrBrandFile, saveHrSettings, setHrHolidayPaid, type HrHoliday, type HrSettings } from "@/lib/hr";
+import { Check, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export default function RhSettingsPage() {
@@ -13,6 +13,7 @@ export default function RhSettingsPage() {
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [brand, setBrand] = useState<{ hasSignature: boolean; hasStamp: boolean } | null>(null);
+  const [brandTick, setBrandTick] = useState(0);
 
   useEffect(() => {
     fetchHrSettings().then(setSettings).catch((err) => setError(err instanceof Error ? err.message : "Chargement impossible."));
@@ -208,35 +209,91 @@ export default function RhSettingsPage() {
         <h2 className="font-display text-lg font-bold text-dark">Signature et cachet</h2>
         <p className="mt-1 text-sm text-muted">Ils sont imprimés sur les fiches de paie et les attestations. Une image PNG ou JPEG.</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <BrandSlot kind="signature" label="Signature" ready={Boolean(brand?.hasSignature)} busy={busy} onDone={setBrand} onError={setError} />
-          <BrandSlot kind="stamp" label="Cachet" ready={Boolean(brand?.hasStamp)} busy={busy} onDone={setBrand} onError={setError} />
+          <BrandSlot kind="signature" label="Signature" ready={Boolean(brand?.hasSignature)} tick={brandTick} busy={busy} onDone={(value) => { setBrand(value); setBrandTick((n) => n + 1); }} onError={setError} />
+          <BrandSlot kind="stamp" label="Cachet" ready={Boolean(brand?.hasStamp)} tick={brandTick} busy={busy} onDone={(value) => { setBrand(value); setBrandTick((n) => n + 1); }} onError={setError} />
         </div>
       </section>
     </main>
   );
 }
 
-function BrandSlot({ kind, label, ready, busy, onDone, onError }: { kind: "signature" | "stamp"; label: string; ready: boolean; busy: boolean; onDone: (value: { hasSignature: boolean; hasStamp: boolean }) => void; onError: (value: string) => void }) {
+function BrandSlot({ kind, label, ready, tick, busy, onDone, onError }: { kind: "signature" | "stamp"; label: string; ready: boolean; tick: number; busy: boolean; onDone: (value: { hasSignature: boolean; hasStamp: boolean }) => void; onError: (value: string) => void }) {
+  const [preview, setPreview] = useState<string | null>(null);
+  const [slotError, setSlotError] = useState("");
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (!ready) {
+      setPreview(null);
+      return;
+    }
+    let cancelled = false;
+    let url = "";
+    fetchHrBrandPreview(kind).then((next) => {
+      if (cancelled) {
+        if (next) URL.revokeObjectURL(next);
+        return;
+      }
+      url = next || "";
+      setPreview(next);
+      if (!next) setSlotError("Le fichier est introuvable sur le serveur.");
+    }).catch((err) => {
+      if (!cancelled) setSlotError(err instanceof Error ? err.message : "Aperçu impossible.");
+    });
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [kind, ready, tick]);
+
   return (
-    <label className="rounded-2xl border border-dashed border-orange-200 bg-orange-50 px-4 py-3 text-sm">
-      <span className="font-bold text-dark">{label}</span>
-      <span className="mt-1 block text-xs text-muted">{ready ? "Déposé. Choisir un fichier le remplace." : "Pas encore déposé."}</span>
-      <input
-        type="file"
-        accept="image/png,image/jpeg"
-        disabled={busy}
-        className="mt-2 block w-full text-xs"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          e.target.value = "";
-          if (!file) return;
-          const reader = new FileReader();
-          reader.onload = () => {
-            saveHrBrandFile(kind, String(reader.result || "")).then(onDone).catch((err) => onError(err instanceof Error ? err.message : "Dépôt impossible."));
-          };
-          reader.readAsDataURL(file);
-        }}
-      />
-    </label>
+    <div className="rounded-2xl border border-dashed border-orange-200 bg-orange-50 px-4 py-3 text-sm">
+      <p className="flex items-center gap-2 font-bold text-dark">
+        {label}
+        {preview && <Check className="h-4 w-4 text-emerald-600" aria-hidden="true" />}
+      </p>
+      {preview ? (
+        <img src={preview} alt={label} className="mt-3 h-28 w-full rounded-xl border border-line bg-white object-contain" />
+      ) : (
+        <p className="mt-3 flex h-28 items-center justify-center rounded-xl border border-dashed border-orange-200 bg-white text-xs text-muted">Aucune image</p>
+      )}
+      <p className="mt-2 text-xs text-muted">{sending ? "Envoi de l'image..." : preview ? "Image enregistrée. Choisir un fichier le remplace." : "Pas encore déposée."}</p>
+      {slotError && <p className="mt-2 rounded-lg bg-red-50 px-2 py-1.5 text-xs text-red-600">{slotError}</p>}
+      <label className="mt-2 block text-xs">
+        <input
+          type="file"
+          accept="image/png,image/jpeg"
+          disabled={busy || sending}
+          className="block w-full text-xs"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (!file) return;
+            setSending(true);
+            setSlotError("");
+            const reader = new FileReader();
+            reader.onload = () => {
+              saveHrBrandFile(kind, String(reader.result || ""))
+                .then((value) => {
+                  onDone(value);
+                  if (kind === "signature" ? value.hasSignature : value.hasStamp) setSlotError("");
+                  else setSlotError("L'image n'a pas été enregistrée sur le serveur.");
+                })
+                .catch((err) => {
+                  const message = err instanceof Error ? err.message : "Dépôt impossible.";
+                  setSlotError(message);
+                  onError(message);
+                })
+                .finally(() => setSending(false));
+            };
+            reader.onerror = () => {
+              setSending(false);
+              setSlotError("Lecture du fichier impossible.");
+            };
+            reader.readAsDataURL(file);
+          }}
+        />
+      </label>
+    </div>
   );
 }

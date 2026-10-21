@@ -405,6 +405,19 @@ export const removeHrEmployeeDocument = (id: string) => request<{ ok: boolean }>
 
 export const fetchHrBranding = () => request<{ hasSignature: boolean; hasStamp: boolean }>("/api/admin/hr/branding");
 
+export async function fetchHrBrandPreview(kind: "signature" | "stamp") {
+  const session = getSession();
+  const response = await fetch(`${API_URL}/api/admin/hr/branding/${kind}/file`, {
+    headers: session?.token ? { Authorization: `Bearer ${session.token}` } : {}
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || "Aperçu impossible.");
+  }
+  return URL.createObjectURL(await response.blob());
+}
+
 export const saveHrBrandFile = (kind: "signature" | "stamp", file: string) =>
   request<{ hasSignature: boolean; hasStamp: boolean }>(`/api/admin/hr/branding/${kind}`, { method: "PUT", body: JSON.stringify({ file }) });
 
