@@ -242,7 +242,10 @@ function buildMonth(input) {
     if (!shiftClosed && !corrected && (measured.status === "ABSENT" || measured.status === "NO_REPLY")) continue;
     const waived = Boolean(override?.waived) && !confirmed;
     let lateMinutes = waived ? 0 : override?.lateMinutes ?? measured.lateMinutes;
-    let earlyMinutes = waived ? 0 : override?.earlyMinutes ?? measured.earlyMinutes;
+    // Le dernier message de la journée en cours n'est pas une sortie. Le départ anticipé
+    // se mesure seulement après l'heure de fermeture, entre cette heure et l'heure de sortie.
+    const earlyKnown = shiftClosed || (override?.earlyMinutes !== null && override?.earlyMinutes !== undefined);
+    let earlyMinutes = waived ? 0 : earlyKnown ? (override?.earlyMinutes ?? measured.earlyMinutes) : 0;
     let status = waived ? "WAIVED" : measured.status;
     if (confirmed) {
       status = "ABSENT";
@@ -261,9 +264,9 @@ function buildMonth(input) {
       earlyMinutes,
       totalMinutes: status === "PRESENT" && !confirmedLate ? 0 : detected,
       arrival: measured.arrival,
-      departure: measured.departure,
+      departure: shiftClosed ? measured.departure : null,
       arrivalFrom: measured.arrivalFrom,
-      departureFrom: measured.departureFrom,
+      departureFrom: shiftClosed ? measured.departureFrom : null,
       waived,
       confirmed,
       confirmedLate,
