@@ -186,12 +186,42 @@ function encodeRgba(pixels, width, height) {
   ]);
 }
 
+function jpegSize(buffer) {
+  if (buffer.length < 4 || buffer[0] !== 0xff || buffer[1] !== 0xd8) return null;
+  let offset = 2;
+  while (offset + 9 < buffer.length) {
+    if (buffer[offset] !== 0xff) return null;
+    const marker = buffer[offset + 1];
+    if (marker === 0xd8 || marker === 0xd9) {
+      offset += 2;
+      continue;
+    }
+    const length = buffer.readUInt16BE(offset + 2);
+    if (length < 2 || offset + 2 + length > buffer.length) return null;
+    if (marker >= 0xc0 && marker <= 0xc2) {
+      const height = buffer.readUInt16BE(offset + 5);
+      const width = buffer.readUInt16BE(offset + 7);
+      if (width < 1 || height < 1 || width > 8000 || height > 8000) return null;
+      return { width, height };
+    }
+    offset += 2 + length;
+  }
+  return null;
+}
+
 function trimmedImage(filePath) {
   if (!filePath || !fs.existsSync(filePath)) return null;
   const mtime = fs.statSync(filePath).mtimeMs;
   const cached = trimCache.get(filePath);
   if (cached && cached.mtime === mtime) return cached.image;
-  const decoded = decodeRgba(fs.readFileSync(filePath));
+  const raw = fs.readFileSync(filePath);
+  const jpeg = jpegSize(raw);
+  if (jpeg) {
+    const image = { buffer: raw, width: jpeg.width, height: jpeg.height };
+    trimCache.set(filePath, { mtime, image });
+    return image;
+  }
+  const decoded = decodeRgba(raw);
   if (!decoded) return null;
   const { width, height, pixels } = decoded;
   let minX = width;

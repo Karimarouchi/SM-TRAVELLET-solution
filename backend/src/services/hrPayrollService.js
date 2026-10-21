@@ -95,11 +95,18 @@ function pricedPresence(employee, justified) {
 }
 
 function decodeFile(fileBase64, allowed) {
-  const match = String(fileBase64 || "").match(/^data:([^;]+);base64,([\s\S]+)$/);
-  if (!match || !allowed.includes(match[1])) throw fail("Format de fichier non supporté.");
+  const match = String(fileBase64 || "").match(/^data:([^;,]*);base64,([\s\S]+)$/);
+  if (!match) throw fail("Format de fichier non supporté.");
+  let mimeType = match[1] === "image/jpg" ? "image/jpeg" : match[1];
   const buffer = Buffer.from(match[2], "base64");
   if (!buffer.length || buffer.length > MAX_FILE_BYTES) throw fail("Le fichier est invalide ou dépasse 3 Mo.");
-  return { mimeType: match[1], buffer };
+  if (!mimeType || mimeType === "application/octet-stream") {
+    if (buffer[0] === 0xff && buffer[1] === 0xd8) mimeType = "image/jpeg";
+    else if (buffer[0] === 0x89 && buffer.toString("ascii", 1, 4) === "PNG") mimeType = "image/png";
+  }
+  const accepted = allowed.map((type) => (type === "image/jpg" ? "image/jpeg" : type));
+  if (!accepted.includes(mimeType)) throw fail("Format de fichier non supporté.");
+  return { mimeType, buffer };
 }
 
 function storeFile(prefix, mimeType, buffer) {
