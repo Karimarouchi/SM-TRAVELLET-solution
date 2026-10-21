@@ -192,6 +192,7 @@ export type HrAttendanceDay = {
   departureFrom: string | null;
   waived: boolean;
   confirmed: boolean;
+  confirmedLate: boolean;
   note: string;
   corrected: boolean;
 };
@@ -231,6 +232,9 @@ export const saveHrAttendanceAmount = (userId: string, month: string, amount: st
 
 export const confirmHrAbsences = (userId: string, days: string[], absent: boolean) =>
   request<{ ok: boolean }>("/api/admin/hr/attendance/absences", { method: "POST", body: JSON.stringify({ userId, days, absent }) });
+
+export const confirmHrLateness = (userId: string, day: string, late: boolean) =>
+  request<{ ok: boolean }>("/api/admin/hr/attendance/lateness", { method: "POST", body: JSON.stringify({ userId, day, late }) });
 
 export type HrPayslipLines = {
   baseSalary: number;

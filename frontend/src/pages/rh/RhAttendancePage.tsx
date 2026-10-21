@@ -1,5 +1,5 @@
 import EmployeePicker from "@/components/rh/EmployeePicker";
-import { confirmHrAbsences, fetchHrAttendance, saveHrAttendanceAmount, saveHrAttendanceDay, type HrAttendanceDay, type HrAttendanceEmployee, type HrAttendanceMonth } from "@/lib/hr";
+import { confirmHrAbsences, confirmHrLateness, fetchHrAttendance, saveHrAttendanceAmount, saveHrAttendanceDay, type HrAttendanceDay, type HrAttendanceEmployee, type HrAttendanceMonth } from "@/lib/hr";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -17,6 +17,8 @@ function detailOf(day: HrAttendanceDay) {
   else if (day.status === "NO_REPLY") parts.push("sans réponse, à confirmer");
   else if (day.status === "ABSENT") parts.push("à confirmer");
   else if (day.waived || day.status === "WAIVED") parts.push("journée non comptée");
+  else if (day.confirmedLate) parts.push("retard validé, compté dans la paie");
+  else if (day.status === "PRESENT" && day.lateMinutes + day.earlyMinutes > 0) parts.push("retard à confirmer, hors paie");
   else if (day.corrected) parts.push("corrigé");
   if (day.note) parts.push(day.note);
   return parts.join(" · ");
@@ -39,6 +41,7 @@ export default function RhAttendancePage() {
   const [note, setNote] = useState("");
   const [waived, setWaived] = useState(false);
   const [absent, setAbsent] = useState(false);
+  const [lateConfirmed, setLateConfirmed] = useState(false);
   const [amount, setAmount] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
   const [params] = useSearchParams();
@@ -87,6 +90,7 @@ export default function RhAttendancePage() {
     setNote(day.note);
     setWaived(day.waived);
     setAbsent(day.confirmed);
+    setLateConfirmed(day.confirmedLate);
   };
 
   return (
@@ -95,7 +99,7 @@ export default function RhAttendancePage() {
         <div>
           <h1 className="font-display text-2xl font-extrabold text-dark">Présences</h1>
           <p className="mt-1 text-sm text-muted">
-            {data ? `Une absence ne compte qu'après votre validation. Journée ${data.workStart} – ${data.workEnd}.` : "Retards, départs et absences du mois."}
+            {data ? `Une absence ou un retard ne compte dans la paie qu'après votre validation. Journée ${data.workStart} – ${data.workEnd}.` : "Retards, départs et absences du mois."}
           </p>
         </div>
         <label className="text-xs font-bold text-mid">
@@ -127,8 +131,10 @@ export default function RhAttendancePage() {
             onLate={setLate}
             onEarly={setEarly}
             onNote={setNote}
-            onWaived={(value) => { setWaived(value); if (value) setAbsent(false); }}
-            onAbsent={(value) => { setAbsent(value); if (value) setWaived(false); }}
+            onWaived={(value) => { setWaived(value); if (value) { setAbsent(false); setLateConfirmed(false); } }}
+            onAbsent={(value) => { setAbsent(value); if (value) { setWaived(false); setLateConfirmed(false); } }}
+            lateConfirmed={lateConfirmed}
+            onLateConfirmed={(value) => { setLateConfirmed(value); if (value) { setAbsent(false); setWaived(false); } }}
             onAmount={setAmount}
             onOpen={openDay}
             onSaveDay={() => {
@@ -141,7 +147,8 @@ export default function RhAttendancePage() {
                   lateMinutes: absent || waived || late.trim() === "" ? null : Number(late),
                   earlyMinutes: absent || waived || early.trim() === "" ? null : Number(early),
                   note,
-                  confirmedAbsent: absent
+                  confirmedAbsent: absent,
+                  confirmedLate: absent || waived ? false : lateConfirmed
                 });
                 setEditing(null);
               });
@@ -157,6 +164,7 @@ export default function RhAttendancePage() {
             picked={picked}
             onToggle={(day) => setPicked((current) => current.includes(day) ? current.filter((item) => item !== day) : [...current, day])}
             onConfirm={(absent) => void run(async () => { await confirmHrAbsences(selected.id, picked, absent); setPicked([]); })}
+            onConfirmLate={(day, late) => void run(() => confirmHrLateness(selected.id, day, late))}
           />
         </div>
       )}
@@ -165,8 +173,8 @@ export default function RhAttendancePage() {
 }
 
 function EmployeeDetail({
-  row, busy, editing, late, early, note, waived, absent, amount, picked,
-  onLate, onEarly, onNote, onWaived, onAbsent, onAmount, onOpen, onSaveDay, onClearDay, onSaveAmount, onToggle, onConfirm
+  row, busy, editing, late, early, note, waived, absent, lateConfirmed, amount, picked,
+  onLate, onEarly, onNote, onWaived, onAbsent, onLateConfirmed, onAmount, onOpen, onSaveDay, onClearDay, onSaveAmount, onToggle, onConfirm, onConfirmLate
 }: {
   row: HrAttendanceEmployee;
   busy: boolean;
@@ -176,6 +184,7 @@ function EmployeeDetail({
   note: string;
   waived: boolean;
   absent: boolean;
+  lateConfirmed: boolean;
   amount: string;
   picked: string[];
   onLate: (value: string) => void;
@@ -183,6 +192,7 @@ function EmployeeDetail({
   onNote: (value: string) => void;
   onWaived: (value: boolean) => void;
   onAbsent: (value: boolean) => void;
+  onLateConfirmed: (value: boolean) => void;
   onAmount: (value: string) => void;
   onOpen: (day: HrAttendanceDay) => void;
   onSaveDay: () => void;
@@ -190,6 +200,7 @@ function EmployeeDetail({
   onSaveAmount: () => void;
   onToggle: (day: string) => void;
   onConfirm: (absent: boolean) => void;
+  onConfirmLate: (day: string, late: boolean) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -201,7 +212,7 @@ function EmployeeDetail({
           {row.holidayDays ? ` ${row.holidayDays} jour(s) férié(s) ce mois.` : ""}
         </p>
         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          <Stat label="Minutes perdues" hint="Retards et départs avant la fin, une fois le jour confirmé." value={String(row.totalMinutes)} />
+          <Stat label="Minutes perdues" hint="Absences validées et retards validés seulement. Un retard détecté reste hors paie tant que vous ne le validez pas." value={String(row.totalMinutes)} />
           <Stat label="Prix d'une minute" hint="Part du salaire que coûte une minute de travail." value={money(row.minuteValue)} />
           <Stat label="Retenue calculée" hint="Minutes perdues multipliées par le prix d'une minute." value={money(row.computedAmount)} />
           <Stat label="Montant retenu" hint="Somme enlevée du salaire. Le montant saisi ci-dessous la remplace." value={money(row.amount)} />
@@ -225,6 +236,9 @@ function EmployeeDetail({
           </div>
           <label className="mt-3 flex items-center gap-2 text-xs font-semibold text-mid">
             <input type="checkbox" checked={absent} onChange={(e) => onAbsent(e.target.checked)} /> Mettre ce jour en absence
+          </label>
+          <label className="mt-2 flex items-center gap-2 text-xs font-semibold text-mid">
+            <input type="checkbox" checked={lateConfirmed} onChange={(e) => onLateConfirmed(e.target.checked)} /> Valider le retard de ce jour
           </label>
           <label className="mt-2 flex items-center gap-2 text-xs font-semibold text-mid">
             <input type="checkbox" checked={waived} onChange={(e) => onWaived(e.target.checked)} /> Ne pas compter cette journée
@@ -271,9 +285,24 @@ function EmployeeDetail({
                 <td className="px-2 py-2.5 text-muted">{detailOf(day) || "—"}</td>
                 <td className="px-2 py-2.5 text-muted">{day.arrival ? `${day.arrival} · ${day.arrivalFrom}` : "—"}</td>
                 <td className="px-2 py-2.5 text-muted">{day.departure ? `${day.departure} · ${day.departureFrom}` : "—"}</td>
-                <td className="px-2 py-2.5 text-right font-bold text-dark">{day.totalMinutes}</td>
+                <td className="px-2 py-2.5 text-right">
+                  {day.lateMinutes + day.earlyMinutes > 0 ? (
+                    <>
+                      <span className={`font-bold ${day.status === "PRESENT" && !day.confirmedLate ? "text-amber-700" : "text-dark"}`}>{day.lateMinutes + day.earlyMinutes} min</span>
+                      {day.status === "PRESENT" && !day.confirmedLate ? <span className="mt-0.5 block text-[11px] font-semibold text-amber-700">hors paie</span> : null}
+                      {day.confirmedLate ? <span className="mt-0.5 block text-[11px] font-semibold text-red-700">compté</span> : null}
+                    </>
+                  ) : "—"}
+                </td>
                 <td className="px-4 py-2.5 text-right">
-                  <button type="button" onClick={() => onOpen(day)} className="text-[11px] font-bold text-orange-700">Corriger</button>
+                  <div className="flex flex-col items-end gap-1">
+                    {day.status === "PRESENT" && day.lateMinutes + day.earlyMinutes > 0 ? (
+                      <button type="button" disabled={busy} onClick={() => onConfirmLate(day.day, !day.confirmedLate)} className={`rounded-full px-3 py-1 text-[11px] font-bold disabled:opacity-50 ${day.confirmedLate ? "border border-line text-muted" : "bg-amber-600 text-white"}`}>
+                        {day.confirmedLate ? "Retirer le retard" : "Valider le retard"}
+                      </button>
+                    ) : null}
+                    <button type="button" onClick={() => onOpen(day)} className="text-[11px] font-bold text-orange-700">Corriger</button>
+                  </div>
                 </td>
               </tr>
             ))}

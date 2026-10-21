@@ -194,6 +194,7 @@ function buildMonth(input) {
             departureFrom: null,
             waived: false,
             confirmed: holidayConfirmed,
+            confirmedLate: false,
             note: holidayOverride?.note || "",
             corrected: holidayConfirmed
           });
@@ -217,7 +218,7 @@ function buildMonth(input) {
     });
     const override = overrides.find((row) => row.day === iso);
     const confirmed = Boolean(override?.confirmedAbsent);
-    const corrected = Boolean(override && (override.waived || override.lateMinutes !== null || override.earlyMinutes !== null || confirmed));
+    const corrected = Boolean(override && (override.waived || override.lateMinutes !== null || override.earlyMinutes !== null || confirmed || override.confirmedLate));
     if (beforeTracking && !corrected) continue;
     if (!shiftClosed && !corrected && (measured.status === "ABSENT" || measured.status === "NO_REPLY")) continue;
     const waived = Boolean(override?.waived) && !confirmed;
@@ -232,18 +233,21 @@ function buildMonth(input) {
       lateMinutes = 0;
       earlyMinutes = 0;
     }
+    const detected = lateMinutes + earlyMinutes;
+    const confirmedLate = Boolean(override?.confirmedLate) && !confirmed && !waived && status === "PRESENT" && detected > 0;
     days.push({
       day: iso,
       status,
       lateMinutes,
       earlyMinutes,
-      totalMinutes: lateMinutes + earlyMinutes,
+      totalMinutes: status === "PRESENT" && !confirmedLate ? 0 : detected,
       arrival: measured.arrival,
       departure: measured.departure,
       arrivalFrom: measured.arrivalFrom,
       departureFrom: measured.departureFrom,
       waived,
       confirmed,
+      confirmedLate,
       note: override?.note || "",
       corrected
     });

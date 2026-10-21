@@ -226,6 +226,14 @@ async function confirmAttendanceAbsences(req, res) {
   }
 }
 
+async function confirmAttendanceLateness(req, res) {
+  try {
+    res.json(await attendance.confirmLateness(req.body || {}));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 const payroll = require("../services/hrPayrollService");
 const pdf = require("../services/hrPdfService");
 const fs = require("fs");
@@ -661,6 +669,7 @@ module.exports = {
   saveAttendanceDay,
   saveAttendanceAmount,
   confirmAttendanceAbsences,
+  confirmAttendanceLateness,
   payrollMonth,
   savePayrollAdjustment,
   setPayrollCommission,

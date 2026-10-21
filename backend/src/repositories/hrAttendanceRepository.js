@@ -49,7 +49,7 @@ async function listDossierActions(from, to) {
 
 async function listOverrides(from, to) {
   const result = await query(
-    `SELECT user_id, day::text AS day, waived, late_minutes, early_minutes, note, confirmed_absent
+    `SELECT user_id, day::text AS day, waived, late_minutes, early_minutes, note, confirmed_absent, confirmed_late
      FROM hr_attendance_overrides WHERE day >= $1::date AND day < $2::date`,
     [from, to]
   );
@@ -65,18 +65,18 @@ async function listAmounts(monthStart) {
 }
 
 async function saveOverride(userId, day, fields) {
-  const empty = !fields.waived && fields.lateMinutes === null && fields.earlyMinutes === null && !fields.note && !fields.confirmedAbsent;
+  const empty = !fields.waived && fields.lateMinutes === null && fields.earlyMinutes === null && !fields.note && !fields.confirmedAbsent && !fields.confirmedLate;
   if (empty) {
     await query("DELETE FROM hr_attendance_overrides WHERE user_id = $1 AND day = $2", [userId, day]);
     return;
   }
   await query(
-    `INSERT INTO hr_attendance_overrides (user_id, day, waived, late_minutes, early_minutes, note, confirmed_absent)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO hr_attendance_overrides (user_id, day, waived, late_minutes, early_minutes, note, confirmed_absent, confirmed_late)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      ON CONFLICT (user_id, day) DO UPDATE SET
        waived = EXCLUDED.waived, late_minutes = EXCLUDED.late_minutes, early_minutes = EXCLUDED.early_minutes,
-       note = EXCLUDED.note, confirmed_absent = EXCLUDED.confirmed_absent`,
-    [userId, day, fields.waived, fields.lateMinutes, fields.earlyMinutes, fields.note, fields.confirmedAbsent === true]
+       note = EXCLUDED.note, confirmed_absent = EXCLUDED.confirmed_absent, confirmed_late = EXCLUDED.confirmed_late`,
+    [userId, day, fields.waived, fields.lateMinutes, fields.earlyMinutes, fields.note, fields.confirmedAbsent === true, fields.confirmedLate === true]
   );
 }
 

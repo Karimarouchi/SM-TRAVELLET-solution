@@ -93,7 +93,7 @@ export default function RhPayrollPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-extrabold text-dark">Paie</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted">Le salaire comprend déjà les congés acceptés et les jours fériés payés. Le net ajoute les primes, les commissions payées que vous cochez et, s'il est versé, le solde de congés d'une année. Il retire les absences validées, les retards, un jour de salaire pour chaque jour férié impayé validé, et l'avance déjà remise. Une avance d'un mois précédent se rembourse au plus à 10 % du salaire dû.</p>
+          <p className="mt-1 max-w-2xl text-sm text-muted">Le salaire comprend déjà les congés acceptés et les jours fériés payés. Le net ajoute les primes, les commissions payées que vous cochez et, s'il est versé, le solde de congés d'une année. Il retire les absences validées, les retards validés, un jour de salaire pour chaque jour férié impayé validé, et l'avance déjà remise. Une avance d'un mois précédent se rembourse au plus à 10 % du salaire dû.</p>
         </div>
         <label className="text-xs font-bold text-mid">
           Mois
@@ -455,7 +455,7 @@ function Detail({
           ) : (
             <>
               <Row label={`Retenue d'absence · ${row.absenceDays} jour(s) validé(s)`} value={money(lines.absenceDeduction ? -lines.absenceDeduction : 0)} />
-              <Row label={`Retenue de retard · ${row.latenessMinutes} min`} value={money(lines.latenessDeduction ? -lines.latenessDeduction : 0)} />
+              <Row label={`Retenue de retard · ${row.latenessMinutes} min validée(s)`} value={money(lines.latenessDeduction ? -lines.latenessDeduction : 0)} />
             </>
           )}
           {lines.unpaidHolidayDeduction > 0 && <Row label="Jours fériés impayés" value={money(-lines.unpaidHolidayDeduction)} />}

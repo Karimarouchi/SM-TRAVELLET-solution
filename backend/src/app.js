@@ -314,6 +314,7 @@ app.get("/api/admin/hr/attendance", requireAuth, requireRoles("ADMIN"), hrContro
 app.put("/api/admin/hr/attendance/day", requireAuth, requireRoles("ADMIN"), hrController.saveAttendanceDay);
 app.put("/api/admin/hr/attendance/month", requireAuth, requireRoles("ADMIN"), hrController.saveAttendanceAmount);
 app.post("/api/admin/hr/attendance/absences", requireAuth, requireRoles("ADMIN"), hrController.confirmAttendanceAbsences);
+app.post("/api/admin/hr/attendance/lateness", requireAuth, requireRoles("ADMIN"), hrController.confirmAttendanceLateness);
 app.get("/api/admin/hr/payroll", requireAuth, requireRoles("ADMIN"), hrController.payrollMonth);
 app.put("/api/admin/hr/payroll/adjustment", requireAuth, requireRoles("ADMIN"), hrController.savePayrollAdjustment);
 app.put("/api/admin/hr/payroll/commissions", requireAuth, requireRoles("ADMIN"), hrController.setPayrollCommission);

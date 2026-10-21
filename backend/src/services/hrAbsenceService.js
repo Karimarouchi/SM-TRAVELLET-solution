@@ -79,7 +79,7 @@ async function context(monthValue) {
 
 function countsForCertificate(day) {
   if (day.status === "ABSENT" || day.status === "NO_REPLY") return day.confirmed === true;
-  return (day.lateMinutes || 0) + (day.earlyMinutes || 0) > 0;
+  return day.confirmedLate === true && (day.lateMinutes || 0) + (day.earlyMinutes || 0) > 0;
 }
 
 function dayDto(employee, day, ctx) {

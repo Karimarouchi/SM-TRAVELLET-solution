@@ -94,7 +94,8 @@ function reportFor(row, data, year, month) {
         lateMinutes: item.late_minutes === null || item.late_minutes === undefined ? null : Number(item.late_minutes),
         earlyMinutes: item.early_minutes === null || item.early_minutes === undefined ? null : Number(item.early_minutes),
         note: item.note || "",
-        confirmedAbsent: item.confirmed_absent === true
+        confirmedAbsent: item.confirmed_absent === true,
+        confirmedLate: item.confirmed_late === true
       })),
     monthAmount: amountRow ? Number(amountRow.amount) : null,
     attendanceSince: data.rules.attendanceSince
@@ -140,11 +141,12 @@ async function saveDay(body) {
   if (!staff) throw fail("Employé introuvable.", 404);
   const note = String(body.note || "").trim().slice(0, 300);
   await attendanceRepo.saveOverride(body.userId, day, {
-    waived: body.waived === true,
+    waived: body.waived === true && body.confirmedAbsent !== true,
     lateMinutes: cleanMinutes(body.lateMinutes),
     earlyMinutes: cleanMinutes(body.earlyMinutes),
     note,
-    confirmedAbsent: body.confirmedAbsent === true
+    confirmedAbsent: body.confirmedAbsent === true,
+    confirmedLate: body.confirmedAbsent === true || body.waived === true ? false : body.confirmedLate === true
   });
   return { ok: true };
 }
@@ -181,9 +183,31 @@ async function confirmAbsences(body) {
       lateMinutes: current?.late_minutes === null || current?.late_minutes === undefined ? null : Number(current.late_minutes),
       earlyMinutes: current?.early_minutes === null || current?.early_minutes === undefined ? null : Number(current.early_minutes),
       note: current?.note || "",
-      confirmedAbsent: body.absent === true
+      confirmedAbsent: body.absent === true,
+      confirmedLate: body.absent === true ? false : current?.confirmed_late === true
     });
   }
+  return { ok: true };
+}
+
+async function confirmLateness(body) {
+  const day = String(body.day || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw fail("Date invalide.");
+  const staff = await hrRepo.findStaff(body.userId);
+  if (!staff) throw fail("Employé introuvable.", 404);
+  const end = new Date(`${day}T00:00:00Z`);
+  end.setUTCDate(end.getUTCDate() + 1);
+  const existing = await attendanceRepo.listOverrides(day, end.toISOString().slice(0, 10));
+  const current = existing.find((row) => row.user_id === body.userId && row.day === day);
+  const late = body.late === true;
+  await attendanceRepo.saveOverride(body.userId, day, {
+    waived: late ? false : current?.waived === true,
+    lateMinutes: current?.late_minutes === null || current?.late_minutes === undefined ? null : Number(current.late_minutes),
+    earlyMinutes: current?.early_minutes === null || current?.early_minutes === undefined ? null : Number(current.early_minutes),
+    note: current?.note || "",
+    confirmedAbsent: late ? false : current?.confirmed_absent === true,
+    confirmedLate: late
+  });
   return { ok: true };
 }
 
@@ -217,4 +241,4 @@ async function absenceDays(userId) {
   return days;
 }
 
-module.exports = { overview, saveDay, saveMonthAmount, confirmAbsences, absenceDays };
+module.exports = { overview, saveDay, saveMonthAmount, confirmAbsences, confirmLateness, absenceDays };

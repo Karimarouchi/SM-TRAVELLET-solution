@@ -292,7 +292,7 @@ function payslipLines(doc, slip, y) {
     y = line(doc, y, "Retenue de présence saisie", -taken);
   } else {
     y = line(doc, y, `Retenue d'absence · ${slip.absenceDays || 0} jour(s) validé(s)`, -lines.absenceDeduction);
-    y = line(doc, y, `Retenue de retard · ${slip.latenessMinutes || 0} min`, -lines.latenessDeduction);
+    y = line(doc, y, `Retenue de retard · ${slip.latenessMinutes || 0} min validée(s)`, -lines.latenessDeduction);
   }
   if (lines.unpaidHolidayDeduction) y = line(doc, y, "Jours fériés impayés", -lines.unpaidHolidayDeduction);
   y = line(doc, y, "Avance versée", -lines.advance);
