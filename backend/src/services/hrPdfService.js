@@ -258,9 +258,12 @@ function trimmedImage(filePath) {
 function sealMetrics(signaturePath, stampPath) {
   const signature = trimmedImage(signaturePath);
   const stamp = trimmedImage(stampPath);
-  const stampHeight = 98;
-  const signHeight = 82;
-  const stampWidth = stamp ? stampHeight * stamp.width / stamp.height : 0;
+  const maxStampWidth = 108;
+  const maxStampHeight = 50;
+  const stampScale = stamp ? Math.min(maxStampWidth / stamp.width, maxStampHeight / stamp.height) : 0;
+  const stampWidth = stamp ? stamp.width * stampScale : 0;
+  const stampHeight = stamp ? stamp.height * stampScale : 0;
+  const signHeight = 58;
   const signWidth = signature ? signHeight * signature.width / signature.height : 0;
   const overlap = signature && stamp ? Math.min(signWidth * 0.7, stampWidth * 0.66) : 0;
   return {
