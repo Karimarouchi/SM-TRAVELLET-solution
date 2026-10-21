@@ -182,7 +182,7 @@ export const requestMyLeave = (startOn: string, endOn: string, reason: string) =
 
 export type HrAttendanceDay = {
   day: string;
-  status: "PRESENT" | "ABSENT" | "NO_REPLY" | "WAIVED" | "UNPAID_HOLIDAY";
+  status: "PRESENT" | "ABSENT" | "NO_REPLY" | "WAIVED" | "UNPAID_HOLIDAY" | "LEAVE";
   lateMinutes: number;
   earlyMinutes: number;
   totalMinutes: number;

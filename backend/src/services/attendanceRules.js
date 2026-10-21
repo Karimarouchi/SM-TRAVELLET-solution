@@ -175,6 +175,29 @@ function buildMonth(input) {
     const shiftClosed = iso < today || !Number.isFinite(input.nowMin) || input.nowMin >= endMin;
     const beforeTracking = Boolean(input.attendanceSince) && iso < input.attendanceSince;
     if (!workDays.has(weekday(iso))) continue;
+    const onLeave = (leaves || []).some((leave) => iso >= String(leave.startOn).slice(0, 10) && iso <= String(leave.endOn).slice(0, 10));
+    if (onLeave) {
+      leaveDays += 1;
+      if (!beforeTracking) {
+        days.push({
+          day: iso,
+          status: "LEAVE",
+          lateMinutes: 0,
+          earlyMinutes: 0,
+          totalMinutes: 0,
+          arrival: null,
+          departure: null,
+          arrivalFrom: null,
+          departureFrom: null,
+          waived: false,
+          confirmed: false,
+          confirmedLate: false,
+          note: "",
+          corrected: false
+        });
+      }
+      continue;
+    }
     if (holidayPaid.has(iso)) {
       holidayDays += 1;
       const paid = holidayPaid.get(iso);
@@ -200,10 +223,6 @@ function buildMonth(input) {
           });
         }
       }
-      continue;
-    }
-    if (leaves.some((leave) => iso >= leave.startOn && iso <= leave.endOn)) {
-      leaveDays += 1;
       continue;
     }
     const measured = measureDay({

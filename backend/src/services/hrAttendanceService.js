@@ -84,7 +84,7 @@ function reportFor(row, data, year, month) {
     actions: data.actions.filter((action) => action.user_id === row.id).map((action) => ({ at: action.at })),
     leaves: data.requests
       .filter((request) => request.user_id === row.id && request.status === "APPROVED")
-      .map((request) => ({ startOn: request.start_on, endOn: request.end_on })),
+      .map((request) => ({ startOn: String(request.start_on).slice(0, 10), endOn: String(request.end_on).slice(0, 10) })),
     holidays: data.holidays,
     overrides: data.overrides
       .filter((item) => item.user_id === row.id)

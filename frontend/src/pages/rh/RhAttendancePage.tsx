@@ -7,12 +7,14 @@ const money = (value: number | null) => (value === null ? "—" : `${value.toLoc
 const fr = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
 
 function presenceOf(day: HrAttendanceDay) {
+  if (day.status === "LEAVE") return "Congé";
   return day.confirmed || day.status === "ABSENT" || day.status === "NO_REPLY" || day.status === "UNPAID_HOLIDAY" ? "Absent" : "Présent";
 }
 
 function detailOf(day: HrAttendanceDay) {
   const parts: string[] = [];
-  if (day.status === "UNPAID_HOLIDAY") parts.push(day.confirmed ? "férié impayé, jour retiré" : "férié impayé, à confirmer");
+  if (day.status === "LEAVE") parts.push("congé accepté, rien n'est compté");
+  else if (day.status === "UNPAID_HOLIDAY") parts.push(day.confirmed ? "férié impayé, jour retiré" : "férié impayé, à confirmer");
   else if (day.confirmed) parts.push("marqué manuellement");
   else if (day.status === "NO_REPLY") parts.push("sans réponse, à confirmer");
   else if (day.status === "ABSENT") parts.push("à confirmer");
@@ -208,7 +210,7 @@ function EmployeeDetail({
         <h2 className="font-display text-lg font-bold text-dark">{row.prenom} {row.nom}</h2>
         <p className="text-xs text-muted">
           {row.mode === "sales" ? "L'arrivée du conseiller est sa première réponse WhatsApp quand une conversation attend, sinon son heure de connexion." : "L'arrivée au bureau est la première connexion. Le départ est la dernière action sur un dossier, sinon la déconnexion."}
-          {row.leaveDays ? ` ${row.leaveDays} jour(s) de congé ne sont pas comptés.` : ""}
+          {row.leaveDays ? ` ${row.leaveDays} jour(s) de congé accepté : ni absence, ni retard, rien n'est retiré.` : ""}
           {row.holidayDays ? ` ${row.holidayDays} jour(s) férié(s) ce mois.` : ""}
         </p>
         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -275,34 +277,37 @@ function EmployeeDetail({
               <tr key={day.day}>
                 <td className="px-4 py-2.5 font-semibold text-dark">
                   <label className="inline-flex items-center gap-2">
-                    <input type="checkbox" checked={picked.includes(day.day)} onChange={() => onToggle(day.day)} />
+                    {day.status === "LEAVE" ? null : <input type="checkbox" checked={picked.includes(day.day)} onChange={() => onToggle(day.day)} />}
                     {fr(day.day)}
                   </label>
                 </td>
                 <td className="px-2 py-2.5">
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${presenceOf(day) === "Absent" ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>{presenceOf(day)}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${presenceOf(day) === "Absent" ? "bg-red-50 text-red-700" : presenceOf(day) === "Congé" ? "bg-sky-50 text-sky-700" : "bg-emerald-50 text-emerald-700"}`}>{presenceOf(day)}</span>
                 </td>
                 <td className="px-2 py-2.5 text-muted">{detailOf(day) || "—"}</td>
                 <td className="px-2 py-2.5 text-muted">{day.arrival ? `${day.arrival} · ${day.arrivalFrom}` : "—"}</td>
                 <td className="px-2 py-2.5 text-muted">{day.departure ? `${day.departure} · ${day.departureFrom}` : "—"}</td>
                 <td className="px-2 py-2.5 text-right">
-                  {day.lateMinutes + day.earlyMinutes > 0 ? (
+                  {day.status !== "LEAVE" && (day.lateMinutes > 0 || day.earlyMinutes > 0) ? (
                     <>
-                      <span className={`font-bold ${day.status === "PRESENT" && !day.confirmedLate ? "text-amber-700" : "text-dark"}`}>{day.lateMinutes + day.earlyMinutes} min</span>
+                      {day.lateMinutes > 0 ? <span className={`block font-bold ${day.confirmedLate ? "text-red-700" : "text-amber-700"}`}>Retard {day.lateMinutes} min</span> : null}
+                      {day.earlyMinutes > 0 ? <span className={`block font-bold ${day.confirmedLate ? "text-red-700" : "text-amber-700"}`}>Départ {day.earlyMinutes} min</span> : null}
                       {day.status === "PRESENT" && !day.confirmedLate ? <span className="mt-0.5 block text-[11px] font-semibold text-amber-700">hors paie</span> : null}
                       {day.confirmedLate ? <span className="mt-0.5 block text-[11px] font-semibold text-red-700">compté</span> : null}
                     </>
                   ) : "—"}
                 </td>
                 <td className="px-4 py-2.5 text-right">
-                  <div className="flex flex-col items-end gap-1">
-                    {day.status === "PRESENT" && day.lateMinutes + day.earlyMinutes > 0 ? (
-                      <button type="button" disabled={busy} onClick={() => onConfirmLate(day.day, !day.confirmedLate)} className={`rounded-full px-3 py-1 text-[11px] font-bold disabled:opacity-50 ${day.confirmedLate ? "border border-line text-muted" : "bg-amber-600 text-white"}`}>
-                        {day.confirmedLate ? "Retirer le retard" : "Valider le retard"}
-                      </button>
-                    ) : null}
-                    <button type="button" onClick={() => onOpen(day)} className="text-[11px] font-bold text-orange-700">Corriger</button>
-                  </div>
+                  {day.status === "LEAVE" ? null : (
+                    <div className="flex flex-col items-end gap-1">
+                      {day.status === "PRESENT" && day.lateMinutes + day.earlyMinutes > 0 ? (
+                        <button type="button" disabled={busy} onClick={() => onConfirmLate(day.day, !day.confirmedLate)} className={`rounded-full px-3 py-1 text-[11px] font-bold disabled:opacity-50 ${day.confirmedLate ? "border border-line text-muted" : "bg-amber-600 text-white"}`}>
+                          {day.confirmedLate ? "Retirer le retard" : "Valider le retard"}
+                        </button>
+                      ) : null}
+                      <button type="button" onClick={() => onOpen(day)} className="text-[11px] font-bold text-orange-700">Corriger</button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}
