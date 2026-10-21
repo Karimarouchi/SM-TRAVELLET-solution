@@ -486,7 +486,6 @@ function Detail({
           )}
           <button type="button" disabled={busy} onClick={() => void onDownload(`/api/admin/hr/attestations/${row.id}/pdf?type=work`, "Attestation-travail.pdf")} className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-dark ring-1 ring-line">Attestation de travail</button>
           <button type="button" disabled={busy} onClick={() => void onDownload(`/api/admin/hr/attestations/${row.id}/pdf?type=salary`, "Attestation-salaire.pdf")} className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-dark ring-1 ring-line">Attestation de salaire</button>
-          {row.contractType !== "CDI" && row.contractEndsOn && <button type="button" disabled={busy} onClick={() => void onDownload(`/api/admin/hr/attestations/${row.id}/pdf?type=end`, "Attestation-fin-de-contrat.pdf")} className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-dark ring-1 ring-line">Fin de contrat</button>}
         </div>
         </>
         )}
