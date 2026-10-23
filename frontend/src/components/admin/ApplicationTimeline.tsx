@@ -31,6 +31,7 @@ import {
   Calendar,
   CalendarClock,
   CheckCircle2,
+  ChevronDown,
   Eye,
   EyeOff,
   Pencil,
@@ -75,12 +76,15 @@ export default function ApplicationTimeline({
   applications,
   canAct,
   canMarkTranslation = false,
+  collapsible = false,
   onChanged
 }: {
   applications: UniversityApplication[];
   canAct: boolean;
   /** Conseiller / admin : confirme la fin de la traduction des documents. */
   canMarkTranslation?: boolean;
+  /** Liste du Responsable Dossier : cartes fermées, ouvertes sur demande. */
+  collapsible?: boolean;
   onChanged: () => void;
 }) {
   if (!applications.length) {
@@ -94,15 +98,16 @@ export default function ApplicationTimeline({
   return (
     <div className="space-y-3">
       {applications.map((app) => (
-        <ApplicationCard key={app.id} app={app} canAct={canAct} canMarkTranslation={canMarkTranslation} onChanged={onChanged} />
+        <ApplicationCard key={app.id} app={app} canAct={canAct} canMarkTranslation={canMarkTranslation} collapsible={collapsible} onChanged={onChanged} />
       ))}
     </div>
   );
 }
 
-function ApplicationCard({ app, canAct, canMarkTranslation, onChanged }: { app: UniversityApplication; canAct: boolean; canMarkTranslation: boolean; onChanged: () => void }) {
+function ApplicationCard({ app, canAct, canMarkTranslation, collapsible = false, onChanged }: { app: UniversityApplication; canAct: boolean; canMarkTranslation: boolean; collapsible?: boolean; onChanged: () => void }) {
   // La liste du RDV mélange plusieurs étudiants : leur nom est joint à chaque candidature.
   const studentName = (app as UniversityApplication & { studentName?: string }).studentName;
+  const [open, setOpen] = useState(!collapsible);
   const [modal, setModal] = useState<null | "apply" | "interview" | "reject" | "reapply" | "meet" | "postpone" | "rename">(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -122,26 +127,63 @@ function ApplicationCard({ app, canAct, canMarkTranslation, onChanged }: { app: 
     }
   };
 
+  const showBody = !collapsible || open;
+
   return (
-    <div id={`app-${app.id}`} className="scroll-mt-24 rounded-2xl border border-line bg-white p-5 transition">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-start gap-2">
-          <GraduationCap className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
-          <div>
+    <div id={`app-${app.id}`} className={cn("scroll-mt-24 rounded-2xl border border-line bg-white p-5 transition", collapsible && !open && "p-4")}>
+      {collapsible ? (
+        <div
+          role="button"
+          tabIndex={0}
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setOpen((value) => !value);
+            }
+          }}
+          className="flex cursor-pointer items-center justify-between gap-3"
+        >
+          <div className="min-w-0">
             {studentName && (
-              <p className="mb-0.5 text-[11px] font-bold uppercase tracking-wide text-brand">
-                <Link to={studentProfilePath(getSession()?.user?.role, app.studentId)} className="hover:underline" title="Ouvrir le profil de l'étudiant">{studentName}</Link>
+              <p className="truncate text-[11px] font-bold uppercase tracking-wide text-brand">
+                <Link to={studentProfilePath(getSession()?.user?.role, app.studentId)} className="hover:underline" title="Ouvrir le profil de l'étudiant" onClick={(event) => event.stopPropagation()}>{studentName}</Link>
               </p>
             )}
-            <p className="text-sm font-bold text-dark">{app.universityName}{app.fieldOfStudy ? ` · ${app.fieldOfStudy}` : ""}</p>
-            <p className="text-xs text-muted">{app.countryName}{app.programmeTitle ? ` · ${app.programmeTitle}` : ""}</p>
+            <p className="truncate text-sm font-bold text-dark">{app.universityName}</p>
           </div>
+          <span className="flex shrink-0 items-center gap-2">
+            <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold", meta.color)}>
+              {meta.label}
+            </span>
+            <ChevronDown className={cn("h-4 w-4 text-muted transition-transform", open && "rotate-180")} aria-hidden />
+          </span>
         </div>
-        <span className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold", meta.color)}>
-          {meta.label}
-        </span>
-      </div>
+      ) : (
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-start gap-2">
+            <GraduationCap className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+            <div>
+              {studentName && (
+                <p className="mb-0.5 text-[11px] font-bold uppercase tracking-wide text-brand">
+                  <Link to={studentProfilePath(getSession()?.user?.role, app.studentId)} className="hover:underline" title="Ouvrir le profil de l'étudiant">{studentName}</Link>
+                </p>
+              )}
+              <p className="text-sm font-bold text-dark">{app.universityName}{app.fieldOfStudy ? ` · ${app.fieldOfStudy}` : ""}</p>
+              <p className="text-xs text-muted">{app.countryName}{app.programmeTitle ? ` · ${app.programmeTitle}` : ""}</p>
+            </div>
+          </div>
+          <span className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold", meta.color)}>
+            {meta.label}
+          </span>
+        </div>
+      )}
 
+      {showBody && <>
+      {collapsible && (app.fieldOfStudy || app.countryName || app.programmeTitle) && (
+        <p className="mt-3 text-xs text-muted">{[app.fieldOfStudy, app.countryName, app.programmeTitle].filter(Boolean).join(" · ")}</p>
+      )}
       {inTranslation && (
         <div className="mt-2 rounded-xl bg-cyan-50 px-3 py-2 text-xs text-cyan-800">
           <p className="flex items-center gap-1.5 font-semibold"><Languages className="h-3.5 w-3.5" /> Documents validés, en cours de traduction.</p>
@@ -309,6 +351,7 @@ function ApplicationCard({ app, canAct, canMarkTranslation, onChanged }: { app: 
           )}
         </div>
       )}
+      </>}
 
       {modal === "rename" && (
         <RenameUniversityModal app={app} onClose={() => setModal(null)} onDone={() => { setModal(null); onChanged(); }} />

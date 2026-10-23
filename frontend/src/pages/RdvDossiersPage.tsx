@@ -553,8 +553,9 @@ export default function RdvDossiersPage() {
         <section id="candidatures" className="mt-8 scroll-mt-24">
           <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-bold text-dark">
             <ClipboardList className="h-5 w-5 text-brand" aria-hidden /> {t("Candidatures universitaires", "University applications")}
+            <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-brand/10 px-2 text-xs font-extrabold text-brand">{board.open.length}</span>
           </h2>
-          <ApplicationTimeline applications={board.open} canAct onChanged={load} />
+          <ApplicationTimeline applications={board.open} canAct collapsible onChanged={load} />
         </section>
       ) : (
         <p className="mt-8 rounded-[20px] border border-dashed border-line bg-white p-8 text-sm text-muted">
