@@ -17,7 +17,7 @@ import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { MeetLinkButton } from "@/components/MeetLinkButton";
 import { confirmDialog } from "@/components/ui/dialog-host";
-import { AlertTriangle, ArrowRight, Banknote, Calendar, CalendarClock, CheckCircle2, ClipboardList, Clock, FileText, GraduationCap, Landmark, Languages, Plane, Send, Sparkles, ThumbsDown, ThumbsUp, Video, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowRight, Banknote, Calendar, CalendarClock, CheckCircle2, ChevronDown, ClipboardList, Clock, FileText, GraduationCap, Landmark, Languages, Plane, Send, Sparkles, ThumbsDown, ThumbsUp, Video, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import ApplicationTimeline, { PostponeModal } from "@/components/admin/ApplicationTimeline";
 import MyCommissionsCard, { RDV_INSCRIPTION_STAGES, RDV_VISA_STAGES } from "@/components/MyCommissionsCard";
@@ -589,6 +589,65 @@ export default function RdvDossiersPage() {
 // Page 2 — Mes dossiers visa : documents, paiement, dépôt, décision, rendez-vous.
 // Commissions « visa » uniquement.
 // ─────────────────────────────────────────────────────────────────────────────
+function VisaFileCard({ app, meta, children }: { app: RdvMyApplication; meta: { label: string; color: string }; children: ReactNode }) {
+  const { t } = useLanguage();
+  const [open, setOpen] = useState(false);
+  const toggle = () => setOpen((value) => !value);
+  return (
+    <article id={`app-${app.id}`} className={cn("scroll-mt-24 rounded-[20px] border bg-white p-5 shadow-sm", app.visaPaymentDue ? "border-red-200" : "border-line")}>
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        onClick={toggle}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            toggle();
+          }
+        }}
+        className="flex cursor-pointer items-start justify-between gap-3"
+      >
+        <div className="min-w-0">
+          <h3 className="truncate font-display text-base font-bold text-dark">
+            <Link to={studentProfilePath("RDV", app.studentId)} className="hover:text-brand hover:underline" onClick={(event) => event.stopPropagation()}>{app.studentName}</Link>
+          </h3>
+          <p className="mt-1 flex items-center gap-1.5 text-xs text-mid">
+            <GraduationCap className="h-3.5 w-3.5 shrink-0 text-brand" />
+            <span className="truncate">{app.universityName}{app.countryName ? ` · ${app.countryName}` : ""}</span>
+          </p>
+          {app.coverOwnerName && (
+            <span className="mt-1 inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700">Remplacement de {app.coverOwnerName}</span>
+          )}
+        </div>
+        <span className="flex shrink-0 items-center gap-2">
+          <span className={cn("rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase", meta.color)}>{meta.label}</span>
+          <ChevronDown className={cn("h-4 w-4 text-muted transition-transform", open && "rotate-180")} aria-hidden />
+        </span>
+      </div>
+      {(app.visaPrepMeetingAt || app.visaEmbassyAppointmentAt) && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {app.visaPrepMeetingAt && (
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-violet-50 px-2.5 py-1.5 text-[11px] font-semibold text-violet-700">
+              {app.visaPrepMeetingType === "ONLINE" ? <Video className="h-3 w-3" /> : <Landmark className="h-3 w-3" />}
+              {t("Préparation", "Prep")} : {new Date(app.visaPrepMeetingAt).toLocaleString("fr-FR")}
+            </span>
+          )}
+          {app.visaEmbassyAppointmentAt && (
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-700">
+              <Landmark className="h-3 w-3" /> {t("Ambassade", "Embassy")} : {new Date(app.visaEmbassyAppointmentAt).toLocaleString("fr-FR")}
+            </span>
+          )}
+        </div>
+      )}
+      {app.visaPaymentDue && !open && (
+        <p className="mt-3 text-[11px] font-semibold text-red-600">{t("Paiement visa non réglé", "Visa payment not settled")}</p>
+      )}
+      {open && <div className="mt-3">{children}</div>}
+    </article>
+  );
+}
+
 export function RdvVisasPage() {
   const { t } = useLanguage();
   const session = getSession();
@@ -786,20 +845,9 @@ export function RdvVisasPage() {
               const paymentDue = app.visaPaymentDue;
               const validated = requiredDocs.filter((d) => d.status === "VALIDATED").length;
             return (
-                <article id={`app-${app.id}`} key={app.id} className={cn("scroll-mt-24 rounded-[20px] border bg-white p-5 shadow-sm", paymentDue ? "border-red-200" : "border-line")}>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="truncate font-display text-base font-bold text-dark"><Link to={studentProfilePath("RDV", app.studentId)} className="hover:text-brand hover:underline">{app.studentName}</Link></h3>
-                      <p className="truncate text-xs text-muted">{app.studentEmail}</p>
-                      {app.coverOwnerName && (
-                        <span className="mt-1 inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700">Remplacement de {app.coverOwnerName}</span>
-                      )}
-                    <p className="mt-1.5 flex items-center gap-1.5 text-xs text-mid">
-                        <GraduationCap className="h-3.5 w-3.5 shrink-0 text-brand" /> <span className="truncate">{app.universityName}{app.fieldOfStudy ? ` · ${app.fieldOfStudy}` : ""} · {app.countryName}</span>
-                    </p>
-                  </div>
-                  <span className={cn("rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase", meta.color)}>{meta.label}</span>
-                </div>
+                <VisaFileCard key={app.id} app={app} meta={meta}>
+                  <p className="truncate text-xs text-muted">{app.studentEmail}</p>
+                  {app.fieldOfStudy && <p className="mt-1 text-xs text-mid">{app.fieldOfStudy}</p>}
 
                   {paymentDue && (
                     <div className="mt-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700">
@@ -814,22 +862,6 @@ export function RdvVisasPage() {
                   <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">
                     {t("Motif du refus", "Rejection reason")} : {app.visaDecisionReason}
                   </p>
-                )}
-
-                {(app.visaPrepMeetingAt || app.visaEmbassyAppointmentAt) && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {app.visaPrepMeetingAt && (
-                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-violet-50 px-2.5 py-1.5 text-[11px] font-semibold text-violet-700">
-                        {app.visaPrepMeetingType === "ONLINE" ? <Video className="h-3 w-3" /> : <Landmark className="h-3 w-3" />}
-                        {t("Préparation", "Prep")} : {new Date(app.visaPrepMeetingAt).toLocaleString("fr-FR")}
-                      </span>
-                    )}
-                    {app.visaEmbassyAppointmentAt && (
-                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-700">
-                        <Landmark className="h-3 w-3" /> {t("Ambassade", "Embassy")} : {new Date(app.visaEmbassyAppointmentAt).toLocaleString("fr-FR")}
-                      </span>
-                    )}
-                  </div>
                 )}
 
                 {app.visaStatus === "PREPARATION" && (
@@ -913,7 +945,7 @@ export function RdvVisasPage() {
                       </>
                   )}
                 </div>
-              </article>
+                </VisaFileCard>
             );
           })}
             {visaCards.length === 0 && <p className="rounded-2xl border border-dashed border-line bg-white p-6 text-sm text-muted xl:col-span-2">{t("Aucun dossier visa dans cette catégorie.", "No visa file in this category.")}</p>}
