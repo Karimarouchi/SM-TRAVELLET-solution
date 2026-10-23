@@ -213,7 +213,7 @@ app.post("/api/students/me/visa-documents", requireAuth, requireRoles("STUDENT")
 app.get("/api/applications/:id/visa-documents", requireAuth, requireRoles("SALES", "RDV", "ADMIN"), studentDocumentController.visaChecklistForApplication);
 app.get("/api/applications/:id/study-documents", requireAuth, requireRoles("SALES", "RDV", "ADMIN"), studentDocumentController.studyDocumentsForApplication);
 app.post("/api/applications/:id/visa-documents/reuse", requireAuth, requireRoles("SALES", "ADMIN"), studentDocumentController.reuseStudyDocument);
-app.post("/api/applications/:id/visa-documents", requireAuth, requireRoles("SALES", "RDV", "ADMIN"), studentDocumentController.uploadVisaForStudent);
+app.post("/api/applications/:id/visa-documents", requireAuth, requireRoles("SALES", "ADMIN"), studentDocumentController.uploadVisaForStudent);
 app.patch("/api/applications/:id/visa-documents/review", requireAuth, requireRoles("SALES", "RDV", "ADMIN"), studentDocumentController.reviewVisa);
 
 app.get("/api/students/me/applications", requireAuth, requireRoles("STUDENT"), universityApplicationController.listMine);

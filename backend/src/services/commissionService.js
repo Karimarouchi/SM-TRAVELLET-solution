@@ -1,5 +1,6 @@
 const commissionRepo = require("../repositories/commissionRepository");
 const countryRepo = require("../repositories/countryRepository");
+const appRepo = require("../repositories/universityApplicationRepository");
 const userRepo = require("../repositories/userRepository");
 const notificationService = require("./notificationService");
 const logger = require("../logger");
@@ -181,6 +182,40 @@ async function voidForRemovedApplication(application, otherApplications) {
   return removed;
 }
 
+// Le Responsable Dossier a refusé un document visa déjà validé.
+// La commission « documents visa validés » du conseiller est retirée si elle
+// n'est pas encore versée. Une autre candidature du même pays qui justifie
+// encore l'étape conserve la ligne (elle est seulement rattachée à ce dossier).
+async function voidUnpaidVisaDocumentsCommission(application) {
+  const others = (await appRepo.listForStudent(application.student_id)).filter(
+    (row) => row.id !== application.id && row.country_id === application.country_id
+  );
+  const stillJustified = others.some((row) => row.visa_docs_validated_at);
+  const earnings = await commissionRepo.listForStudentCountry(application.student_id, application.country_id);
+  const removed = [];
+  for (const earning of earnings) {
+    if (earning.role !== "SALES" || earning.stage !== "VISA_DOCUMENTS_VALIDATED") continue;
+    if (earning.application_id && earning.application_id !== application.id && stillJustified) continue;
+    if (stillJustified) {
+      if (earning.application_id === application.id) {
+        const keeper = others.find((row) => row.visa_docs_validated_at);
+        if (keeper) await commissionRepo.retargetApplication(earning.id, keeper.id);
+      }
+      continue;
+    }
+    if (earning.application_id && earning.application_id !== application.id) continue;
+    const gone = await commissionRepo.removeEarning(earning.id);
+    if (gone) removed.push(gone);
+  }
+  if (removed.length) {
+    logger.info("Commission documents visa retirée après refus du Responsable Dossier", {
+      applicationId: application.id,
+      amount: removed.map((row) => row.amount_dinar)
+    });
+  }
+  return removed;
+}
+
 module.exports = {
   ROLES,
   STAGES,
@@ -191,5 +226,6 @@ module.exports = {
   listAllEarnings,
   listEarningsForUser,
   awardCommission,
-  voidForRemovedApplication
+  voidForRemovedApplication,
+  voidUnpaidVisaDocumentsCommission
 };

@@ -142,6 +142,7 @@ export default function DocumentsPage() {
   const [visaDocuments, setVisaDocuments] = useState<VisaDocumentChecklistItem[]>([]);
   const [visaAvailable, setVisaAvailable] = useState(false);
   const [visaUploadsOpen, setVisaUploadsOpen] = useState(false);
+  const [visaStatus, setVisaStatus] = useState("");
   const [visaCountryName, setVisaCountryName] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -158,6 +159,7 @@ export default function DocumentsPage() {
         setVisaDocuments(visaData.checklist);
         setVisaAvailable(Boolean(visaData.application));
         setVisaUploadsOpen(visaData.application?.uploadsOpen !== false && Boolean(visaData.application?.appointmentAt || visaData.application?.uploadsOpen));
+        setVisaStatus(visaData.application?.visaStatus || "");
         setVisaCountryName(visaData.application?.countryName || "");
       })
       .catch((err) => setError(err instanceof Error ? err.message : t("Impossible de charger vos documents.", "Unable to load your documents.")))
@@ -285,7 +287,12 @@ export default function DocumentsPage() {
               {t("Les documents visa se déposent une fois que le Responsable Dossier a fixé le rendez-vous.", "Visa documents can be uploaded once the visa officer has set the appointment.")}
             </p>
           )}
-          <VisaDocumentsChecklist documents={visaDocuments} onUploaded={handleVisaUploaded} locked={!visaUploadsOpen} />
+          <VisaDocumentsChecklist
+            documents={visaDocuments}
+            onUploaded={handleVisaUploaded}
+            locked={!visaUploadsOpen || visaStatus === "SUBMITTED" || visaStatus === "ACCEPTED" || visaStatus === "REJECTED"}
+            freezeValidated={visaStatus === "PREPARATION"}
+          />
         </>
       )}
     </main>

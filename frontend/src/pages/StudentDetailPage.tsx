@@ -314,8 +314,10 @@ export default function StudentDetailPage() {
   const alerts = useMemo<Alert[]>(() => {
     const list: Alert[] = [];
     if (docsToReview && isReviewer) list.push({ key: "docs", tone: "warning", text: t(`${docsToReview} document${docsToReview > 1 ? "s" : ""} à valider`, `${docsToReview} document(s) to review`), target: "documents" });
-    const visaToReview = visaBundles.filter((bundle) => !bundle.application.visaStatus).flatMap((bundle) => bundle.docs).filter((d) => d.status === "SUBMITTED").length;
+    const visaToReview = visaBundles.filter((bundle) => !bundle.application.visaStatus || bundle.application.visaStatus === "PREPARATION").flatMap((bundle) => bundle.docs).filter((d) => d.status === "SUBMITTED").length;
     if (visaToReview && isReviewer) list.push({ key: "visa-docs", tone: "warning", text: t(`${visaToReview} document${visaToReview > 1 ? "s" : ""} visa à valider`, `${visaToReview} visa document(s) to review`), target: "visa-documents" });
+    const visaRejectedByRdv = visaBundles.filter((bundle) => bundle.application.visaStatus === "PREPARATION").flatMap((bundle) => bundle.docs).filter((d) => d.status === "REJECTED").length;
+    if (visaRejectedByRdv && isReviewer) list.push({ key: "visa-rejected", tone: "danger", text: t(`${visaRejectedByRdv} document${visaRejectedByRdv > 1 ? "s" : ""} visa refusé${visaRejectedByRdv > 1 ? "s" : ""} par le Responsable Dossier : contactez l'étudiant et déposez le nouveau fichier`, `${visaRejectedByRdv} visa document(s) rejected by the visa officer: contact the student and upload the new file`), target: "visa-documents" });
     const late = plans.find((p) => p.late);
     if (late) list.push({ key: "payment", tone: "danger", text: isReviewer ? t(`Paiement en retard : reste ${formatMoney(late.remainingTotal, late.currency)}`, `Payment overdue: ${formatMoney(late.remainingTotal, late.currency)} left`) : t("Paiement en retard", "Payment overdue"), target: "paiements" });
     if (profile?.passportStatus === "EXPIRED") list.push({ key: "passport", tone: "danger", text: t("Passeport expiré", "Passport expired"), target: "profil" });
@@ -531,23 +533,26 @@ export default function StudentDetailPage() {
                   summary={visaDocs.length ? <DocSummary docs={visaDocs} /> : undefined}
                 >
                   <p className="text-xs text-muted">
-                    {t("Le conseiller et le Responsable Dossier de ce dossier voient les mêmes documents. Le conseiller les dépose et les valide ; ensuite le Responsable Dossier reprend le visa.", "The advisor and the visa officer on this file see the same documents. The advisor uploads and approves them; the visa officer then takes over the visa.")}
+                    {t("La liste des documents est celle du pays. Le conseiller ou l'étudiant dépose le fichier, le conseiller le valide. Le Responsable Dossier peut ensuite refuser un document validé, avec un motif : le conseiller est prévenu et redépose le fichier. Le dossier reste chez le Responsable Dossier.", "The document list is the country's. The advisor or the student uploads the file, and the advisor approves it. The visa officer can then reject an approved document, with a reason: the advisor is notified and uploads the new file. The file stays with the visa officer.")}
                   </p>
                   <div className="mt-3 space-y-4">
                     {visaBundles.map((bundle) => {
                       const appointed = Boolean(bundle.application.visaPrepMeetingAt || bundle.application.visaEmbassyAppointmentAt);
-                      const canManage = (role === "SALES" || role === "ADMIN") && !bundle.application.visaStatus && appointed;
+                      const withOfficer = bundle.application.visaStatus === "PREPARATION";
+                      const visaOpen = !bundle.application.visaStatus || withOfficer;
+                      const isSalesSide = role === "SALES" || role === "ADMIN";
+                      const canConfirmEmpty = isSalesSide && appointed && !bundle.application.visaStatus;
                       return (
                         <div key={bundle.application.id}>
                           <p className="text-xs font-bold text-dark">{bundle.application.universityName}{bundle.application.countryName ? ` · ${bundle.application.countryName}` : ""}</p>
                           {!appointed && (role === "SALES" || role === "ADMIN") ? (
                             <p className="mt-1 text-xs text-amber-700">{t("Les documents visa se déposent une fois le rendez-vous fixé par le Responsable Dossier.", "Visa documents are uploaded once the visa officer has set the appointment.")}</p>
-                          ) : bundle.application.visaStatus ? (
-                            <p className="mt-1 text-xs text-muted">{t("Dossier visa chez le Responsable Dossier. Les documents restent visibles ici.", "The visa file is with the visa officer. The documents stay visible here.")}</p>
-                          ) : canManage ? (
+                          ) : withOfficer ? (
+                            <p className="mt-1 text-xs text-muted">{t("Dossier visa chez le Responsable Dossier. S'il refuse un document, contactez l'étudiant et déposez le nouveau fichier ici.", "The visa file is with the visa officer. If they reject a document, contact the student and upload the new file here.")}</p>
+                          ) : canConfirmEmpty ? (
                             <p className="mt-1 text-xs text-muted">{t("Validez tous les documents visa obligatoires : le dossier revient ensuite au même Responsable Dossier.", "Approve every required visa document: the file then returns to the same visa officer.")}</p>
                           ) : null}
-                          {canManage && bundle.docs.filter((d) => d.required).length === 0 && (
+                          {canConfirmEmpty && bundle.docs.filter((d) => d.required).length === 0 && (
                             <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
                               <p className="text-sm font-bold text-dark">{t("Aucun document visa obligatoire pour ce pays", "No required visa document for this country")}</p>
                               <p className="mt-1 text-xs text-mid">{t("Confirmez pour transmettre le dossier au Responsable Dossier : il pourra alors déposer le visa.", "Confirm to pass the file to the visa officer: they will then be able to submit the visa.")}</p>
@@ -579,7 +584,11 @@ export default function StudentDetailPage() {
                                   key={doc.requirementId}
                                   applicationId={bundle.application.id}
                                   doc={doc}
-                                  canManage={canManage}
+                                  canOpenFile={role !== "RDV"}
+                                  canUpload={isSalesSide && appointed && visaOpen && (!withOfficer || doc.status !== "VALIDATED")}
+                                  canValidate={isSalesSide && appointed && visaOpen && (doc.status === "SUBMITTED" || (!withOfficer && doc.status === "REJECTED"))}
+                                  canRejectStudent={isSalesSide && appointed && !withOfficer && (doc.status === "SUBMITTED" || doc.status === "REJECTED")}
+                                  canRejectValidated={role === "ADMIN" && withOfficer && doc.status === "VALIDATED"}
                                   studyDocs={studyDocs}
                                   onReviewed={(updated) => {
                                     setVisaBundles((prev) => prev.map((row) => row.application.id === bundle.application.id
@@ -930,13 +939,21 @@ function VisaSalesReviewRow({
   applicationId,
   doc,
   onReviewed,
-  canManage = true,
+  canOpenFile = true,
+  canUpload = false,
+  canValidate = false,
+  canRejectStudent = false,
+  canRejectValidated = false,
   studyDocs = []
 }: {
   applicationId: string;
   doc: VisaDocumentChecklistItem;
   onReviewed: (d: VisaDocumentChecklistItem) => void;
-  canManage?: boolean;
+  canOpenFile?: boolean;
+  canUpload?: boolean;
+  canValidate?: boolean;
+  canRejectStudent?: boolean;
+  canRejectValidated?: boolean;
   studyDocs?: ReusableStudyDocument[];
 }) {
   const { t } = useLanguage();
@@ -947,7 +964,7 @@ function VisaSalesReviewRow({
   const [error, setError] = useState("");
   const meta = statusMeta(t)[doc.status];
   const StatusIcon = meta.icon;
-  const canReview = doc.status === "SUBMITTED" || doc.status === "REJECTED";
+  const showReject = (canRejectStudent && (doc.status === "SUBMITTED" || doc.status === "REJECTED")) || canRejectValidated;
 
   return (
     <div className="rounded-2xl border border-line bg-white p-4">
@@ -959,7 +976,7 @@ function VisaSalesReviewRow({
               {doc.name}
               {doc.required && <span className="ml-1.5 text-red-500">*</span>}
             </p>
-            {open && doc.fileUrl && (
+            {open && canOpenFile && doc.fileUrl && (
               <span onClick={(e) => e.stopPropagation()} className="block"><button
                 type="button"
                 onClick={() => openProtectedFile(doc.fileUrl!).catch((err) => setError(err instanceof Error ? err.message : t("Impossible d'ouvrir ce document.", "Unable to open this document.")))}
@@ -967,6 +984,9 @@ function VisaSalesReviewRow({
               >
                 {doc.originalFilename || t("Voir le fichier", "View file")}
               </button></span>
+            )}
+            {open && !canOpenFile && doc.originalFilename && (
+              <p className="mt-1 text-xs text-muted">{doc.originalFilename}</p>
             )}
           </div>
         </div>
@@ -977,7 +997,7 @@ function VisaSalesReviewRow({
           <ChevronDown className={cn("h-4 w-4 text-muted transition-transform duration-200", open && "rotate-180")} aria-hidden />
         </span>
       </div>
-      {open && canManage && studyDocs.length > 0 && (
+      {open && canUpload && studyDocs.length > 0 && (
         <label className="mt-3 block text-xs text-muted">
           {t("Reprendre un document déjà déposé pour l'université", "Reuse a document already filed for the university")}
           <select
@@ -1008,8 +1028,11 @@ function VisaSalesReviewRow({
           </select>
         </label>
       )}
-      {open && canManage && <StaffVisaUploadButton applicationId={applicationId} doc={doc} onUploaded={onReviewed} />}
-      {open && canManage && canReview && (
+      {open && doc.status === "REJECTED" && canUpload && !canRejectStudent && (
+        <p className="mt-3 text-xs text-muted">{t("Contactez l'étudiant, puis déposez le nouveau fichier. Le dossier reste chez le Responsable Dossier.", "Contact the student, then upload the new file. The file stays with the visa officer.")}</p>
+      )}
+      {open && canUpload && <StaffVisaUploadButton applicationId={applicationId} doc={doc} onUploaded={onReviewed} />}
+      {open && (canValidate || showReject) && (
         <div className="mt-3">
           {rejecting ? (
             <div className="space-y-2">
@@ -1040,27 +1063,31 @@ function VisaSalesReviewRow({
             </div>
           ) : (
             <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true);
-                  setError("");
-                  try {
-                    onReviewed(await reviewApplicationVisaDocument(applicationId, doc.requirementId, "VALIDATED"));
-                  } catch (err) {
-                    setError(err instanceof Error ? err.message : t("Erreur.", "Error."));
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-                className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white"
-              >
-                <ThumbsUp className="h-3 w-3" /> {t("Valider", "Approve")}
-              </button>
-              <button type="button" onClick={() => setRejecting(true)} className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600">
-                <ThumbsDown className="h-3 w-3" /> {t("Refuser", "Reject")}
-              </button>
+              {canValidate && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    setError("");
+                    try {
+                      onReviewed(await reviewApplicationVisaDocument(applicationId, doc.requirementId, "VALIDATED"));
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : t("Erreur.", "Error."));
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white"
+                >
+                  <ThumbsUp className="h-3 w-3" /> {t("Valider", "Approve")}
+                </button>
+              )}
+              {showReject && (
+                <button type="button" onClick={() => setRejecting(true)} className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600">
+                  <ThumbsDown className="h-3 w-3" /> {t("Refuser", "Reject")}
+                </button>
+              )}
             </div>
           )}
         </div>

@@ -13,7 +13,6 @@ import {
   type RdvMyApplication,
   type VisaDocumentChecklistItem
 } from "@/lib/auth";
-import { openProtectedFile } from "@/lib/auth";
 import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { MeetLinkButton } from "@/components/MeetLinkButton";
@@ -24,7 +23,6 @@ import ApplicationTimeline, { PostponeModal } from "@/components/admin/Applicati
 import MyCommissionsCard, { RDV_INSCRIPTION_STAGES, RDV_VISA_STAGES } from "@/components/MyCommissionsCard";
 import { Link } from "react-router-dom";
 import RdvStudentSearch from "@/components/RdvStudentSearch";
-import StaffVisaUploadButton from "@/components/StaffVisaUploadButton";
 import { studentProfilePath } from "@/lib/utils";
 
 function docStatusMeta(t: (fr: string, en: string) => string): Record<VisaDocumentChecklistItem["status"], { label: string; color: string; icon: typeof Clock }> {
@@ -40,15 +38,13 @@ function VisaDocumentReviewRow({
   applicationId,
   doc,
   onReviewed,
-  allowReview = true,
-  allowUpload = false
+  allowRejectValidated = false
 }: {
   applicationId: string;
   doc: VisaDocumentChecklistItem;
   onReviewed: (d: VisaDocumentChecklistItem) => void;
-  allowReview?: boolean;
-  /** Le Responsable Dossier ajoute lui-même le document (validé directement). */
-  allowUpload?: boolean;
+  /** Refus d'un document déjà validé par le conseiller. Pas de dépôt, pas de validation. */
+  allowRejectValidated?: boolean;
 }) {
   const { t } = useLanguage();
   const [rejecting, setRejecting] = useState(false);
@@ -57,19 +53,7 @@ function VisaDocumentReviewRow({
   const [error, setError] = useState("");
   const meta = docStatusMeta(t)[doc.status];
   const StatusIcon = meta.icon;
-  const canReview = allowReview && (doc.status === "SUBMITTED" || doc.status === "REJECTED");
-
-  const handleValidate = async () => {
-    setBusy(true);
-    setError("");
-    try {
-      onReviewed(await reviewApplicationVisaDocument(applicationId, doc.requirementId, "VALIDATED"));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("Erreur.", "Error."));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const canReject = allowRejectValidated && doc.status === "VALIDATED";
 
   const handleReject = async () => {
     setBusy(true);
@@ -95,14 +79,8 @@ function VisaDocumentReviewRow({
               {doc.name}
               {doc.required && <span className="ml-1 text-red-500">*</span>}
             </p>
-            {doc.fileUrl && (
-              <button
-                type="button"
-                onClick={() => openProtectedFile(doc.fileUrl!).catch((err) => setError(err instanceof Error ? err.message : t("Impossible d'ouvrir ce document.", "Unable to open this document.")))}
-                className="mt-0.5 inline-block text-left text-[11px] text-brand underline"
-              >
-                {doc.originalFilename || t("Voir le fichier", "View file")}
-              </button>
+            {doc.originalFilename && (
+              <p className="mt-0.5 text-[11px] text-muted">{doc.originalFilename}</p>
             )}
           </div>
         </div>
@@ -117,9 +95,11 @@ function VisaDocumentReviewRow({
         </div>
       )}
 
-      {allowUpload && <StaffVisaUploadButton applicationId={applicationId} doc={doc} onUploaded={onReviewed} />}
+      {doc.status === "REJECTED" && (
+        <p className="mt-2 text-[11px] text-muted">{t("Le conseiller contacte l'étudiant et dépose le nouveau fichier. Le dossier reste ici.", "The advisor contacts the student and uploads the new file. The file stays here.")}</p>
+      )}
 
-      {canReview && (
+      {canReject && (
         <div className="mt-2">
           {rejecting ? (
             <div className="space-y-1.5">
@@ -131,7 +111,7 @@ function VisaDocumentReviewRow({
                 className="w-full rounded-lg border border-line bg-white px-2.5 py-1.5 text-[11px]"
               />
               <div className="flex gap-1.5">
-                <button type="button" disabled={busy} onClick={handleReject} className="rounded-lg bg-red-500 px-2.5 py-1 text-[11px] font-bold text-white disabled:opacity-60">
+                <button type="button" disabled={busy || !reason.trim()} onClick={handleReject} className="rounded-lg bg-red-500 px-2.5 py-1 text-[11px] font-bold text-white disabled:opacity-60">
                   {t("Confirmer le refus", "Confirm rejection")}
                 </button>
                 <button type="button" onClick={() => { setRejecting(false); setReason(""); }} className="rounded-lg border border-line px-2.5 py-1 text-[11px] font-bold text-muted">
@@ -140,14 +120,9 @@ function VisaDocumentReviewRow({
               </div>
             </div>
           ) : (
-            <div className="flex gap-1.5">
-              <button type="button" disabled={busy} onClick={handleValidate} className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2.5 py-1 text-[11px] font-bold text-white disabled:opacity-60">
-                <ThumbsUp className="h-3 w-3" /> {t("Valider", "Approve")}
-              </button>
-              <button type="button" disabled={busy} onClick={() => setRejecting(true)} className="inline-flex items-center gap-1 rounded-lg bg-red-500 px-2.5 py-1 text-[11px] font-bold text-white disabled:opacity-60">
-                <ThumbsDown className="h-3 w-3" /> {t("Refuser", "Reject")}
-              </button>
-            </div>
+            <button type="button" disabled={busy} onClick={() => setRejecting(true)} className="inline-flex items-center gap-1 rounded-lg bg-red-500 px-2.5 py-1 text-[11px] font-bold text-white disabled:opacity-60">
+              <ThumbsDown className="h-3 w-3" /> {t("Refuser", "Reject")}
+            </button>
           )}
         </div>
       )}
@@ -736,7 +711,7 @@ export function RdvVisasPage() {
       <RdvStudentSearch applications={applications} />
 
       <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label={t("Indicateurs", "Indicators")}>
-        <KpiTile icon={FileText} label={t("En préparation", "In preparation")} value={board.visaPrep.length} hint={t("documents à valider", "documents to review")} tone="bg-sky-100 text-sky-600" onClick={() => { setVisaFilter("preparation"); scrollToId("visas"); }} />
+        <KpiTile icon={FileText} label={t("En préparation", "In preparation")} value={board.visaPrep.length} hint={t("dossiers en cours", "files in progress")} tone="bg-sky-100 text-sky-600" onClick={() => { setVisaFilter("preparation"); scrollToId("visas"); }} />
         <KpiTile icon={Send} label={t("Prêts à déposer", "Ready to file")} value={board.readyToFile.length} hint={t("documents validés, paiement réglé", "documents approved, paid")} tone="bg-emerald-100 text-emerald-600" onClick={() => { setVisaFilter("preparation"); scrollToId("visas"); }} />
         <KpiTile icon={Plane} label={t("Déposés", "Filed")} value={board.visaSubmitted.length} hint={t("décision attendue", "decision pending")} tone="bg-violet-100 text-brand" onClick={() => { setVisaFilter("submitted"); scrollToId("visas"); }} />
         <KpiTile icon={Banknote} label={t("Bloqués", "Blocked")} value={board.blocked.length} hint={t("paiement visa non réglé", "visa payment due")} tone="bg-red-100 text-red-600" onClick={() => { setVisaFilter("preparation"); scrollToId("visas"); }} />
@@ -876,14 +851,14 @@ export function RdvVisasPage() {
                             key={doc.requirementId}
                             applicationId={app.id}
                             doc={doc}
-                              allowReview={false}
-                              allowUpload
-                            onReviewed={(updated) =>
+                            allowRejectValidated
+                            onReviewed={(updated) => {
                               setDocsByApp((prev) => ({
                                 ...prev,
                                 [app.id]: (prev[app.id] || []).map((d) => (d.requirementId === updated.requirementId ? updated : d))
-                              }))
-                            }
+                              }));
+                              load();
+                            }}
                           />
                         ))}
                       </div>
@@ -910,7 +885,7 @@ export function RdvVisasPage() {
                         <Send className="h-3.5 w-3.5" /> {t("Marquer comme déposé", "Mark as submitted")}
                       </button>
                         {!paymentDue && !allRequiredValidated && requiredDocs.length > 0 && (
-                        <span className="text-[11px] text-muted">{t("Validez tous les documents obligatoires avant de déposer le dossier.", "Approve all required documents before submitting the file.")}</span>
+                        <span className="text-[11px] text-muted">{t("Le conseiller doit remplacer le document refusé avant le dépôt.", "The advisor must replace the rejected document before filing.")}</span>
                       )}
                     </>
                   )}

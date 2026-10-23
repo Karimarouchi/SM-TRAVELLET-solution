@@ -386,13 +386,52 @@ async function autoAssignRdvForVisa(application) {
 async function maybeAdvanceVisaAfterDocs(applicationId) {
   const application = await appRepo.findById(applicationId);
   if (!application || application.status !== "ACCEPTED") return;
-  if (application.visa_status) return;
   const requiredStatuses = await studentDocRepo.findRequiredActiveVisaStatusesForCountry(application.country_id, application.student_id);
   // Aucun document visa requis : le dossier ne part pas tout seul chez le RDV, le
   // conseiller le confirme (confirmVisaDocs) pour qu'il reste maître de la transmission.
   if (!requiredStatuses.length) return;
-  if (requiredStatuses.every((r) => r.status === "VALIDATED") && !application.visa_docs_validated_at) {
-    await autoAssignRdvForVisa(application);
+  const allValid = requiredStatuses.every((r) => r.status === "VALIDATED");
+
+  if (!application.visa_status) {
+    if (allValid && !application.visa_docs_validated_at) {
+      await autoAssignRdvForVisa(application);
+    }
+    return;
+  }
+
+  // Le dossier reste chez le Responsable Dossier. Un document obligatoire refusé
+  // retire la validation et la commission impayée. Quand le conseiller a tout
+  // revalidé, la validation et la commission reviennent, sans changer de responsable.
+  if (application.visa_status !== "PREPARATION") return;
+  if (!allValid) {
+    if (application.visa_docs_validated_at) {
+      await appRepo.update(application.id, { visa_docs_validated_at: null });
+      await commissionService.voidUnpaidVisaDocumentsCommission(application);
+    }
+    return;
+  }
+  if (!application.visa_docs_validated_at) {
+    await appRepo.update(application.id, { visa_docs_validated_at: new Date() });
+    if (application.sales_id) {
+      await commissionService.awardCommission({
+        userId: application.sales_id,
+        studentId: application.student_id,
+        countryId: application.country_id,
+        role: "SALES",
+        stage: "VISA_DOCUMENTS_VALIDATED",
+        applicationId: application.id
+      });
+    }
+    if (application.assigned_rdv_id) {
+      await notificationService.notify(application.assigned_rdv_id, {
+        type: "VISA_DOCS_READY_AGAIN",
+        title: "Documents visa de nouveau validés",
+        body: "Le conseiller a remplacé le document refusé. Vous pouvez déposer le dossier visa.",
+        link: "/rdv/visas",
+        coverItem: application.student_id,
+        coverScope: "RDV"
+      });
+    }
   }
 }
 

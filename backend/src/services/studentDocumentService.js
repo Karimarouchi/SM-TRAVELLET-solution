@@ -388,10 +388,10 @@ async function rejectDocumentAsRdv(auth, studentId, name, reason, universityId =
 }
 
 // -------------------------------------------------------------------------
-// Documents VISA — même mécanique que les documents DOSSIER ci-dessus, mais
-// scopée à une candidature précise (un seul pays) plutôt qu'à la liste des
-// pays préférés de l'étudiant, et réservée au RDV assigné (ou Admin) côté
-// review au lieu de Sales/Admin.
+// Documents VISA — une liste par pays, fixée par le Responsable Dossier.
+// Le conseiller ou l'étudiant dépose le PDF. Le conseiller valide.
+// Ensuite seulement, le Responsable Dossier peut refuser un document déjà
+// validé, avec un motif. Le dossier reste chez lui.
 // -------------------------------------------------------------------------
 
 function visaDto(requirement, studentDoc) {
@@ -436,12 +436,28 @@ function assertVisaDocAccess(auth, application) {
   throw fail("Vous n’avez pas accès à ce dossier visa.", 403);
 }
 
-function assertVisaDocReview(auth, application) {
+function assertSalesFilesVisa(auth, application) {
   const roles = authRoles(auth);
   if (roles.includes("ADMIN")) return;
-  if (handlesApplication(auth, application, "SALES") && !application.visa_status) return;
-  if (handlesApplication(auth, application, "RDV") && application.visa_status) return;
-  throw fail("La validation des documents visa est réservée au conseiller tant que le dossier n'est pas revenu au Responsable Dossier.", 403);
+  if (handlesApplication(auth, application, "SALES")) return;
+  throw fail("Seul le conseiller dépose les fichiers des documents visa.", 403);
+}
+
+function assertVisaFileStillOpen(application) {
+  if (application.status !== "ACCEPTED" || ["SUBMITTED", "ACCEPTED", "REJECTED"].includes(application.visa_status)) {
+    throw fail("Ce dossier visa n'accepte plus de nouveaux documents.", 409);
+  }
+}
+
+// Une fois le dossier chez le Responsable Dossier, un fichier déjà validé
+// ne se remplace qu'après son refus.
+async function assertReplacementAllowed(application, requirementId) {
+  if (!application.visa_status) return;
+  const existing = await studentDocRepo.findStudentDocumentsByRequirementIds(application.student_id, [requirementId]);
+  const current = existing.find((d) => d.file_url);
+  if (current && current.status === "VALIDATED") {
+    throw fail("Ce document est déjà validé. Le Responsable Dossier peut le refuser s'il ne convient pas.", 409);
+  }
 }
 
 function visaAppointmentAt(application) {
@@ -510,28 +526,21 @@ async function uploadVisaDocument(studentUserId, requirementId, fileBase64, orig
   const application = await findActiveVisaApplicationForStudent(studentUserId);
   if (!application) throw fail("Aucun dossier visa actif.", 404);
   assertVisaAppointment(application);
+  assertVisaFileStillOpen(application);
 
   const requirements = await studentDocRepo.findActiveVisaRequirementsByCountryId(application.country_id);
   const requirement = requirements.find((r) => r.id === trimmedReqId);
   if (!requirement) throw fail("Ce document ne fait pas partie de votre checklist visa actuelle.", 404);
+  await assertReplacementAllowed(application, requirement.id);
 
   await storeVisaFile(studentUserId, requirement, fileBase64, originalFilename);
 
-  if (application.sales_id && !application.visa_status) {
+  if (application.sales_id) {
     await notificationService.notify(application.sales_id, {
       type: "VISA_DOCUMENT_UPLOADED",
       title: "Document visa déposé à vérifier",
       body: `${await studentName(studentUserId)} a déposé « ${requirement.name} » (${application.country_name || "visa"}).`,
       link: `/conseiller/etudiants/${studentUserId}`
-    });
-  } else if (application.assigned_rdv_id) {
-    await notificationService.notify(application.assigned_rdv_id, {
-      type: "VISA_DOCUMENT_UPLOADED",
-      title: "Document visa déposé à vérifier",
-      body: `${await studentName(studentUserId)} a déposé « ${requirement.name} » (${application.country_name || "visa"}).`,
-      link: "/rdv/visas",
-      coverItem: studentUserId,
-      coverScope: "RDV"
     });
   }
 
@@ -539,20 +548,19 @@ async function uploadVisaDocument(studentUserId, requirementId, fileBase64, orig
   return checklist.find((d) => d.requirementId === requirement.id);
 }
 
-// Le conseiller (tant que le dossier visa est chez lui) ou le Responsable Dossier (une fois le
-// dossier revenu chez lui) dépose un document visa à la place de l'étudiant : validé directement.
+// Le conseiller dépose un document visa à la place de l'étudiant : validé directement.
+// Le Responsable Dossier ne dépose pas de fichier.
 async function uploadVisaDocumentForStudent(auth, applicationId, requirementId, fileBase64, originalFilename) {
   const application = await appRepo.findById(applicationId);
   if (!application) throw fail("Candidature introuvable.", 404);
-  assertVisaDocReview(auth, application);
+  assertSalesFilesVisa(auth, application);
   assertVisaAppointment(application);
-  if (application.status !== "ACCEPTED" || ["ACCEPTED", "REJECTED"].includes(application.visa_status)) {
-    throw fail("Ce dossier visa n'accepte plus de nouveaux documents.", 409);
-  }
+  assertVisaFileStillOpen(application);
 
   const requirements = await studentDocRepo.findActiveVisaRequirementsByCountryId(application.country_id);
   const requirement = requirements.find((r) => r.id === String(requirementId || "").trim());
   if (!requirement) throw fail("Ce document ne fait pas partie de la checklist visa de ce dossier.", 404);
+  await assertReplacementAllowed(application, requirement.id);
 
   await storeVisaFile(application.student_id, requirement, fileBase64, originalFilename);
   await studentDocRepo.updateStatusForRequirementIds(application.student_id, [requirement.id], "VALIDATED", auth.sub, null);
@@ -592,17 +600,16 @@ async function listStudyDocumentsForApplication(auth, applicationId) {
 async function reuseStudyDocumentForVisa(auth, applicationId, payload) {
   const application = await appRepo.findById(applicationId);
   if (!application) throw fail("Candidature introuvable.", 404);
-  assertVisaDocReview(auth, application);
+  assertSalesFilesVisa(auth, application);
   assertVisaAppointment(application);
-  if (application.status !== "ACCEPTED" || ["ACCEPTED", "REJECTED"].includes(application.visa_status)) {
-    throw fail("Ce dossier visa n'accepte plus de nouveaux documents.", 409);
-  }
+  assertVisaFileStillOpen(application);
 
   const source = await studentDocRepo.findFiledStudyDocument(application.student_id, String(payload?.sourceDocumentId || ""));
   if (!source) throw fail("Ce document déjà déposé est introuvable.", 404);
   const requirements = await studentDocRepo.findActiveVisaRequirementsByCountryId(application.country_id);
   const requirement = requirements.find((row) => row.id === String(payload?.requirementId || "").trim());
   if (!requirement) throw fail("Ce document ne fait pas partie de la checklist visa de ce dossier.", 404);
+  await assertReplacementAllowed(application, requirement.id);
 
   await studentDocRepo.upsertForRequirementIds(application.student_id, [requirement.id], {
     fileUrl: source.file_url,
@@ -624,22 +631,50 @@ async function getVisaChecklistForApplication(auth, applicationId) {
   return getVisaChecklist(application.country_id, application.student_id);
 }
 
-// Validation / rejet par le RDV assigné à cette candidature (ou Admin).
+// Le conseiller valide (ou refuse) un fichier déposé par l'étudiant.
+// Le Responsable Dossier, une fois le dossier chez lui, refuse seulement un
+// document déjà validé, avec un motif. L'étudiant n'est pas notifié : le
+// conseiller le contacte et redépose le fichier.
 async function reviewVisaDocument(auth, applicationId, requirementId, status, reason) {
   const application = await appRepo.findById(applicationId);
   if (!application) throw fail("Candidature introuvable.", 404);
-  assertVisaDocReview(auth, application);
+  if (application.status !== "ACCEPTED" || ["SUBMITTED", "ACCEPTED", "REJECTED"].includes(application.visa_status)) {
+    throw fail("Ce dossier visa n'accepte plus de changement sur les documents.", 409);
+  }
 
   if (!["VALIDATED", "REJECTED"].includes(status)) throw fail("Statut invalide.", 400);
   const trimmedReason = String(reason || "").trim();
   if (status === "REJECTED" && !trimmedReason) throw fail("Un motif est obligatoire pour refuser un document.", 400);
+  if (trimmedReason.length > 500) throw fail("Le motif est trop long (500 caractères maximum).", 400);
 
   const requirements = await studentDocRepo.findActiveVisaRequirementsByCountryId(application.country_id);
   const requirement = requirements.find((r) => r.id === requirementId);
   if (!requirement) throw fail("Document introuvable pour ce dossier.", 404);
 
   const existing = await studentDocRepo.findStudentDocumentsByRequirementIds(application.student_id, [requirement.id]);
-  if (!existing.some((d) => d.file_url)) throw fail("Aucun fichier n’a encore été déposé pour ce document.", 400);
+  const current = existing.find((d) => d.file_url);
+  if (!current) throw fail("Aucun fichier n’a encore été déposé pour ce document.", 400);
+
+  const roles = authRoles(auth);
+  const isAdmin = roles.includes("ADMIN");
+  const isRdv = handlesApplication(auth, application, "RDV");
+  const isSales = handlesApplication(auth, application, "SALES");
+  const officerReject = status === "REJECTED"
+    && current.status === "VALIDATED"
+    && application.visa_status === "PREPARATION"
+    && (isRdv || isAdmin);
+
+  if (status === "REJECTED" && current.status === "VALIDATED") {
+    if (!officerReject) {
+      throw fail("Seul le Responsable Dossier peut refuser un document visa déjà validé, pendant la préparation du visa.", 403);
+    }
+  } else if (!(isSales || isAdmin)) {
+    throw fail("La validation des documents visa est réservée au conseiller.", 403);
+  } else if (status === "REJECTED" && application.visa_status) {
+    throw fail("Une fois le dossier chez le Responsable Dossier, seul lui peut refuser un document déjà validé.", 403);
+  } else if (status === "VALIDATED" && !["SUBMITTED", "REJECTED", "VALIDATED"].includes(current.status)) {
+    throw fail("Ce document n'est pas en attente de validation.", 409);
+  }
 
   await studentDocRepo.updateStatusForRequirementIds(
     application.student_id,
@@ -649,24 +684,41 @@ async function reviewVisaDocument(auth, applicationId, requirementId, status, re
     status === "REJECTED" ? trimmedReason : null
   );
 
-  await notificationService.notify(application.student_id, status === "REJECTED"
-    ? {
-        type: "VISA_DOCUMENT_REJECTED",
+  if (officerReject) {
+    await appRepo.addHistory({
+      applicationId: application.id,
+      studentId: application.student_id,
+      oldStatus: application.status,
+      newStatus: application.status,
+      changedBy: auth.sub,
+      comment: `Document visa refusé par le Responsable Dossier : ${requirement.name} — ${trimmedReason}`
+    });
+    if (application.sales_id) {
+      await notificationService.notify(application.sales_id, {
+        type: "VISA_DOCUMENT_REJECTED_BY_RDV",
         title: `Document visa refusé : ${requirement.name}`,
-        body: `${trimmedReason}. Merci de le redéposer dans votre espace Documents visa.`,
-        link: "/documents?tab=visa"
-      }
-    : {
-        type: "VISA_DOCUMENT_VALIDATED",
-        title: `Document visa validé : ${requirement.name}`,
-        body: "Votre document visa a été vérifié et accepté.",
-        link: "/documents?tab=visa"
+        body: `${await studentName(application.student_id)} : le Responsable Dossier a refusé ce document (${trimmedReason}). Contactez l'étudiant et déposez le nouveau fichier. Le dossier reste chez le Responsable Dossier.`,
+        link: `/conseiller/etudiants/${application.student_id}`
       });
-
-  const checklist = await getVisaChecklist(application.country_id, application.student_id);
-  if (status === "VALIDATED") {
-    await universityApplicationService.maybeAdvanceVisaAfterDocs(application.id);
+    }
+  } else if (status === "REJECTED") {
+    await notificationService.notify(application.student_id, {
+      type: "VISA_DOCUMENT_REJECTED",
+      title: `Document visa refusé : ${requirement.name}`,
+      body: `${trimmedReason}. Merci de le redéposer dans votre espace Documents visa.`,
+      link: "/documents?tab=visa"
+    });
+  } else {
+    await notificationService.notify(application.student_id, {
+      type: "VISA_DOCUMENT_VALIDATED",
+      title: `Document visa validé : ${requirement.name}`,
+      body: "Votre document visa a été vérifié et accepté.",
+      link: "/documents?tab=visa"
+    });
   }
+
+  await universityApplicationService.maybeAdvanceVisaAfterDocs(application.id);
+  const checklist = await getVisaChecklist(application.country_id, application.student_id);
   return checklist.find((d) => d.requirementId === requirement.id);
 }
 

@@ -19,13 +19,14 @@ function acceptAttr(type: VisaDocumentChecklistItem["acceptedFileTypes"]) {
   return "image/png,image/jpeg,image/webp,application/pdf";
 }
 
-function VisaDocumentRow({ doc, onUploaded, locked }: { doc: VisaDocumentChecklistItem; onUploaded: (updated: VisaDocumentChecklistItem) => void; locked?: boolean }) {
+function VisaDocumentRow({ doc, onUploaded, locked, freezeValidated }: { doc: VisaDocumentChecklistItem; onUploaded: (updated: VisaDocumentChecklistItem) => void; locked?: boolean; freezeValidated?: boolean }) {
   const { t } = useLanguage();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const meta = statusMeta(t)[doc.status];
   const StatusIcon = meta.icon;
+  const held = Boolean(freezeValidated && doc.status === "VALIDATED");
 
   const handleFile = (file: File) => {
     if (file.size > 5 * 1024 * 1024) {
@@ -78,7 +79,13 @@ function VisaDocumentRow({ doc, onUploaded, locked }: { doc: VisaDocumentCheckli
         </div>
       )}
 
-      {locked ? null : <div className="mt-3 flex items-center gap-3">
+      {held && (
+        <p className="mt-3 text-xs text-muted">{t("Document validé. S'il doit être changé, votre conseiller vous le demandera.", "Document approved. If it must be changed, your advisor will ask you.")}</p>
+      )}
+      {!locked && freezeValidated && doc.status === "REJECTED" && (
+        <p className="mt-3 text-xs text-muted">{t("Vous pouvez déposer le nouveau fichier, ou le remettre à votre conseiller.", "You can upload the new file, or give it to your advisor.")}</p>
+      )}
+      {locked || held ? null : <div className="mt-3 flex items-center gap-3">
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
@@ -105,11 +112,14 @@ function VisaDocumentRow({ doc, onUploaded, locked }: { doc: VisaDocumentCheckli
 export default function VisaDocumentsChecklist({
   documents,
   onUploaded,
-  locked = false
+  locked = false,
+  freezeValidated = false
 }: {
   documents: VisaDocumentChecklistItem[];
   onUploaded: (updated: VisaDocumentChecklistItem) => void;
   locked?: boolean;
+  /** Dossier déjà chez le Responsable Dossier : un document validé ne se remplace qu'après son refus. */
+  freezeValidated?: boolean;
 }) {
   const { t } = useLanguage();
   if (documents.length === 0) {
@@ -125,7 +135,7 @@ export default function VisaDocumentsChecklist({
   return (
     <div className="mt-6 space-y-3">
       {documents.map((doc) => (
-        <VisaDocumentRow key={doc.requirementId} doc={doc} onUploaded={onUploaded} locked={locked} />
+        <VisaDocumentRow key={doc.requirementId} doc={doc} onUploaded={onUploaded} locked={locked} freezeValidated={freezeValidated} />
       ))}
     </div>
   );
