@@ -110,7 +110,7 @@ export default function FinanceChargesPanel() {
 
   const fixed = data.charges.filter((row) => row.kind === "FIXED");
   const variable = data.charges.filter((row) => row.kind === "VARIABLE");
-  const lines = [
+  const lines: Array<[string, number]> = [
     ["Encaissé en dinars", data.collected],
     ["Salaires des fiches émises", -data.salaries],
     ["Primes", -data.primes],
@@ -119,7 +119,7 @@ export default function FinanceChargesPanel() {
     ["Commissions versées", -data.commissions],
     ["Charges fixes", -data.fixed],
     ["Charges variables", -data.variable],
-    ...(data.salaryExtra > 0 ? [["Salaires payés sans fiche", -data.salaryExtra] as const] : [])
+    ...(data.salaryExtra > 0 ? [["Salaires payés sans fiche", -data.salaryExtra] as [string, number]] : [])
   ];
 
   return (
