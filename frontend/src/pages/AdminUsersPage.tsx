@@ -8,7 +8,20 @@ import StudentsPipelineBoard, { StageBadge } from "@/components/admin/StudentsPi
 import DeleteStudentModal from "@/components/admin/DeleteStudentModal";
 import { PassportBadge } from "@/components/PassportBadge";
 
-const STUDENTS_PAGE_SIZE = 10;
+const STUDENTS_PAGE_SIZE = 8;
+
+function pageWindow(current: number, count: number): Array<number | "gap"> {
+  if (count <= 7) return Array.from({ length: count }, (_, index) => index + 1);
+  const wanted = [1, count, current - 1, current, current + 1].filter((n) => n >= 1 && n <= count);
+  const sorted = [...new Set(wanted)].sort((a, b) => a - b);
+  const out: Array<number | "gap"> = [];
+  for (const n of sorted) {
+    const prev = out[out.length - 1];
+    if (typeof prev === "number" && n - prev > 1) out.push("gap");
+    out.push(n);
+  }
+  return out;
+}
 
 // ── Tableau détaillé, toujours affiché sous le pipeline pour garder un accès
 // exhaustif (tri visuel, lecture rapide de tous les champs).
@@ -25,8 +38,9 @@ function StudentsTable({
 }) {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
-  // Une recherche ou une suppression change la liste : retour à la première page.
-  useEffect(() => setPage(1), [students.length]);
+  const listKey = students.map((student) => student.id).join(",");
+  // Une recherche ou une suppression change les personnes affichées : retour à la première page.
+  useEffect(() => setPage(1), [listKey]);
   const pageCount = Math.max(1, Math.ceil(students.length / STUDENTS_PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const paged = students.slice((currentPage - 1) * STUDENTS_PAGE_SIZE, currentPage * STUDENTS_PAGE_SIZE);
@@ -155,15 +169,17 @@ function StudentsTable({
           <button type="button" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)} className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-bold text-mid transition hover:border-brand hover:text-brand disabled:opacity-40">
             <ChevronLeft className="h-3.5 w-3.5" aria-hidden /> Précédent
           </button>
-          {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => (
+          {pageWindow(currentPage, pageCount).map((item, index) => item === "gap" ? (
+            <span key={`gap-${index}`} className="px-1 text-xs font-bold text-muted">…</span>
+          ) : (
             <button
-              key={n}
+              key={item}
               type="button"
-              onClick={() => setPage(n)}
-              aria-current={n === currentPage ? "page" : undefined}
-              className={cn("h-8 min-w-8 rounded-lg px-2 text-xs font-bold transition", n === currentPage ? "bg-brand text-white shadow" : "border border-line bg-white text-mid hover:border-brand hover:text-brand")}
+              onClick={() => setPage(item)}
+              aria-current={item === currentPage ? "page" : undefined}
+              className={cn("h-8 min-w-8 rounded-lg px-2 text-xs font-bold transition", item === currentPage ? "bg-brand text-white shadow" : "border border-line bg-white text-mid hover:border-brand hover:text-brand")}
             >
-              {n}
+              {item}
             </button>
           ))}
           <button type="button" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)} className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-bold text-mid transition hover:border-brand hover:text-brand disabled:opacity-40">

@@ -181,6 +181,7 @@ export default function CommissionsPanel() {
   const [error, setError] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [registerOpen, setRegisterOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -270,12 +271,20 @@ export default function CommissionsPanel() {
         </div>
       )}
 
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-        <h3 className="flex items-center gap-2 font-display text-base font-bold text-dark">
-          <Coins className="h-4 w-4 text-brand" /> Registre des commissions gagnées ({filteredEarnings.length})
-        </h3>
-        {earnings.length > 0 && (
-          <div className="relative w-full max-w-xs sm:w-64">
+      <div className="mt-8">
+        <button
+          type="button"
+          onClick={() => setRegisterOpen((open) => !open)}
+          aria-expanded={registerOpen}
+          className="flex w-full items-center justify-between gap-3 rounded-2xl border border-line bg-white px-4 py-3.5 text-left shadow-sm transition hover:border-brand/40"
+        >
+          <span className="flex items-center gap-2 font-display text-base font-bold text-dark">
+            <Coins className="h-4 w-4 text-brand" /> Registre des commissions gagnées ({filteredEarnings.length})
+          </span>
+          {registerOpen ? <ChevronUp className="h-4 w-4 text-brand" /> : <ChevronDown className="h-4 w-4 text-muted" />}
+        </button>
+        {registerOpen && earnings.length > 0 && (
+          <div className="relative mt-3 w-full max-w-xs sm:w-64">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
             <input
               type="text"
@@ -287,7 +296,7 @@ export default function CommissionsPanel() {
           </div>
         )}
       </div>
-      {!earnings.length ? (
+      {registerOpen && (!earnings.length ? (
         <p className="mt-3 rounded-2xl border border-dashed border-line bg-white p-6 text-sm text-muted">Aucune commission attribuée pour l'instant.</p>
       ) : !filteredEarnings.length ? (
         <p className="mt-3 rounded-2xl border border-dashed border-line bg-white p-6 text-sm text-muted">Aucune commission ne correspond à cette recherche.</p>
@@ -325,7 +334,7 @@ export default function CommissionsPanel() {
             </tbody>
           </table>
         </div>
-      )}
+      ))}
     </div>
   );
 }

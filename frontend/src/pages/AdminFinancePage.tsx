@@ -100,7 +100,7 @@ function Overview() {
 
   return (
     <div className="mt-6 space-y-6">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <StatTile label="Encaissé ce mois" value={moneyLines(month)} />
         <StatTile label="Encaissé au total" value={moneyLines(total)} />
         <StatTile label="Reste à encaisser" value={moneyLines(data.remaining)} tone={Object.values(data.remaining).some(Boolean) ? "warning" : "default"} />
@@ -110,6 +110,8 @@ function Overview() {
           hint={`sur ${data.planCount} plan${data.planCount > 1 ? "s" : ""} de paiement`}
           tone={data.lateCount ? "warning" : "default"}
         />
+        <StatTile label="Commissions à verser" value={formatMoney(data.commissionsDue || 0, "TND")} hint="gagnées, pas encore payées" tone={data.commissionsDue ? "warning" : "default"} />
+        <StatTile label="Visas bloqués" value={data.visaBlocked || 0} hint="tranche 2 non réglée" tone={data.visaBlocked ? "warning" : "default"} />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <Breakdown title="Par pays" rows={data.byCountry} />
@@ -138,6 +140,7 @@ function Payments({ initialStudent }: { initialStudent: string | null }) {
   const [open, setOpen] = useState<string | null>(initialStudent);
   const [error, setError] = useState("");
   const [version, setVersion] = useState(0);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     fetchFinancePricing().then(setPricing).catch(() => undefined);
@@ -152,12 +155,19 @@ function Payments({ initialStudent }: { initialStudent: string | null }) {
     return () => window.clearTimeout(timer);
   }, [status, countryId, salesId, search, version]);
 
+  useEffect(() => setPage(1), [status, countryId, salesId, search]);
+
   // Conseillers présents dans les plans, pour le filtre.
   const salesOptions = useMemo(() => {
     const map = new Map<string, string>();
     (plans || []).forEach((p) => p.salesId && map.set(p.salesId, p.salesName || "Conseiller"));
     return [{ value: "", label: "Tous les conseillers" }, ...[...map.entries()].map(([value, label]) => ({ value, label }))];
   }, [plans]);
+
+  const pageSize = 10;
+  const pageCount = Math.max(1, Math.ceil((plans?.length || 0) / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const visiblePlans = (plans || []).slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="mt-6">
@@ -204,7 +214,7 @@ function Payments({ initialStudent }: { initialStudent: string | null }) {
             Aucun plan de paiement ne correspond. Les plans se créent quand un conseiller génère un code d'inscription pour un pays qui a un tarif, ou quand un paiement est enregistré sur la fiche d'un étudiant.
           </p>
         ) : (
-          plans.map((plan) => {
+          visiblePlans.map((plan) => {
             const isOpen = open === plan.studentId;
             return (
               <div key={plan.id} className="overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
@@ -252,6 +262,21 @@ function Payments({ initialStudent }: { initialStudent: string | null }) {
           })
         )}
       </div>
+      {plans && plans.length > pageSize && (
+        <nav className="mt-4 flex flex-wrap items-center justify-between gap-3" aria-label="Pagination des paiements">
+          <p className="text-xs text-muted">
+            Paiements {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, plans.length)} sur {plans.length}
+          </p>
+          <div className="flex items-center gap-1.5">
+            <button type="button" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)} className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-bold text-mid transition hover:border-brand hover:text-brand disabled:opacity-40">
+              <ChevronLeft className="h-3.5 w-3.5" aria-hidden /> Précédent
+            </button>
+            <button type="button" disabled={currentPage >= pageCount} onClick={() => setPage(currentPage + 1)} className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-bold text-mid transition hover:border-brand hover:text-brand disabled:opacity-40">
+              Suivant <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          </div>
+        </nav>
+      )}
     </div>
   );
 }
@@ -558,6 +583,7 @@ export default function AdminFinancePage() {
   useEffect(() => {
     if (requested === "paiements" || requested === "facturation" || requested === "versements" || requested === "tarifs" || requested === "commissions" || requested === "charges") setTab(requested);
     else if (student) setTab("paiements");
+    else setTab("apercu");
   }, [requested, student]);
 
   const switchTab = (next: Tab) => {

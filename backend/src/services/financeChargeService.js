@@ -26,18 +26,51 @@ function yearOf(value) {
   return year;
 }
 
-function todayIso() {
-  return iso(new Date());
+function tunisToday() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Tunis", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 
-function monthsCovered(startsOn, endsOn, year) {
+function windowInYear(startsOn, endsOn, year) {
   const pad = (month) => `${year}-${String(month).padStart(2, "0")}`;
   const startKey = String(startsOn || `${year}-01-01`).slice(0, 7);
   const endKey = String(endsOn || `${year}-12-01`).slice(0, 7);
   const from = startKey < pad(1) ? pad(1) : startKey;
-  let to = endKey > pad(12) ? pad(12) : endKey;
-  if (from.slice(0, 4) !== String(year) || to.slice(0, 4) !== String(year) || from > to) return 0;
-  return Number(to.slice(5, 7)) - Number(from.slice(5, 7)) + 1;
+  const to = endKey > pad(12) ? pad(12) : endKey;
+  if (from.slice(0, 4) !== String(year) || to.slice(0, 4) !== String(year) || from > to) return null;
+  return { from, to };
+}
+
+// Mois : de janvier jusqu'au mois en cours. Trimestre : seulement s'il est terminé.
+// Semestre (janvier–juin, juillet–décembre) : dès qu'il a commencé. La date est celle de Tunis.
+function periodsDue(startsOn, endsOn, year, rhythm, today) {
+  const span = windowInYear(startsOn, endsOn, year);
+  if (!span) return 0;
+  const todayYear = Number(String(today).slice(0, 4));
+  const todayKey = String(today).slice(0, 7);
+  if (rhythm === "QUARTERLY") {
+    const ends = [3, 6, 9, 12];
+    return ends.filter((endMonth) => {
+      const lastDay = endMonth === 6 || endMonth === 9 ? 30 : 31;
+      const last = `${year}-${String(endMonth).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+      if (String(today) <= last) return false;
+      const start = `${year}-${String(endMonth - 2).padStart(2, "0")}`;
+      const end = `${year}-${String(endMonth).padStart(2, "0")}`;
+      return end >= span.from && start <= span.to;
+    }).length;
+  }
+  if (rhythm === "SEMESTER") {
+    const halves = [["01", "06"], ["07", "12"]];
+    return halves.filter(([startMonth, endMonth]) => {
+      const start = `${year}-${startMonth}`;
+      if (todayYear < year || (todayYear === year && todayKey < start)) return false;
+      return `${year}-${endMonth}` >= span.from && start <= span.to;
+    }).length;
+  }
+  let to = span.to;
+  if (todayYear < year) return 0;
+  if (todayYear === year && to > todayKey) to = todayKey;
+  if (span.from > to) return 0;
+  return Number(to.slice(5, 7)) - Number(span.from.slice(5, 7)) + 1;
 }
 
 function chargeCost(row, year, collected, today) {
@@ -46,7 +79,8 @@ function chargeCost(row, year, collected, today) {
     return round3(collected * Number(row.percent || 0) / 100);
   }
   if (row.kind === "VARIABLE") return iso(row.spent_on)?.slice(0, 4) === String(year) ? round3(row.amount) : 0;
-  return round3(Number(row.amount) * monthsCovered(iso(row.starts_on), iso(row.ends_on), year));
+  const rhythm = row.rhythm === "QUARTERLY" || row.rhythm === "SEMESTER" ? row.rhythm : "MONTHLY";
+  return round3(Number(row.amount) * periodsDue(iso(row.starts_on), iso(row.ends_on), year, rhythm, today));
 }
 
 function dto(row, year, collected, today) {
@@ -60,13 +94,15 @@ function dto(row, year, collected, today) {
     startsOn: iso(row.starts_on),
     endsOn: iso(row.ends_on),
     spentOn: iso(row.spent_on),
+    rhythm: row.rhythm === "QUARTERLY" || row.rhythm === "SEMESTER" ? row.rhythm : "MONTHLY",
+    periods: row.basis === "PERCENT" || row.kind === "VARIABLE" ? null : periodsDue(iso(row.starts_on), iso(row.ends_on), year, row.rhythm === "QUARTERLY" || row.rhythm === "SEMESTER" ? row.rhythm : "MONTHLY", today),
     yearCost: chargeCost(row, year, collected, today)
   };
 }
 
 async function exercise(yearValue) {
   const year = yearOf(yearValue);
-  const today = todayIso();
+  const today = tunisToday();
   const from = `${year}-01-01`;
   const to = `${year + 1}-01-01`;
   const [collected, personnel, payouts, charges, salaryRows] = await Promise.all([
@@ -173,10 +209,11 @@ async function create(body) {
   if (kind === "FIXED" && !startsOn) throw fail("Indiquez le mois de début.");
   if (kind === "VARIABLE" && !spentOn) throw fail("Indiquez la date de la dépense.");
   if (startsOn && endsOn && endsOn < startsOn) throw fail("La fin est avant le début.");
+  const rhythm = kind === "FIXED" && basis === "AMOUNT" && (body.rhythm === "QUARTERLY" || body.rhythm === "SEMESTER") ? body.rhythm : "MONTHLY";
   await query(
-    `INSERT INTO finance_charges (kind, label, basis, amount, percent, starts_on, ends_on, spent_on)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [kind, label, basis, basis === "AMOUNT" ? amount : 0, basis === "PERCENT" ? percent : null, startsOn, endsOn, spentOn]
+    `INSERT INTO finance_charges (kind, label, basis, amount, percent, starts_on, ends_on, spent_on, rhythm)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [kind, label, basis, basis === "AMOUNT" ? amount : 0, basis === "PERCENT" ? percent : null, startsOn, endsOn, spentOn, rhythm]
   );
   return exercise(body.year);
 }
@@ -187,4 +224,4 @@ async function remove(id, year) {
   return exercise(year);
 }
 
-module.exports = { exercise, create, remove };
+module.exports = { exercise, create, remove, periodsDue };

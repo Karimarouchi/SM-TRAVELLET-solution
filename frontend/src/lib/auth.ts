@@ -2069,6 +2069,8 @@ export type FinanceOverview = {
   remaining: Partial<Record<Currency, number>>;
   lateCount: number;
   planCount: number;
+  commissionsDue: number;
+  visaBlocked: number;
   byCountry: Array<{ name: string; byCurrency: Partial<Record<Currency, CurrencyBucket>> }>;
   bySales: Array<{ name: string; byCurrency: Partial<Record<Currency, CurrencyBucket>> }>;
 };
@@ -2166,6 +2168,8 @@ export type FinanceCharge = {
   startsOn: string | null;
   endsOn: string | null;
   spentOn: string | null;
+  rhythm: "MONTHLY" | "QUARTERLY" | "SEMESTER";
+  periods: number | null;
   yearCost: number;
 };
 

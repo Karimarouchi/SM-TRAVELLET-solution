@@ -12,7 +12,7 @@ import {
   type StudentPayment
 } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
 
 const PAYMENTS_PAGE_SIZE = 10;
 import { motion } from "motion/react";
@@ -121,6 +121,8 @@ export default function FinanceStatsSection() {
   const [month, setMonth] = useState(0); // 0 = toute l'année
   const [currency, setCurrency] = useState<Currency>("TND");
   const [paymentsPage, setPaymentsPage] = useState(1);
+  const [monthDetailOpen, setMonthDetailOpen] = useState(false);
+  const [paymentsOpen, setPaymentsOpen] = useState(false);
   const blur = useAmountBlur();
   const hidden = useAmountsHidden();
 
@@ -327,8 +329,11 @@ export default function FinanceStatsSection() {
 
       {/* ── Tableau mensuel de l'année ── */}
       <section className="rounded-[24px] border border-line bg-white p-5 shadow-sm">
-        <h3 className="font-display text-base font-bold text-dark">Détail mensuel · {year}</h3>
-        <div className="mt-3 overflow-x-auto">
+        <button type="button" onClick={() => setMonthDetailOpen((open) => !open)} aria-expanded={monthDetailOpen} className="flex w-full items-center justify-between gap-3 text-left">
+          <h3 className="font-display text-base font-bold text-dark">Détail mensuel · {year}</h3>
+          {monthDetailOpen ? <ChevronUp className="h-4 w-4 text-brand" /> : <ChevronDown className="h-4 w-4 text-muted" />}
+        </button>
+        {monthDetailOpen && <div className="mt-3 overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-line text-left text-[11px] font-bold uppercase tracking-wide text-muted">
@@ -365,18 +370,19 @@ export default function FinanceStatsSection() {
               </tr>
             </tbody>
           </table>
-        </div>
+        </div>}
       </section>
 
       {/* ── Paiements de la période ── */}
       <section className="rounded-[24px] border border-line bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <button type="button" onClick={() => setPaymentsOpen((open) => !open)} aria-expanded={paymentsOpen} className="flex w-full items-center justify-between gap-3 text-left">
           <h3 className="font-display text-base font-bold text-dark">Paiements · {periodLabel}</h3>
-          <span className="text-xs text-muted">{payments.length} paiement{payments.length > 1 ? "s" : ""}</span>
-        </div>
-        {payments.length === 0 ? (
+          {paymentsOpen ? <ChevronUp className="h-4 w-4 text-brand" /> : <ChevronDown className="h-4 w-4 text-muted" />}
+        </button>
+        {paymentsOpen && (payments.length === 0 ? (
           <p className="mt-3 text-sm text-muted">Aucun paiement sur cette période.</p>
         ) : (
+          <>
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[760px] text-sm">
               <thead>
@@ -412,7 +418,6 @@ export default function FinanceStatsSection() {
               </tbody>
             </table>
           </div>
-        )}
         {payments.length > PAYMENTS_PAGE_SIZE && (
           <nav className="mt-3 flex flex-wrap items-center justify-between gap-3" aria-label="Pagination des paiements">
             <p className="text-xs text-muted">
@@ -439,6 +444,8 @@ export default function FinanceStatsSection() {
             </div>
           </nav>
         )}
+          </>
+        ))}
       </section>
     </section>
   );

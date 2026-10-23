@@ -6,6 +6,15 @@ import { useEffect, useState } from "react";
 
 const money = (value: number) => formatMoney(value, "TND");
 
+const FIXED_CHOICES = ["Loyer", "Électricité", "Eau", "Internet et téléphone", "Assurance", "Comptable", "CNSS", "Nettoyage", "Publicité", "Logiciels", "Autre"];
+const VARIABLE_CHOICES = ["Fournitures", "Réparation", "Transport", "Carburant", "Restauration", "Voyage", "Hébergement", "Frais bancaires", "Formation", "Honoraires", "Papeterie", "Autre"];
+
+function rhythmText(rhythm: FinanceCharge["rhythm"]) {
+  if (rhythm === "QUARTERLY") return "trimestre";
+  if (rhythm === "SEMESTER") return "semestre";
+  return "mois";
+}
+
 function localDate(date = new Date()) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
@@ -13,14 +22,18 @@ function localDate(date = new Date()) {
 }
 
 function ChargeForm({ kind, year, onSaved }: { kind: "FIXED" | "VARIABLE"; year: number; onSaved: (value: FinanceExercise) => void }) {
-  const [label, setLabel] = useState("");
+  const [choice, setChoice] = useState("");
+  const [custom, setCustom] = useState("");
   const [basis, setBasis] = useState<"AMOUNT" | "PERCENT">("AMOUNT");
+  const [rhythm, setRhythm] = useState<"MONTHLY" | "QUARTERLY" | "SEMESTER">("MONTHLY");
   const [amount, setAmount] = useState("");
   const [startsOn, setStartsOn] = useState(`${year}-01`);
   const [endsOn, setEndsOn] = useState("");
   const [spentOn, setSpentOn] = useState(localDate());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const choices = kind === "FIXED" ? FIXED_CHOICES : VARIABLE_CHOICES;
+  const chargeName = choice === "Autre" ? custom : choice;
 
   const submit = async () => {
     setBusy(true);
@@ -29,15 +42,17 @@ function ChargeForm({ kind, year, onSaved }: { kind: "FIXED" | "VARIABLE"; year:
       onSaved(await saveFinanceCharge({
         kind,
         year,
-        label,
+        label: chargeName,
         basis,
+        rhythm: kind === "FIXED" && basis === "AMOUNT" ? rhythm : "MONTHLY",
         amount: basis === "AMOUNT" ? Number(amount) : 0,
         percent: basis === "PERCENT" ? Number(amount) : null,
         startsOn: kind === "FIXED" ? startsOn : null,
         endsOn: kind === "FIXED" && endsOn ? endsOn : null,
         spentOn: kind === "VARIABLE" ? spentOn : null
       }));
-      setLabel("");
+      setChoice("");
+      setCustom("");
       setAmount("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Enregistrement impossible.");
@@ -48,12 +63,25 @@ function ChargeForm({ kind, year, onSaved }: { kind: "FIXED" | "VARIABLE"; year:
 
   return (
     <form className="mt-4 space-y-2" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-      <input value={label} onChange={(event) => setLabel(event.target.value)} placeholder={kind === "FIXED" ? "Loyer, assurance…" : "Fourniture, réparation…"} className="w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-brand" />
+      <select value={choice} onChange={(event) => setChoice(event.target.value)} className="w-full rounded-xl border border-line bg-white px-3 py-2 text-sm outline-none focus:border-brand">
+        <option value="">Choisir une charge</option>
+        {choices.map((item) => <option key={item} value={item}>{item}</option>)}
+      </select>
+      {choice === "Autre" && (
+        <input value={custom} onChange={(event) => setCustom(event.target.value)} placeholder="Nom de la charge" className="w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-brand" />
+      )}
       <div className="flex gap-2">
         <button type="button" onClick={() => setBasis("AMOUNT")} className={basis === "AMOUNT" ? "rounded-full bg-brand px-3 py-1 text-[11px] font-bold text-white" : "rounded-full border border-line px-3 py-1 text-[11px] font-bold text-mid"}>Montant</button>
         <button type="button" onClick={() => setBasis("PERCENT")} className={basis === "PERCENT" ? "rounded-full bg-brand px-3 py-1 text-[11px] font-bold text-white" : "rounded-full border border-line px-3 py-1 text-[11px] font-bold text-mid"}>Pourcentage</button>
       </div>
-      <input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" placeholder={basis === "PERCENT" ? "Pourcentage du chiffre encaissé" : kind === "FIXED" ? "Montant par mois (DT)" : "Montant (DT)"} className="w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-brand" />
+      {kind === "FIXED" && basis === "AMOUNT" && (
+        <div className="flex flex-wrap gap-2">
+          {([["MONTHLY", "Chaque mois"], ["QUARTERLY", "Chaque trimestre"], ["SEMESTER", "Chaque semestre"]] as const).map(([value, text]) => (
+            <button key={value} type="button" onClick={() => setRhythm(value)} className={rhythm === value ? "rounded-full bg-brand px-3 py-1 text-[11px] font-bold text-white" : "rounded-full border border-line px-3 py-1 text-[11px] font-bold text-mid"}>{text}</button>
+          ))}
+        </div>
+      )}
+      <input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" placeholder={basis === "PERCENT" ? "Pourcentage du chiffre encaissé" : kind === "FIXED" ? (rhythm === "QUARTERLY" ? "Montant par trimestre (DT)" : rhythm === "SEMESTER" ? "Montant par semestre (DT)" : "Montant par mois (DT)") : "Montant (DT)"} className="w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-brand" />
       {kind === "FIXED" ? (
         <div className="grid grid-cols-2 gap-2">
           <label className="text-[11px] font-bold text-mid">Depuis<input type="month" value={startsOn} onChange={(event) => setStartsOn(event.target.value)} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm" /></label>
@@ -81,7 +109,8 @@ function ChargeList({ rows, year, onChanged }: { rows: FinanceCharge[]; year: nu
           <span className="min-w-0">
             <span className="block truncate font-semibold text-dark">{row.label}</span>
             <span className="text-[11px] text-muted">
-              {row.basis === "PERCENT" ? `${row.percent} % du chiffre` : `${money(row.amount)}${row.kind === "FIXED" ? " / mois" : ""}`}
+              {row.basis === "PERCENT" ? `${row.percent} % du chiffre` : `${money(row.amount)}${row.kind === "FIXED" ? ` / ${rhythmText(row.rhythm)}` : ""}`}
+              {row.kind === "FIXED" && typeof row.periods === "number" ? ` · ${row.periods} compté${row.periods > 1 ? "s" : ""}` : ""}
               {row.kind === "FIXED" && row.startsOn ? ` · ${row.startsOn.slice(0, 7)} → ${row.endsOn ? row.endsOn.slice(0, 7) : `${year}-12`}` : ""}
               {row.spentOn ? ` · ${row.spentOn}` : ""}
             </span>
@@ -167,7 +196,7 @@ export default function FinanceChargesPanel() {
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-[24px] border border-line bg-white p-5">
           <h3 className="font-display text-lg font-bold text-dark">Charges fixes</h3>
-          <p className="mt-1 text-xs text-muted">Loyer et autres dépenses qui reviennent chaque mois, ou un pourcentage du chiffre encaissé.</p>
+          <p className="mt-1 text-xs text-muted">Le mois en cours est inclus, les mois futurs non. Un trimestre compte quand il est terminé. Un semestre compte dès qu'il commence. La date utilisée est celle de la Tunisie.</p>
           <ChargeList rows={fixed} year={data.year} onChanged={setData} />
           <ChargeForm kind="FIXED" year={data.year} onSaved={setData} />
         </section>

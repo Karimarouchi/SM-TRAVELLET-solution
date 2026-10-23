@@ -1,3 +1,4 @@
+const { query } = require("../../db");
 const paymentRepo = require("../repositories/paymentRepository");
 const countryRepo = require("../repositories/countryRepository");
 const studentRepo = require("../repositories/studentRepository");
@@ -534,11 +535,26 @@ async function overview() {
     addTo(bySales, salesKey, plan.currency, "remaining", plan.remainingTotal);
   }
   const toList = (map) => [...map.entries()].map(([name, byCurrency]) => ({ name, byCurrency })).sort((a, b) => a.name.localeCompare(b.name));
+  const [due, blocked] = await Promise.all([
+    query("SELECT COALESCE(SUM(amount_dinar), 0)::float AS total FROM commission_earnings WHERE payout_id IS NULL"),
+    query(
+      `SELECT COUNT(*)::int AS count
+       FROM university_applications ua
+       JOIN payment_plans pl ON pl.student_id = ua.student_id AND pl.country_id = ua.country_id
+       LEFT JOIN LATERAL (
+         SELECT COALESCE(SUM(amount), 0) AS p2 FROM student_payments
+         WHERE plan_id = pl.id AND tranche = 2 AND status = 'ACTIVE'
+       ) pp ON TRUE
+       WHERE ua.visa_status = 'PREPARATION' AND pl.tranche2_due > pp.p2`
+    )
+  ]);
   return {
     collected,
     remaining,
     lateCount: plans.filter((p) => p.late).length,
     planCount: plans.length,
+    commissionsDue: money(due.rows[0].total),
+    visaBlocked: blocked.rows[0].count,
     byCountry: toList(byCountry),
     bySales: toList(bySales)
   };
