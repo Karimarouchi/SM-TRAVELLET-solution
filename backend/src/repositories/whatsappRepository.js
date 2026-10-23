@@ -47,18 +47,34 @@ async function listReceivingNumbers() {
   return result.rows;
 }
 
-// Messages envoyés depuis l'application : statut, par jour glissant, et derniers échecs.
-async function outboundStats() {
+// Messages depuis une remise à zéro, ou sur les dernières 24 h si aucune date n'est donnée.
+async function outboundStats(since) {
+  const windowSql = since ? "created_at > $1" : "created_at > NOW() - INTERVAL '24 hours'";
+  const params = since ? [since] : [];
   const counts = await query(
-    `SELECT status, COUNT(*)::int AS n FROM whatsapp_messages
-     WHERE direction = 'out' AND created_at > NOW() - INTERVAL '24 hours' GROUP BY status`
+    `SELECT direction, is_auto, status, COUNT(*)::int AS n
+     FROM whatsapp_messages
+     WHERE ${windowSql}
+     GROUP BY direction, is_auto, status`,
+    params
   );
+  const failedWindow = since ? "m.created_at > $1" : "m.created_at > NOW() - INTERVAL '24 hours'";
   const failed = await query(
     `SELECT m.created_at, m.error, c.phone
      FROM whatsapp_messages m JOIN whatsapp_contacts c ON c.id = m.contact_id
-     WHERE m.direction = 'out' AND m.status = 'failed' ORDER BY m.created_at DESC LIMIT 5`
+     WHERE m.direction = 'out' AND m.status = 'failed' AND ${failedWindow}
+     ORDER BY m.created_at DESC LIMIT 5`,
+    params
   );
   return { counts: counts.rows, failed: failed.rows };
+}
+
+async function findContactByStudent(studentId) {
+  const result = await query(
+    "SELECT * FROM whatsapp_contacts WHERE student_id = $1 ORDER BY updated_at DESC LIMIT 1",
+    [studentId]
+  );
+  return result.rows[0] || null;
 }
 
 async function findContactByPhone(phone) {
@@ -387,6 +403,7 @@ async function listOrphanContactIds() {
 module.exports = {
   upsertContact,
   findContactByPhone,
+  findContactByStudent,
   setReceivingNumber,
   listReceivingNumbers,
   outboundStats,

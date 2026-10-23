@@ -51,6 +51,10 @@ export default function AppLayout() {
   const session = getSession();
   if (!session?.user) return null;
 
+  const adminArea = session.user.role === "ADMIN" && location.pathname.startsWith("/admin")
+    ? (location.pathname.startsWith("/admin/rh") ? "rh" : "clients")
+    : null;
+
   // Couches : fond de page → halos décoratifs → contenu. Le contenu passe
   // au-dessus des halos (z-10), sinon ils voilent cartes et textes.
   return (
@@ -65,8 +69,16 @@ export default function AppLayout() {
 
       <div className="relative z-10 min-h-screen pt-24 text-dark">
         <LeaveCoverBanner />
-        <Outlet />
+        {adminArea ? <AdminAreaTransition /> : <Outlet />}
       </div>
+    </div>
+  );
+}
+
+function AdminAreaTransition() {
+  return (
+    <div style={{ viewTransitionName: "admin-area" }}>
+      <Outlet />
     </div>
   );
 }

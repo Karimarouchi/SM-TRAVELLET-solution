@@ -155,6 +155,10 @@ async function monthContext(monthValue) {
   ]);
   const documents = await payrollRepo.listDocumentsForUsers(staff.map((row) => row.id));
   const entries = await payrollRepo.listEntries();
+  const [monthPayments, yearPayments] = await Promise.all([
+    payrollRepo.listSalaryPaymentsForMonth(parts.start),
+    payrollRepo.listSalaryPaymentsForYear(parts.year)
+  ]);
   const monthEnd = nextMonth(parts.year, parts.month).slice(0, 10);
   const certificates = await absenceRepo.listBetween(parts.start, monthEnd);
   const justified = new Set(certificates.filter((row) => row.accepted === true).map((row) => `${row.user_id}|${row.day}`));
@@ -173,6 +177,8 @@ async function monthContext(monthValue) {
     documents,
     justified,
     entries,
+    monthPayments,
+    yearPayments,
     divisor: attendanceMonth.dayDivisor
   };
 }
@@ -266,19 +272,112 @@ function employeeDto(row, context) {
         label: document.label,
         originalFilename: document.original_filename,
         createdAt: document.created_at
-      }))
+      })),
+    payment: mapPayment((context.monthPayments || []).find((item) => item.user_id === row.id))
   };
+}
+
+function mapPayment(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    userId: row.user_id,
+    prenom: row.prenom,
+    nom: row.nom,
+    month: String(row.month).slice(0, 7),
+    amount: num(row.amount),
+    paidOn: String(row.paid_on).slice(0, 10)
+  };
+}
+
+function payableOf(employee) {
+  const amount = employee.official ? Number(employee.official.netToPay) : Number(employee.lines?.net);
+  return Number.isFinite(amount) ? Math.round(amount * 1000) / 1000 : 0;
+}
+
+function tunisToday() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Tunis", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+
+function paymentDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
+  if (!match) return null;
+  const parsed = new Date(`${match[1]}-${match[2]}-${match[3]}T12:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : `${match[1]}-${match[2]}-${match[3]}`;
 }
 
 async function overview(query) {
   const context = await monthContext(query.month);
   const brand = await brandingFiles();
+  const employees = context.staff.map((row) => employeeDto(row, context));
   return {
     month: context.parts.key,
     hasSignature: brand.hasSignature,
     hasStamp: brand.hasStamp,
-    employees: context.staff.map((row) => employeeDto(row, context))
+    employees,
+    payments: (context.yearPayments || []).map(mapPayment),
+    salaryDue: await salaryReminder(context, employees)
   };
+}
+
+async function salaryReminder(context, employees) {
+  const today = tunisToday();
+  const day = Number(today.slice(8, 10));
+  const monthKey = today.slice(0, 7);
+  if (day < 26) return { show: false, month: monthKey, unpaid: [] };
+  let people = employees;
+  if (context.parts.key !== monthKey) {
+    const current = await monthContext(monthKey);
+    people = current.staff.map((row) => employeeDto(row, current));
+  }
+  const unpaid = people
+    .filter((employee) => payableOf(employee) > 0 && !employee.payment)
+    .map((employee) => ({ id: employee.id, prenom: employee.prenom, nom: employee.nom, amount: payableOf(employee) }));
+  if (unpaid.length) await notifySalaryDue(monthKey, unpaid.length);
+  return { show: unpaid.length > 0, month: monthKey, unpaid };
+}
+
+async function notifySalaryDue(monthKey, count) {
+  const key = `hr_salary_alert_${monthKey}`;
+  try {
+    if (await settings.get(key)) return;
+    const notificationService = require("./notificationService");
+    await notificationService.notifyAdmins({
+      type: "SALARY_DUE",
+      title: "Salaires à payer",
+      body: `Le 26 est passé. ${count} salaire(s) de ${monthKey} ne sont pas encore payés.`,
+      link: "/admin/rh/paie"
+    });
+    await settings.set(key, "sent");
+  } catch (error) {
+    const logger = require("../logger");
+    logger.warn("Rappel de paie impossible", { message: error.message });
+  }
+}
+
+async function paySalary(body) {
+  const context = await monthContext(body.month);
+  const staff = context.staff.find((row) => row.id === body.userId);
+  if (!staff) throw fail("Employé introuvable.", 404);
+  const employee = employeeDto(staff, context);
+  if (employee.payment) throw fail("Ce salaire est déjà payé pour ce mois.");
+  const amount = payableOf(employee);
+  if (amount <= 0) throw fail("Ce salaire est à zéro, il n'y a rien à payer.");
+  const paidOn = paymentDate(body.paidOn) || tunisToday();
+  try {
+    await payrollRepo.insertSalaryPayment({ userId: body.userId, month: context.parts.start, amount, paidOn });
+  } catch (error) {
+    if (error.code === "23505") throw fail("Ce salaire est déjà payé pour ce mois.");
+    throw error;
+  }
+  return overview({ month: context.parts.key });
+}
+
+async function cancelSalaryPayment(id) {
+  const row = await payrollRepo.findSalaryPayment(id);
+  if (!row) throw fail("Paiement introuvable.", 404);
+  await payrollRepo.deleteSalaryPayment(id);
+  return overview({ month: String(row.month).slice(0, 7) });
 }
 
 async function setIncludedCommission(body) {
@@ -867,6 +966,8 @@ async function assertEmployeeDownload(userId, kind, rawMonth) {
 
 module.exports = {
   overview,
+  paySalary,
+  cancelSalaryPayment,
   saveAdjustment,
   setIncludedCommission,
   issue,

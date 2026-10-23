@@ -27,6 +27,7 @@ const countryUniversityController = require("./controllers/countryUniversityCont
 const universityApplicationController = require("./controllers/universityApplicationController");
 const universityChoiceController = require("./controllers/universityChoiceController");
 const paymentController = require("./controllers/paymentController");
+const financeChargeController = require("./controllers/financeChargeController");
 const hrController = require("./controllers/hrController");
 const salesDashboardController = require("./controllers/salesDashboardController");
 const backupController = require("./controllers/backupController");
@@ -140,6 +141,7 @@ app.get("/api/mail/messages/:folder/:uid", requireAuth, requireRoles("ADMIN", "S
 app.get("/api/mail/messages/:folder/:uid/attachments/:index", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), mailController.attachment);
 app.post("/api/mail/send", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), mailSendLimiter, mailController.send);
 app.get("/api/whatsapp/diagnostic", requireAuth, requireRoles("ADMIN"), whatsappController.diagnostic);
+app.post("/api/whatsapp/diagnostic/reset", requireAuth, requireRoles("ADMIN"), whatsappController.resetDiagnostic);
 app.get("/api/whatsapp/unread-count", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.unreadCount);
 app.get("/api/whatsapp/conversations/:contactId/messages", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.getMessages);
 app.post("/api/whatsapp/conversations/:contactId/messages", requireAuth, requireRoles("SALES"), whatsappController.sendMessage);
@@ -209,6 +211,8 @@ app.patch("/api/students/:id/documents/review", requireAuth, requireRoles("SALES
 app.get("/api/students/me/visa-documents", requireAuth, requireRoles("STUDENT"), studentDocumentController.myVisaChecklist);
 app.post("/api/students/me/visa-documents", requireAuth, requireRoles("STUDENT"), studentDocumentController.uploadVisa);
 app.get("/api/applications/:id/visa-documents", requireAuth, requireRoles("SALES", "RDV", "ADMIN"), studentDocumentController.visaChecklistForApplication);
+app.get("/api/applications/:id/study-documents", requireAuth, requireRoles("SALES", "RDV", "ADMIN"), studentDocumentController.studyDocumentsForApplication);
+app.post("/api/applications/:id/visa-documents/reuse", requireAuth, requireRoles("SALES", "ADMIN"), studentDocumentController.reuseStudyDocument);
 app.post("/api/applications/:id/visa-documents", requireAuth, requireRoles("SALES", "RDV", "ADMIN"), studentDocumentController.uploadVisaForStudent);
 app.patch("/api/applications/:id/visa-documents/review", requireAuth, requireRoles("SALES", "RDV", "ADMIN"), studentDocumentController.reviewVisa);
 
@@ -216,9 +220,13 @@ app.get("/api/students/me/applications", requireAuth, requireRoles("STUDENT"), u
 app.get("/api/students/:id/applications", requireAuth, requireRoles("SALES", "ADMIN", "RDV"), universityApplicationController.listForStudent);
 app.get("/api/students/:id/applications/history", requireAuth, requireRoles("SALES", "ADMIN", "RDV"), universityApplicationController.historyForStudent);
 app.patch("/api/applications/:id/translation-done", requireAuth, requireRoles("SALES", "ADMIN"), universityApplicationController.markTranslationDone);
+app.get("/api/applications/:id/deposit-recap", requireAuth, requireRoles("SALES", "RDV", "ADMIN"), universityApplicationController.depositRecap);
 app.patch("/api/applications/:id/apply", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.markApplied);
 // Compte créé sur la plateforme de l'université : corrigeable après le dépôt (Responsable Dossier ou admin).
 app.patch("/api/applications/:id/portal-account", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.updatePortalAccount);
+// Correction silencieuse d'une candidature déjà déposée : ni e-mail, ni notification.
+app.patch("/api/applications/:id/university", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.correctUniversity);
+app.delete("/api/applications/:id", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.removeDeposited);
 app.patch("/api/applications/:id/interview", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.scheduleInterview);
 app.patch("/api/applications/:id/interview-completed", requireAuth, requireRoles("RDV", "ADMIN", "STUDENT"), universityApplicationController.completeInterview);
 app.patch("/api/applications/:id/accept", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.markAccepted);
@@ -236,6 +244,7 @@ app.patch("/api/applications/:id/visa-submit", requireAuth, requireRoles("RDV", 
 app.patch("/api/applications/:id/visa-accept", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.markVisaAccepted);
 app.patch("/api/applications/:id/visa-reject", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.markVisaRejected);
 app.patch("/api/applications/:id/visa-prep-meeting", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.scheduleVisaPrepMeeting);
+app.post("/api/applications/:id/visa-explain-meet", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.launchVisaExplainMeet);
 app.patch("/api/applications/:id/visa-embassy-appointment", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.scheduleVisaEmbassyAppointment);
 app.get("/api/rdv/me/applications", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.listMineForRdv);
 
@@ -260,6 +269,10 @@ app.post("/api/admin/backup/restore", requireAuth, requireRoles("ADMIN"), backup
 // Finance : tarifs par pays, tableau de bord et liste des plans (admin) ;
 // paiements d'un étudiant (admin ou conseiller de l'étudiant).
 app.get("/api/admin/finance/overview", requireAuth, requireRoles("ADMIN"), paymentController.overview);
+app.get("/api/admin/finance/exercise", requireAuth, requireRoles("ADMIN"), financeChargeController.exercise);
+app.get("/api/admin/finance/charges", requireAuth, requireRoles("ADMIN"), financeChargeController.exercise);
+app.post("/api/admin/finance/charges", requireAuth, requireRoles("ADMIN"), financeChargeController.create);
+app.delete("/api/admin/finance/charges/:id", requireAuth, requireRoles("ADMIN"), financeChargeController.remove);
 app.get("/api/admin/finance/invoicing", requireAuth, requireRoles("ADMIN"), invoiceController.listStudents);
 app.post("/api/admin/finance/invoices", requireAuth, requireRoles("ADMIN"), invoiceController.create);
 app.get("/api/admin/finance/invoices/:id/pdf", requireAuth, requireRoles("ADMIN"), invoiceController.pdf);
@@ -326,6 +339,8 @@ app.delete("/api/admin/hr/payroll/bulletin", requireAuth, requireRoles("ADMIN"),
 app.get("/api/admin/hr/payroll/:userId/bulletin", requireAuth, requireRoles("ADMIN"), hrController.officialPayslipPdf);
 app.get("/api/admin/hr/payroll/:userId/accountant", requireAuth, requireRoles("ADMIN"), hrController.accountantPdf);
 app.get("/api/admin/hr/payroll/:userId/fiches", requireAuth, requireRoles("ADMIN"), hrController.fichesPdf);
+app.post("/api/admin/hr/payroll/payments", requireAuth, requireRoles("ADMIN"), hrController.paySalary);
+app.delete("/api/admin/hr/payroll/payments/:id", requireAuth, requireRoles("ADMIN"), hrController.cancelSalaryPayment);
 app.post("/api/admin/hr/payroll/issue", requireAuth, requireRoles("ADMIN"), hrController.issuePayslip);
 app.delete("/api/admin/hr/payroll/issue", requireAuth, requireRoles("ADMIN"), hrController.reopenPayslip);
 app.get("/api/admin/hr/payroll/:userId/pdf", requireAuth, requireRoles("ADMIN"), hrController.payslipPdf);
@@ -476,6 +491,12 @@ function retryReminders() {
   universityApplicationService.sendRetryReminders().catch((error) => logger.error("Échec des rappels de nouvelle tentative", { message: error.message }));
 }
 setInterval(retryReminders, 24 * 60 * 60 * 1000);
+
+function visaDocumentReminders() {
+  universityApplicationService.sendVisaDocumentReminders().catch((error) => logger.error("Échec des rappels de documents visa", { message: error.message }));
+}
+setInterval(visaDocumentReminders, 24 * 60 * 60 * 1000);
+setTimeout(visaDocumentReminders, 2 * 60 * 1000);
 setTimeout(retryReminders, 120 * 1000);
 
 // Sauvegarde automatique vers Supabase (production uniquement) : vérifiée

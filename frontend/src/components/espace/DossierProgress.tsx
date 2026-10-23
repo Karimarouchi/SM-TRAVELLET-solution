@@ -60,6 +60,7 @@ export default function DossierProgress({
   ) : null;
 
   const { steps, headline, tone } = buildSteps({ dossierStage, application, t, interviewAction, plans });
+  const several = applications.length > 1;
 
   return (
     <section className="overflow-hidden rounded-[24px] border border-line bg-white shadow-sm">
@@ -69,28 +70,40 @@ export default function DossierProgress({
         </span>
         <div className="min-w-0">
           <h2 className="font-display text-lg font-bold text-dark">{t("Mon parcours", "My journey")}</h2>
-          <p className={cn("truncate text-sm font-semibold", tone === "danger" ? "text-red-500" : tone === "success" ? "text-emerald-600" : "text-brand")}>{headline}</p>
+          <p className={cn("truncate text-sm font-semibold", tone === "danger" ? "text-red-500" : tone === "success" ? "text-emerald-600" : "text-brand")}>
+            {several && application ? `${application.universityName} · ` : ""}{headline}
+          </p>
         </div>
       </div>
 
-      {applications.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto border-b border-line/70 px-5 py-3 sm:px-6" role="tablist" aria-label={t("Choisir une candidature", "Choose an application")}>
-          {applications.map((a) => (
-            <button
-              key={a.id}
-              type="button"
-              role="tab"
-              aria-selected={a.id === application?.id}
-              onClick={() => onSelect(a.id)}
-              className={cn(
-                "shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition",
-                a.id === application?.id ? "border-brand bg-brand text-white" : "border-line bg-white text-mid hover:border-brand/40"
-              )}
-            >
-              {a.universityName}
-              {a.fieldOfStudy ? ` · ${a.fieldOfStudy}` : ""}
-            </button>
-          ))}
+      {several && (
+        <div className="space-y-2 border-b border-line/70 px-5 py-4 sm:px-6" role="tablist" aria-label={t("Candidature par université", "Application by university")}>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-muted">{t("Où en est chaque université", "Where each university stands")}</p>
+          {applications.map((item) => {
+            const current = buildSteps({ dossierStage, application: item, t, plans }).headline;
+            const selected = item.id === application?.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => onSelect(item.id)}
+                className={cn(
+                  "flex w-full items-center justify-between gap-3 rounded-2xl border px-3.5 py-3 text-left transition",
+                  selected ? "border-brand bg-brand/5" : "border-line bg-white hover:border-brand/40"
+                )}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-bold text-dark">{item.universityName}</span>
+                  <span className="mt-0.5 block truncate text-xs text-muted">
+                    {item.fieldOfStudy ? `${item.fieldOfStudy} · ` : ""}{item.countryName}
+                  </span>
+                </span>
+                <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold", selected ? "bg-brand text-white" : "bg-slate-100 text-mid")}>{current}</span>
+              </button>
+            );
+          })}
         </div>
       )}
 

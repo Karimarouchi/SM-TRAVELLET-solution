@@ -108,23 +108,6 @@ function actionsOf(inbox: HrInbox): Action[] {
       action: "Ouvrir la fiche"
     });
   }
-  const byPerson = new Map<string, { name: string; days: number }>();
-  for (const row of inbox.absences) {
-    const current = byPerson.get(row.userId) || { name: `${row.prenom} ${row.nom}`, days: 0 };
-    current.days += 1;
-    byPerson.set(row.userId, current);
-  }
-  for (const [userId, row] of byPerson) {
-    items.push({
-      id: `abs-${userId}`,
-      tone: "warning",
-      icon: Clock,
-      title: row.name,
-      detail: `${row.days} jour${row.days > 1 ? "s" : ""} d'absence à valider`,
-      href: `/admin/rh/presences?user=${userId}`,
-      action: "Valider"
-    });
-  }
   if (inbox.summary.openYears > 0) {
     items.push({
       id: "years",
@@ -145,6 +128,18 @@ function actionsOf(inbox: HrInbox): Action[] {
       detail: `${inbox.summary.incomplete} personne${inbox.summary.incomplete > 1 ? "s" : ""} sans contrat ou sans date d'embauche`,
       href: "/admin/rh/employes",
       action: "Compléter"
+    });
+  }
+  for (const row of inbox.unpaidSalaries || []) {
+    items.push({
+      id: `unpaid-${row.userId}-${row.month}`,
+      tone: "danger",
+      icon: Wallet,
+      title: `${row.prenom} ${row.nom}`,
+      detail: `N'a pas payé le salaire de ${monthLabel(row.month)}`,
+      amount: money(row.amount),
+      href: `/admin/rh/paie?user=${row.userId}`,
+      action: "Payer"
     });
   }
   for (const row of inbox.documentRequests || []) {
@@ -437,7 +432,7 @@ export default function RhHomePage() {
                 </div>
                 <div className="text-center">
                   <p className="text-sm font-semibold text-emerald-700">Rien n'attend</p>
-                  <p className="text-xs text-emerald-600">Congés, absences, contrats et fiches sont à jour.</p>
+                  <p className="text-xs text-emerald-600">Salaires, documents et décisions sont à jour.</p>
                 </div>
               </div>
             )}

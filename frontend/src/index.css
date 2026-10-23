@@ -24,3 +24,40 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   opacity: 0.55;
   cursor: pointer;
 }
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+::view-transition-old(admin-area) {
+  animation: 180ms cubic-bezier(0.16, 1, 0.3, 1) both admin-area-leave-left;
+}
+
+::view-transition-new(admin-area) {
+  animation: 180ms cubic-bezier(0.16, 1, 0.3, 1) both admin-area-enter-right;
+}
+
+html[data-area="clients"]::view-transition-old(admin-area) {
+  animation-name: admin-area-leave-right;
+}
+
+html[data-area="clients"]::view-transition-new(admin-area) {
+  animation-name: admin-area-enter-left;
+}
+
+@keyframes admin-area-leave-left {
+  to { opacity: 0; transform: translateX(-28px); }
+}
+
+@keyframes admin-area-enter-right {
+  from { opacity: 0; transform: translateX(28px); }
+}
+
+@keyframes admin-area-leave-right {
+  to { opacity: 0; transform: translateX(28px); }
+}
+
+@keyframes admin-area-enter-left {
+  from { opacity: 0; transform: translateX(-28px); }
+}

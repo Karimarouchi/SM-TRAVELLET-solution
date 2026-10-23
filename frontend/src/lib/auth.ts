@@ -1323,8 +1323,16 @@ export type VisaDocumentChecklistItem = {
 };
 
 export type MyVisaChecklist = {
-  application: { id: string; countryName: string; visaStatus: string } | null;
+  application: { id: string; countryName: string; visaStatus: string; uploadsOpen?: boolean; appointmentAt?: string | null } | null;
   checklist: VisaDocumentChecklistItem[];
+};
+
+export type ReusableStudyDocument = {
+  id: string;
+  name: string;
+  originalFilename: string | null;
+  universityName: string | null;
+  status: StudentDocumentStatus;
 };
 
 export async function fetchMyVisaChecklist(): Promise<MyVisaChecklist> {
@@ -1339,6 +1347,21 @@ export async function uploadMyVisaDocument(
   return request<VisaDocumentChecklistItem>("/api/students/me/visa-documents", {
     method: "POST",
     body: JSON.stringify({ requirementId, file, originalFilename })
+  });
+}
+
+export async function fetchApplicationStudyDocuments(applicationId: string): Promise<ReusableStudyDocument[]> {
+  return request<ReusableStudyDocument[]>(`/api/applications/${applicationId}/study-documents`);
+}
+
+export async function reuseStudyDocumentForVisa(
+  applicationId: string,
+  requirementId: string,
+  sourceDocumentId: string
+): Promise<VisaDocumentChecklistItem> {
+  return request<VisaDocumentChecklistItem>(`/api/applications/${applicationId}/visa-documents/reuse`, {
+    method: "POST",
+    body: JSON.stringify({ requirementId, sourceDocumentId })
   });
 }
 
@@ -1472,6 +1495,55 @@ export async function markApplicationTranslationDone(applicationId: string): Pro
   return request<UniversityApplication>(`/api/applications/${applicationId}/translation-done`, { method: "PATCH" });
 }
 
+export type DepositRecapDocument = {
+  name: string;
+  required: boolean;
+  status: "PENDING" | "SUBMITTED" | "VALIDATED" | "REJECTED" | string;
+  originalFilename: string | null;
+  universityName: string | null;
+  translationStatus: string | null;
+};
+
+export type DepositRecap = {
+  student: {
+    name: string;
+    email: string | null;
+    phone: string | null;
+    city: string | null;
+    nationality: string | null;
+    passportNumber: string | null;
+    passportExpiresOn: string | null;
+    currentStudyLevel: string | null;
+    lastDiploma: string | null;
+    targetLevel: string | null;
+    targetField: string | null;
+    annualBudget: string | null;
+    french: string | null;
+    english: string | null;
+    italian: string | null;
+    salesName: string | null;
+  };
+  application: {
+    universityName: string;
+    fieldOfStudy: string | null;
+    countryName: string;
+    programmeTitle: string | null;
+    rdvName: string | null;
+    status: string;
+  };
+  payment: {
+    currency: string;
+    tranche1: { due: number; paid: number; remaining: number; complete: boolean };
+    tranche2: { due: number; paid: number; remaining: number; complete: boolean };
+  } | null;
+  documents: DepositRecapDocument[];
+  ready: boolean;
+};
+
+export async function fetchDepositRecap(applicationId: string): Promise<DepositRecap> {
+  return request<DepositRecap>(`/api/applications/${applicationId}/deposit-recap`);
+}
+
 export async function markApplicationApplied(
   applicationId: string,
   payload: { universityId?: string; universityName?: string; programmeId?: string; appliedAt: string; applicationReference?: string; portalLogin: string; portalPassword: string; portalUrl: string; notes?: string }
@@ -1492,6 +1564,22 @@ export async function updateApplicationPortalAccount(
     method: "PATCH",
     body: JSON.stringify(payload)
   });
+}
+
+// Correction silencieuse : change le nom de l'université (et la filière) sans e-mail ni notification.
+export async function correctApplicationUniversity(
+  applicationId: string,
+  payload: { universityName: string; fieldOfStudy?: string }
+): Promise<UniversityApplication> {
+  return request<UniversityApplication>(`/api/applications/${applicationId}/university`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+// Retire une candidature déjà déposée. Aucun e-mail, aucune notification.
+export async function deleteDepositedApplication(applicationId: string): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>(`/api/applications/${applicationId}`, { method: "DELETE" });
 }
 
 export async function scheduleStaffMeet(
@@ -1601,6 +1689,10 @@ export async function rejectVisa(applicationId: string, reason: string): Promise
     method: "PATCH",
     body: JSON.stringify({ reason })
   });
+}
+
+export async function launchVisaExplainMeet(applicationId: string): Promise<{ link: string; calendarLink: string | null; application: UniversityApplication }> {
+  return request(`/api/applications/${applicationId}/visa-explain-meet`, { method: "POST" });
 }
 
 export async function scheduleVisaPrepMeeting(
@@ -2063,6 +2155,46 @@ export async function fetchFinanceStats(): Promise<FinanceStats> {
 export async function fetchFinanceOverview(): Promise<FinanceOverview> {
   return request<FinanceOverview>("/api/admin/finance/overview");
 }
+
+export type FinanceCharge = {
+  id: string;
+  kind: "FIXED" | "VARIABLE";
+  label: string;
+  basis: "AMOUNT" | "PERCENT";
+  amount: number;
+  percent: number | null;
+  startsOn: string | null;
+  endsOn: string | null;
+  spentOn: string | null;
+  yearCost: number;
+};
+
+export type FinanceExercise = {
+  year: number;
+  collected: number;
+  collectedEur: number;
+  salaries: number;
+  primes: number;
+  paidLeave: number;
+  deductions: number;
+  commissions: number;
+  salaryPayments: Array<{ id: string; userId: string; prenom: string; nom: string; month: string; amount: number; paidOn: string; onSlip: boolean }>;
+  salaryExtra: number;
+  personnel: number;
+  fixed: number;
+  variable: number;
+  result: number;
+  charges: FinanceCharge[];
+};
+
+export const fetchFinanceExercise = (year?: number) =>
+  request<FinanceExercise>(`/api/admin/finance/exercise${year ? `?year=${year}` : ""}`);
+
+export const saveFinanceCharge = (body: Record<string, unknown>) =>
+  request<FinanceExercise>("/api/admin/finance/charges", { method: "POST", body: JSON.stringify(body) });
+
+export const removeFinanceCharge = (id: string, year: number) =>
+  request<FinanceExercise>(`/api/admin/finance/charges/${id}?year=${year}`, { method: "DELETE" });
 
 export async function fetchFinancePlans(filters: { status?: string; countryId?: string; salesId?: string; q?: string } = {}): Promise<PaymentPlan[]> {
   const params = new URLSearchParams();

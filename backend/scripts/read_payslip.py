@@ -2,11 +2,23 @@
 import asyncio
 import json
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
 import unicodedata
+from pathlib import Path
 
-import pdfplumber
-import winocr
+try:
+    import pdfplumber
+except ImportError:
+    pdfplumber = None
+
+try:
+    import winocr
+except ImportError:
+    winocr = None
+
 from pypdf import PdfReader, PdfWriter
 
 MONTHS = {
@@ -288,15 +300,79 @@ def read_page(result):
     }
 
 
+class _Rect:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+
+class _Word:
+    def __init__(self, text, x, y):
+        self.text = text
+        self.bounding_rect = _Rect(x, y)
+
+
+class _Line:
+    def __init__(self, words):
+        self.words = words
+
+
+class _Result:
+    def __init__(self, lines):
+        self.lines = lines
+
+
+def recognize_tesseract(image_path):
+    import pytesseract
+    from pytesseract import Output
+
+    data = pytesseract.image_to_data(image_path, lang="fra", output_type=Output.DICT)
+    grouped = {}
+    order = []
+    for index, raw in enumerate(data["text"]):
+        text = str(raw or "").strip()
+        if not text or int(data["conf"][index]) < 0:
+            continue
+        key = (data["block_num"][index], data["par_num"][index], data["line_num"][index])
+        if key not in grouped:
+            grouped[key] = []
+            order.append(key)
+        grouped[key].append(_Word(text, float(data["left"][index]), float(data["top"][index])))
+    return _Result([_Line(grouped[key]) for key in order])
+
+
+def render_with_poppler(path):
+    if not shutil.which("pdftoppm"):
+        raise SystemExit("Lecteur PDF indisponible.")
+    folder = tempfile.mkdtemp(prefix="payslip-")
+    prefix = str(Path(folder) / "page")
+    subprocess.run(["pdftoppm", "-png", "-r", "170", path, prefix], check=True)
+    images = sorted(Path(folder).glob("page-*.png"), key=lambda item: int(item.stem.split("-")[-1]))
+    if not images:
+        shutil.rmtree(folder, ignore_errors=True)
+        raise SystemExit("Aucune page dans ce PDF.")
+    return images, folder
+
+
 async def extract(path):
     pages = []
-    with pdfplumber.open(path) as pdf:
-        for index, page in enumerate(pdf.pages):
-            image = page.to_image(resolution=170).original
-            result = await winocr.recognize_pil(image, "fr")
-            slip = read_page(result)
+    if winocr is not None and pdfplumber is not None:
+        with pdfplumber.open(path) as pdf:
+            for index, page in enumerate(pdf.pages):
+                image = page.to_image(resolution=170).original
+                result = await winocr.recognize_pil(image, "fr")
+                slip = read_page(result)
+                slip["page"] = index
+                pages.append(slip)
+        return pages
+    images, folder = render_with_poppler(path)
+    try:
+        for index, image in enumerate(images):
+            slip = read_page(recognize_tesseract(str(image)))
             slip["page"] = index
             pages.append(slip)
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
     return pages
 
 

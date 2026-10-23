@@ -31,6 +31,7 @@ export type HrInbox = {
   contracts: { userId: string; prenom: string; nom: string; contractEndsOn: string; daysLeft: number }[];
   payrollDrafts: { userId: string; prenom: string; nom: string; net: number }[];
   documentRequests: { id: string; userId: string; prenom: string; nom: string; kind: "WORK" | "PAYSLIP"; month: string | null; hasFiche?: boolean; readyOn?: string | null }[];
+  unpaidSalaries: { userId: string; prenom: string; nom: string; amount: number; month: string }[];
   summary: {
     month: string;
     today: string;
@@ -60,14 +61,13 @@ export type HrInbox = {
 export const fetchHrInbox = () => request<HrInbox>("/api/admin/hr/inbox");
 
 export function rhAttentionCount(inbox: HrInbox) {
-  const absencePeople = new Set(inbox.absences.map((row) => row.userId)).size;
   return inbox.leave.length
     + inbox.lateCertificates.length
     + inbox.contracts.length
-    + absencePeople
     + (inbox.summary.openYears > 0 ? 1 : 0)
     + (inbox.summary.incomplete > 0 ? 1 : 0)
     + (inbox.documentRequests || []).length
+    + (inbox.unpaidSalaries || []).length
     + inbox.payrollDrafts.length
     + (!inbox.summary.payroll.hasSignature || !inbox.summary.payroll.hasStamp ? 1 : 0);
 }
@@ -294,6 +294,23 @@ export type HrPayrollEmployee = {
   official: HrOfficialPayslip | null;
   officialMonths: string[];
   documents: HrEmployeeDocument[];
+  payment: HrSalaryPayment | null;
+};
+
+export type HrSalaryPayment = {
+  id: string;
+  userId: string;
+  prenom: string;
+  nom: string;
+  month: string;
+  amount: number;
+  paidOn: string;
+};
+
+export type HrSalaryDue = {
+  show: boolean;
+  month: string;
+  unpaid: Array<{ id: string; prenom: string; nom: string; amount: number }>;
 };
 
 export type HrPayrollMonth = {
@@ -301,6 +318,8 @@ export type HrPayrollMonth = {
   hasSignature: boolean;
   hasStamp: boolean;
   employees: HrPayrollEmployee[];
+  payments: HrSalaryPayment[];
+  salaryDue: HrSalaryDue;
 };
 
 export type HrOfficialPayslip = {
@@ -347,6 +366,12 @@ export type HrMyPayslip = {
 };
 
 export const fetchHrPayroll = (month: string) => request<HrPayrollMonth>(`/api/admin/hr/payroll?month=${month}`);
+
+export const payHrSalary = (body: { userId: string; month: string; paidOn: string }) =>
+  request<HrPayrollMonth>("/api/admin/hr/payroll/payments", { method: "POST", body: JSON.stringify(body) });
+
+export const cancelHrSalaryPayment = (id: string) =>
+  request<HrPayrollMonth>(`/api/admin/hr/payroll/payments/${id}`, { method: "DELETE" });
 
 export const previewHrPayslipImport = (filename: string, file: string) =>
   request<HrPayslipImport>("/api/admin/hr/payroll/import", { method: "POST", body: JSON.stringify({ filename, file }) });

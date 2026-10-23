@@ -201,8 +201,25 @@ function buildMonth(input) {
     if (holidayPaid.has(iso)) {
       holidayDays += 1;
       const paid = holidayPaid.get(iso);
-      if (!paid) {
-        const holidayOverride = overrides.find((row) => row.day === iso);
+      const holidayOverride = overrides.find((row) => row.day === iso);
+      if (!paid && holidayOverride?.waived) {
+        days.push({
+          day: iso,
+          status: "WAIVED",
+          lateMinutes: 0,
+          earlyMinutes: 0,
+          totalMinutes: 0,
+          arrival: null,
+          departure: null,
+          arrivalFrom: null,
+          departureFrom: null,
+          waived: true,
+          confirmed: false,
+          confirmedLate: false,
+          note: holidayOverride.note || "",
+          corrected: true
+        });
+      } else if (!paid) {
         const holidayConfirmed = Boolean(holidayOverride?.confirmedAbsent);
         if (!(beforeTracking && !holidayConfirmed) && (shiftClosed || holidayConfirmed)) {
           days.push({

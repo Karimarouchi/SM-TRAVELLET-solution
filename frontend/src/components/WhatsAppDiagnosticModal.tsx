@@ -1,6 +1,7 @@
-import { fetchWhatsAppDiagnostic, type WhatsAppDiagnostic } from "@/lib/whatsapp";
+import { confirmDialog } from "@/components/ui/dialog-host";
+import { fetchWhatsAppDiagnostic, resetWhatsAppDiagnostic, type WhatsAppDiagnostic } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, CheckCircle2, RefreshCw, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
@@ -30,6 +31,7 @@ export default function WhatsAppDiagnosticModal({ onClose }: { onClose: () => vo
   const [data, setData] = useState<WhatsAppDiagnostic | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [resetting, setResetting] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -38,6 +40,19 @@ export default function WhatsAppDiagnosticModal({ onClose }: { onClose: () => vo
       .then(setData)
       .catch((err) => setError(err instanceof Error ? err.message : "Diagnostic indisponible."))
       .finally(() => setLoading(false));
+  };
+
+  const reset = async () => {
+    if (!(await confirmDialog("Remettre les compteurs à zéro ? Les messages déjà envoyés restent en place. Seuls les messages après ce moment seront comptés.", { confirmLabel: "Remettre à zéro" }))) return;
+    setResetting(true);
+    setError("");
+    try {
+      setData(await resetWhatsAppDiagnostic());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Remise à zéro impossible.");
+    } finally {
+      setResetting(false);
+    }
   };
 
   useEffect(load, []);
@@ -97,7 +112,16 @@ export default function WhatsAppDiagnosticModal({ onClose }: { onClose: () => vo
                 )}
               </Section>
 
-              <Section title="Messages envoyés depuis l'application · dernières 24 h">
+              <Section title={data.since ? `Compteurs depuis ${frTime(data.since)}` : "Messages · dernières 24 h"}>
+                <div className="mb-2 grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
+                  {([["Reçus", data.traffic.inbound, ""], ["Sortants", data.traffic.outbound, ""], ["Système", data.traffic.system, "text-violet-700"], ["Équipe", data.traffic.manual, ""]] as const).map(([label, value, tone]) => (
+                    <div key={label} className="rounded-xl bg-slate-50 p-2.5">
+                      <p className={cn("font-display text-xl font-extrabold", tone || "text-dark")}>{value}</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">{label}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mb-3 text-[11px] text-muted">« Système » = réponses automatiques. « Équipe » = messages écrits à la main. Le bouton remet ces quatre compteurs, et ceux du dessous, à zéro à partir de maintenant.</p>
                 <div className="grid grid-cols-4 gap-2 text-center">
                   {([["Envoyés", data.outbound24h.sent, ""], ["Livrés", data.outbound24h.delivered, "text-emerald-700"], ["Lus", data.outbound24h.read, "text-sky-700"], ["Échecs", data.outbound24h.failed, "text-red-600"]] as const).map(([label, value, tone]) => (
                     <div key={label} className="rounded-xl bg-slate-50 p-2.5">
@@ -107,6 +131,9 @@ export default function WhatsAppDiagnosticModal({ onClose }: { onClose: () => vo
                   ))}
                 </div>
                 <p className="mt-2 text-[11px] text-muted">« Envoyés » seul = Meta a accepté le message mais n'a pas confirmé la livraison. « Livrés » = il est arrivé sur le téléphone.</p>
+                <button type="button" onClick={() => void reset()} disabled={resetting} className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-[11px] font-bold text-dark transition hover:bg-slate-50 disabled:opacity-50">
+                  <RotateCcw className={cn("h-3.5 w-3.5", resetting && "animate-spin")} /> {resetting ? "Remise à zéro…" : "Remettre les compteurs à 0"}
+                </button>
                 {data.recentFailures.length > 0 && (
                   <ul className="mt-2 space-y-1">
                     {data.recentFailures.map((failure, i) => (

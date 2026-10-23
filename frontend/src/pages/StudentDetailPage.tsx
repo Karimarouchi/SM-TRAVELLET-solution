@@ -1,6 +1,8 @@
 import {
   confirmVisaDocuments,
+  fetchApplicationStudyDocuments,
   fetchApplicationVisaDocuments,
+  reuseStudyDocumentForVisa,
   fetchStudentApplications,
   fetchApplicationBlockers,
   fetchStudentApplicationHistory,
@@ -22,6 +24,7 @@ import {
   type StudentBlockers,
   type StudentProfile,
   type UniversityApplication,
+  type ReusableStudyDocument,
   type VisaDocumentChecklistItem
 } from "@/lib/auth";
 import { openProtectedFile } from "@/lib/auth";
@@ -201,10 +204,11 @@ export default function StudentDetailPage() {
   const passportExpiry = profile?.passportExpiresOn ? parseExpiry(profile.passportExpiresOn) : null;
   const passportMonthsLeft = passportExpiry ? monthsLeft(passportExpiry) : null;
   const [activeTab, setActiveTab] = useState<"overview" | "history">("overview");
-  const [visaDocs, setVisaDocs] = useState<VisaDocumentChecklistItem[]>([]);
+  const [visaBundles, setVisaBundles] = useState<{ application: UniversityApplication; docs: VisaDocumentChecklistItem[] }[]>([]);
+  const [studyDocs, setStudyDocs] = useState<ReusableStudyDocument[]>([]);
   const [plans, setPlans] = useState<PaymentPlan[]>([]);
   const [blockers, setBlockers] = useState<StudentBlockers | null>(null);
-  const visaApp = applications.find((a) => a.status === "ACCEPTED" && !a.visaStatus);
+  const visaDocs = visaBundles.flatMap((bundle) => bundle.docs);
 
   const loadApplications = () => {
     if (!id) return;
@@ -213,13 +217,34 @@ export default function StudentDetailPage() {
   };
 
   useEffect(() => {
-    const accepted = applications.find((a) => a.status === "ACCEPTED" && !a.visaStatus);
-    if (!accepted) {
-      setVisaDocs([]);
+    const accepted = applications.filter((a) => a.status === "ACCEPTED");
+    if (!accepted.length) {
+      setVisaBundles([]);
       return;
     }
-    fetchApplicationVisaDocuments(accepted.id).then(setVisaDocs).catch(() => undefined);
+    let cancelled = false;
+    Promise.all(
+      accepted.map((application) =>
+        fetchApplicationVisaDocuments(application.id)
+          .then((docs) => ({ application, docs }))
+          .catch(() => ({ application, docs: [] as VisaDocumentChecklistItem[] }))
+      )
+    ).then((rows) => {
+      if (!cancelled) setVisaBundles(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [applications]);
+
+  useEffect(() => {
+    const target = visaBundles.find((bundle) => bundle.application.status === "ACCEPTED");
+    if (!target || (role !== "SALES" && role !== "ADMIN" && role !== "RDV")) {
+      setStudyDocs([]);
+      return;
+    }
+    fetchApplicationStudyDocuments(target.application.id).then(setStudyDocs).catch(() => setStudyDocs([]));
+  }, [visaBundles, role]);
 
   const reloadPayments = () => {
     if (!id || (role !== "SALES" && role !== "ADMIN" && role !== "RDV")) return;
@@ -289,7 +314,7 @@ export default function StudentDetailPage() {
   const alerts = useMemo<Alert[]>(() => {
     const list: Alert[] = [];
     if (docsToReview && isReviewer) list.push({ key: "docs", tone: "warning", text: t(`${docsToReview} document${docsToReview > 1 ? "s" : ""} à valider`, `${docsToReview} document(s) to review`), target: "documents" });
-    const visaToReview = visaDocs.filter((d) => d.status === "SUBMITTED").length;
+    const visaToReview = visaBundles.filter((bundle) => !bundle.application.visaStatus).flatMap((bundle) => bundle.docs).filter((d) => d.status === "SUBMITTED").length;
     if (visaToReview && isReviewer) list.push({ key: "visa-docs", tone: "warning", text: t(`${visaToReview} document${visaToReview > 1 ? "s" : ""} visa à valider`, `${visaToReview} visa document(s) to review`), target: "visa-documents" });
     const late = plans.find((p) => p.late);
     if (late) list.push({ key: "payment", tone: "danger", text: isReviewer ? t(`Paiement en retard : reste ${formatMoney(late.remainingTotal, late.currency)}`, `Payment overdue: ${formatMoney(late.remainingTotal, late.currency)} left`) : t("Paiement en retard", "Payment overdue"), target: "paiements" });
@@ -299,7 +324,7 @@ export default function StudentDetailPage() {
     if (isReviewer && applications.some((a) => a.status === "READY_TO_APPLY" && !a.translationDoneAt)) list.push({ key: "translation", tone: "warning", text: t("Documents en traduction : confirmer la fin de la traduction", "Documents in translation: confirm when done"), target: "candidatures" });
     if (stage === "accepted") list.push({ key: "visa-prep", tone: "info", text: t("Accepté : préparer les documents visa", "Accepted: prepare visa documents"), target: "visa-documents" });
     return list;
-  }, [docsToReview, docsRejected, visaDocs, plans, profile, stage, isReviewer, applications, t]);
+  }, [docsToReview, docsRejected, visaBundles, plans, profile, stage, isReviewer, applications, t]);
 
   if (loading) {
     return (
@@ -498,7 +523,7 @@ export default function StudentDetailPage() {
                 </div>
               </CollapsibleSection>
 
-              {visaApp && (role === "SALES" || role === "ADMIN") && (
+              {visaBundles.length > 0 && (role === "SALES" || role === "ADMIN" || role === "RDV") && (
                 <CollapsibleSection
                   id="visa-documents"
                   icon={<FileText className="h-5 w-5 text-brand" />}
@@ -506,47 +531,69 @@ export default function StudentDetailPage() {
                   summary={visaDocs.length ? <DocSummary docs={visaDocs} /> : undefined}
                 >
                   <p className="text-xs text-muted">
-                    {t("Validez tous les documents visa obligatoires : le dossier revient ensuite automatiquement au même Responsable Dossier (ou au moins chargé s'il n'est plus actif).", "Approve every required visa document: the file then returns automatically to the same visa officer (or the least loaded if they are inactive).")}
+                    {t("Le conseiller et le Responsable Dossier de ce dossier voient les mêmes documents. Le conseiller les dépose et les valide ; ensuite le Responsable Dossier reprend le visa.", "The advisor and the visa officer on this file see the same documents. The advisor uploads and approves them; the visa officer then takes over the visa.")}
                   </p>
-                  {visaDocs.filter((d) => d.required).length === 0 && (
-                    <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
-                      <p className="text-sm font-bold text-dark">{t("Aucun document visa obligatoire pour ce pays", "No required visa document for this country")}</p>
-                      <p className="mt-1 text-xs text-mid">{t("Confirmez pour transmettre le dossier au Responsable Dossier : il pourra alors déposer le visa.", "Confirm to pass the file to the visa officer: they will then be able to submit the visa.")}</p>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            await confirmVisaDocuments(visaApp.id);
-                            loadApplications();
-                            reloadAfterChoice();
-                          } catch (err) {
-                            void alertDialog(err instanceof Error ? err.message : t("Action impossible.", "Action failed."), { tone: "danger" });
-                          }
-                        }}
-                        className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-xs font-bold text-white hover:opacity-90"
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5" /> {t("Confirmer et transmettre au Responsable Dossier", "Confirm and pass to the visa officer")}
-                      </button>
-                    </div>
-                  )}
-                  <div className="mt-3 space-y-2">
-                    {visaDocs.length === 0 ? (
-                      <p className="rounded-2xl border border-dashed border-line bg-white p-6 text-sm text-muted">
-                        {t("Aucun document visa configuré pour ce pays.", "No visa document configured for this country.")}
-                      </p>
-                    ) : (
-                      visaDocs.map((doc) => (
-                        <VisaSalesReviewRow
-                          key={doc.requirementId}
-                          applicationId={visaApp.id}
-                          doc={doc}
-                          onReviewed={(updated) => {
-                            setVisaDocs((prev) => prev.map((d) => (d.requirementId === updated.requirementId ? updated : d)));
-                            loadApplications();
-                          }}
-                        />
-                      ))
-                    )}
+                  <div className="mt-3 space-y-4">
+                    {visaBundles.map((bundle) => {
+                      const appointed = Boolean(bundle.application.visaPrepMeetingAt || bundle.application.visaEmbassyAppointmentAt);
+                      const canManage = (role === "SALES" || role === "ADMIN") && !bundle.application.visaStatus && appointed;
+                      return (
+                        <div key={bundle.application.id}>
+                          <p className="text-xs font-bold text-dark">{bundle.application.universityName}{bundle.application.countryName ? ` · ${bundle.application.countryName}` : ""}</p>
+                          {!appointed && (role === "SALES" || role === "ADMIN") ? (
+                            <p className="mt-1 text-xs text-amber-700">{t("Les documents visa se déposent une fois le rendez-vous fixé par le Responsable Dossier.", "Visa documents are uploaded once the visa officer has set the appointment.")}</p>
+                          ) : bundle.application.visaStatus ? (
+                            <p className="mt-1 text-xs text-muted">{t("Dossier visa chez le Responsable Dossier. Les documents restent visibles ici.", "The visa file is with the visa officer. The documents stay visible here.")}</p>
+                          ) : canManage ? (
+                            <p className="mt-1 text-xs text-muted">{t("Validez tous les documents visa obligatoires : le dossier revient ensuite au même Responsable Dossier.", "Approve every required visa document: the file then returns to the same visa officer.")}</p>
+                          ) : null}
+                          {canManage && bundle.docs.filter((d) => d.required).length === 0 && (
+                            <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
+                              <p className="text-sm font-bold text-dark">{t("Aucun document visa obligatoire pour ce pays", "No required visa document for this country")}</p>
+                              <p className="mt-1 text-xs text-mid">{t("Confirmez pour transmettre le dossier au Responsable Dossier : il pourra alors déposer le visa.", "Confirm to pass the file to the visa officer: they will then be able to submit the visa.")}</p>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    await confirmVisaDocuments(bundle.application.id);
+                                    loadApplications();
+                                    reloadAfterChoice();
+                                  } catch (err) {
+                                    void alertDialog(err instanceof Error ? err.message : t("Action impossible.", "Action failed."), { tone: "danger" });
+                                  }
+                                }}
+                                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-xs font-bold text-white hover:opacity-90"
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" /> {t("Confirmer et transmettre au Responsable Dossier", "Confirm and pass to the visa officer")}
+                              </button>
+                            </div>
+                          )}
+                          <div className="mt-2 space-y-2">
+                            {bundle.docs.length === 0 ? (
+                              <p className="rounded-2xl border border-dashed border-line bg-white p-6 text-sm text-muted">
+                                {t("Aucun document visa configuré pour ce pays.", "No visa document configured for this country.")}
+                              </p>
+                            ) : (
+                              bundle.docs.map((doc) => (
+                                <VisaSalesReviewRow
+                                  key={doc.requirementId}
+                                  applicationId={bundle.application.id}
+                                  doc={doc}
+                                  canManage={canManage}
+                                  studyDocs={studyDocs}
+                                  onReviewed={(updated) => {
+                                    setVisaBundles((prev) => prev.map((row) => row.application.id === bundle.application.id
+                                      ? { ...row, docs: row.docs.map((item) => (item.requirementId === updated.requirementId ? updated : item)) }
+                                      : row));
+                                    loadApplications();
+                                  }}
+                                />
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </CollapsibleSection>
               )}
@@ -882,11 +929,15 @@ function DocumentReviewRow({
 function VisaSalesReviewRow({
   applicationId,
   doc,
-  onReviewed
+  onReviewed,
+  canManage = true,
+  studyDocs = []
 }: {
   applicationId: string;
   doc: VisaDocumentChecklistItem;
   onReviewed: (d: VisaDocumentChecklistItem) => void;
+  canManage?: boolean;
+  studyDocs?: ReusableStudyDocument[];
 }) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
@@ -926,8 +977,39 @@ function VisaSalesReviewRow({
           <ChevronDown className={cn("h-4 w-4 text-muted transition-transform duration-200", open && "rotate-180")} aria-hidden />
         </span>
       </div>
-      {open && <StaffVisaUploadButton applicationId={applicationId} doc={doc} onUploaded={onReviewed} />}
-      {open && canReview && (
+      {open && canManage && studyDocs.length > 0 && (
+        <label className="mt-3 block text-xs text-muted">
+          {t("Reprendre un document déjà déposé pour l'université", "Reuse a document already filed for the university")}
+          <select
+            defaultValue=""
+            disabled={busy}
+            onChange={async (event) => {
+              const sourceId = event.target.value;
+              event.target.value = "";
+              if (!sourceId) return;
+              setBusy(true);
+              setError("");
+              try {
+                onReviewed(await reuseStudyDocumentForVisa(applicationId, doc.requirementId, sourceId));
+              } catch (err) {
+                setError(err instanceof Error ? err.message : t("Erreur.", "Error."));
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-xs text-dark"
+          >
+            <option value="">{t("Choisir un document déjà déposé", "Choose an already filed document")}</option>
+            {studyDocs.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}{item.universityName ? ` · ${item.universityName}` : ""}{item.originalFilename ? ` · ${item.originalFilename}` : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {open && canManage && <StaffVisaUploadButton applicationId={applicationId} doc={doc} onUploaded={onReviewed} />}
+      {open && canManage && canReview && (
         <div className="mt-3">
           {rejecting ? (
             <div className="space-y-2">

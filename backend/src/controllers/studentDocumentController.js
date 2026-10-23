@@ -145,6 +145,22 @@ async function visaChecklistForApplication(req, res) {
   }
 }
 
+async function studyDocumentsForApplication(req, res) {
+  try {
+    res.json(await studentDocumentService.listStudyDocumentsForApplication(req.auth, req.params.id));
+  } catch (error) {
+    res.status(error.status || 400).json({ error: error.message || "Requête invalide." });
+  }
+}
+
+async function reuseStudyDocument(req, res) {
+  try {
+    res.json(await studentDocumentService.reuseStudyDocumentForVisa(req.auth, req.params.id, req.body));
+  } catch (error) {
+    res.status(error.status || 400).json({ error: error.message || "Requête invalide." });
+  }
+}
+
 async function reviewVisa(req, res) {
   try {
     const { requirementId, status, reason } = req.body;
@@ -169,5 +185,7 @@ module.exports = {
   uploadVisa,
   uploadVisaForStudent,
   visaChecklistForApplication,
+  studyDocumentsForApplication,
+  reuseStudyDocument,
   reviewVisa
 };

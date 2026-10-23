@@ -136,6 +136,9 @@ async function requirementGroup(studentUserId, profile, name, universityId) {
 }
 
 async function getChecklist(studentUserId) {
+  await universityApplicationService.checkAndAdvanceReadyToApply(studentUserId).catch((err) => {
+    logger.error("Échec du calcul READY_TO_APPLY", { message: err.message, stack: err.stack });
+  });
   const profile = await studentRepo.findByUserId(studentUserId);
   const preferredCountries = profile?.preferred_countries || [];
   if (!preferredCountries.length) return [];
@@ -426,8 +429,10 @@ async function findActiveVisaApplicationForStudent(studentId) {
 function assertVisaDocAccess(auth, application) {
   const roles = authRoles(auth);
   if (roles.includes("ADMIN")) return;
+  // Le conseiller qui a déposé le dossier et le Responsable Dossier qui le reprend
+  // voient tous les deux les documents visa, y compris après l'acceptation.
   if (handlesApplication(auth, application, "SALES")) return;
-  if (handlesApplication(auth, application, "RDV") && application.visa_status) return;
+  if (handlesApplication(auth, application, "RDV")) return;
   throw fail("Vous n’avez pas accès à ce dossier visa.", 403);
 }
 
@@ -439,11 +444,33 @@ function assertVisaDocReview(auth, application) {
   throw fail("La validation des documents visa est réservée au conseiller tant que le dossier n'est pas revenu au Responsable Dossier.", 403);
 }
 
+function visaAppointmentAt(application) {
+  const dates = [application?.visa_embassy_appointment_at, application?.visa_prep_meeting_at].filter(Boolean).map((value) => new Date(value));
+  const upcoming = dates.filter((date) => !Number.isNaN(date.getTime())).sort((a, b) => a.getTime() - b.getTime());
+  return upcoming[0] || null;
+}
+
+function assertVisaAppointment(application) {
+  if (!visaAppointmentAt(application)) {
+    throw fail("Les documents visa se déposent une fois le rendez-vous fixé par le Responsable Dossier.", 409);
+  }
+}
+
 async function getMyVisaChecklist(studentUserId) {
   const application = await findActiveVisaApplicationForStudent(studentUserId);
   if (!application) return { application: null, checklist: [] };
   const checklist = await getVisaChecklist(application.country_id, studentUserId);
-  return { application: { id: application.id, countryName: application.country_name, visaStatus: application.visa_status }, checklist };
+  const appointment = visaAppointmentAt(application);
+  return {
+    application: {
+      id: application.id,
+      countryName: application.country_name,
+      visaStatus: application.visa_status,
+      uploadsOpen: Boolean(appointment),
+      appointmentAt: appointment ? appointment.toISOString() : null
+    },
+    checklist
+  };
 }
 
 async function storeVisaFile(studentUserId, requirement, fileBase64, originalFilename) {
@@ -482,6 +509,7 @@ async function uploadVisaDocument(studentUserId, requirementId, fileBase64, orig
 
   const application = await findActiveVisaApplicationForStudent(studentUserId);
   if (!application) throw fail("Aucun dossier visa actif.", 404);
+  assertVisaAppointment(application);
 
   const requirements = await studentDocRepo.findActiveVisaRequirementsByCountryId(application.country_id);
   const requirement = requirements.find((r) => r.id === trimmedReqId);
@@ -517,6 +545,7 @@ async function uploadVisaDocumentForStudent(auth, applicationId, requirementId, 
   const application = await appRepo.findById(applicationId);
   if (!application) throw fail("Candidature introuvable.", 404);
   assertVisaDocReview(auth, application);
+  assertVisaAppointment(application);
   if (application.status !== "ACCEPTED" || ["ACCEPTED", "REJECTED"].includes(application.visa_status)) {
     throw fail("Ce dossier visa n'accepte plus de nouveaux documents.", 409);
   }
@@ -538,6 +567,54 @@ async function uploadVisaDocumentForStudent(auth, applicationId, requirementId, 
 
   const checklist = await getVisaChecklist(application.country_id, application.student_id);
   return checklist.find((d) => d.requirementId === requirement.id);
+}
+
+function studyDocumentDto(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    originalFilename: row.original_filename,
+    universityName: row.university_name || null,
+    status: row.status
+  };
+}
+
+async function listStudyDocumentsForApplication(auth, applicationId) {
+  const application = await appRepo.findById(applicationId);
+  if (!application) throw fail("Candidature introuvable.", 404);
+  assertVisaDocAccess(auth, application);
+  const rows = await studentDocRepo.listFiledStudyDocuments(application.student_id);
+  return rows.map(studyDocumentDto);
+}
+
+// Le conseiller reconnaît qu'un document déjà déposé pour l'université est le même
+// que celui demandé pour le visa. Le fichier est repris, sans nouvel envoi de l'étudiant.
+async function reuseStudyDocumentForVisa(auth, applicationId, payload) {
+  const application = await appRepo.findById(applicationId);
+  if (!application) throw fail("Candidature introuvable.", 404);
+  assertVisaDocReview(auth, application);
+  assertVisaAppointment(application);
+  if (application.status !== "ACCEPTED" || ["ACCEPTED", "REJECTED"].includes(application.visa_status)) {
+    throw fail("Ce dossier visa n'accepte plus de nouveaux documents.", 409);
+  }
+
+  const source = await studentDocRepo.findFiledStudyDocument(application.student_id, String(payload?.sourceDocumentId || ""));
+  if (!source) throw fail("Ce document déjà déposé est introuvable.", 404);
+  const requirements = await studentDocRepo.findActiveVisaRequirementsByCountryId(application.country_id);
+  const requirement = requirements.find((row) => row.id === String(payload?.requirementId || "").trim());
+  if (!requirement) throw fail("Ce document ne fait pas partie de la checklist visa de ce dossier.", 404);
+
+  await studentDocRepo.upsertForRequirementIds(application.student_id, [requirement.id], {
+    fileUrl: source.file_url,
+    originalFilename: source.original_filename,
+    storedFilename: source.stored_filename,
+    mimeType: source.mime_type,
+    fileSize: source.file_size
+  });
+  await studentDocRepo.updateStatusForRequirementIds(application.student_id, [requirement.id], "VALIDATED", auth.sub, null);
+  await universityApplicationService.maybeAdvanceVisaAfterDocs(application.id);
+  const checklist = await getVisaChecklist(application.country_id, application.student_id);
+  return checklist.find((item) => item.requirementId === requirement.id);
 }
 
 async function getVisaChecklistForApplication(auth, applicationId) {
@@ -608,5 +685,7 @@ module.exports = {
   uploadVisaDocument,
   uploadVisaDocumentForStudent,
   getVisaChecklistForApplication,
+  listStudyDocumentsForApplication,
+  reuseStudyDocumentForVisa,
   reviewVisaDocument
 };

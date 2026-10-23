@@ -108,6 +108,14 @@ async function diagnostic(req, res) {
   }
 }
 
+async function resetDiagnostic(req, res) {
+  try {
+    res.json(await whatsappService.resetDiagnosticCounters(req.auth));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function unreadCount(req, res) {
   try {
     res.json(await whatsappService.unreadCount(req.auth));
@@ -116,4 +124,4 @@ async function unreadCount(req, res) {
   }
 }
 
-module.exports = { listConversations, getMessages, sendMessage, hideMessage, sendMedia, getMedia, diagnostic, setMuted, setBlocked, linkStudent, assignOwner, unreadCount };
+module.exports = { listConversations, getMessages, sendMessage, hideMessage, sendMedia, getMedia, diagnostic, resetDiagnostic, setMuted, setBlocked, linkStudent, assignOwner, unreadCount };

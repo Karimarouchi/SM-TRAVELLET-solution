@@ -473,6 +473,48 @@ async function deleteOfficial(userId, month) {
   return result.rows[0] || null;
 }
 
+async function listSalaryPaymentsForMonth(month) {
+  const result = await query(
+    `SELECT p.id, p.user_id, p.month::text AS month, p.amount, p.paid_on::text AS paid_on, u.prenom, u.nom
+     FROM hr_salary_payments p JOIN users u ON u.id = p.user_id
+     WHERE p.month = $1
+     ORDER BY u.nom, u.prenom`,
+    [month]
+  );
+  return result.rows;
+}
+
+async function listSalaryPaymentsForYear(year) {
+  const result = await query(
+    `SELECT p.id, p.user_id, p.month::text AS month, p.amount, p.paid_on::text AS paid_on, u.prenom, u.nom
+     FROM hr_salary_payments p JOIN users u ON u.id = p.user_id
+     WHERE p.month >= $1 AND p.month < $2
+     ORDER BY p.paid_on DESC, p.created_at DESC`,
+    [`${year}-01-01`, `${Number(year) + 1}-01-01`]
+  );
+  return result.rows;
+}
+
+async function findSalaryPayment(id) {
+  const result = await query("SELECT id, user_id, month::text AS month FROM hr_salary_payments WHERE id = $1", [id]);
+  return result.rows[0] || null;
+}
+
+async function insertSalaryPayment({ userId, month, amount, paidOn }) {
+  const result = await query(
+    `INSERT INTO hr_salary_payments (user_id, month, amount, paid_on)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id`,
+    [userId, month, amount, paidOn]
+  );
+  return result.rows[0];
+}
+
+async function deleteSalaryPayment(id) {
+  const result = await query("DELETE FROM hr_salary_payments WHERE id = $1", [id]);
+  return result.rowCount > 0;
+}
+
 module.exports = {
   commissionsByUser,
   unpaidCommissionsByUser,
@@ -514,6 +556,11 @@ module.exports = {
   scheduleDocumentRequest,
   listDuePayslipRequests,
   markPayslipReminded,
+  listSalaryPaymentsForMonth,
+  listSalaryPaymentsForYear,
+  findSalaryPayment,
+  insertSalaryPayment,
+  deleteSalaryPayment,
   listEntries,
   insertEntry,
   findEntry,

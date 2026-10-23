@@ -7,7 +7,11 @@ import {
   retryPostponedApplication,
   fetchCountryUniversities,
   getSession,
+  fetchDepositRecap,
   markApplicationApplied,
+  type DepositRecap,
+  correctApplicationUniversity,
+  deleteDepositedApplication,
   updateApplicationPortalAccount,
   markApplicationTranslationDone,
   reapplyApplication,
@@ -18,6 +22,7 @@ import {
   type CountryUniversity,
   type UniversityApplication
 } from "@/lib/auth";
+import { confirmDialog } from "@/components/ui/dialog-host";
 import { cn, studentProfilePath } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { MeetLinkButton } from "@/components/MeetLinkButton";
@@ -36,6 +41,7 @@ import {
   Send,
   ThumbsDown,
   ThumbsUp,
+  Trash2,
   Video,
   XCircle
 } from "lucide-react";
@@ -97,7 +103,7 @@ export default function ApplicationTimeline({
 function ApplicationCard({ app, canAct, canMarkTranslation, onChanged }: { app: UniversityApplication; canAct: boolean; canMarkTranslation: boolean; onChanged: () => void }) {
   // La liste du RDV mélange plusieurs étudiants : leur nom est joint à chaque candidature.
   const studentName = (app as UniversityApplication & { studentName?: string }).studentName;
-  const [modal, setModal] = useState<null | "apply" | "interview" | "reject" | "reapply" | "meet" | "postpone">(null);
+  const [modal, setModal] = useState<null | "apply" | "interview" | "reject" | "reapply" | "meet" | "postpone" | "rename">(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const inTranslation = app.status === "READY_TO_APPLY" && !app.translationDoneAt;
@@ -282,9 +288,31 @@ function ApplicationCard({ app, canAct, canMarkTranslation, onChanged }: { app: 
               </button>
             </>
           )}
+          {app.appliedAt && (
+            <>
+              <button type="button" disabled={busy} onClick={() => setModal("rename")} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-dark hover:bg-slate-200">
+                <Pencil className="h-3 w-3" /> Modifier le nom
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => act(async () => {
+                  const ok = await confirmDialog(`Supprimer la candidature ${app.universityName} ? Elle disparaît de la liste. Les commissions non versées de cette candidature sont retirées, pour le conseiller et le Responsable Dossier. Aucun e-mail ne sera envoyé.`, { tone: "danger", confirmLabel: "Supprimer" });
+                  if (!ok) return;
+                  await deleteDepositedApplication(app.id);
+                })}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-100"
+              >
+                <Trash2 className="h-3 w-3" /> Supprimer
+              </button>
+            </>
+          )}
         </div>
       )}
 
+      {modal === "rename" && (
+        <RenameUniversityModal app={app} onClose={() => setModal(null)} onDone={() => { setModal(null); onChanged(); }} />
+      )}
       {modal === "apply" && (
         <ApplyModal app={app} onClose={() => setModal(null)} onDone={() => { setModal(null); onChanged(); }} />
       )}
@@ -412,14 +440,56 @@ function StaffMeetModal({ app, onClose, onDone }: { app: UniversityApplication; 
   );
 }
 
-function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+function ModalShell({ title, onClose, wide, children }: { title: string; onClose: () => void; wide?: boolean; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-3" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+      <div className={cn("w-full overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl", wide ? "max-h-[90vh] max-w-lg" : "max-w-md")}>
         <h3 className="font-display text-lg font-bold text-dark">{title}</h3>
         {children}
       </div>
     </div>
+  );
+}
+
+function RenameUniversityModal({ app, onClose, onDone }: { app: UniversityApplication; onClose: () => void; onDone: () => void }) {
+  const [universityName, setUniversityName] = useState(app.universityName || "");
+  const [fieldOfStudy, setFieldOfStudy] = useState(app.fieldOfStudy || "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async () => {
+    if (universityName.trim().length < 2) return setError("Saisissez le nom de l'université.");
+    setBusy(true);
+    setError("");
+    try {
+      await correctApplicationUniversity(app.id, { universityName: universityName.trim(), fieldOfStudy: fieldOfStudy.trim() });
+      onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <ModalShell title="Modifier l'université" onClose={onClose}>
+      <div className="mt-4 space-y-3">
+        <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">Cette correction reste interne : aucun e-mail et aucune notification ne partent.</p>
+        <div>
+          <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Nom de l'université *</label>
+          <input value={universityName} onChange={(e) => setUniversityName(e.target.value)} maxLength={200} className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Filière</label>
+          <input value={fieldOfStudy} onChange={(e) => setFieldOfStudy(e.target.value)} maxLength={200} className="w-full rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm" />
+        </div>
+        {error && <p className="text-xs text-red-500">{error}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="rounded-lg border border-line px-4 py-2 text-xs font-bold text-muted">Annuler</button>
+          <button type="button" disabled={busy} onClick={submit} className="rounded-lg bg-brand px-4 py-2 text-xs font-bold text-white disabled:opacity-60">Enregistrer</button>
+        </div>
+      </div>
+    </ModalShell>
   );
 }
 
@@ -515,7 +585,50 @@ function PortalAccountModal({ app, onClose, onDone }: { app: UniversityApplicati
   );
 }
 
+const DOC_STATUS: Record<string, { label: string; tone: string }> = {
+  VALIDATED: { label: "Validé", tone: "text-emerald-700" },
+  SUBMITTED: { label: "À valider", tone: "text-amber-700" },
+  REJECTED: { label: "Refusé", tone: "text-red-600" },
+  PENDING: { label: "Manquant", tone: "text-red-600" }
+};
+
+function budgetLabel(value: string | null | undefined) {
+  if (!value) return null;
+  if (/€|DT|EUR|TND/i.test(value)) return value;
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return value;
+  return `${amount.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} €`;
+}
+
+function dayLabel(iso: string | null | undefined) {
+  if (!iso) return "";
+  const [year, month, day] = iso.slice(0, 10).split("-");
+  if (!year || !month || !day) return iso;
+  return `${day}/${month}/${year}`;
+}
+
+function translationLabel(status: string | null) {
+  if (!status) return null;
+  if (status === "VALIDATED") return "Traduction validée";
+  if (status === "REJECTED") return "Traduction refusée";
+  if (status === "SUBMITTED") return "Traduction à valider";
+  return "Traduction demandée";
+}
+
+function RecapLine({ label, value }: { label: string; value: string | null | undefined }) {
+  if (!value) return null;
+  return (
+    <p className="flex items-start justify-between gap-3 text-xs">
+      <span className="shrink-0 text-muted">{label}</span>
+      <span className="text-right font-semibold text-dark">{value}</span>
+    </p>
+  );
+}
+
 function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onClose: () => void; onDone: () => void }) {
+  const [step, setStep] = useState<"recap" | "form" | "confirm">("recap");
+  const [recap, setRecap] = useState<DepositRecap | null>(null);
+  const [recapError, setRecapError] = useState("");
   const [appliedAt, setAppliedAt] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
   const [portalLogin, setPortalLogin] = useState("");
@@ -525,21 +638,34 @@ function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onCl
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    let cancelled = false;
+    fetchDepositRecap(app.id)
+      .then((data) => { if (!cancelled) setRecap(data); })
+      .catch((err) => { if (!cancelled) setRecapError(err instanceof Error ? err.message : "Impossible de charger le récapitulatif."); });
+    return () => { cancelled = true; };
+  }, [app.id]);
+
+  const formError = () => {
+    if (!portalUrl.trim()) return "Saisissez le lien de la plateforme de l'université.";
+    if (!/^https?:\/\/\S+$/i.test(portalUrl.trim())) return "Le lien de la plateforme doit commencer par http:// ou https://.";
+    if (!portalLogin.trim()) return "Saisissez l'identifiant du compte (e-mail ou identifiant de la plateforme).";
+    if (!portalPassword) return "Saisissez le mot de passe du compte créé sur la plateforme de l'université.";
+    return "";
+  };
+
+  const goConfirm = () => {
+    const message = formError();
+    if (message) return setError(message);
+    setError("");
+    setStep("confirm");
+  };
+
   const submit = async () => {
-    if (!portalUrl.trim()) {
-      setError("Saisissez le lien de la plateforme de l'université.");
-      return;
-    }
-    if (!portalLogin.trim()) {
-      setError("Saisissez l'identifiant du compte (e-mail ou identifiant de la plateforme).");
-      return;
-    }
-    if (!portalPassword) {
-      setError("Saisissez le mot de passe du compte créé sur la plateforme de l'université.");
-      return;
-    }
-    if (!/^https?:\/\/\S+$/i.test(portalUrl.trim())) {
-      setError("Le lien de la plateforme doit commencer par http:// ou https://.");
+    const message = formError();
+    if (message) {
+      setError(message);
+      setStep("form");
       return;
     }
     setBusy(true);
@@ -555,17 +681,141 @@ function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onCl
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur.");
+      setStep("form");
     } finally {
       setBusy(false);
     }
   };
+
+  const requiredDocs = recap?.documents.filter((d) => d.required) || [];
+  const validatedDocs = requiredDocs.filter((d) => d.status === "VALIDATED");
+  const problems = recap
+    ? [
+        ...recap.documents.filter((d) => d.required && d.status !== "VALIDATED").map((d) => `${d.name} : ${DOC_STATUS[d.status]?.label || d.status}`),
+        ...recap.documents.filter((d) => d.translationStatus && d.translationStatus !== "VALIDATED").map((d) => `${d.name} : ${translationLabel(d.translationStatus)}`),
+        ...(recap.payment && !recap.payment.tranche1.complete ? [`Inscription : reste ${formatMoney(recap.payment.tranche1.remaining, recap.payment.currency)}`] : []),
+        ...(recap.application.status && recap.application.status !== "READY_TO_APPLY" ? ["Cette candidature est déjà déposée. Rechargez la page."] : [])
+      ]
+    : [];
+
+  if (step === "recap") {
+    return (
+      <ModalShell title="Récapitulatif avant le dépôt" onClose={onClose} wide>
+        <div className="mt-4 space-y-3">
+          <p className="text-xs text-muted">Vérifiez chaque détail de cette candidature avant de saisir le compte de l'université.</p>
+          {recapError && <p className="text-xs text-red-500">{recapError}</p>}
+          {!recap && !recapError && <p className="text-xs text-muted">Chargement…</p>}
+          {recap && (
+            <>
+              <div className="space-y-1.5 rounded-xl border border-brand/20 bg-brand/5 px-3 py-2.5">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted">Candidature</p>
+                <RecapLine label="Université" value={recap.application.universityName} />
+                <RecapLine label="Filière" value={recap.application.fieldOfStudy} />
+                <RecapLine label="Pays" value={recap.application.countryName} />
+                <RecapLine label="Responsable Dossier" value={recap.application.rdvName} />
+                <RecapLine label="Conseiller" value={recap.student.salesName} />
+              </div>
+              <div className="space-y-1.5 rounded-xl border border-line px-3 py-2.5">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted">Étudiant</p>
+                <RecapLine label="Nom" value={recap.student.name} />
+                <RecapLine label="E-mail" value={recap.student.email} />
+                <RecapLine label="Téléphone" value={recap.student.phone} />
+                <RecapLine label="Ville" value={recap.student.city} />
+                <RecapLine label="Nationalité" value={recap.student.nationality} />
+                <RecapLine label="Passeport" value={recap.student.passportNumber ? `${recap.student.passportNumber}${recap.student.passportExpiresOn ? ` · expire le ${dayLabel(recap.student.passportExpiresOn)}` : ""}` : null} />
+                <RecapLine label="Niveau actuel" value={recap.student.currentStudyLevel} />
+                <RecapLine label="Dernier diplôme" value={recap.student.lastDiploma} />
+                <RecapLine label="Niveau visé" value={recap.student.targetLevel} />
+                <RecapLine label="Formation" value={recap.student.targetField} />
+                <RecapLine label="Budget annuel" value={budgetLabel(recap.student.annualBudget)} />
+                <RecapLine label="Français" value={recap.student.french} />
+                <RecapLine label="Anglais" value={recap.student.english} />
+                <RecapLine label="Italien" value={recap.student.italian} />
+              </div>
+              <div className="space-y-1.5 rounded-xl border border-line px-3 py-2.5">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted">Paiement · {recap.application.countryName}</p>
+                {recap.payment ? (
+                  <>
+                    <RecapLine label="Tranche 1 · inscription" value={`${formatMoney(recap.payment.tranche1.paid, recap.payment.currency)} / ${formatMoney(recap.payment.tranche1.due, recap.payment.currency)}${recap.payment.tranche1.complete ? " · réglée" : ` · reste ${formatMoney(recap.payment.tranche1.remaining, recap.payment.currency)}`}`} />
+                    <RecapLine label="Tranche 2 · visa" value={`${formatMoney(recap.payment.tranche2.paid, recap.payment.currency)} / ${formatMoney(recap.payment.tranche2.due, recap.payment.currency)}${recap.payment.tranche2.complete ? " · réglée" : ` · reste ${formatMoney(recap.payment.tranche2.remaining, recap.payment.currency)}`}`} />
+                  </>
+                ) : (
+                  <p className="text-xs text-muted">Aucun paiement enregistré pour ce pays.</p>
+                )}
+              </div>
+              <div className="rounded-xl border border-line px-3 py-2.5">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted">
+                  Documents de {recap.application.countryName} · {validatedDocs.length}/{requiredDocs.length} obligatoires validés
+                </p>
+                <ul className="mt-2 space-y-1.5">
+                  {recap.documents.map((doc) => {
+                    const status = DOC_STATUS[doc.status] || { label: doc.status, tone: "text-muted" };
+                    const translation = translationLabel(doc.translationStatus);
+                    return (
+                      <li key={`${doc.universityName || "pays"}:${doc.name}`} className="flex items-start justify-between gap-3 text-xs">
+                        <span className="min-w-0">
+                          <span className="block font-semibold text-dark">{doc.name}{doc.required ? "" : " (facultatif)"}</span>
+                          {doc.universityName && <span className="block text-[11px] text-muted">Propre à {doc.universityName}</span>}
+                          {doc.originalFilename && <span className="block truncate text-[11px] text-muted">{doc.originalFilename}</span>}
+                          {translation && <span className={cn("block text-[11px]", doc.translationStatus === "VALIDATED" ? "text-emerald-700" : "text-amber-700")}>{translation}</span>}
+                        </span>
+                        <span className={cn("shrink-0 font-bold", status.tone)}>{status.label}</span>
+                      </li>
+                    );
+                  })}
+                  {recap.documents.length === 0 && <li className="text-xs text-muted">Aucun document exigé pour ce pays.</li>}
+                </ul>
+              </div>
+              {problems.length > 0 && (
+                <div className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">
+                  <p className="font-bold">À corriger avant le dépôt</p>
+                  <ul className="mt-1 list-disc pl-4">
+                    {problems.map((line) => <li key={line}>{line}</li>)}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} className="rounded-lg border border-line px-4 py-2 text-xs font-bold text-muted">Annuler</button>
+            <button type="button" disabled={!recap?.ready} onClick={() => setStep("form")} className="rounded-lg bg-brand px-4 py-2 text-xs font-bold text-white disabled:opacity-60">Les détails sont justes, continuer</button>
+          </div>
+        </div>
+      </ModalShell>
+    );
+  }
+
+  if (step === "confirm") {
+    return (
+      <ModalShell title="Confirmer ces informations" onClose={onClose} wide>
+        <div className="mt-4 space-y-3">
+          <p className="text-xs text-muted">Relisez le compte créé sur la plateforme. Le dépôt envoie l'e-mail à l'étudiant.</p>
+          <div className="space-y-1.5 rounded-xl border border-line px-3 py-2.5">
+            <RecapLine label="Université" value={app.universityName} />
+            <RecapLine label="Filière" value={app.fieldOfStudy} />
+            <RecapLine label="Pays" value={app.countryName} />
+            <RecapLine label="Date de dépôt" value={dayLabel(appliedAt)} />
+            <RecapLine label="Identifiant" value={portalLogin.trim()} />
+            <RecapLine label="Mot de passe" value={portalPassword} />
+            <RecapLine label="Lien" value={portalUrl.trim()} />
+            <RecapLine label="Commentaire" value={notes.trim() || "Aucun"} />
+          </div>
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={() => setStep("form")} className="rounded-lg border border-line px-4 py-2 text-xs font-bold text-muted">Modifier</button>
+            <button type="button" disabled={busy} onClick={submit} className="rounded-lg bg-brand px-4 py-2 text-xs font-bold text-white disabled:opacity-60">Confirmer la candidature</button>
+          </div>
+        </div>
+      </ModalShell>
+    );
+  }
 
   return (
     <ModalShell title="Marquer comme candidature déposée" onClose={onClose}>
       <div className="mt-4 space-y-3">
         <div className="rounded-lg border border-brand/20 bg-brand/5 px-3 py-2">
           <p className="text-[11px] font-bold uppercase tracking-wider text-muted">Université visée par l'étudiant</p>
-          <p className="mt-0.5 text-sm font-bold text-dark">{app.universityName || "—"}</p>
+          <p className="mt-0.5 text-sm font-bold text-dark">{app.universityName || "—"}{app.fieldOfStudy ? ` · ${app.fieldOfStudy}` : ""} · {app.countryName}</p>
         </div>
         <div>
           <label className="mb-1 block text-[11px] font-bold uppercase text-muted">Date de dépôt *</label>
@@ -594,8 +844,8 @@ function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onCl
         </div>
         {error && <p className="text-xs text-red-500">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="rounded-lg border border-line px-4 py-2 text-xs font-bold text-muted">Annuler</button>
-          <button type="button" disabled={busy} onClick={submit} className="rounded-lg bg-brand px-4 py-2 text-xs font-bold text-white disabled:opacity-60">Confirmer la candidature</button>
+          <button type="button" onClick={() => setStep("recap")} className="rounded-lg border border-line px-4 py-2 text-xs font-bold text-muted">Retour au récapitulatif</button>
+          <button type="button" disabled={busy} onClick={goConfirm} className="rounded-lg bg-brand px-4 py-2 text-xs font-bold text-white disabled:opacity-60">Vérifier avant d'envoyer</button>
         </div>
       </div>
     </ModalShell>

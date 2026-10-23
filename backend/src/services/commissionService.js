@@ -136,6 +136,51 @@ async function awardCommission({ userId, studentId, countryId, role, stage, appl
   }
 }
 
+// La candidature disparaît : les commissions gagnées grâce à elle
+// (dépôt, acceptation, visa) sont retirées pour le conseiller et le
+// Responsable Dossier. Pas de notification. Une commission déjà versée reste.
+// « Documents validés » et « code utilisé » restent : les documents restent.
+async function voidForRemovedApplication(application, otherApplications) {
+  const others = (otherApplications || []).filter((row) => row.country_id === application.country_id);
+  const stillJustified = {
+    APPLIED: others.some((row) => row.applied_at),
+    ACCEPTED: others.some((row) => row.status === "ACCEPTED" || row.visa_status),
+    VISA_DOCUMENTS_VALIDATED: others.some((row) => row.visa_docs_validated_at),
+    VISA_SUBMITTED: others.some((row) => row.visa_status === "SUBMITTED" || row.visa_status === "ACCEPTED"),
+    VISA_ACCEPTED: others.some((row) => row.visa_status === "ACCEPTED")
+  };
+  const earnings = await commissionRepo.listForStudentCountry(application.student_id, application.country_id);
+  const removed = [];
+  for (const earning of earnings) {
+    if (earning.stage === "CODE_CLAIMED" || earning.stage === "DOCUMENTS_VALIDATED") continue;
+    if (!Object.prototype.hasOwnProperty.call(stillJustified, earning.stage)) continue;
+    if (earning.application_id && earning.application_id !== application.id && stillJustified[earning.stage]) continue;
+    if (stillJustified[earning.stage]) {
+      if (earning.application_id === application.id) {
+        const keeper = others.find((row) => {
+          if (earning.stage === "APPLIED") return row.applied_at;
+          if (earning.stage === "ACCEPTED") return row.status === "ACCEPTED" || row.visa_status;
+          if (earning.stage === "VISA_DOCUMENTS_VALIDATED") return row.visa_docs_validated_at;
+          if (earning.stage === "VISA_SUBMITTED") return row.visa_status === "SUBMITTED" || row.visa_status === "ACCEPTED";
+          return row.visa_status === "ACCEPTED";
+        });
+        if (keeper) await commissionRepo.retargetApplication(earning.id, keeper.id);
+      }
+      continue;
+    }
+    if (earning.application_id && earning.application_id !== application.id) continue;
+    const gone = await commissionRepo.removeEarning(earning.id);
+    if (gone) removed.push(gone);
+  }
+  if (removed.length) {
+    logger.info("Commissions retirées avec la candidature", {
+      applicationId: application.id,
+      lines: removed.map((row) => ({ role: row.role, stage: row.stage, amount: row.amount_dinar }))
+    });
+  }
+  return removed;
+}
+
 module.exports = {
   ROLES,
   STAGES,
@@ -145,5 +190,6 @@ module.exports = {
   removeRule,
   listAllEarnings,
   listEarningsForUser,
-  awardCommission
+  awardCommission,
+  voidForRemovedApplication
 };

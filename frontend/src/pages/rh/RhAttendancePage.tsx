@@ -18,7 +18,7 @@ function detailOf(day: HrAttendanceDay) {
   else if (day.confirmed) parts.push("marqué manuellement");
   else if (day.status === "NO_REPLY") parts.push("sans réponse, à confirmer");
   else if (day.status === "ABSENT") parts.push("à confirmer");
-  else if (day.waived || day.status === "WAIVED") parts.push("journée non comptée");
+  else if (day.waived || day.status === "WAIVED") parts.push("remis en présent");
   else if (day.confirmedLate) parts.push("retard validé, compté dans la paie");
   else if (day.status === "PRESENT" && day.lateMinutes + day.earlyMinutes > 0) parts.push("retard à confirmer, hors paie");
   else if (day.corrected) parts.push("corrigé");
@@ -38,10 +38,7 @@ export default function RhAttendancePage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<HrAttendanceDay | null>(null);
-  const [late, setLate] = useState("");
-  const [early, setEarly] = useState("");
   const [note, setNote] = useState("");
-  const [waived, setWaived] = useState(false);
   const [absent, setAbsent] = useState(false);
   const [lateConfirmed, setLateConfirmed] = useState(false);
   const [amount, setAmount] = useState("");
@@ -87,10 +84,7 @@ export default function RhAttendancePage() {
 
   const openDay = (day: HrAttendanceDay) => {
     setEditing(day);
-    setLate(day.corrected && !day.waived ? String(day.lateMinutes) : "");
-    setEarly(day.corrected && !day.waived ? String(day.earlyMinutes) : "");
     setNote(day.note);
-    setWaived(day.waived);
     setAbsent(day.confirmed);
     setLateConfirmed(day.confirmedLate);
   };
@@ -124,19 +118,15 @@ export default function RhAttendancePage() {
             row={selected}
             busy={busy}
             editing={editing}
-            late={late}
-            early={early}
             note={note}
-            waived={waived}
             absent={absent}
             amount={amount}
-            onLate={setLate}
-            onEarly={setEarly}
+            workStart={data.workStart}
+            workEnd={data.workEnd}
             onNote={setNote}
-            onWaived={(value) => { setWaived(value); if (value) { setAbsent(false); setLateConfirmed(false); } }}
-            onAbsent={(value) => { setAbsent(value); if (value) { setWaived(false); setLateConfirmed(false); } }}
+            onAbsent={(value) => { setAbsent(value); if (value) setLateConfirmed(false); }}
             lateConfirmed={lateConfirmed}
-            onLateConfirmed={(value) => { setLateConfirmed(value); if (value) { setAbsent(false); setWaived(false); } }}
+            onLateConfirmed={(value) => { setLateConfirmed(value); if (value) setAbsent(false); }}
             onAmount={setAmount}
             onOpen={openDay}
             onSaveDay={() => {
@@ -145,12 +135,12 @@ export default function RhAttendancePage() {
                 await saveHrAttendanceDay({
                   userId: selected.id,
                   day: editing.day,
-                  waived: absent ? false : waived,
-                  lateMinutes: absent || waived || late.trim() === "" ? null : Number(late),
-                  earlyMinutes: absent || waived || early.trim() === "" ? null : Number(early),
+                  waived: false,
+                  lateMinutes: null,
+                  earlyMinutes: null,
                   note,
                   confirmedAbsent: absent,
-                  confirmedLate: absent || waived ? false : lateConfirmed
+                  confirmedLate: absent ? false : lateConfirmed
                 });
                 setEditing(null);
               });
@@ -165,7 +155,11 @@ export default function RhAttendancePage() {
             onSaveAmount={() => void run(() => saveHrAttendanceAmount(selected.id, month, amount.trim() === "" ? null : amount))}
             picked={picked}
             onToggle={(day) => setPicked((current) => current.includes(day) ? current.filter((item) => item !== day) : [...current, day])}
-            onConfirm={(absent) => void run(async () => { await confirmHrAbsences(selected.id, picked, absent); setPicked([]); })}
+            onConfirm={(absent) => void run(async () => {
+              if (!picked.length) throw new Error("Cochez le jour à remettre en présent.");
+              await confirmHrAbsences(selected.id, picked, absent);
+              setPicked([]);
+            })}
           />
         </div>
       )}
@@ -174,24 +168,20 @@ export default function RhAttendancePage() {
 }
 
 function EmployeeDetail({
-  row, busy, editing, late, early, note, waived, absent, lateConfirmed, amount, picked,
-  onLate, onEarly, onNote, onWaived, onAbsent, onLateConfirmed, onAmount, onOpen, onSaveDay, onClearDay,   onSaveAmount, onToggle, onConfirm
+  row, busy, editing, note, absent, lateConfirmed, amount, workStart, workEnd, picked,
+  onNote, onAbsent, onLateConfirmed, onAmount, onOpen, onSaveDay, onClearDay, onSaveAmount, onToggle, onConfirm
 }: {
   row: HrAttendanceEmployee;
   busy: boolean;
   editing: HrAttendanceDay | null;
-  late: string;
-  early: string;
   note: string;
-  waived: boolean;
   absent: boolean;
   lateConfirmed: boolean;
   amount: string;
+  workStart: string;
+  workEnd: string;
   picked: string[];
-  onLate: (value: string) => void;
-  onEarly: (value: string) => void;
   onNote: (value: string) => void;
-  onWaived: (value: boolean) => void;
   onAbsent: (value: boolean) => void;
   onLateConfirmed: (value: boolean) => void;
   onAmount: (value: string) => void;
@@ -229,21 +219,38 @@ function EmployeeDetail({
       {editing && (
         <form className="rounded-[24px] border border-orange-200 bg-orange-50 p-5" onSubmit={(e) => { e.preventDefault(); onSaveDay(); }}>
           <h3 className="font-display font-bold text-dark">Corriger {fr(editing.day)}</h3>
-          <div className="mt-3 flex flex-wrap items-end gap-2">
-            <label className="text-xs font-bold text-mid">Retard (min)<input value={late} onChange={(e) => onLate(e.target.value)} disabled={waived || absent} className="mt-1 block w-28 rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm disabled:opacity-50" /></label>
-            <label className="text-xs font-bold text-mid">Départ tôt (min)<input value={early} onChange={(e) => onEarly(e.target.value)} disabled={waived || absent} className="mt-1 block w-28 rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm disabled:opacity-50" /></label>
-            <label className="min-w-[160px] flex-1 text-xs font-bold text-mid">Note<input value={note} onChange={(e) => onNote(e.target.value)} className="mt-1 w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm" /></label>
-          </div>
+          <p className="mt-1 text-xs text-muted">Journée {workStart} – {workEnd}. Le retard et la sortie anticipée sont calculés. Sans validation, ce jour compte comme s'il n'y avait pas de retard.</p>
+          {editing.status === "PRESENT" ? (
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <div className="rounded-2xl bg-white px-3 py-3">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Retard d'arrivée</p>
+                <p className="mt-1 font-display text-2xl font-extrabold text-dark">{editing.lateMinutes} min</p>
+                <p className="mt-1 text-[11px] text-muted">{editing.arrival ? `Arrivée ${editing.arrival}` : "Pas d'arrivée"}</p>
+              </div>
+              <div className="rounded-2xl bg-white px-3 py-3">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Sortie anticipée</p>
+                <p className="mt-1 font-display text-2xl font-extrabold text-dark">{editing.earlyMinutes} min</p>
+                <p className="mt-1 text-[11px] text-muted">{editing.departure ? `Départ ${editing.departure}` : "Pas de départ"}</p>
+              </div>
+              <div className="rounded-2xl bg-white px-3 py-3">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Total</p>
+                <p className="mt-1 font-display text-2xl font-extrabold text-dark">{editing.lateMinutes + editing.earlyMinutes} min</p>
+                <p className="mt-1 text-[11px] text-muted">{lateConfirmed ? "Retenu du salaire" : "Pas encore validé"}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-dark">Ce jour n'est pas une présence. Le retard ne s'applique pas.</p>
+          )}
+          {editing.status === "PRESENT" && editing.lateMinutes + editing.earlyMinutes > 0 && (
+            <label className="mt-3 flex items-center gap-2 text-xs font-semibold text-mid">
+              <input type="checkbox" checked={lateConfirmed} disabled={absent} onChange={(e) => onLateConfirmed(e.target.checked)} /> Valider ce retard
+            </label>
+          )}
           <label className="mt-3 flex items-center gap-2 text-xs font-semibold text-mid">
             <input type="checkbox" checked={absent} onChange={(e) => onAbsent(e.target.checked)} /> Mettre ce jour en absence
           </label>
-          {editing.status === "PRESENT" && (editing.lateMinutes + editing.earlyMinutes > 0 || editing.confirmedLate) ? (
-            <label className="mt-2 flex items-center gap-2 text-xs font-semibold text-mid">
-              <input type="checkbox" checked={lateConfirmed} onChange={(e) => onLateConfirmed(e.target.checked)} /> Valider le retard de ce jour
-            </label>
-          ) : null}
-          <label className="mt-2 flex items-center gap-2 text-xs font-semibold text-mid">
-            <input type="checkbox" checked={waived} onChange={(e) => onWaived(e.target.checked)} /> Ne pas compter cette journée
+          <label className="mt-3 block text-xs font-bold text-mid">Note
+            <input value={note} onChange={(e) => onNote(e.target.value)} className="mt-1 w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm" />
           </label>
           <div className="mt-3 flex gap-2">
             <button type="submit" disabled={busy} className="rounded-xl bg-orange-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60">Enregistrer</button>
@@ -254,10 +261,10 @@ function EmployeeDetail({
 
       <section className="overflow-hidden rounded-[24px] border border-line bg-white">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
-          <p className="text-xs text-muted">{picked.length ? `${picked.length} jour(s) sélectionné(s). Valider retire un jour de salaire. Retirer annule cette validation.` : "Cochez les jours à compter comme absence, puis validez. Avant ça, ils ne retirent rien du salaire."}</p>
+          <p className="text-xs text-muted">{picked.length ? `${picked.length} jour(s) sélectionné(s). Valider retire un jour de salaire. Retirer remet le jour en présent.` : "Cochez le jour absent, puis Retirer pour le remettre en présent. Valider retire le jour du salaire."}</p>
           <div className="flex gap-2">
             <button type="button" disabled={busy || picked.length === 0} onClick={() => onConfirm(true)} className="rounded-xl bg-orange-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-40">Valider l'absence</button>
-            <button type="button" disabled={busy || picked.length === 0} onClick={() => onConfirm(false)} className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-dark ring-1 ring-line disabled:opacity-40">Retirer</button>
+            <button type="button" disabled={busy} onClick={() => onConfirm(false)} className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-dark ring-1 ring-line disabled:opacity-40">Retirer</button>
           </div>
         </div>
         <table className="w-full text-left text-sm">

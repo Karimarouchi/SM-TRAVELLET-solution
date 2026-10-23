@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { spawn } = require("child_process");
+const { spawn, spawnSync } = require("child_process");
 const crypto = require("crypto");
 const hrRepo = require("../repositories/hrRepository");
 const payrollRepo = require("../repositories/hrPayrollRepository");
@@ -67,9 +67,20 @@ function suggestUser(staff, slip) {
   return best ? best.id : null;
 }
 
+function resolvePython() {
+  const names = process.platform === "win32" ? ["python", "python3"] : ["python3", "python"];
+  for (const name of names) {
+    const probe = spawnSync(name, ["--version"], { windowsHide: true });
+    if (!probe.error && probe.status === 0) return name;
+  }
+  return names[0];
+}
+
+const PYTHON = resolvePython();
+
 function runPython(args) {
   return new Promise((resolve, reject) => {
-    const child = spawn("python", [SCRIPT, ...args], { windowsHide: true });
+    const child = spawn(PYTHON, [SCRIPT, ...args], { windowsHide: true });
     let out = "";
     let err = "";
     const timer = setTimeout(() => {

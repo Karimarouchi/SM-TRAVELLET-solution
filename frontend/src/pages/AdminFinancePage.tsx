@@ -1,8 +1,9 @@
 import { confirmDialog } from "@/components/ui/dialog-host";
 import CommissionsPanel from "@/components/admin/CommissionsPanel";
-import FinanceStatsSection from "@/components/admin/FinanceStats";
+import FinanceChargesPanel from "@/components/admin/FinanceChargesPanel";
 import CommissionPayoutsPanel from "@/components/admin/CommissionPayoutsPanel";
 import InvoicingPanel from "@/components/admin/InvoicingPanel";
+import FinanceStatsSection from "@/components/admin/FinanceStats";
 import { StatTile } from "@/components/admin/performance-ui";
 import StudentPaymentsPanel from "@/components/StudentPaymentsPanel";
 import { FancySelect } from "@/components/ui/fancy-select";
@@ -25,13 +26,14 @@ import { motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
-type Tab = "apercu" | "paiements" | "facturation" | "versements" | "tarifs" | "commissions";
+type Tab = "apercu" | "paiements" | "facturation" | "versements" | "tarifs" | "commissions" | "charges";
 
 const TABS: Array<{ id: Tab; label: string; icon: typeof Coins }> = [
   { id: "apercu", label: "Aperçu", icon: LayoutDashboard },
   { id: "paiements", label: "Paiements", icon: Receipt },
   { id: "facturation", label: "Facturation", icon: FileText },
   { id: "versements", label: "Versements", icon: HandCoins },
+  { id: "charges", label: "Charges", icon: Wallet },
   { id: "tarifs", label: "Tarifs", icon: Tag },
   { id: "commissions", label: "Commissions", icon: Coins }
 ];
@@ -549,12 +551,12 @@ export default function AdminFinancePage() {
   const requested = searchParams.get("tab");
   const student = searchParams.get("student");
   const [tab, setTab] = useState<Tab>(
-    requested === "paiements" || requested === "facturation" || requested === "versements" || requested === "tarifs" || requested === "commissions" ? requested : student ? "paiements" : "apercu"
+    requested === "paiements" || requested === "facturation" || requested === "versements" || requested === "tarifs" || requested === "commissions" || requested === "charges" ? requested : student ? "paiements" : "apercu"
   );
 
   // Un lien (ex. alerte « paiement non réglé ») peut changer l'onglet sans recharger la page.
   useEffect(() => {
-    if (requested === "paiements" || requested === "facturation" || requested === "versements" || requested === "tarifs" || requested === "commissions") setTab(requested);
+    if (requested === "paiements" || requested === "facturation" || requested === "versements" || requested === "tarifs" || requested === "commissions" || requested === "charges") setTab(requested);
     else if (student) setTab("paiements");
   }, [requested, student]);
 
@@ -602,6 +604,7 @@ export default function AdminFinancePage() {
       {tab === "versements" && <CommissionPayoutsPanel />}
       {tab === "tarifs" && <Pricing />}
       {tab === "commissions" && <CommissionsPanel />}
+      {tab === "charges" && <FinanceChargesPanel />}
     </main>
     </HiddenAmountsProvider>
   );

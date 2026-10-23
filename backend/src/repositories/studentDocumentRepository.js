@@ -15,6 +15,31 @@ async function findActiveRequirementsByCountryNames(names) {
   return result.rows;
 }
 
+async function listFiledStudyDocuments(studentId) {
+  const result = await query(
+    `SELECT sd.id, sd.original_filename, sd.stored_filename, sd.mime_type, sd.file_url, sd.file_size, sd.status,
+            dr.name, cu.name AS university_name
+     FROM student_documents sd
+     JOIN document_requirements dr ON dr.id = sd.document_requirement_id
+     LEFT JOIN country_universities cu ON cu.id = dr.university_id
+     WHERE sd.student_id = $1 AND sd.stored_filename IS NOT NULL AND dr.category <> 'VISA'
+     ORDER BY dr.name ASC`,
+    [studentId]
+  );
+  return result.rows;
+}
+
+async function findFiledStudyDocument(studentId, documentId) {
+  const result = await query(
+    `SELECT sd.*, dr.name
+     FROM student_documents sd
+     JOIN document_requirements dr ON dr.id = sd.document_requirement_id
+     WHERE sd.id = $1 AND sd.student_id = $2 AND sd.stored_filename IS NOT NULL AND dr.category <> 'VISA'`,
+    [documentId, studentId]
+  );
+  return result.rows[0] || null;
+}
+
 async function findStudentDocumentsByRequirementIds(studentId, requirementIds) {
   if (!requirementIds.length) return [];
   const result = await query(
@@ -90,6 +115,23 @@ async function findActiveRequirementsByUniversityIds(universityIds) {
   return result.rows;
 }
 
+// Documents de CETTE candidature : lignes du pays (non fusionnées avec un autre
+// pays) et documents propres à cette université, avec le statut réel de l'étudiant.
+async function listDossierStatusesForDeposit(countryId, universityId, studentId) {
+  const result = await query(
+    `SELECT dr.name, dr.required, dr.university_id, cu.name AS university_name,
+            COALESCE(sd.status, 'PENDING') AS status, sd.original_filename
+     FROM document_requirements dr
+     LEFT JOIN country_universities cu ON cu.id = dr.university_id
+     LEFT JOIN student_documents sd ON sd.document_requirement_id = dr.id AND sd.student_id = $3
+     WHERE dr.active = true AND dr.category = 'DOSSIER'
+       AND ((dr.university_id IS NULL AND dr.country_id = $1) OR dr.university_id = $2)
+     ORDER BY (dr.university_id IS NOT NULL), dr.display_order ASC, dr.name ASC`,
+    [countryId, universityId, studentId]
+  );
+  return result.rows;
+}
+
 // Statut des documents obligatoires propres à UNE université pour un étudiant.
 async function findRequiredActiveStatusesForUniversity(universityId, studentId) {
   const result = await query(
@@ -160,6 +202,9 @@ module.exports = {
   findActiveRequirementsByUniversityIds,
   findRequiredActiveStatusesForUniversity,
   findRequiredActiveStatusesForCountry,
+  listDossierStatusesForDeposit,
+  listFiledStudyDocuments,
+  findFiledStudyDocument,
   findStudentDocumentsByRequirementIds,
   upsertForRequirementIds,
   updateStatusForRequirementIds,

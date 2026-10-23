@@ -302,7 +302,11 @@ async function inbox(now = new Date()) {
     nextHoliday: holidays.find((row) => row.day >= today) || null
   };
   const documentRequests = await payroll.listDocumentRequests();
-  return { leave, absences, lateCertificates, contracts, payrollDrafts, documentRequests, summary };
+  const due = slips.salaryDue && slips.salaryDue.show ? slips.salaryDue : null;
+  const unpaidSalaries = due
+    ? due.unpaid.map((row) => ({ userId: row.id, prenom: row.prenom, nom: row.nom, amount: row.amount, month: due.month }))
+    : [];
+  return { leave, absences, lateCertificates, contracts, payrollDrafts, documentRequests, unpaidSalaries, summary };
 }
 
 async function listHolidays() {

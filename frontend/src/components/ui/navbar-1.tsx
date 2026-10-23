@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useState } from "react";
+import { flushSync } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Mail, Menu, Settings, X } from "lucide-react";
@@ -34,8 +35,20 @@ function CountBadge({ count }: { count: number }) {
   );
 }
 
-function AreaButton({ label, active, alert, tone, onClick }: { label: string; active: boolean; alert: boolean; tone: "brand" | "orange"; onClick: () => void }) {
-  const activeClass = tone === "orange" ? "bg-orange-500 text-white shadow" : "bg-brand text-white shadow";
+function switchAdminArea(navigate: (path: string) => void, path: string) {
+  document.documentElement.dataset.area = path.startsWith("/admin/rh") ? "rh" : "clients";
+  const go = () => navigate(path);
+  const start = (document as Document & { startViewTransition?: (callback: () => void) => void }).startViewTransition;
+  if (typeof start === "function") {
+    start.call(document, () => {
+      flushSync(go);
+    });
+    return;
+  }
+  go();
+}
+
+function AreaButton({ label, active, alert, tone, pillId, onClick }: { label: string; active: boolean; alert: boolean; tone: "brand" | "orange"; pillId: string; onClick: () => void }) {
   const dot = tone === "orange" ? "bg-orange-500" : "bg-brand";
   return (
     <button
@@ -43,12 +56,19 @@ function AreaButton({ label, active, alert, tone, onClick }: { label: string; ac
       onClick={onClick}
       aria-label={alert ? `${label}, demandes en attente` : label}
       className={cn(
-        "relative rounded-full px-3 py-1.5 text-xs font-bold transition sm:px-4",
-        active ? activeClass : "text-mid hover:text-dark",
-        alert && (tone === "orange" ? "animate-pulse bg-orange-100 text-orange-700" : "animate-pulse bg-brand/15 text-brand")
+        "relative rounded-full px-3 py-1.5 text-xs font-bold sm:px-4",
+        active ? "text-white" : "text-mid hover:text-dark",
+        alert && !active && (tone === "orange" ? "animate-pulse bg-orange-100 text-orange-700" : "animate-pulse bg-brand/15 text-brand")
       )}
     >
-      {label}
+      {active && (
+        <motion.span
+          layoutId={pillId}
+          className={cn("absolute inset-0 rounded-full shadow", tone === "orange" ? "bg-orange-500" : "bg-brand")}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+        />
+      )}
+      <span className="relative z-10">{label}</span>
       {alert && (
         <span className="absolute -right-0.5 -top-0.5 flex h-2.5 w-2.5" aria-hidden="true">
           <span className={cn("absolute inline-flex h-full w-full animate-ping rounded-full opacity-75", dot)} />
@@ -223,8 +243,8 @@ const Navbar1 = () => {
         <div className="flex min-w-0 items-center gap-3">
           {role === "ADMIN" && (
             <div className="inline-flex shrink-0 items-center rounded-full bg-slate-100 p-1" role="group" aria-label={t("Espace", "Area")}>
-              <AreaButton label={t("Clients", "Clients")} active={!rhMode} alert={rhMode && clientAttention > 0} tone="brand" onClick={() => rhMode && navigate("/admin")} />
-              <AreaButton label="RH" active={rhMode} alert={!rhMode && rhAttention > 0} tone="orange" onClick={() => !rhMode && navigate("/admin/rh")} />
+              <AreaButton label={t("Clients", "Clients")} active={!rhMode} alert={rhMode && clientAttention > 0} tone="brand" pillId="admin-area-pill" onClick={() => rhMode && switchAdminArea(navigate, "/admin")} />
+              <AreaButton label="RH" active={rhMode} alert={!rhMode && rhAttention > 0} tone="orange" pillId="admin-area-pill" onClick={() => !rhMode && switchAdminArea(navigate, "/admin/rh")} />
             </div>
           )}
           {role !== "ADMIN" && (
@@ -390,8 +410,8 @@ const Navbar1 = () => {
             <div className="flex flex-col space-y-6">
               {role === "ADMIN" && (
                 <div className="inline-flex w-max items-center rounded-full bg-slate-100 p-1">
-                  <AreaButton label="Clients" active={!rhMode} alert={rhMode && clientAttention > 0} tone="brand" onClick={() => { navigate("/admin"); toggleMenu(); }} />
-                  <AreaButton label="RH" active={rhMode} alert={!rhMode && rhAttention > 0} tone="orange" onClick={() => { navigate("/admin/rh"); toggleMenu(); }} />
+                  <AreaButton label="Clients" active={!rhMode} alert={rhMode && clientAttention > 0} tone="brand" pillId="admin-area-pill-mobile" onClick={() => { switchAdminArea(navigate, "/admin"); toggleMenu(); }} />
+                  <AreaButton label="RH" active={rhMode} alert={!rhMode && rhAttention > 0} tone="orange" pillId="admin-area-pill-mobile" onClick={() => { switchAdminArea(navigate, "/admin/rh"); toggleMenu(); }} />
                 </div>
               )}
               {role === "ADMIN" && (

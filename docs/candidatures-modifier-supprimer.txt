@@ -1,0 +1,189 @@
+CANDIDATURES, DOCUMENTS VISA ET RAPPEL DU RENDEZ-VOUS
+SM Travel — ce qui est dans le code, et comment le tester
+Date : 22 octobre 2026
+
+
+1. Principe
+
+A. Corriger ou supprimer une candidature déjà déposée ne prévient personne.
+   Aucun e-mail, aucune notification, aucune nouvelle commission.
+   Supprimer retire les commissions non encore versées gagnées sur cette
+   candidature : dépôt, acceptation, documents visa, visa déposé, visa obtenu.
+   Cela vaut pour le conseiller et pour le Responsable Dossier.
+   Une commission déjà versée (marquée payée) reste.
+   La commission « documents validés » et celle du code restent : les
+   documents de l'étudiant restent, et l'université revient à « prêt à postuler ».
+   S'il reste une autre candidature du même pays qui justifie encore l'étape,
+   la commission de cette étape reste.
+   Le dépôt, l'acceptation et le refus continuent, eux, de prévenir l'étudiant.
+
+B. Un document déjà validé pour un pays compte pour les autres pays
+   visés quand il porte le même nom (passeport, CV, photo, diplôme original…).
+   Exemple réel de ce dossier : 11/11 validés affichés, mais l'Italie restait
+   « Documents en cours » parce que ses lignes (passeport, CV, photo…) étaient
+   encore vides. Seules les pièces au nom différent étaient remplies
+   (traduction en italien). Le fichier validé pour la Lituanie est maintenant
+   recopié sur l'Italie. Les deux universités sont « Prête à postuler ».
+   Une traduction en italien ne remplace pas une traduction en anglais :
+   le nom n'est pas le même.
+   Effet de bord de cette réparation, le 22 oct. 2026, sur ce dossier :
+   une commission « documents validés » de 50 DT a été enregistrée pour
+   le conseiller en charge, pour l'Italie. Elle n'a pas été annulée.
+   À confirmer avec le demandeur : la garder, ou la retirer.
+
+C. Sur l'espace de l'étudiant, supprimer une candidature le fait reculer
+   d'une étape. La même université redevient « prêt à postuler ».
+   Le nom modifié s'affiche tout de suite sur son parcours, parce que
+   la carte lit le nom enregistré.
+   S'il a une autre candidature encore acceptée, l'étape visa de celle-là reste.
+
+D. Le conseiller en charge voit les documents déjà déposés pour l'université.
+   Pour chaque document visa, il choisit celui qui est le même.
+   Le fichier est repris et validé. L'étudiant n'a pas à le renvoyer.
+
+E. Les documents visa ne se déposent qu'après le rendez-vous fixé
+   par le Responsable Dossier (réunion de préparation ou ambassade).
+   Dès que l'université a accepté l'étudiant, le Responsable Dossier a
+   le bouton « Lancer un Meet » : un Meet démarre tout de suite pour
+   expliquer les documents visa. L'étudiant reçoit l'invitation et l'e-mail.
+   Le lien est la réunion de préparation, donc le dépôt des documents s'ouvre.
+   « Planifier une réunion » reste disponible pour choisir une autre date.
+   Si un Meet est déjà lancé, le bouton devient « Rejoindre le Meet ».
+   Pendant les 7 jours qui précèdent cette date, si un document visa
+   obligatoire manque, une notification part chaque jour vers :
+   le Responsable Dossier, le conseiller, l'étudiant et les administrateurs.
+   Un WhatsApp part aussi vers l'étudiant, seulement si sa conversation
+   est ouverte (il a écrit dans les dernières 24 h). Sinon le message
+   WhatsApp est noté dans le journal, et la notification dans l'application
+   part quand même. Une seule fois par jour et par candidature.
+
+F. Avant le formulaire « Marquer comme candidature déposée », un récapitulatif
+   s'affiche. Il concerne cette candidature seulement : université, filière, pays,
+   étudiant, passeport, langues, conseiller, Responsable Dossier, paiement
+   des deux tranches, et chaque document de CE pays (statut réel, pas le
+   compteur fusionné 11/11). Si un document obligatoire n'est pas validé,
+   si une traduction demandée ne l'est pas, ou si la tranche 1 n'est pas
+   réglée, ou si la candidature est déjà déposée, le bouton
+   « Les détails sont justes, continuer » reste fermé.
+   Ensuite le formulaire du compte université. Avant l'envoi, un second
+   écran relit la date, l'identifiant, le mot de passe, le lien et le
+   commentaire. « Modifier » revient au formulaire. « Confirmer » dépose
+   et envoie l'e-mail, comme avant.
+
+
+2. Fichiers manipulés
+
+Backend
+- backend/src/app.js
+  Routes de correction silencieuse, de reprise d'un document, du récapitulatif
+  avant dépôt, et rappel quotidien.
+- backend/src/controllers/universityApplicationController.js
+  Récapitulatif avant dépôt, modifier le nom, supprimer.
+- backend/src/controllers/studentDocumentController.js
+  Liste des documents déjà déposés, reprise pour le visa.
+- backend/src/services/universityApplicationService.js
+  Un document validé au même nom est recopié sur les autres pays visés,
+  puis la deuxième université devient « prête à postuler » si tout est là.
+  Correction silencieuse.
+  Suppression puis retour à « prêt à postuler » (même université, même responsable,
+  traduction déjà faite conservée, sans e-mail).
+  Les commissions non versées de cette candidature sont retirées.
+  Rappel quotidien des documents visa manquants.
+  Récapitulatif avant dépôt : documents de ce pays seulement, paiement, étudiant.
+- backend/src/services/commissionService.js
+  Retrait des commissions non versées quand la candidature est supprimée.
+- backend/src/repositories/commissionRepository.js
+  Lecture, déplacement et suppression d'une commission.
+- backend/src/services/studentDocumentService.js
+  Lecture des documents visa par le conseiller et le Responsable Dossier.
+  Dépôt visa bloqué tant qu'il n'y a pas de rendez-vous.
+  Reprise d'un document d'université vers une case visa.
+- backend/src/services/whatsappService.js
+  Envoi du rappel WhatsApp à l'étudiant.
+- backend/src/repositories/universityApplicationRepository.js
+  Suppression d'une candidature, liste des dossiers acceptés avec un rendez-vous.
+- backend/src/repositories/studentDocumentRepository.js
+  Documents d'études déjà déposés (hors visa).
+  Liste des documents de cette candidature pour le récapitulatif (non fusionnée).
+- backend/src/repositories/whatsappRepository.js
+  Conversation WhatsApp liée à l'étudiant.
+
+Frontend
+- frontend/src/lib/auth.ts
+  Appels : corriger, supprimer, lister les documents déjà déposés, les reprendre,
+  charger le récapitulatif avant dépôt, lancer le Meet des documents visa.
+- frontend/src/components/admin/ApplicationTimeline.tsx
+  Boutons « Modifier le nom » et « Supprimer » sur une candidature déjà déposée.
+  Avant le dépôt : récapitulatif, puis formulaire, puis relecture du compte.
+- frontend/src/pages/StudentDetailPage.tsx
+  Documents visa visibles par le conseiller et le Responsable Dossier.
+  Liste « Reprendre un document déjà déposé » pour le conseiller, une fois le rendez-vous fixé.
+- frontend/src/pages/RdvDossiersPage.tsx
+  Bouton « Lancer un Meet » dès l'acceptation, pour expliquer les documents visa.
+- frontend/src/pages/DocumentsPage.tsx
+  L'étudiant voit la liste visa, mais le dépôt est fermé avant le rendez-vous.
+- frontend/src/pages/EspacePage.tsx
+  Le rappel « documents visa à fournir » n'apparaît qu'une fois le rendez-vous fixé.
+- frontend/src/components/VisaDocumentsChecklist.tsx
+  Bouton de dépôt masqué tant que le rendez-vous n'est pas fixé.
+- frontend/src/components/espace/DossierProgress.tsx
+  Si l'étudiant a plusieurs universités, « Mon parcours » liste chacune
+  avec l'étape où elle en est (déposée, décision, visa…). Un clic ouvre
+  le détail de cette université. Une seule université garde le parcours simple.
+- frontend/src/components/espace/dossierSteps.tsx
+  Non modifié. Le parcours de l'étudiant recule tout seul : la candidature
+  supprimée est remplacée par une candidature « prêt à postuler », et l'étape
+  du dossier redescend de visa vers candidature universitaire s'il ne reste
+  aucune acceptation.
+
+Fiche
+- docs/candidatures-modifier-supprimer.txt
+  Ce fichier.
+
+
+3. Tests
+
+1. Candidature « Prêt à postuler » : pas de Modifier le nom, pas de Supprimer.
+   « Marquer comme candidature déposée » ouvre d'abord le récapitulatif
+   (étudiant, université, paiement, chaque document de ce pays).
+   « Les détails sont justes, continuer » ouvre le formulaire.
+   « Vérifier avant d'envoyer » relit identifiant, mot de passe et lien.
+   « Confirmer la candidature » dépose. « Annuler » ne dépose rien.
+2. Candidature déjà déposée : Modifier le nom change l'université sur la carte
+   du Responsable Dossier et, au rechargement, sur « Mon parcours » de l'étudiant.
+   Aucun e-mail, aucune notification.
+3. Plusieurs universités : l'étudiant voit une ligne par université, avec
+   son étape. Le détail en dessous suit l'université choisie.
+   Dossier a5f7d97c-a923-4e37-895d-4c1d4e961b2d vérifié le 22 oct. 2026,
+   page conseiller ouverte dans le navigateur :
+   gyhjuikolp (Lituanie) et zzzzzzzzzzzzzzz (Italie) affichent toutes les deux
+   le badge « Prêt à postuler » et le bouton « Marquer comme candidature déposée ».
+   Documents : 11/11 validés. Avant, l'Italie restait « Documents en cours »
+   alors que l'écran disait 11/11 validés.
+   La liste « Où en est chaque université » de l'espace étudiant est dans le code.
+   Elle n'a pas été ouverte avec le compte de cette étudiante (la session ouverte
+   était l'administrateur).
+4. Supprimer cette candidature. Elle disparaît. La même université revient
+   en « Prêt à postuler ». Sur l'espace étudiant, l'étape affichée n'est plus
+   « en attente » ni « visa » : c'est de nouveau le dépôt de la candidature.
+   Les documents de l'étudiant restent. Aucun e-mail, aucune notification.
+   Les commissions non versées de cette candidature (dépôt, acceptation, visa)
+   disparaissent pour le conseiller et le Responsable Dossier.
+   « Documents validés » et le code restent. Une commission déjà payée reste.
+   Une autre candidature acceptée du même étudiant, s'il en a une, reste à l'étape visa.
+5. « Marquer comme candidature déposée », « Étudiant accepté » et « Refusé »
+   envoient encore l'e-mail et la notification.
+6. Étudiant accepté, sans rendez-vous : le conseiller voit le message
+   « une fois le rendez-vous fixé ». Il ne peut pas déposer ni reprendre un fichier.
+   L'étudiant non plus.
+7. Le Responsable Dossier fixe la réunion ou le rendez-vous ambassade.
+   Le conseiller voit alors les documents déjà déposés pour l'université
+   et choisit, pour chaque case visa, celui qui est le même.
+   La case passe à validé. Le fichier d'origine reste dans les documents d'études.
+8. Pendant les 7 jours avant le rendez-vous, s'il manque un document visa
+   obligatoire : une notification par jour pour le Responsable Dossier,
+   le conseiller, l'étudiant et l'admin. Pas deux le même jour.
+   Le jour du rendez-vous compte encore. Le lendemain, plus de rappel.
+   Si tout est déposé, pas de rappel.
+9. Le WhatsApp part seulement si l'étudiant a une conversation et a écrit
+   dans les dernières 24 h. Sinon la notification dans l'application part quand même.

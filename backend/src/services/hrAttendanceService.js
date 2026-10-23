@@ -179,12 +179,12 @@ async function confirmAbsences(body) {
   for (const day of days) {
     const current = existing.find((row) => row.user_id === body.userId && row.day === day);
     await attendanceRepo.saveOverride(body.userId, day, {
-      waived: current?.waived === true && body.absent !== true,
+      waived: body.absent !== true,
       lateMinutes: current?.late_minutes === null || current?.late_minutes === undefined ? null : Number(current.late_minutes),
       earlyMinutes: current?.early_minutes === null || current?.early_minutes === undefined ? null : Number(current.early_minutes),
       note: current?.note || "",
       confirmedAbsent: body.absent === true,
-      confirmedLate: body.absent === true ? false : current?.confirmed_late === true
+      confirmedLate: false
     });
   }
   return { ok: true };

@@ -141,6 +141,7 @@ export default function DocumentsPage() {
   const [documents, setDocuments] = useState<StudentDocumentChecklistItem[]>([]);
   const [visaDocuments, setVisaDocuments] = useState<VisaDocumentChecklistItem[]>([]);
   const [visaAvailable, setVisaAvailable] = useState(false);
+  const [visaUploadsOpen, setVisaUploadsOpen] = useState(false);
   const [visaCountryName, setVisaCountryName] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -156,6 +157,7 @@ export default function DocumentsPage() {
         setDocuments(dossierDocs);
         setVisaDocuments(visaData.checklist);
         setVisaAvailable(Boolean(visaData.application));
+        setVisaUploadsOpen(visaData.application?.uploadsOpen !== false && Boolean(visaData.application?.appointmentAt || visaData.application?.uploadsOpen));
         setVisaCountryName(visaData.application?.countryName || "");
       })
       .catch((err) => setError(err instanceof Error ? err.message : t("Impossible de charger vos documents.", "Unable to load your documents.")))
@@ -277,7 +279,14 @@ export default function DocumentsPage() {
           </div>
         )
       ) : (
-        <VisaDocumentsChecklist documents={visaDocuments} onUploaded={handleVisaUploaded} />
+        <>
+          {!visaUploadsOpen && (
+            <p className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              {t("Les documents visa se déposent une fois que le Responsable Dossier a fixé le rendez-vous.", "Visa documents can be uploaded once the visa officer has set the appointment.")}
+            </p>
+          )}
+          <VisaDocumentsChecklist documents={visaDocuments} onUploaded={handleVisaUploaded} locked={!visaUploadsOpen} />
+        </>
       )}
     </main>
   );

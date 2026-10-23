@@ -86,6 +86,23 @@ async function listEarningsForUser(userId) {
   return result.rows;
 }
 
+async function listForStudentCountry(studentId, countryId) {
+  const result = await query(
+    `SELECT * FROM commission_earnings WHERE student_id = $1 AND country_id = $2`,
+    [studentId, countryId]
+  );
+  return result.rows;
+}
+
+async function retargetApplication(id, applicationId) {
+  await query(`UPDATE commission_earnings SET application_id = $2 WHERE id = $1`, [id, applicationId]);
+}
+
+async function removeEarning(id) {
+  const result = await query(`DELETE FROM commission_earnings WHERE id = $1 AND payout_id IS NULL RETURNING *`, [id]);
+  return result.rows[0] || null;
+}
+
 module.exports = {
   listRules,
   findActiveRule,
@@ -94,5 +111,8 @@ module.exports = {
   removeRule,
   recordEarning,
   listAllEarnings,
-  listEarningsForUser
+  listEarningsForUser,
+  listForStudentCountry,
+  retargetApplication,
+  removeEarning
 };

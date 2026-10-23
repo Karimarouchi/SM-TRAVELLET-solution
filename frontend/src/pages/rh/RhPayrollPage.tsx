@@ -1,5 +1,6 @@
 import EmployeePicker from "@/components/rh/EmployeePicker";
-import { addHrEmployeeDocument, addHrPayrollEntry, confirmHrPayslipImport, decideHrDocumentRequest, downloadHrPdf, fetchHrDocumentRequests, fetchHrPayroll, issueHrPayslip, previewHrPayslipImport, removeHrEmployeeDocument, removeHrOfficialPayslip, removeHrPayrollEntry, reopenHrPayslip, saveHrPayrollNote, scheduleHrDocumentRequest, setHrPayrollCommission, type HrPayrollEmployee, type HrPayrollMonth, type HrPayslipDraft, type HrPayslipImport, type HrPendingDocument } from "@/lib/hr";
+import { confirmDialog } from "@/components/ui/dialog-host";
+import { addHrEmployeeDocument, addHrPayrollEntry, cancelHrSalaryPayment, confirmHrPayslipImport, decideHrDocumentRequest, downloadHrPdf, fetchHrDocumentRequests, fetchHrPayroll, issueHrPayslip, payHrSalary, previewHrPayslipImport, removeHrEmployeeDocument, removeHrOfficialPayslip, removeHrPayrollEntry, reopenHrPayslip, saveHrPayrollNote, scheduleHrDocumentRequest, setHrPayrollCommission, type HrPayrollEmployee, type HrPayrollMonth, type HrPayslipDraft, type HrPayslipImport, type HrPendingDocument, type HrSalaryPayment } from "@/lib/hr";
 import { cn } from "@/lib/utils";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -19,6 +20,14 @@ function currentMonth() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
+
+function todayInput() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+const frDate = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00`).toLocaleDateString("fr-FR");
+const frMonth = (iso: string) => new Date(`${iso.slice(0, 7)}-01T12:00:00`).toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 
 function readFile(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -40,6 +49,7 @@ export default function RhPayrollPage() {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [docLabel, setDocLabel] = useState("");
+  const [paidOn, setPaidOn] = useState(todayInput);
   const [requests, setRequests] = useState<HrPendingDocument[]>([]);
   const [readyDates, setReadyDates] = useState<Record<string, string>>({});
   const [bulletin, setBulletin] = useState<HrPayslipImport | null>(null);
@@ -102,6 +112,11 @@ export default function RhPayrollPage() {
       </div>
       {data && (!data.hasSignature || !data.hasStamp) && (
         <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">Déposez la signature et le cachet dans Paramètres RH pour les imprimer sur les PDF.</p>
+      )}
+      {data?.salaryDue.show && (
+        <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          Le 26 est passé. {data.salaryDue.unpaid.length} salaire{data.salaryDue.unpaid.length > 1 ? "s" : ""} de {frMonth(data.salaryDue.month)} {data.salaryDue.unpaid.length > 1 ? "ne sont pas payés" : "n'est pas payé"} : {data.salaryDue.unpaid.map((person) => `${person.prenom} ${person.nom}`).join(", ")}.
+        </p>
       )}
       {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
       <BulletinImport
@@ -171,7 +186,7 @@ export default function RhPayrollPage() {
             people={data.employees}
             selectedId={selected.id}
             onSelect={setSelectedId}
-            hint={(row) => row.official ? `${money(row.official.netToPay)} · bulletin` : `${money(row.lines.net)}${row.issued ? " · émise" : ""}`}
+            hint={(row) => `${row.official ? `${money(row.official.netToPay)} · bulletin` : `${money(row.lines.net)}${row.issued ? " · émise" : ""}`}${row.payment ? " · payé" : ""}`}
           />
           <Detail
             row={selected}
@@ -218,7 +233,28 @@ export default function RhPayrollPage() {
             }}
             onRemove={(id) => void run(() => removeHrEmployeeDocument(id))}
             onRemoveOfficial={() => void run(() => removeHrOfficialPayslip(selected.id, month))}
+            paidOn={paidOn}
+            onPaidOn={setPaidOn}
+            onPay={() => {
+              const net = selected.official ? selected.official.netToPay : selected.lines.net;
+              void (async () => {
+                if (!(await confirmDialog(`Payer ${money(net)} à ${selected.prenom} ${selected.nom} pour ${frMonth(month)} ? Le montant et la date entrent dans les charges.`, { confirmLabel: "Payer" }))) return;
+                await run(() => payHrSalary({ userId: selected.id, month, paidOn }));
+              })();
+            }}
+            onCancelPay={(id) => {
+              void (async () => {
+                if (!(await confirmDialog("Annuler ce paiement de salaire ?", { confirmLabel: "Annuler le paiement" }))) return;
+                await run(() => cancelHrSalaryPayment(id));
+              })();
+            }}
           />
+          <PaymentHistory payments={data.payments} busy={busy} onCancel={(id) => {
+            void (async () => {
+              if (!(await confirmDialog("Annuler ce paiement de salaire ?", { confirmLabel: "Annuler le paiement" }))) return;
+              await run(() => cancelHrSalaryPayment(id));
+            })();
+          }} />
         </div>
       )}
     </main>
@@ -308,7 +344,7 @@ function BulletinImport({
 }
 
 function Detail({
-  row, month, onOpenMonth, onToggleCommission, busy, kind, label, amount, note, docLabel, onKind, onLabel, onAmount, onNote, onDocLabel, onAdd, onRemoveEntry, onSave, onIssue, onReopen, onDownload, onUpload, onRemove, onRemoveOfficial
+  row, month, onOpenMonth, onToggleCommission, busy, kind, label, amount, note, docLabel, onKind, onLabel, onAmount, onNote, onDocLabel, onAdd, onRemoveEntry, onSave, onIssue, onReopen, onDownload, onUpload, onRemove, onRemoveOfficial, paidOn, onPaidOn, onPay, onCancelPay
 }: {
   row: HrPayrollEmployee;
   month: string;
@@ -334,6 +370,10 @@ function Detail({
   onUpload: (file: File) => Promise<void>;
   onRemove: (id: string) => void;
   onRemoveOfficial: () => void;
+  paidOn: string;
+  onPaidOn: (value: string) => void;
+  onPay: () => void;
+  onCancelPay: (id: string) => void;
 }) {
   const lines = row.lines;
   const taken = lines.presenceAdjustment !== null ? lines.presenceAdjustment : lines.absenceDeduction + lines.latenessDeduction;
@@ -489,6 +529,7 @@ function Detail({
         </div>
         </>
         )}
+        <PayBar row={row} busy={busy} paidOn={paidOn} onPaidOn={onPaidOn} onPay={onPay} onCancelPay={onCancelPay} />
       </section>
       {!row.official && <section className="rounded-[24px] border border-line bg-white p-5">
         <h3 className="font-display font-bold text-dark">Primes et avances</h3>
@@ -540,6 +581,63 @@ function Detail({
         </ul>
       </section>
     </div>
+  );
+}
+
+function PayBar({ row, busy, paidOn, onPaidOn, onPay, onCancelPay }: {
+  row: HrPayrollEmployee;
+  busy: boolean;
+  paidOn: string;
+  onPaidOn: (value: string) => void;
+  onPay: () => void;
+  onCancelPay: (id: string) => void;
+}) {
+  const net = row.official ? row.official.netToPay : row.lines.net;
+  if (row.payment) {
+    return (
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-800">Salaire payé</p>
+          <p className="text-sm font-semibold text-dark">{money(row.payment.amount)} · le {frDate(row.payment.paidOn)}</p>
+        </div>
+        <button type="button" disabled={busy} onClick={() => onCancelPay(row.payment!.id)} className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-dark ring-1 ring-emerald-200">Annuler le paiement</button>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-4 flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-line bg-slate-50 px-4 py-3">
+      <label className="text-xs font-bold text-mid">Date du paiement
+        <input type="date" value={paidOn} onChange={(event) => onPaidOn(event.target.value)} className="mt-1 block rounded-xl border border-line bg-white px-3 py-2 text-sm" />
+      </label>
+      <button type="button" disabled={busy || net <= 0} onClick={onPay} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Payer {money(net)}</button>
+    </div>
+  );
+}
+
+function PaymentHistory({ payments, busy, onCancel }: { payments: HrSalaryPayment[]; busy: boolean; onCancel: (id: string) => void }) {
+  return (
+    <section className="rounded-[24px] border border-line bg-white p-5">
+      <h3 className="font-display text-lg font-bold text-dark">Historique des paiements</h3>
+      <p className="mt-1 text-xs text-muted">Chaque salaire payé depuis cette page, avec la date et le montant. Un paiement dont la fiche est déjà émise est déjà dans le résultat de l'exercice. Les autres s'y ajoutent.</p>
+      <ul className="mt-3 divide-y divide-line">
+        {payments.map((payment) => (
+          <li key={payment.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
+            <span className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-[11px] font-bold text-emerald-800">{payment.prenom.slice(0, 1)}{payment.nom.slice(0, 1)}</span>
+              <span>
+                <span className="block font-semibold text-dark">{payment.prenom} {payment.nom}</span>
+                <span className="text-[11px] text-muted">{frMonth(payment.month)} · payé le {frDate(payment.paidOn)}</span>
+              </span>
+            </span>
+            <span className="flex items-center gap-3">
+              <span className="font-bold text-dark">{money(payment.amount)}</span>
+              <button type="button" disabled={busy} onClick={() => onCancel(payment.id)} className="text-[11px] font-bold text-red-600">Annuler</button>
+            </span>
+          </li>
+        ))}
+        {payments.length === 0 && <li className="py-2 text-sm text-muted">Aucun salaire payé pour cette année.</li>}
+      </ul>
+    </section>
   );
 }
 

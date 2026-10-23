@@ -97,6 +97,8 @@ export type WhatsAppDiagnostic = {
   config: { tokenSet: boolean; appSecretSet: boolean; verifyTokenSet: boolean; phoneNumberId: string | null; graphVersion: string };
   sender: { displayPhone?: string | null; verifiedName?: string | null; quality?: string | null; status?: string | null; error?: string; code?: number | null } | null;
   receiving: Array<{ phoneNumberId: string; displayPhone: string | null; contacts: number; lastInboundAt: string | null }>;
+  since: string | null;
+  traffic: { inbound: number; outbound: number; system: number; manual: number };
   outbound24h: { sent: number; delivered: number; read: number; failed: number };
   recentFailures: Array<{ at: string; to: string; error: string | null }>;
   last: {
@@ -109,6 +111,10 @@ export type WhatsAppDiagnostic = {
 
 export async function fetchWhatsAppDiagnostic() {
   return request<WhatsAppDiagnostic>("/api/whatsapp/diagnostic");
+}
+
+export async function resetWhatsAppDiagnostic() {
+  return request<WhatsAppDiagnostic>("/api/whatsapp/diagnostic/reset", { method: "POST" });
 }
 
 export async function muteWhatsAppConversation(contactId: string, muted: boolean) {

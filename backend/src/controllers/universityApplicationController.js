@@ -36,9 +36,33 @@ async function markTranslationDone(req, res) {
   }
 }
 
+async function depositRecap(req, res) {
+  try {
+    res.json(await service.depositRecap(req.auth, req.params.id));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function markApplied(req, res) {
   try {
     res.json(await service.markApplied(req.auth, req.params.id, req.body));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
+async function correctUniversity(req, res) {
+  try {
+    res.json(await service.correctDepositedApplication(req.auth, req.params.id, req.body));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
+async function removeDeposited(req, res) {
+  try {
+    res.json(await service.removeDepositedApplication(req.auth, req.params.id));
   } catch (error) {
     handle(res, error);
   }
@@ -188,6 +212,14 @@ async function createMeetLink(req, res) {
   }
 }
 
+async function launchVisaExplainMeet(req, res) {
+  try {
+    res.status(201).json(await service.launchVisaExplainMeet(req.auth, req.params.id));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function scheduleVisaPrepMeeting(req, res) {
   try {
     res.json(await service.scheduleVisaPrepMeeting(req.auth, req.params.id, req.body));
@@ -206,6 +238,8 @@ async function scheduleVisaEmbassyAppointment(req, res) {
 
 module.exports = {
   updatePortalAccount,
+  correctUniversity,
+  removeDeposited,
   assignRdv,
   suggestRdv,
   listMineForRdv,
@@ -213,6 +247,7 @@ module.exports = {
   listMine,
   historyForStudent,
   markTranslationDone,
+  depositRecap,
   markApplied,
   scheduleInterview,
   completeInterview,
@@ -229,5 +264,6 @@ module.exports = {
   markVisaRejected,
   createMeetLink,
   scheduleVisaPrepMeeting,
+  launchVisaExplainMeet,
   scheduleVisaEmbassyAppointment
 };

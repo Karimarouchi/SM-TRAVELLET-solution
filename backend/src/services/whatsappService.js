@@ -441,6 +441,36 @@ async function postToMeta(conversation, contactId, payload) {
   return data.messages?.[0]?.id || null;
 }
 
+// Rappel automatique. N'ouvre pas une conversation : WhatsApp n'accepte un texte
+// que si l'étudiant a écrit dans les dernières 24 h. Sinon on le note et on s'arrête.
+async function sendReminderToStudent(studentId, phone, text) {
+  const body = String(text || "").trim();
+  if (!body) return { sent: false, reason: "empty" };
+  const contact = (await repo.findContactByStudent(studentId)) || (phone ? await repo.findContactByPhone(normalizePhone(phone)) : null);
+  if (!contact) {
+    logger.info("WhatsApp rappel : aucune conversation pour cet étudiant", { studentId });
+    return { sent: false, reason: "no-conversation" };
+  }
+  const conversation = await repo.findConversation(contact.id);
+  if (!conversation || conversation.blocked_at) return { sent: false, reason: "blocked" };
+  if (!windowInfo(conversation.last_inbound_at).windowOpen) {
+    logger.info("WhatsApp rappel : fenêtre de 24 h fermée", { studentId });
+    return { sent: false, reason: "window" };
+  }
+  const waMessageId = await postToMeta(conversation, contact.id, { type: "text", text: { preview_url: false, body } });
+  await repo.insertMessage({
+    contactId: contact.id,
+    waMessageId,
+    direction: "out",
+    type: "text",
+    body,
+    status: "sent",
+    isAuto: true
+  });
+  await repo.touchOutbound(contact.id);
+  return { sent: true };
+}
+
 async function sendText(auth, contactId, text) {
   // Conseillers et admin (qui supervise et peut répondre à la place d'un conseiller).
   if (!authRoles(auth).some((role) => role === "SALES" || role === "ADMIN")) {
@@ -740,8 +770,20 @@ async function diagnostic(auth) {
     }
   }
 
-  const [receiving, outbound] = await Promise.all([repo.listReceivingNumbers(), repo.outboundStats()]);
-  const counts = Object.fromEntries(outbound.counts.map((row) => [row.status, row.n]));
+  const sinceRaw = await settings.get("whatsapp_diagnostic_since");
+  const since = sinceRaw && !Number.isNaN(Date.parse(sinceRaw)) ? new Date(sinceRaw).toISOString() : null;
+  const [receiving, outbound] = await Promise.all([repo.listReceivingNumbers(), repo.outboundStats(since)]);
+  const counts = { sent: 0, delivered: 0, read: 0, failed: 0 };
+  const traffic = { inbound: 0, outbound: 0, system: 0, manual: 0 };
+  for (const row of outbound.counts) {
+    const n = Number(row.n) || 0;
+    if (row.direction === "in") traffic.inbound += n;
+    if (row.direction !== "out") continue;
+    traffic.outbound += n;
+    if (row.is_auto) traffic.system += n;
+    else traffic.manual += n;
+    if (Object.prototype.hasOwnProperty.call(counts, row.status)) counts[row.status] += n;
+  }
   const warnings = [];
   if (!config.tokenSet) warnings.push("WHATSAPP_TOKEN est vide : aucun message ne peut être envoyé.");
   if (!config.phoneNumberId) warnings.push("WHATSAPP_PHONE_NUMBER_ID est vide : le numéro d'envoi n'est pas défini.");
@@ -755,17 +797,25 @@ async function diagnostic(auth) {
   if ((counts.sent || 0) > 0 && !(counts.delivered || counts.read) && !trace.status) {
     warnings.push("Des messages sont « envoyés » mais aucun accusé de livraison n'est reçu : vérifiez que le webhook est abonné au champ « messages » (il porte aussi les statuts) et que WHATSAPP_APP_SECRET est correct.");
   }
-  if ((counts.failed || 0) > 0) warnings.push(`${counts.failed} message(s) non délivré(s) sur les dernières 24 h : voir les erreurs ci-dessous.`);
+  if ((counts.failed || 0) > 0) warnings.push(`${counts.failed} message(s) non délivré(s) ${since ? "depuis la remise à zéro" : "sur les dernières 24 h"} : voir les erreurs ci-dessous.`);
 
   return {
     config,
     sender,
     receiving: receiving.map((r) => ({ phoneNumberId: r.wa_phone_number_id, displayPhone: r.wa_display_phone, contacts: r.contacts, lastInboundAt: r.last_inbound_at })),
-    outbound24h: { sent: counts.sent || 0, delivered: counts.delivered || 0, read: counts.read || 0, failed: counts.failed || 0 },
+    since,
+    traffic,
+    outbound24h: counts,
     recentFailures: outbound.failed.map((row) => ({ at: row.created_at, to: maskPhone(row.phone), error: row.error })),
     last: trace,
     warnings
   };
+}
+
+async function resetDiagnosticCounters(auth) {
+  if (!isAdmin(auth)) throw fail("Réservé à l'administrateur.", 403);
+  await settings.set("whatsapp_diagnostic_since", new Date().toISOString());
+  return diagnostic(auth);
 }
 
 async function linkStudent(auth, contactId, studentId) {
@@ -891,6 +941,7 @@ module.exports = {
   listConversations,
   getMessages,
   sendText,
+  sendReminderToStudent,
   hideMessage,
   sendMedia,
   getMedia,
@@ -898,6 +949,7 @@ module.exports = {
   maybeAutoReply,
   sendHolidayMorningReplies,
   diagnostic,
+  resetDiagnosticCounters,
   setMuted,
   setBlocked,
   linkStudent,

@@ -19,7 +19,7 @@ function acceptAttr(type: VisaDocumentChecklistItem["acceptedFileTypes"]) {
   return "image/png,image/jpeg,image/webp,application/pdf";
 }
 
-function VisaDocumentRow({ doc, onUploaded }: { doc: VisaDocumentChecklistItem; onUploaded: (updated: VisaDocumentChecklistItem) => void }) {
+function VisaDocumentRow({ doc, onUploaded, locked }: { doc: VisaDocumentChecklistItem; onUploaded: (updated: VisaDocumentChecklistItem) => void; locked?: boolean }) {
   const { t } = useLanguage();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -78,7 +78,7 @@ function VisaDocumentRow({ doc, onUploaded }: { doc: VisaDocumentChecklistItem; 
         </div>
       )}
 
-      <div className="mt-3 flex items-center gap-3">
+      {locked ? null : <div className="mt-3 flex items-center gap-3">
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
@@ -94,7 +94,7 @@ function VisaDocumentRow({ doc, onUploaded }: { doc: VisaDocumentChecklistItem; 
         </button>
         {doc.originalFilename && <span className="text-xs text-muted truncate max-w-[200px]">{doc.originalFilename}</span>}
         <input ref={inputRef} type="file" accept={acceptAttr(doc.acceptedFileTypes)} className="hidden" onChange={onChange} />
-      </div>
+      </div>}
       {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
     </div>
   );
@@ -104,10 +104,12 @@ function VisaDocumentRow({ doc, onUploaded }: { doc: VisaDocumentChecklistItem; 
 // de /documents. Le chargement/l'état sont gérés par la page appelante.
 export default function VisaDocumentsChecklist({
   documents,
-  onUploaded
+  onUploaded,
+  locked = false
 }: {
   documents: VisaDocumentChecklistItem[];
   onUploaded: (updated: VisaDocumentChecklistItem) => void;
+  locked?: boolean;
 }) {
   const { t } = useLanguage();
   if (documents.length === 0) {
@@ -123,7 +125,7 @@ export default function VisaDocumentsChecklist({
   return (
     <div className="mt-6 space-y-3">
       {documents.map((doc) => (
-        <VisaDocumentRow key={doc.requirementId} doc={doc} onUploaded={onUploaded} />
+        <VisaDocumentRow key={doc.requirementId} doc={doc} onUploaded={onUploaded} locked={locked} />
       ))}
     </div>
   );

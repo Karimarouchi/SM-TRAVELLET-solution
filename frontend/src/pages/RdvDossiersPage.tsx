@@ -7,6 +7,7 @@ import {
   rejectVisa,
   reviewApplicationVisaDocument,
   scheduleVisaEmbassyAppointment,
+  launchVisaExplainMeet,
   scheduleVisaPrepMeeting,
   submitVisaFile,
   type RdvMyApplication,
@@ -16,6 +17,7 @@ import { openProtectedFile } from "@/lib/auth";
 import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { MeetLinkButton } from "@/components/MeetLinkButton";
+import { confirmDialog } from "@/components/ui/dialog-host";
 import { AlertTriangle, ArrowRight, Banknote, Calendar, CalendarClock, CheckCircle2, ClipboardList, Clock, FileText, GraduationCap, Landmark, Languages, Plane, Send, Sparkles, ThumbsDown, ThumbsUp, Video, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import ApplicationTimeline, { PostponeModal } from "@/components/admin/ApplicationTimeline";
@@ -654,8 +656,43 @@ export function RdvVisasPage() {
 
   // Réunion de préparation et rendez-vous ambassade : possibles dès l'acceptation par l'université,
   // même avant le dépôt ou la validation des documents visa (les créneaux se réservent tôt).
-  const appointmentButtons = (app: RdvMyApplication, busy: boolean) => (
+  const appointmentButtons = (app: RdvMyApplication, busy: boolean) => {
+    const link = app.visaPrepMeetingType === "ONLINE" ? app.visaPrepMeetingLocation || "" : "";
+    const start = app.visaPrepMeetingAt ? new Date(app.visaPrepMeetingAt).getTime() : 0;
+    const joinable = /^https?:\/\//i.test(link) && start > 0 && Date.now() < start + 3 * 3600 * 1000;
+    return (
     <>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => {
+          if (joinable) {
+            window.open(link, "_blank", "noopener,noreferrer");
+            return;
+          }
+          const popup = window.open("about:blank", "_blank", "noopener,noreferrer");
+          void run(app.id, async () => {
+            if (start > Date.now() + 2 * 60 * 1000) {
+              const when = new Date(app.visaPrepMeetingAt!).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+              const ok = await confirmDialog(t(`Une réunion est déjà prévue le ${when}. Lancer un Meet maintenant la remplace, pour expliquer les documents visa.`, `A meeting is already set for ${when}. Starting a Meet now replaces it, to explain the visa documents.`), { confirmLabel: t("Lancer le Meet", "Start the Meet") });
+              if (!ok) {
+                popup?.close();
+                return;
+              }
+            }
+            try {
+              const result = await launchVisaExplainMeet(app.id);
+              if (popup) popup.location.href = result.link;
+            } catch (error) {
+              popup?.close();
+              throw error;
+            }
+          });
+        }}
+        className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-violet-700 disabled:opacity-60"
+      >
+        <Video className="h-3.5 w-3.5" /> {joinable ? t("Rejoindre le Meet", "Join the Meet") : t("Lancer un Meet", "Start a Meet")}
+      </button>
       <button type="button" disabled={busy} onClick={() => setPrepMeetingTarget(app)} className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-bold text-dark hover:border-brand hover:text-brand disabled:opacity-60">
         <Calendar className="h-3.5 w-3.5" /> {app.visaPrepMeetingAt ? t("Modifier la réunion", "Edit meeting") : t("Planifier une réunion", "Schedule meeting")}
       </button>
@@ -663,7 +700,8 @@ export function RdvVisasPage() {
         <Landmark className="h-3.5 w-3.5" /> {app.visaEmbassyAppointmentAt ? t("Modifier le rendez-vous ambassade", "Edit embassy appointment") : t("Rendez-vous ambassade", "Embassy appointment")}
       </button>
     </>
-  );
+    );
+  };
 
   const visaApplications = applications.filter((a) => a.visaStatus && a.status !== "POSTPONED");
   const visaCards = visaApplications.filter((app) => {
@@ -715,7 +753,7 @@ export function RdvVisasPage() {
         <section className="mt-6 rounded-[20px] border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
           <p>
             {t(`${board.waitingAdvisor.length} dossier${board.waitingAdvisor.length > 1 ? "s" : ""} en attente des documents visa chez le conseiller. ${board.waitingAdvisor.length > 1 ? "Ils vous reviendront" : "Il vous reviendra"} automatiquement (même Responsable Dossier, ou le moins chargé s'il n'est plus actif).`, `${board.waitingAdvisor.length} file(s) waiting for visa documents with the advisor. They will return to you automatically (same officer, or the least loaded if they are inactive).`)}
-            {" "}{t("Vous pouvez déjà planifier la réunion de préparation et le rendez-vous ambassade.", "You can already schedule the prep meeting and the embassy appointment.")}
+            {" "}{t("Vous pouvez lancer un Meet tout de suite pour expliquer les documents visa, ou planifier la réunion et le rendez-vous ambassade.", "You can start a Meet right away to explain the visa documents, or schedule the meeting and the embassy appointment.")}
           </p>
           <ul className="mt-3 space-y-2">
             {board.waitingAdvisor.map((app) => (

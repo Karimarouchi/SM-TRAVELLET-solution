@@ -108,6 +108,7 @@ export default function EspacePage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [documents, setDocuments] = useState<StudentDocumentChecklistItem[]>([]);
   const [visaDocuments, setVisaDocuments] = useState<VisaDocumentChecklistItem[]>([]);
+  const [visaUploadsOpen, setVisaUploadsOpen] = useState(false);
   const [visaCountryName, setVisaCountryName] = useState("");
   const [payments, setPayments] = useState<StudentPaymentsSummary | null>(null);
   const [choiceCount, setChoiceCount] = useState<{ used: number; limit: number } | null>(null);
@@ -119,7 +120,8 @@ export default function EspacePage() {
     fetchMyVisaChecklist()
       .then((data) => {
         setVisaCountryName(data.application?.countryName || "");
-        setVisaDocuments(data.checklist);
+        setVisaUploadsOpen(Boolean(data.application?.uploadsOpen));
+        setVisaDocuments(data.application?.uploadsOpen ? data.checklist : []);
       })
       .catch(() => undefined);
     fetchMyPayments().then(setPayments).catch(() => undefined);
@@ -162,7 +164,7 @@ export default function EspacePage() {
     if (missing) {
       list.push({ key: "docs-missing", tone: "warning", icon: FolderOpen, title: t(`${missing} document${missing > 1 ? "s" : ""} à déposer`, `${missing} document${missing > 1 ? "s" : ""} to upload`), text: t("Un dossier complet permet de postuler plus vite.", "A complete file lets you apply faster."), to: "/documents", cta: t("Déposer", "Upload") });
     }
-    const visaToDo = visaDocuments.filter((d) => d.required && (d.status === "PENDING" || d.status === "REJECTED")).length;
+    const visaToDo = visaUploadsOpen ? visaDocuments.filter((d) => d.required && (d.status === "PENDING" || d.status === "REJECTED")).length : 0;
     if (visaToDo) {
       list.push({ key: "visa-docs", tone: "warning", icon: Plane, title: t(`${visaToDo} document${visaToDo > 1 ? "s" : ""} visa à fournir`, `${visaToDo} visa document${visaToDo > 1 ? "s" : ""} to provide`), text: t("Ils sont nécessaires avant le dépôt de votre dossier visa.", "They are needed before your visa file is submitted."), to: "/documents?tab=visa", cta: t("Voir", "View") });
     }
@@ -197,7 +199,7 @@ export default function EspacePage() {
     }
     const rank: Record<Tone, number> = { danger: 0, warning: 1, info: 2 };
     return list.sort((a, b) => rank[a.tone] - rank[b.tone]);
-  }, [documents, visaDocuments, payments, profile, selected, dossierStage, applications, t]);
+  }, [documents, visaDocuments, visaUploadsOpen, payments, profile, selected, dossierStage, applications, t]);
 
   if (!session?.user) return null;
   const { user } = session;

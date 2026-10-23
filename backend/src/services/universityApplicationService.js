@@ -5,6 +5,7 @@ const countryUniversityService = require("./countryUniversityService");
 const choiceRepo = require("../repositories/universityChoiceRepository");
 const choiceService = require("./universityChoiceService");
 const paymentService = require("./paymentService");
+const paymentRepo = require("../repositories/paymentRepository");
 const studentDocRepo = require("../repositories/studentDocumentRepository");
 const studentRepo = require("../repositories/studentRepository");
 const userRepo = require("../repositories/userRepository");
@@ -105,11 +106,48 @@ async function studentDisplayName(studentId) {
 // TOUS les documents obligatoires du pays (communs, déposés une seule fois)
 // ET ceux propres à l'université sont VALIDATED ; le dossier global passe alors
 // en phase UNIVERSITY_APPLICATION. N'écrase jamais une candidature existante.
+// Un passeport, un CV, une photo… déposé et validé pour un pays vaut pour les
+// autres pays visés quand le document porte le même nom. Les pièces au nom
+// différent (traduction en italien, traduction en anglais) restent séparées.
+async function shareValidatedDossierDocuments(studentId) {
+  const profile = await studentRepo.findByUserId(studentId);
+  const preferredCountries = profile?.preferred_countries || [];
+  if (!preferredCountries.length) return;
+  const requirements = (await studentDocRepo.findActiveRequirementsByCountryNames(preferredCountries)).filter((row) => !row.university_id);
+  if (!requirements.length) return;
+  const docs = await studentDocRepo.findStudentDocumentsByRequirementIds(studentId, requirements.map((row) => row.id));
+  const byReq = new Map(docs.map((doc) => [doc.document_requirement_id, doc]));
+  const groups = new Map();
+  for (const requirement of requirements) {
+    const list = groups.get(requirement.name) || [];
+    list.push(requirement);
+    groups.set(requirement.name, list);
+  }
+  for (const group of groups.values()) {
+    const source = group.map((row) => byReq.get(row.id)).find((doc) => doc && doc.stored_filename && doc.status === "VALIDATED");
+    if (!source) continue;
+    const missing = group.filter((row) => {
+      const doc = byReq.get(row.id);
+      return !doc || !doc.stored_filename || doc.status === "PENDING";
+    }).map((row) => row.id);
+    if (!missing.length) continue;
+    await studentDocRepo.upsertForRequirementIds(studentId, missing, {
+      fileUrl: source.file_url,
+      originalFilename: source.original_filename,
+      storedFilename: source.stored_filename,
+      mimeType: source.mime_type,
+      fileSize: source.file_size
+    });
+    await studentDocRepo.updateStatusForRequirementIds(studentId, missing, "VALIDATED", source.reviewed_by, null);
+  }
+}
+
 async function checkAndAdvanceReadyToApply(studentId) {
   const profile = await studentRepo.findByUserId(studentId);
   if (!profile) return;
   const preferredCountries = profile.preferred_countries || [];
   if (!preferredCountries.length) return;
+  await shareValidatedDossierDocuments(studentId);
 
   await choiceService.ensureInitialChoice(studentId);
   const choices = await choiceRepo.listActiveForStudent(studentId);
@@ -500,6 +538,93 @@ async function updatePortalAccount(auth, applicationId, payload) {
     await recordHistory(applicationId, application.student_id, application.status, application.status, auth.sub, `Compte de la plateforme de l'université modifié (${changes.join(", ")}).`);
   }
   return dto({ ...updated, country_name: (await countryRepo.findById(updated.country_id))?.name, university_name: (await universityRepo.findById(updated.university_id))?.name });
+}
+
+// Correction interne d'une candidature déjà déposée : nom d'université et filière.
+// Aucun e-mail, aucune notification, aucune commission, le statut ne change pas.
+async function correctDepositedApplication(auth, applicationId, payload) {
+  const application = await appRepo.findById(applicationId);
+  if (!application) throw fail("Candidature introuvable.", 404);
+  assertUniversityActor(auth, application);
+  await assertApplicationAccess(auth, application);
+  if (!application.applied_at) {
+    throw fail("Cette candidature n'est pas encore déposée.", 400);
+  }
+
+  const university = await resolveUniversity(application.country_id, { universityName: payload?.universityName });
+  if (!university) throw fail("Saisissez le nom de l'université.", 400);
+  const field = payload?.fieldOfStudy == null ? application.field_of_study || "" : String(payload.fieldOfStudy).trim().slice(0, 200);
+  const previous = await universityRepo.findById(application.university_id);
+  const updated = await appRepo.update(applicationId, {
+    university_id: university.id,
+    field_of_study: field
+  });
+
+  const bits = [];
+  if (university.id !== application.university_id) bits.push(`université : ${previous?.name || "—"} → ${university.name}`);
+  if (field !== (application.field_of_study || "")) bits.push(`filière : ${application.field_of_study || "—"} → ${field || "—"}`);
+  if (bits.length) {
+    await recordHistory(applicationId, application.student_id, application.status, application.status, auth.sub, `Correction silencieuse (${bits.join(" ; ")}).`);
+  }
+  return dto({
+    ...updated,
+    country_name: (await countryRepo.findById(updated.country_id))?.name,
+    university_name: university.name
+  });
+}
+
+// Retire une candidature déjà déposée. Les documents de l'étudiant restent.
+// Aucun e-mail, aucune notification. Les commissions non versées de cette
+// candidature (conseiller et Responsable Dossier) sont retirées.
+async function removeDepositedApplication(auth, applicationId) {
+  const application = await appRepo.findById(applicationId);
+  if (!application) throw fail("Candidature introuvable.", 404);
+  assertUniversityActor(auth, application);
+  await assertApplicationAccess(auth, application);
+  if (!application.applied_at) {
+    throw fail("Cette candidature n'est pas encore déposée.", 400);
+  }
+  const others = (await appRepo.listForStudent(application.student_id)).filter((row) => row.id !== application.id);
+  await commissionService.voidForRemovedApplication(application, others);
+  const removed = await appRepo.remove(applicationId);
+  if (!removed) throw fail("Candidature introuvable.", 404);
+  await rewindStudentAfterRemoval(application);
+  return { ok: true };
+}
+
+// La candidature déposée disparaît. La même université revient à « prêt à postuler »,
+// sans e-mail ni notification. L'étape visa ne reste que si une autre candidature est encore acceptée.
+async function rewindStudentAfterRemoval(application) {
+  const created = await appRepo.create({
+    studentId: application.student_id,
+    countryId: application.country_id,
+    universityId: application.university_id,
+    programmeId: application.programme_id,
+    salesId: application.sales_id,
+    choiceId: application.choice_id,
+    fieldOfStudy: application.field_of_study,
+    translationPending: !application.translation_done_at
+  });
+  if (application.assigned_rdv_id) {
+    await appRepo.update(created.id, { assigned_rdv_id: application.assigned_rdv_id });
+  }
+  await recordHistory(
+    created.id,
+    application.student_id,
+    null,
+    "READY_TO_APPLY",
+    null,
+    "Retour à l'étape précédente : la candidature déposée a été retirée."
+  );
+
+  const rows = await appRepo.listForStudent(application.student_id);
+  if (rows.some((row) => row.status === "ACCEPTED")) {
+    await studentRepo.setDossierStage(application.student_id, "VISA");
+  } else if (rows.some((row) => row.visa_status === "ACCEPTED")) {
+    await studentRepo.setDossierStage(application.student_id, "COMPLETED");
+  } else {
+    await studentRepo.setDossierStage(application.student_id, "UNIVERSITY_APPLICATION");
+  }
 }
 
 // Décision de l'université pour UNE filière : l'étudiant (notification + e-mail),
@@ -970,8 +1095,8 @@ async function createMeetLink(auth, applicationId, payload) {
   if (payload.kind === "staff" && application.status !== "READY_TO_APPLY") {
     throw fail("Le Meet optionnel se planifie avant le dépôt de candidature.", 400);
   }
-  if (payload.kind === "visaPrep" && (!application.visa_status || application.visa_status === "PREPARATION")) {
-    throw fail("Le dossier visa doit être déposé avant de planifier cette réunion.", 400);
+  if (payload.kind === "visaPrep") {
+    assertVisaSchedulable(application);
   }
 
   const date = payload.date ? new Date(payload.date) : null;
@@ -1199,6 +1324,58 @@ async function scheduleVisaPrepMeeting(auth, applicationId, payload) {
   return dto({ ...updated, country_name: (await countryRepo.findById(updated.country_id))?.name, university_name: (await universityRepo.findById(updated.university_id))?.name });
 }
 
+// Dès l'acceptation : le Responsable Dossier lance un Meet tout de suite
+// pour expliquer les documents visa. Le lien est enregistré comme réunion
+// de préparation, l'étudiant est invité, et le dépôt des documents s'ouvre.
+async function launchVisaExplainMeet(auth, applicationId) {
+  const application = await appRepo.findById(applicationId);
+  if (!application) throw fail("Candidature introuvable.", 404);
+  assertRdvOrAdmin(auth, application);
+  assertVisaSchedulable(application);
+
+  const key = `${applicationId}:visaExplain`;
+  if (Date.now() - (recentMeetRequests.get(key) || 0) < 15_000) {
+    throw fail("Un Meet vient d'être lancé pour ce dossier. Patientez quelques secondes.", 429);
+  }
+  recentMeetRequests.set(key, Date.now());
+
+  const [student, actor, university, requirements] = await Promise.all([
+    userRepo.findById(application.student_id),
+    userRepo.findById(auth.sub),
+    application.university_id ? universityRepo.findById(application.university_id) : Promise.resolve(null),
+    studentDocRepo.findActiveVisaRequirementsByCountryId(application.country_id)
+  ]);
+  const names = requirements.filter((row) => row.required).map((row) => row.name);
+  const studentName = student ? `${student.prenom} ${student.nom}`.trim() : "étudiant";
+  const title = `Documents visa — ${studentName}${university?.name ? ` (${university.name})` : ""}`;
+  const description = names.length
+    ? `Réunion pour expliquer les documents nécessaires au visa.\n\n${names.map((name) => `• ${name}`).join("\n")}`
+    : "Réunion pour expliquer les documents nécessaires au visa.";
+
+  try {
+    const meet = await googleCalendar.createMeetEvent({
+      title,
+      description,
+      startAt: new Date(),
+      durationMinutes: 45,
+      attendees: [student?.email, actor?.email]
+    });
+    const instructions = names.length
+      ? `Documents visa à expliquer : ${names.join(", ")}.`
+      : "Expliquer les documents nécessaires au visa.";
+    const updated = await scheduleVisaPrepMeeting(auth, applicationId, {
+      date: new Date().toISOString(),
+      type: "ONLINE",
+      location: meet.link,
+      instructions
+    });
+    return { link: meet.link, calendarLink: meet.htmlLink || null, application: updated };
+  } catch (error) {
+    recentMeetRequests.delete(key);
+    throw error;
+  }
+}
+
 // §Visa — le RDV enregistre la date du rendez-vous obtenu auprès de
 // l'ambassade/du consulat pour l'entretien visa. Peut être reprogrammée.
 async function scheduleVisaEmbassyAppointment(auth, applicationId, payload) {
@@ -1361,13 +1538,194 @@ async function sendRetryReminders() {
   }
 }
 
+function tunisDay(date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Tunis", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+}
+
+function daysUntilTunis(date) {
+  const today = Date.parse(`${tunisDay()}T12:00:00Z`);
+  const target = Date.parse(`${tunisDay(new Date(date))}T12:00:00Z`);
+  return Math.round((target - today) / 86400000);
+}
+
+// Chaque jour, durant les 7 jours qui précèdent le rendez-vous visa, si les
+// documents visa obligatoires ne sont pas tous déposés : notification au
+// Responsable Dossier, au conseiller, à l'étudiant et aux administrateurs,
+// plus un WhatsApp à l'étudiant quand sa fenêtre de 24 h est ouverte.
+async function sendVisaDocumentReminders() {
+  const settingsRepo = require("../repositories/settingsRepository");
+  const notificationRepo = require("../repositories/notificationRepository");
+  const whatsappService = require("./whatsappService");
+  const rows = await appRepo.listAcceptedWithAppointment();
+  const adminIds = await notificationRepo.listActiveAdminIds();
+  for (const row of rows) {
+    const soon = [row.visa_embassy_appointment_at, row.visa_prep_meeting_at]
+      .filter(Boolean)
+      .map((value) => ({ value, days: daysUntilTunis(value) }))
+      .filter((item) => item.days >= 0 && item.days <= 7)
+      .sort((a, b) => a.days - b.days)[0];
+    if (!soon) continue;
+    const required = await studentDocRepo.findRequiredActiveVisaStatusesForCountry(row.country_id, row.student_id);
+    const missing = required.filter((item) => item.status !== "SUBMITTED" && item.status !== "VALIDATED");
+    if (!required.length || !missing.length) continue;
+    const key = `visa_docs_daily_${row.id}_${tunisDay()}`;
+    if (await settingsRepo.get(key)) continue;
+    await settingsRepo.set(key, "1");
+    const who = `${row.student_prenom || ""} ${row.student_nom || ""}`.trim() || "L'étudiant";
+    const when = new Date(soon.value).toLocaleString("fr-FR", { timeZone: "Africa/Tunis", day: "2-digit", month: "long", hour: "2-digit", minute: "2-digit" });
+    const body = `${who} n'a pas encore déposé tous les documents visa (${missing.length} manquant${missing.length > 1 ? "s" : ""}) pour ${row.university_name}. Rendez-vous le ${when}.`;
+    await notificationService.notify(row.student_id, {
+      type: "VISA_DOCS_DUE",
+      title: "Documents visa à déposer avant le rendez-vous",
+      body,
+      link: "/documents?tab=visa"
+    });
+    if (row.sales_id) {
+      await notificationService.notify(row.sales_id, {
+        type: "VISA_DOCS_DUE",
+        title: `Documents visa manquants : ${who}`,
+        body,
+        link: `/conseiller/etudiants/${row.student_id}`
+      });
+    }
+    if (row.assigned_rdv_id) {
+      await notificationService.notify(row.assigned_rdv_id, {
+        type: "VISA_DOCS_DUE",
+        title: `Documents visa manquants : ${who}`,
+        body,
+        link: "/rdv/visas",
+        coverItem: row.student_id,
+        coverScope: "RDV"
+      });
+    }
+    const already = new Set([row.student_id, row.sales_id, row.assigned_rdv_id].filter(Boolean));
+    const admins = adminIds.filter((id) => !already.has(id));
+    if (admins.length) {
+      await notificationService.notify(admins, {
+        type: "VISA_DOCS_DUE",
+        title: `Documents visa manquants : ${who}`,
+        body,
+        link: `/conseiller/etudiants/${row.student_id}`
+      });
+    }
+    try {
+      await whatsappService.sendReminderToStudent(
+        row.student_id,
+        row.student_phone,
+        `${body} Déposez-les dans votre espace SM Travel.`
+      );
+    } catch (error) {
+      logger.error("Échec du WhatsApp de rappel documents visa", { message: error.message, applicationId: row.id });
+    }
+  }
+}
+
+function moneyAmount(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
+}
+
+function trancheView(due, paid) {
+  const dueN = moneyAmount(due);
+  const paidN = moneyAmount(paid);
+  const remaining = Math.max(0, Math.round((dueN - paidN) * 100) / 100);
+  return { due: dueN, paid: paidN, remaining, complete: paidN + 0.001 >= dueN };
+}
+
+function fullName(user) {
+  if (!user) return null;
+  const name = `${user.prenom || ""} ${user.nom || ""}`.trim();
+  return name || null;
+}
+
+// Récapitulatif lu avant le formulaire de dépôt : une ligne par document de
+// CE pays et de CETTE université, sans fusionner avec un autre pays.
+async function depositRecap(auth, applicationId) {
+  const application = await appRepo.findById(applicationId);
+  if (!application) throw fail("Candidature introuvable.", 404);
+  await assertApplicationAccess(auth, application);
+
+  const [student, profile, country, university, rdv, rows, translations, plan] = await Promise.all([
+    userRepo.findById(application.student_id),
+    studentRepo.findByUserId(application.student_id),
+    countryRepo.findById(application.country_id),
+    universityRepo.findById(application.university_id),
+    application.assigned_rdv_id ? userRepo.findById(application.assigned_rdv_id) : Promise.resolve(null),
+    studentDocRepo.listDossierStatusesForDeposit(application.country_id, application.university_id, application.student_id),
+    translationRepo.listForStudent(application.student_id),
+    paymentRepo.findPlan(application.student_id, application.country_id)
+  ]);
+  const sales = profile?.assigned_sales_id ? await userRepo.findById(profile.assigned_sales_id) : null;
+  const translationOf = (name, universityId) => translations.find((t) => t.doc_name === name && (t.university_id || null) === (universityId || null));
+
+  const documents = rows.map((row) => {
+    const translation = translationOf(row.name, row.university_id);
+    return {
+      name: row.name,
+      required: row.required,
+      status: row.status,
+      originalFilename: row.original_filename || null,
+      universityName: row.university_name || null,
+      translationStatus: translation ? translation.status : null
+    };
+  });
+
+  const payment = plan
+    ? {
+        currency: plan.currency,
+        tranche1: trancheView(plan.tranche1_due, plan.paid1),
+        tranche2: trancheView(plan.tranche2_due, plan.paid2)
+      }
+    : null;
+
+  const missing = documents.filter((d) => d.required && d.status !== "VALIDATED");
+  const translationsPending = documents.filter((d) => d.translationStatus && d.translationStatus !== "VALIDATED");
+  const ready = application.status === "READY_TO_APPLY" && missing.length === 0 && translationsPending.length === 0 && (!payment || payment.tranche1.complete);
+
+  return {
+    student: {
+      name: fullName(student) || "—",
+      email: student?.email || null,
+      phone: profile?.phone || null,
+      city: profile?.city || null,
+      nationality: profile?.nationality || null,
+      passportNumber: profile?.passport_number || null,
+      passportExpiresOn: dateOnly(profile?.passport_expires_on),
+      currentStudyLevel: profile?.current_study_level || null,
+      lastDiploma: profile?.last_diploma || null,
+      targetLevel: profile?.target_level || null,
+      targetField: profile?.target_field || null,
+      annualBudget: profile?.annual_budget || null,
+      french: profile?.language_level_french || null,
+      english: profile?.language_level_english || null,
+      italian: profile?.language_level_italian || null,
+      salesName: fullName(sales)
+    },
+    application: {
+      universityName: university?.name || "—",
+      fieldOfStudy: application.field_of_study || null,
+      countryName: country?.name || "—",
+      programmeTitle: null,
+      rdvName: fullName(rdv),
+      status: application.status
+    },
+    payment,
+    documents,
+    ready
+  };
+}
+
 module.exports = {
+  depositRecap,
   updatePortalAccount,
+  correctDepositedApplication,
+  removeDepositedApplication,
   markTranslationDone,
   confirmVisaDocs,
   postpone,
   retryPostponed,
   sendRetryReminders,
+  sendVisaDocumentReminders,
   checkAndAdvanceReadyToApply,
   maybeAdvanceVisaAfterDocs,
   assignRdv,
@@ -1388,5 +1746,6 @@ module.exports = {
   markVisaAccepted,
   markVisaRejected,
   scheduleVisaPrepMeeting,
+  launchVisaExplainMeet,
   scheduleVisaEmbassyAppointment
 };

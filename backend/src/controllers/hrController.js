@@ -246,6 +246,22 @@ async function payrollMonth(req, res) {
   }
 }
 
+async function paySalary(req, res) {
+  try {
+    res.status(201).json(await payroll.paySalary(req.body || {}));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
+async function cancelSalaryPayment(req, res) {
+  try {
+    res.json(await payroll.cancelSalaryPayment(req.params.id));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function setPayrollCommission(req, res) {
   try {
     res.json(await payroll.setIncludedCommission(req.body || {}));
@@ -671,6 +687,8 @@ module.exports = {
   confirmAttendanceAbsences,
   confirmAttendanceLateness,
   payrollMonth,
+  paySalary,
+  cancelSalaryPayment,
   savePayrollAdjustment,
   setPayrollCommission,
   addPayrollEntry,

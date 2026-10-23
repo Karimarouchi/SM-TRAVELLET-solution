@@ -1,4 +1,4 @@
-import { fetchAdminInsights, type AdminInsights } from "@/lib/auth";
+import { fetchAdminInsights, fetchFinanceExercise, type AdminInsights, type FinanceExercise } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import {
   ArrowDownRight,
@@ -124,6 +124,7 @@ const money = (value: number, currency: string) =>
 
 export default function AdminInsightsSection() {
   const [data, setData] = useState<AdminInsights | null>(null);
+  const [exercise, setExercise] = useState<FinanceExercise | null>(null);
   const [error, setError] = useState("");
   // Montants floutés par défaut (comme les commissions) ; re-floutés après 20 s.
   const [revealed, setRevealed] = useState(false);
@@ -132,6 +133,7 @@ export default function AdminInsightsSection() {
     fetchAdminInsights()
       .then(setData)
       .catch((err) => setError(err instanceof Error ? err.message : "Indicateurs indisponibles."));
+    fetchFinanceExercise().then(setExercise).catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -295,6 +297,21 @@ export default function AdminInsightsSection() {
               </p>
             </div>
           )}
+        </Card>
+
+        <Card icon={Wallet} title={`Résultat ${exercise?.year || new Date().getFullYear()}`} tone="bg-violet-100 text-brand" delay={0.08}>
+          <p className={cn("font-display text-3xl font-extrabold leading-none transition", (exercise?.result || 0) < 0 ? "text-rose-600" : "text-dark", blur)}>
+            {exercise ? money(exercise.result, "TND") : "–"}
+          </p>
+          <p className="mt-1 text-[11px] text-muted">encaissé moins salaires, primes, commissions et charges</p>
+          {exercise && (
+            <div className="mt-4 space-y-2 border-t border-line pt-3 text-xs">
+              <p className="flex items-center justify-between"><span className="text-muted">Encaissé</span><strong className={cn("text-dark transition", blur)}>{money(exercise.collected, "TND")}</strong></p>
+              <p className="flex items-center justify-between"><span className="text-muted">Équipe</span><strong className={cn("text-dark transition", blur)}>{money(exercise.personnel, "TND")}</strong></p>
+              <p className="flex items-center justify-between"><span className="text-muted">Charges</span><strong className={cn("text-dark transition", blur)}>{money(exercise.fixed + exercise.variable, "TND")}</strong></p>
+            </div>
+          )}
+          <Link to="/admin/finance?tab=charges" className="mt-3 inline-flex text-[11px] font-bold text-brand hover:underline">Gérer les charges →</Link>
         </Card>
 
         {/* Commissions */}

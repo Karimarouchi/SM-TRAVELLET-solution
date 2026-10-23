@@ -11,7 +11,21 @@ FROM node:20-alpine
 # Restaurer un dump v17 dans notre v16 ignore un unique réglage de session
 # propre à la v17 ("transaction_timeout") — backupService.js le tolère
 # explicitement, ce n'est pas une perte de données.
-RUN apk add --no-cache postgresql17-client su-exec
+# python3 lit les bulletins de paie. Le script Windows utilise la
+# reconnaissance de Windows ; sur ce Linux, poppler transforme le PDF en
+# image et tesseract (français) lit le texte. py3-pillow est exigé par
+# pytesseract. Le lien « python » évite l'échec quand l'API cherche ce nom.
+RUN apk add --no-cache \
+    postgresql17-client \
+    su-exec \
+    python3 \
+    py3-pip \
+    py3-pillow \
+    tesseract-ocr \
+    tesseract-ocr-data-fra \
+    poppler-utils \
+  && pip3 install --break-system-packages --no-cache-dir pytesseract pypdf \
+  && ln -sf /usr/bin/python3 /usr/bin/python
 
 WORKDIR /app
 

@@ -59,6 +59,11 @@ async function hasTranslatedApplication(studentId) {
   return result.rowCount > 0;
 }
 
+async function remove(id) {
+  const result = await query("DELETE FROM university_applications WHERE id = $1 RETURNING id", [id]);
+  return result.rows[0] || null;
+}
+
 async function update(id, fields) {
   const keys = Object.keys(fields);
   if (!keys.length) return findById(id);
@@ -291,6 +296,22 @@ async function listReadyForRdv(rdvUserId, studentId) {
   return result.rows;
 }
 
+async function listAcceptedWithAppointment() {
+  const result = await query(
+    `SELECT ua.*, c.name AS country_name, cu.name AS university_name,
+            u.prenom AS student_prenom, u.nom AS student_nom, sp.phone AS student_phone
+     FROM university_applications ua
+     JOIN users u ON u.id = ua.student_id
+     LEFT JOIN student_profiles sp ON sp.user_id = ua.student_id
+     JOIN countries c ON c.id = ua.country_id
+     JOIN country_universities cu ON cu.id = ua.university_id
+     WHERE ua.status = 'ACCEPTED'
+       AND COALESCE(ua.visa_status, '') NOT IN ('SUBMITTED', 'ACCEPTED', 'REJECTED')
+       AND (ua.visa_prep_meeting_at IS NOT NULL OR ua.visa_embassy_appointment_at IS NOT NULL)`
+  );
+  return result.rows;
+}
+
 async function rdvHasStudent(rdvUserId, studentId) {
   const result = await query(
     "SELECT 1 FROM university_applications WHERE (assigned_rdv_id = $1 OR leave_handler(assigned_rdv_id, student_id, 'RDV') = $1) AND student_id = $2 LIMIT 1",
@@ -301,9 +322,11 @@ async function rdvHasStudent(rdvUserId, studentId) {
 
 module.exports = {
   hasTranslatedApplication,
+  listAcceptedWithAppointment,
   rdvHasStudent,
   listReadyForRdv,
   findById,
+  remove,
   listForStudent,
   findActiveForStudent,
   create,
