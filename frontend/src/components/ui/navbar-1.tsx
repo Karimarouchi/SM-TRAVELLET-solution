@@ -38,14 +38,26 @@ function CountBadge({ count }: { count: number }) {
 function switchAdminArea(navigate: (path: string) => void, path: string) {
   document.documentElement.dataset.area = path.startsWith("/admin/rh") ? "rh" : "clients";
   const go = () => navigate(path);
-  const start = (document as Document & { startViewTransition?: (callback: () => void) => void }).startViewTransition;
-  if (typeof start === "function") {
-    start.call(document, () => {
-      flushSync(go);
-    });
+  const area = document.getElementById("admin-area");
+  const start = (document as Document & { startViewTransition?: (callback: () => void) => { finished: Promise<void> } }).startViewTransition;
+  if (!area || typeof start !== "function") {
+    go();
     return;
   }
-  go();
+  area.style.viewTransitionName = "admin-area";
+  const clear = () => {
+    area.style.viewTransitionName = "none";
+  };
+  try {
+    const transition = start.call(document, () => {
+      flushSync(go);
+    });
+    transition.finished.then(clear, clear);
+    window.setTimeout(clear, 500);
+  } catch {
+    clear();
+    go();
+  }
 }
 
 function AreaButton({ label, active, alert, tone, pillId, onClick }: { label: string; active: boolean; alert: boolean; tone: "brand" | "orange"; pillId: string; onClick: () => void }) {

@@ -61,20 +61,20 @@ function DossierRow({ item }: { item: PerfDossierItem }) {
   );
 }
 
-// Bloc WhatsApp du conseiller : placé avant les tableaux de temps par tâche.
+// Bloc WhatsApp du conseiller(ère) commercial(e) : placé avant les tableaux de temps par tâche.
 function SalesWhatsAppBlock({ user }: { user: StaffPerformance }) {
   const s = user.sales!;
   const wa = s.whatsapp;
   const lists = s.lists;
   return (
-      <Block icon={<MessageCircle className="h-5 w-5 text-emerald-600" />} title="WhatsApp" subtitle="Conversations dont ce conseiller est responsable.">
+      <Block icon={<MessageCircle className="h-5 w-5 text-emerald-600" />} title="WhatsApp" subtitle="Conversations dont ce conseiller(ère) commercial(e) est responsable.">
         <div className="grid gap-4 lg:grid-cols-[1fr_1.1fr]">
           <div className="grid grid-cols-2 gap-3 self-start">
             <StatTile label="1re réponse" value={wa.firstReply.label} hint={durationHint(wa.firstReply, "conversation")} />
             <StatTile label="Temps de réponse" value={wa.reply.label} hint={durationHint(wa.reply, "réponse")} />
             <StatTile label="Taux d'aboutissement" value={percent(wa.conversionRate)} hint={convertedHint(wa.converted, wa.answered)} />
             <StatTile label="En attente" value={wa.pendingNow} hint="attendent une réponse maintenant" tone={wa.pendingNow ? "warning" : "default"} />
-            <StatTile label="Messages envoyés" value={wa.messagesSent} hint="par ce conseiller sur la période" />
+            <StatTile label="Messages envoyés" value={wa.messagesSent} hint="par ce conseiller(ère) commercial(e) sur la période" />
             <StatTile label="Messages reçus" value={wa.messagesReceived} hint="sur ses conversations, sur la période" />
             <StatTile label="Conversations traitées" value={wa.conversationsHandled} hint="auxquelles il a répondu sur la période" />
             <StatTile label="Conversations" value={wa.conversations} hint="actives sur la période" />
@@ -98,7 +98,7 @@ function SalesWhatsAppBlock({ user }: { user: StaffPerformance }) {
                 <ContactRow key={item.contactId} item={item} right={shortDate(item.lastMessageAt)} />
               ))}
             </DetailList>
-            <DetailList title="Jamais répondues" count={lists.unanswered.length} empty="Le conseiller a répondu à tous ses contacts.">
+            <DetailList title="Jamais répondues" count={lists.unanswered.length} empty="Le conseiller(ère) commercial(e) a répondu à tous ses contacts.">
               {lists.unanswered.map((item) => (
                 <ContactRow key={item.contactId} item={item} right={shortDate(item.lastMessageAt)} />
               ))}
@@ -113,12 +113,12 @@ function SalesDossiersBlock({ user }: { user: StaffPerformance }) {
   const s = user.sales!;
   const lists = s.lists;
   return (
-      <Block icon={<FileCheck2 className="h-5 w-5 text-brand" />} title="Dossiers et délais" subtitle="Du premier accès de l'étudiant jusqu'à la transmission au Responsable Visa.">
+      <Block icon={<FileCheck2 className="h-5 w-5 text-brand" />} title="Dossiers et délais" subtitle="Du premier accès de l'étudiant jusqu'à la transmission au Gestionnaire de dossiers.">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatTile label="Étudiants suivis" value={s.students} hint="actuellement à sa charge" />
           <StatTile label="Vérif. d'un document" value={s.documentReview.label} hint={`${plural(s.documentsValidated, "validé")} · ${plural(s.documentsRejected, "refusé")}`} />
-          <StatTile label="Dossier → Resp. Dossier" value={s.handoff.label} hint={`de l'inscription à la transmission, ${durationHint(s.handoff, "dossier")}`} />
-          <StatTile label="Acceptation → docs visa" value={s.acceptedToVisaDocs.label} hint={`retour au Responsable Dossier après acceptation, ${durationHint(s.acceptedToVisaDocs, "dossier")}`} />
+          <StatTile label="Dossier → Gestionnaire de dossiers" value={s.handoff.label} hint={`de l'inscription à la transmission, ${durationHint(s.handoff, "dossier")}`} />
+          <StatTile label="Acceptation → docs visa" value={s.acceptedToVisaDocs.label} hint={`retour au Gestionnaire de dossiers après acceptation, ${durationHint(s.acceptedToVisaDocs, "dossier")}`} />
         </div>
         <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatTile label="Codes créés" value={s.codes.created} hint={`dont ${plural(s.codes.sentOnWhatsapp, "envoyé")} par WhatsApp`} />
@@ -141,7 +141,7 @@ function SalesDossiersBlock({ user }: { user: StaffPerformance }) {
 function RdvSection({ user }: { user: StaffPerformance }) {
   const r = user.rdv!;
   return (
-    <Block icon={<Plane className="h-5 w-5 text-brand" />} title="Responsable Visa" subtitle="Candidatures universitaires et dossiers visa qui lui sont attribués.">
+    <Block icon={<Plane className="h-5 w-5 text-brand" />} title="Gestionnaire de dossiers" subtitle="Candidatures universitaires et dossiers visa qui lui sont attribués.">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile label="Dossiers en cours" value={r.dossiers} hint="attribués actuellement" />
         <StatTile label="Prêt → déposé" value={r.readyToApplied.label} hint={`dépôt de la candidature, ${durationHint(r.readyToApplied, "dossier")}`} />
@@ -192,7 +192,7 @@ export default function AdminStaffStatsPage() {
     setSearchParams({ period: next }, { replace: true });
   }
 
-  const roleLabels = (user?.roles || []).filter((r) => r === "SALES" || r === "RDV").map((r) => (r === "SALES" ? "Conseiller" : "Responsable Visa"));
+  const roleLabels = (user?.roles || []).filter((r) => r === "SALES" || r === "RDV").map((r) => (r === "SALES" ? "Conseiller(ère) commercial(e)" : "Gestionnaire de dossiers"));
 
   return (
     <main className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">

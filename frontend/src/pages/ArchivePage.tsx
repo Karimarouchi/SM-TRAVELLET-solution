@@ -289,7 +289,7 @@ export default function ArchivePage() {
             onChange={(e) => setFilterSales(e.target.value)}
             className="rounded-xl border border-line bg-white px-4 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 shadow-sm"
           >
-            <option value="">{t("Tous les conseillers", "All advisors")}</option>
+            <option value="">{t("Tous les conseillers(ères) commerciaux(ales)", "All advisors")}</option>
             {salesList.map((s) => (
               <option key={s.id} value={s.id}>{s.prenom} {s.nom}</option>
             ))}
@@ -339,7 +339,7 @@ export default function ArchivePage() {
                 <tr className="border-b border-line bg-slate-50/80">
                   <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">{t("Étudiant", "Student")}</th>
                   <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">{t("Destination", "Destination")}</th>
-                  <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">{t("Conseiller", "Advisor")}</th>
+                  <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">{t("Conseiller(ère) commercial(e)", "Advisor")}</th>
                   <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">{t("RDV", "RDV")}</th>
                   <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">{t("Statut", "Status")}</th>
                   <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">{t("Date", "Date")}</th>
@@ -467,13 +467,13 @@ export default function ArchivePage() {
                     </div>
                     {entry.salesName && (
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted">{t("Conseiller", "Advisor")}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted">{t("Conseiller(ère) commercial(e)", "Advisor")}</p>
                         <p className="text-dark">{entry.salesName}</p>
                       </div>
                     )}
                     {entry.rdvName && (
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Responsable Dossier</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Gestionnaire de dossiers</p>
                         <p className="text-dark">{entry.rdvName}</p>
                       </div>
                     )}

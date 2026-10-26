@@ -75,7 +75,7 @@ export function buildSteps({
               <span>
                 <strong>{t("Candidature bloquée : paiement non réglé.", "Application on hold: payment not settled.")}</strong>{" "}
                 {t(
-                  `Il reste ${formatMoney(unpaidPlan.tranche1.remaining, unpaidPlan.currency)} à payer (tranche inscription). Votre candidature sera déposée dès le règlement auprès de votre conseiller.`,
+                  `Il reste ${formatMoney(unpaidPlan.tranche1.remaining, unpaidPlan.currency)} à payer (tranche inscription). Votre candidature sera déposée dès le règlement auprès de votre conseiller(ère) commercial(e).`,
                   `${formatMoney(unpaidPlan.tranche1.remaining, unpaidPlan.currency)} left to pay (registration instalment). Your application will be submitted once you pay your advisor.`
                 )}
               </span>

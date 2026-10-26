@@ -129,9 +129,9 @@ function StudentPopoverCard({
       <p className="mt-2 flex items-center gap-1.5 text-xs text-mid">
         <UserRound className="h-3.5 w-3.5 shrink-0 text-brand" />
         {student.assignedSalesName ? (
-          <span><span className="font-semibold">{student.assignedSalesName}</span> · Conseiller</span>
+          <span><span className="font-semibold">{student.assignedSalesName}</span> · Conseiller(ère) commercial(e)</span>
         ) : (
-          <span className="text-amber-600 font-semibold">Aucun conseiller assigné</span>
+          <span className="text-amber-600 font-semibold">Aucun conseiller(ère) commercial(e) assigné</span>
         )}
       </p>
 

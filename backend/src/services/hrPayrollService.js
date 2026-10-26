@@ -43,13 +43,17 @@ function num(value) {
   return value === null || value === undefined ? 0 : Number(value);
 }
 
+const SALES_TITLE = "Conseiller(ère) commercial(e)";
+const RDV_TITLE = "Gestionnaire de dossiers";
+const LEGACY_TITLES = new Set(["conseiller", "responsable dossier", "responsable dossier visa", "responsable visa"]);
+
 function jobTitleOf(row) {
   const title = String(row.job_title || "").trim();
-  if (title) return title;
   const roles = rolesOf(row);
-  if (roles.includes("SALES")) return "Conseiller";
-  if (roles.includes("RDV")) return "Responsable dossier";
-  return "Employé";
+  if (title && !LEGACY_TITLES.has(title.toLowerCase())) return title;
+  if (roles.includes("SALES")) return SALES_TITLE;
+  if (roles.includes("RDV")) return RDV_TITLE;
+  return title || "Employé";
 }
 
 function rolesOf(row) {

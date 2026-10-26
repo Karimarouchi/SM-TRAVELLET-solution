@@ -328,8 +328,8 @@ export default function AdminInsightsSection() {
           )}
           <div className="mt-4 space-y-3 border-t border-line pt-3">
             {[
-              { label: "Équipe Conseillers", value: commissions.salesThisMonth, color: "bg-violet-500" },
-              { label: "Équipe Responsables Dossier", value: commissions.rdvThisMonth, color: "bg-sky-500" }
+              { label: "Équipe Conseillers(ères) commerciaux(ales)", value: commissions.salesThisMonth, color: "bg-violet-500" },
+              { label: "Équipe Gestionnaires de dossiers", value: commissions.rdvThisMonth, color: "bg-sky-500" }
             ].map((row) => (
               <div key={row.label}>
                 <div className="mb-1 flex items-center justify-between text-[11px]">
@@ -343,7 +343,7 @@ export default function AdminInsightsSection() {
         </Card>
 
         {/* Dossiers sans RDV */}
-        <Card icon={UserX} title="Acceptés sans Responsable Dossier" tone={withoutRdv > 0 ? "bg-rose-100 text-rose-600" : "bg-emerald-100 text-emerald-600"} delay={0.18}>
+        <Card icon={UserX} title="Acceptés sans Gestionnaire de dossiers" tone={withoutRdv > 0 ? "bg-rose-100 text-rose-600" : "bg-emerald-100 text-emerald-600"} delay={0.18}>
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-4">
               <p className={cn("font-display text-5xl font-extrabold leading-none", withoutRdv > 0 ? "text-rose-500" : "text-emerald-600")}>
@@ -351,13 +351,13 @@ export default function AdminInsightsSection() {
               </p>
               <p className="max-w-xs text-xs text-muted">
                 {withoutRdv > 0
-                  ? "dossiers acceptés par une université mais sans responsable visa : personne ne peut les suivre."
-                  : "Tous les dossiers acceptés ont un responsable visa."}
+                  ? "dossiers acceptés par une université mais sans gestionnaire de dossiers : personne ne peut les suivre."
+                  : "Tous les dossiers acceptés ont un gestionnaire de dossiers."}
               </p>
             </div>
             {withoutRdv > 0 && (
               <Link to="/admin/users?tab=rdv&focus=attribution-visa" className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3.5 py-2 text-xs font-bold text-white transition hover:opacity-90">
-                <Clock className="h-3.5 w-3.5" /> Attribuer un Responsable Dossier
+                <Clock className="h-3.5 w-3.5" /> Attribuer un Gestionnaire de dossiers
               </Link>
             )}
           </div>

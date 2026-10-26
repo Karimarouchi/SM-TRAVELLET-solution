@@ -295,7 +295,7 @@ export default function FinanceStatsSection() {
         </div>
       </section>
 
-      {/* ── Modes de paiement + pays / conseillers ── */}
+      {/* ── Modes de paiement + pays / conseillers(ères) commerciaux(ales) ── */}
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="rounded-[24px] border border-line bg-white p-5 shadow-sm">
           <h3 className="font-display text-base font-bold text-dark">Modes de paiement</h3>
@@ -324,7 +324,7 @@ export default function FinanceStatsSection() {
           )}
         </section>
         <RankingCard title="Par pays" rows={countries} currency={currency} empty="Aucun encaissement sur cette période." />
-        <RankingCard title="Par conseiller" rows={sales} currency={currency} empty="Aucun encaissement sur cette période." />
+        <RankingCard title="Par conseiller(ère) commercial(e)" rows={sales} currency={currency} empty="Aucun encaissement sur cette période." />
       </div>
 
       {/* ── Tableau mensuel de l'année ── */}

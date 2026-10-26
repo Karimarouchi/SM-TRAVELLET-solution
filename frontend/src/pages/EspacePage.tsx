@@ -159,7 +159,7 @@ export default function EspacePage() {
     const rejected = documents.filter((d) => d.status === "REJECTED").length;
     const missing = documents.filter((d) => d.required && d.status === "PENDING").length;
     if (rejected) {
-      list.push({ key: "docs-rejected", tone: "danger", icon: FileText, title: t(`${rejected} document${rejected > 1 ? "s" : ""} à renvoyer`, `${rejected} document${rejected > 1 ? "s" : ""} to resend`), text: t("Votre conseiller a refusé un document : consultez le motif et déposez-le à nouveau.", "Your advisor rejected a document: check the reason and upload it again."), to: "/documents", cta: t("Renvoyer", "Resend") });
+      list.push({ key: "docs-rejected", tone: "danger", icon: FileText, title: t(`${rejected} document${rejected > 1 ? "s" : ""} à renvoyer`, `${rejected} document${rejected > 1 ? "s" : ""} to resend`), text: t("Votre conseiller(ère) commercial(e) a refusé un document : consultez le motif et déposez-le à nouveau.", "Your advisor rejected a document: check the reason and upload it again."), to: "/documents", cta: t("Renvoyer", "Resend") });
     }
     if (missing) {
       list.push({ key: "docs-missing", tone: "warning", icon: FolderOpen, title: t(`${missing} document${missing > 1 ? "s" : ""} à déposer`, `${missing} document${missing > 1 ? "s" : ""} to upload`), text: t("Un dossier complet permet de postuler plus vite.", "A complete file lets you apply faster."), to: "/documents", cta: t("Déposer", "Upload") });
@@ -177,8 +177,8 @@ export default function EspacePage() {
           icon: Banknote,
           title: t(`Tranche inscription à régler : ${formatMoney(plan.tranche1.remaining, plan.currency)}`, `Registration instalment due: ${formatMoney(plan.tranche1.remaining, plan.currency)}`),
           text: blocked
-            ? t(`${plan.countryName} · votre dossier est prêt mais la candidature est bloquée tant que ce paiement n'est pas réglé auprès de votre conseiller.`, `${plan.countryName} · your file is ready but the application is on hold until you pay your advisor.`)
-            : t(`${plan.countryName} · à régler auprès de votre conseiller.`, `${plan.countryName} · to be paid to your advisor.`),
+            ? t(`${plan.countryName} · votre dossier est prêt mais la candidature est bloquée tant que ce paiement n'est pas réglé auprès de votre conseiller(ère) commercial(e).`, `${plan.countryName} · your file is ready but the application is on hold until you pay your advisor.`)
+            : t(`${plan.countryName} · à régler auprès de votre conseiller(ère) commercial(e).`, `${plan.countryName} · to be paid to your advisor.`),
           cta: ""
         });
       } else if (!plan.tranche2.complete && (dossierStage === "VISA" || selected?.visaStatus)) {
@@ -189,7 +189,7 @@ export default function EspacePage() {
     if (status === "EXPIRED" || status === "EXPIRING") {
       list.push({ key: "passport", tone: status === "EXPIRED" ? "danger" : "warning", icon: ShieldCheck, title: status === "EXPIRED" ? t("Passeport expiré", "Passport expired") : t("Passeport à renouveler", "Passport to renew"), text: t("Il doit rester au moins 24 mois de validité pour la plupart des démarches.", "Most procedures require at least 24 months of validity."), to: "/profil", cta: t("Mettre à jour", "Update") });
     } else if (status === "UNKNOWN" || (status === "NONE" && profile?.hasPassport === null)) {
-      list.push({ key: "passport-info", tone: "info", icon: ShieldCheck, title: t("Renseignez votre passeport", "Add your passport details"), text: t("Numéro et date d'expiration : votre conseiller en a besoin pour votre dossier.", "Number and expiry date: your advisor needs them for your file."), to: "/profil", cta: t("Compléter", "Complete") });
+      list.push({ key: "passport-info", tone: "info", icon: ShieldCheck, title: t("Renseignez votre passeport", "Add your passport details"), text: t("Numéro et date d'expiration : votre conseiller(ère) commercial(e) en a besoin pour votre dossier.", "Number and expiry date: your advisor needs them for your file."), to: "/profil", cta: t("Compléter", "Complete") });
     }
     if (selected?.interviewDate && selected.status === "INTERVIEW_SCHEDULED") {
       const when = new Date(selected.interviewDate);
@@ -208,7 +208,7 @@ export default function EspacePage() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
-      {/* ── En-tête : accueil + conseiller ───────────────────────────── */}
+      {/* ── En-tête : accueil + conseiller(ère) commercial(e) ───────────────────────────── */}
       <section className="overflow-hidden rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-6 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)] sm:p-8">
         <div className="grid gap-6 lg:grid-cols-[1fr_340px] lg:items-center">
           <div>
@@ -232,7 +232,7 @@ export default function EspacePage() {
           </div>
 
           <div className="rounded-3xl bg-white/12 p-5 backdrop-blur ring-1 ring-white/20">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-white/70">{t("Votre conseiller", "Your advisor")}</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-white/70">{t("Votre conseiller(ère) commercial(e)", "Your advisor")}</p>
             <div className="mt-3 flex items-center gap-3">
               {salesName ? (
                 <UserAvatar name={salesName} size="md" />
@@ -241,7 +241,7 @@ export default function EspacePage() {
               )}
               <div className="min-w-0">
                 <p className="truncate font-display text-lg font-bold">{salesName || t("En cours d'attribution", "Being assigned")}</p>
-                <p className="text-xs text-white/75">{salesName ? t("Vous accompagne pas à pas", "Guides you step by step") : t("Un conseiller vous sera attribué", "An advisor will be assigned to you")}</p>
+                <p className="text-xs text-white/75">{salesName ? t("Vous accompagne pas à pas", "Guides you step by step") : t("Un conseiller(ère) commercial(e) vous sera attribué", "An advisor will be assigned to you")}</p>
               </div>
             </div>
             <a
@@ -264,7 +264,7 @@ export default function EspacePage() {
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600"><CheckCircle2 className="h-5 w-5" aria-hidden /></span>
             <div>
               <p className="text-sm font-bold text-emerald-800">{t("Tout est à jour", "Everything is up to date")}</p>
-              <p className="text-xs text-emerald-700">{t("Votre conseiller s'occupe de la suite et vous préviendra.", "Your advisor is handling the next steps and will notify you.")}</p>
+              <p className="text-xs text-emerald-700">{t("Votre conseiller(ère) commercial(e) s'occupe de la suite et vous préviendra.", "Your advisor is handling the next steps and will notify you.")}</p>
             </div>
           </div>
         ) : (
@@ -355,7 +355,7 @@ export default function EspacePage() {
               <div className="mt-3 space-y-4">
                 {payments.plans.map((plan) => (
                   <div key={plan.id}>
-                    <p className="text-sm font-bold text-dark">{plan.countryName} · {formatMoney(plan.total, plan.currency)}</p>
+                    <p className="text-sm font-bold text-dark">{plan.countryName}{plan.levelName ? ` · ${plan.levelName}` : ""} · {formatMoney(plan.total, plan.currency)}</p>
                     <div className="mt-2 space-y-1.5">
                       {([["1", t("Inscription", "Registration"), plan.tranche1], ["2", t("Visa", "Visa"), plan.tranche2]] as const).map(([n, label, tranche]) => (
                         <div key={n} className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs">

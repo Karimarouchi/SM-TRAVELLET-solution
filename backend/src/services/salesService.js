@@ -11,7 +11,7 @@ async function getMine(userId) {
     user: userDto(user),
     profile: {
       phone: profile.phone || "",
-      jobTitle: profile.job_title || "Conseiller",
+      jobTitle: !profile.job_title || String(profile.job_title).trim().toLowerCase() === "conseiller" ? "Conseiller(ère) commercial(e)" : profile.job_title,
       bio: profile.bio || ""
     },
     stats: {

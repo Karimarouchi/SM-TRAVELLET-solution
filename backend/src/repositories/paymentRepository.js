@@ -34,6 +34,32 @@ async function removePricing(countryId) {
   await query("DELETE FROM country_pricing WHERE country_id = $1", [countryId]);
 }
 
+async function listLevelPricing() {
+  const result = await query("SELECT * FROM level_pricing");
+  return result.rows;
+}
+
+async function findLevelPricing(countryId, levelId) {
+  const result = await query("SELECT * FROM level_pricing WHERE country_id = $1 AND level_id = $2", [countryId, levelId]);
+  return result.rows[0] || null;
+}
+
+async function upsertLevelPricing({ countryId, levelId, currency, tranche1, tranche2, updatedBy }) {
+  const result = await query(
+    `INSERT INTO level_pricing (country_id, level_id, currency, tranche1_amount, tranche2_amount, updated_by, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, NOW())
+     ON CONFLICT (country_id, level_id) DO UPDATE
+       SET currency = $3, tranche1_amount = $4, tranche2_amount = $5, updated_by = $6, updated_at = NOW()
+     RETURNING *`,
+    [countryId, levelId, currency, tranche1, tranche2, updatedBy]
+  );
+  return result.rows[0];
+}
+
+async function removeLevelPricing(countryId, levelId) {
+  await query("DELETE FROM level_pricing WHERE country_id = $1 AND level_id = $2", [countryId, levelId]);
+}
+
 // ── Plans ──
 const PLAN_SELECT = `
   SELECT pp.*, u.prenom AS student_prenom, u.nom AS student_nom, c.name AS country_name,
@@ -66,15 +92,28 @@ async function findPlanById(id) {
   return result.rows[0] || null;
 }
 
-async function createPlan({ studentId, countryId, currency, tranche1Due, tranche2Due, tranche1Deadline = null }) {
+async function createPlan({ studentId, countryId, currency, tranche1Due, tranche2Due, tranche1Deadline = null, levelId = null, levelName = null }) {
   const result = await query(
-    `INSERT INTO payment_plans (student_id, country_id, currency, tranche1_due, tranche2_due, tranche1_deadline)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO payment_plans (student_id, country_id, currency, tranche1_due, tranche2_due, tranche1_deadline, level_id, level_name)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      ON CONFLICT (student_id, country_id) DO UPDATE SET student_id = EXCLUDED.student_id
      RETURNING *`,
-    [studentId, countryId, currency, tranche1Due, tranche2Due, tranche1Deadline]
+    [studentId, countryId, currency, tranche1Due, tranche2Due, tranche1Deadline, levelId, levelName]
   );
   return result.rows[0];
+}
+
+// Le conseiller change le pays ou le niveau : les montants dus suivent le nouveau
+// tarif. Les paiements déjà enregistrés restent attachés à ce plan.
+async function retargetPlan(planId, { countryId, currency, tranche1Due, tranche2Due, levelId, levelName }) {
+  const result = await query(
+    `UPDATE payment_plans
+     SET country_id = $2, currency = $3, tranche1_due = $4, tranche2_due = $5, level_id = $6, level_name = $7
+     WHERE id = $1
+     RETURNING *`,
+    [planId, countryId, currency, tranche1Due, tranche2Due, levelId, levelName]
+  );
+  return result.rows[0] || null;
 }
 
 // Date limite promise à l'étudiant pour payer le reste d'une tranche (null = plus de reste).
@@ -237,6 +276,11 @@ module.exports = {
   findPlan,
   findPlanById,
   createPlan,
+  retargetPlan,
+  listLevelPricing,
+  findLevelPricing,
+  upsertLevelPricing,
+  removeLevelPricing,
   listPaymentsForStudent,
   findPayment,
   createPayment,

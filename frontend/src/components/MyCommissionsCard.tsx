@@ -10,7 +10,7 @@ export const STAGE_LABELS_FR: Record<CommissionStage, string> = {
   APPLIED: "Candidature déposée",
   ACCEPTED: "Candidature acceptée",
   VISA_DOCUMENTS_VALIDATED: "Documents visa validés",
-  VISA_SUBMITTED: "Dossier visa déposé",
+  VISA_SUBMITTED: "Prise de rendez-vous visa",
   VISA_ACCEPTED: "Visa accepté"
 };
 

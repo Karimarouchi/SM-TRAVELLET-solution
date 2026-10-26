@@ -10,7 +10,7 @@ const leaveCover = require("./leaveCover");
 // Dossier) avec un pourcentage ; il peut ensuite confier un étudiant précis à un remplaçant précis.
 
 const SCOPES = ["SALES", "RDV"];
-const SCOPE_LABELS = { SALES: "Conseiller", RDV: "Responsable Dossier" };
+const SCOPE_LABELS = { SALES: "Conseiller(ère) commercial(e)", RDV: "Gestionnaire de dossiers" };
 
 function fail(message, status = 400) {
   const error = new Error(message);

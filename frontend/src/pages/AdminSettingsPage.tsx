@@ -192,7 +192,7 @@ export default function AdminSettingsPage() {
           <SettingsIcon className="h-7 w-7" /> Paramètres
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-white/85">
-          Réglages globaux de la plateforme : répartition automatique des conseillers et alertes de suivi des dossiers.
+          Réglages globaux de la plateforme : répartition automatique des conseillers(ères) commerciaux(ales) et alertes de suivi des dossiers.
         </p>
       </section>
 
@@ -325,7 +325,7 @@ export default function AdminSettingsPage() {
             </h2>
             <p className="mt-1 text-xs text-muted">
               Si un étudiant reste bloqué sur l'étape "Sans candidature" (onboarding terminé, aucune candidature créée) au-delà du seuil ci-dessous,
-              un email est envoyé à l'adresse admin et au conseiller assigné.
+              un email est envoyé à l'adresse admin et au conseiller(ère) commercial(e) assigné.
             </p>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -441,7 +441,7 @@ export default function AdminSettingsPage() {
               <MessageCircle className="h-5 w-5 text-emerald-600" /> Réponse automatique WhatsApp
             </h2>
             <p className="mt-1 text-xs text-muted">
-              Quand un client écrit un jour non travaillé, il reçoit automatiquement ce message lui demandant de vous réécrire à la reprise. Il n'est envoyé qu'une fois par période de fermeture et par client, et ne compte jamais comme une réponse d'un conseiller. Les jours non travaillés sont ceux décochés dans « Horaires de travail » ci-dessus. Un jour férié payé, un autre message part tout seul : il dit que l'agence ne travaille pas et indique le prochain jour ouvert. Il part le matin vers les conversations qui attendent, et aussi si un client écrit. Ce jour ne compte pas comme une attente.
+              Quand un client écrit un jour non travaillé, il reçoit automatiquement ce message lui demandant de vous réécrire à la reprise. Il n'est envoyé qu'une fois par période de fermeture et par client, et ne compte jamais comme une réponse d'un conseiller(ère) commercial(e). Les jours non travaillés sont ceux décochés dans « Horaires de travail » ci-dessus. Un jour férié payé, un autre message part tout seul : il dit que l'agence ne travaille pas et indique le prochain jour ouvert. Il part le matin vers les conversations qui attendent, et aussi si un client écrit. Ce jour ne compte pas comme une attente.
             </p>
             <p className={cn("mt-3 rounded-xl px-3 py-2 text-xs font-semibold", closedDays.length ? "bg-slate-50 text-mid" : "bg-amber-50 text-amber-800")}>
               {closedDays.length ? `Jours non travaillés actuellement : ${closedDays.map((d) => d.label.toLowerCase()).join(", ")}.` : "Tous les jours sont travaillés : aucune réponse automatique ne sera envoyée. Décochez les jours de repos dans « Horaires de travail » (puis enregistrez les horaires)."}
@@ -485,7 +485,7 @@ export default function AdminSettingsPage() {
             </h2>
             <p className="mt-1 text-xs text-muted">
               Envoyé une seule fois, automatiquement, quand un nouveau client écrit pour la première fois. Il n'est pas envoyé à un étudiant déjà inscrit.
-              C'est un message système : la conversation reste non lue et « à traiter » jusqu'à la réponse d'un conseiller.
+              C'est un message système : la conversation reste non lue et « à traiter » jusqu'à la réponse d'un conseiller(ère) commercial(e).
             </p>
             <label className="mt-4 flex items-center gap-2.5 text-sm font-semibold text-dark">
               <input type="checkbox" checked={welcome.enabled} onChange={(e) => setWelcome({ ...welcome, enabled: e.target.checked })} className="h-4 w-4 accent-violet-600" />

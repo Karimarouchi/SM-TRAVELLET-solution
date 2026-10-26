@@ -69,4 +69,12 @@ async function assign(req, res) {
   }
 }
 
-module.exports = { me, detail, onboarding, identity, avatar, list, assign, blockers };
+async function destination(req, res) {
+  try {
+    res.json(await studentService.setStudyDestination(req.auth, req.params.id, req.body || {}));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
+module.exports = { me, detail, onboarding, identity, avatar, list, assign, blockers, destination };

@@ -9,6 +9,7 @@ const logger = require("../logger");
 const { canAccessStudent, authRoles } = require("../security/rbac");
 const leaveCover = require("./leaveCover");
 const { canViewStudent } = require("../security/studentView");
+const programmeService = require("./programmeService");
 
 // Deux tranches par pays : 1 = inscription (à la création du code), 2 = avant le
 // dépôt du visa. Montants en DT (TND) ou en euro selon le pays.
@@ -81,44 +82,121 @@ async function normalizeMethodReference(method, raw) {
 }
 
 // ── Tarifs ──
-function pricingDto(row) {
+function pricingDto(row, levels = []) {
+  const countryConfigured = row.tranche1_amount !== null && row.tranche1_amount !== undefined;
+  const pricedLevels = levels.filter((level) => level.configured);
+  const configured = levels.length ? pricedLevels.length === levels.length : countryConfigured;
   return {
     countryId: row.country_id,
     countryName: row.country_name,
     code: row.code,
-    configured: row.tranche1_amount !== null && row.tranche1_amount !== undefined,
+    configured,
     currency: row.currency || "TND",
     tranche1: row.tranche1_amount === null || row.tranche1_amount === undefined ? null : money(row.tranche1_amount),
-    tranche2: row.tranche2_amount === null || row.tranche2_amount === undefined ? null : money(row.tranche2_amount)
+    tranche2: row.tranche2_amount === null || row.tranche2_amount === undefined ? null : money(row.tranche2_amount),
+    levels
   };
 }
 
+function levelPriceDto(level, priceRow) {
+  const configured = Boolean(priceRow);
+  return {
+    levelId: level.id,
+    levelName: level.name,
+    configured,
+    currency: priceRow?.currency || "TND",
+    tranche1: configured ? money(priceRow.tranche1_amount) : null,
+    tranche2: configured ? money(priceRow.tranche2_amount) : null
+  };
+}
+
+async function pricingWithLevels(row) {
+  const byCountry = await programmeService.levelsByCountry();
+  const prices = await paymentRepo.listLevelPricing();
+  const levels = (byCountry.get(row.country_id) || []).map((level) => {
+    const price = prices.find((item) => item.country_id === row.country_id && item.level_id === level.id);
+    return levelPriceDto(level, price);
+  });
+  return pricingDto(row, levels);
+}
+
 async function listPricing() {
-  return (await paymentRepo.listPricing()).map(pricingDto);
+  const rows = await paymentRepo.listPricing();
+  const byCountry = await programmeService.levelsByCountry();
+  const prices = await paymentRepo.listLevelPricing();
+  return rows.map((row) => {
+    const levels = (byCountry.get(row.country_id) || []).map((level) => {
+      const price = prices.find((item) => item.country_id === row.country_id && item.level_id === level.id);
+      return levelPriceDto(level, price);
+    });
+    return pricingDto(row, levels);
+  });
 }
 
 async function getPricingForCountry(countryId) {
   const country = await countryRepo.findById(countryId);
   if (!country) throw fail("Pays introuvable.", 404);
   const row = await paymentRepo.findPricing(countryId);
-  return pricingDto({ country_id: country.id, country_name: country.name, code: country.code, ...(row || {}) });
+  return pricingWithLevels({ country_id: country.id, country_name: country.name, code: country.code, ...(row || {}) });
 }
 
-async function setPricing(auth, countryId, payload) {
-  const country = await countryRepo.findById(countryId);
-  if (!country) throw fail("Pays introuvable.", 404);
+function readAmounts(payload) {
   const currency = String(payload.currency || "TND").toUpperCase();
   if (!CURRENCIES.includes(currency)) throw fail("Monnaie invalide (DT ou euro).", 400);
   const tranche1 = normalizeAmount(payload.tranche1, "Le montant de la tranche 1");
   const tranche2 = normalizeAmount(payload.tranche2, "Le montant de la tranche 2");
   if (tranche1 + tranche2 <= 0) throw fail("Le prix total doit être supérieur à zéro.", 400);
-  await paymentRepo.upsertPricing({ countryId, currency, tranche1, tranche2, updatedBy: auth.sub });
+  return { currency, tranche1, tranche2 };
+}
+
+async function setPricing(auth, countryId, payload) {
+  const country = await countryRepo.findById(countryId);
+  if (!country) throw fail("Pays introuvable.", 404);
+  const amounts = readAmounts(payload);
+  const levelId = String(payload.levelId || "").trim();
+  if (levelId) {
+    const levels = await programmeService.levelsForCountry(countryId);
+    if (!levels.some((level) => level.id === levelId)) throw fail("Ce niveau n'appartient pas à ce pays.", 400);
+    await paymentRepo.upsertLevelPricing({ countryId, levelId, ...amounts, updatedBy: auth.sub });
+  } else {
+    await paymentRepo.upsertPricing({ countryId, ...amounts, updatedBy: auth.sub });
+  }
   return getPricingForCountry(countryId);
 }
 
-async function removePricing(countryId) {
-  await paymentRepo.removePricing(countryId);
+async function removePricing(countryId, levelId) {
+  if (levelId) await paymentRepo.removeLevelPricing(countryId, levelId);
+  else await paymentRepo.removePricing(countryId);
   return getPricingForCountry(countryId);
+}
+
+// Tarif applicable : le niveau s'il y en a, sinon le tarif unique du pays.
+// Renvoie null quand le choix n'est pas encore complet ou qu'aucun prix n'est défini.
+async function resolveTariff(countryId, levelId) {
+  const levels = await programmeService.levelsForCountry(countryId);
+  if (levels.length) {
+    if (!levelId) return null;
+    const level = levels.find((item) => item.id === levelId);
+    if (!level) throw fail("Ce niveau n'appartient pas à ce pays.", 400);
+    const price = await paymentRepo.findLevelPricing(countryId, levelId);
+    if (!price) return null;
+    return {
+      levelId: level.id,
+      levelName: level.name,
+      currency: price.currency,
+      tranche1: money(price.tranche1_amount),
+      tranche2: money(price.tranche2_amount)
+    };
+  }
+  const price = await paymentRepo.findPricing(countryId);
+  if (!price) return null;
+  return {
+    levelId: null,
+    levelName: null,
+    currency: price.currency,
+    tranche1: money(price.tranche1_amount),
+    tranche2: money(price.tranche2_amount)
+  };
 }
 
 // ── Plans et paiements ──
@@ -175,6 +253,8 @@ function planDto(row) {
     status: t1.complete && t2.complete ? "PAID" : t1.paid + t2.paid > 0 ? "PARTIAL" : "UNPAID",
     // Retard : la tranche 2 est exigible dès que le dossier est en phase visa.
     late: (!t1.complete && !waiting1) || (row.dossier_stage === "VISA" && !t2.complete && !waiting2),
+    levelId: row.level_id || null,
+    levelName: row.level_name || null,
     createdAt: row.created_at
   };
 }
@@ -208,15 +288,72 @@ function paymentDto(row) {
 async function ensurePlan(studentId, countryId) {
   const existing = await paymentRepo.findPlan(studentId, countryId);
   if (existing) return existing;
-  const pricing = await paymentRepo.findPricing(countryId);
-  if (!pricing) throw fail("Aucun tarif n'est défini pour ce pays. Définissez-le d'abord dans Finance > Tarifs.", 400);
+  const profile = await studentRepo.ensureProfile(studentId);
+  const levelId = profile.target_level_id || null;
+  const tariff = await resolveTariff(countryId, levelId);
+  if (!tariff) throw fail("Aucun tarif n'est défini pour ce parcours. Définissez-le d'abord dans Finance > Tarifs.", 400);
   await paymentRepo.createPlan({
     studentId,
     countryId,
-    currency: pricing.currency,
-    tranche1Due: pricing.tranche1_amount,
-    tranche2Due: pricing.tranche2_amount
+    currency: tariff.currency,
+    tranche1Due: tariff.tranche1,
+    tranche2Due: tariff.tranche2,
+    levelId: tariff.levelId,
+    levelName: tariff.levelName
   });
+  return paymentRepo.findPlan(studentId, countryId);
+}
+
+// Crée le plan à la fin de l'onboarding si le code n'en a pas déjà figé un.
+async function ensurePlanForChoice(studentId, countryId, levelId) {
+  const existing = await paymentRepo.findPlan(studentId, countryId);
+  if (existing) return existing;
+  const tariff = await resolveTariff(countryId, levelId);
+  if (!tariff) return null;
+  await paymentRepo.createPlan({
+    studentId,
+    countryId,
+    currency: tariff.currency,
+    tranche1Due: tariff.tranche1,
+    tranche2Due: tariff.tranche2,
+    levelId: tariff.levelId,
+    levelName: tariff.levelName
+  });
+  return paymentRepo.findPlan(studentId, countryId);
+}
+
+// Le conseiller change la destination : l'argent encaissé reste, le reste suit le nouveau tarif.
+async function retargetStudentPlan(studentId, countryId, levelId) {
+  const tariff = await resolveTariff(countryId, levelId);
+  if (!tariff) throw fail("Ce parcours n'a pas encore de tarif. Définissez-le dans Finance > Tarifs.", 400);
+  const plans = await paymentRepo.listPlansForStudent(studentId);
+  const sameCountry = plans.find((plan) => plan.country_id === countryId);
+  const movable = plans.length === 1 ? plans[0] : null;
+  const target = sameCountry || movable;
+  const fields = {
+    countryId,
+    currency: tariff.currency,
+    tranche1Due: tariff.tranche1,
+    tranche2Due: tariff.tranche2,
+    levelId: tariff.levelId,
+    levelName: tariff.levelName
+  };
+  if (!target) {
+    await paymentRepo.createPlan({ studentId, ...fields });
+    return paymentRepo.findPlan(studentId, countryId);
+  }
+  const paid = cents(target.paid1) + cents(target.paid2);
+  if (paid > 0 && target.currency !== tariff.currency) {
+    throw fail("La monnaie du nouveau tarif est différente des paiements déjà encaissés.", 400);
+  }
+  try {
+    await paymentRepo.retargetPlan(target.id, fields);
+  } catch (error) {
+    if (error.code !== "23505") throw error;
+    const destination = await paymentRepo.findPlan(studentId, countryId);
+    if (!destination) throw error;
+    await paymentRepo.retargetPlan(destination.id, fields);
+  }
   return paymentRepo.findPlan(studentId, countryId);
 }
 
@@ -362,9 +499,10 @@ async function updatePaymentDate(auth, paymentId, rawDate) {
 
 // Valide la confirmation d'encaissement saisie à la création du code. Renvoie
 // null si le pays n'a pas de tarif (aucun paiement attendu).
-async function prepareCodePayment(countryId, payment) {
-  const pricing = await paymentRepo.findPricing(countryId);
-  if (!pricing) return null;
+async function prepareCodePayment(countryId, payment, levelId) {
+  const tariff = await resolveTariff(countryId, levelId || null);
+  if (!tariff) return null;
+  const pricing = { currency: tariff.currency, tranche1_amount: tariff.tranche1, tranche2_amount: tariff.tranche2, levelId: tariff.levelId, levelName: tariff.levelName };
   if (cents(pricing.tranche1_amount) > 0) {
     if (!payment || payment.confirmed !== true) {
       throw fail(`Confirmez l'encaissement de la tranche 1 (${formatAmount(pricing.tranche1_amount, pricing.currency)}) pour générer le code.`, 400);
@@ -394,6 +532,8 @@ async function prepareCodePayment(countryId, payment) {
     currency: pricing.currency,
     tranche1: money(pricing.tranche1_amount),
     tranche2: money(pricing.tranche2_amount),
+    levelId: pricing.levelId,
+    levelName: pricing.levelName,
     method,
     reference,
     // Date de l'encaissement : aujourd'hui par défaut, modifiable par le conseiller (jamais dans le futur).
@@ -413,7 +553,9 @@ async function applyCodePayment(studentId, claimed) {
     currency: claimed.payment_currency,
     tranche1Due: claimed.payment_tranche1,
     tranche2Due: claimed.payment_tranche2,
-    tranche1Deadline: dateOnly(claimed.payment_deadline)
+    tranche1Deadline: dateOnly(claimed.payment_deadline),
+    levelId: claimed.prefill_level_id || null,
+    levelName: claimed.prefill_target_level || null
   });
   if (cents(claimed.payment_tranche1) > 0) {
     const created = await paymentRepo.createPayment({
@@ -609,6 +751,9 @@ module.exports = {
   updatePaymentDate,
   prepareCodePayment,
   applyCodePayment,
+  resolveTariff,
+  ensurePlanForChoice,
+  retargetStudentPlan,
   assertVisaPaid,
   visaPaymentDue,
   registrationPaymentDue,

@@ -2,7 +2,7 @@ import { EMPTY_EXTRA_TESTS, EXTRA_LANGUAGES, OPTIONAL_LANG_LEVELS, TEST_LANG_CHO
 import ExtraTestFields from "@/components/ExtraTestFields";
 import { FancySelect } from "@/components/ui/fancy-select";
 import UniversityPicker from "@/components/UniversityPicker";
-import { addMyUniversityChoice, fetchPublicCountries, fetchPublicUniversities, getSession, saveOnboarding, type Country, type PublicUniversity } from "@/lib/auth";
+import { addMyUniversityChoice, fetchCountryPricing, fetchPublicCountries, fetchPublicProgrammes, fetchPublicUniversities, formatMoney, getSession, saveOnboarding, type Country, type CountryPricing, type Programme, type PublicUniversity } from "@/lib/auth";
 import ExtraWishesField, { extraWishProblem, type ExtraWish } from "@/components/ExtraWishesField";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "motion/react";
@@ -15,7 +15,6 @@ import { normalizePassportNumber, validatePassportExpiry, validatePassportNumber
 
 const COUNTRIES = ["Tunisie", "Algérie", "Maroc", "France", "Allemagne", "Espagne", "Italie", "Hongrie", "Lituanie", "Canada", "Belgique", "Suisse"];
 const LEVELS = ["Baccalauréat", "Licence", "Master", "Doctorat", "Autre"];
-const TARGET_LEVELS = ["Licence", "Master", "Doctorat", "Prépa / Foundation", "Autre"];
 const INTAKES = ["Septembre 2026", "Février 2027", "Septembre 2027", "Février 2028"];
 const FUNDING = ["Personnel", "Parents", "Bourse", "Prêt étudiant", "Mixte"];
 const LANG_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
@@ -177,7 +176,7 @@ function validateField(key: FieldKey, form: FormState): string {
       }
       return "";
     case "preferredCountries":
-      return form.preferredCountries.length ? "" : "Choisissez au moins un pays.";
+      return form.preferredCountries.length === 1 ? "" : "Choisissez un seul pays.";
     case "preferredCity":
       if (!text) return "";
       if (!NAME_LIKE.test(text)) return "La ville ne doit contenir que des lettres.";
@@ -300,8 +299,8 @@ function LockedValue({ value }: { value: string }) {
       <Lock className="h-3.5 w-3.5 shrink-0 text-muted" />
       <span className="min-w-0 flex-1 truncate" title={value}>{value || "—"}</span>
       <span className="shrink-0 whitespace-nowrap text-[10px] font-semibold text-muted">
-        <span className="sm:hidden">Par le conseiller</span>
-        <span className="hidden sm:inline">Renseigné par votre conseiller</span>
+        <span className="sm:hidden">Par le conseiller(ère) commercial(e)</span>
+        <span className="hidden sm:inline">Renseigné par votre conseiller(ère) commercial(e)</span>
       </span>
     </div>
   );
@@ -336,6 +335,9 @@ export default function OnboardingPage() {
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
   const [countries, setCountries] = useState<Country[]>([]);
+  const [programmes, setProgrammes] = useState<Programme[]>([]);
+  const [quote, setQuote] = useState<CountryPricing | null>(null);
+  const [levelId, setLevelId] = useState(session?.profile?.targetLevelId || "");
   const [universities, setUniversities] = useState<PublicUniversity[]>([]);
   // Vœux supplémentaires (autres facultés / filières), ajoutés après l'enregistrement du dossier.
   const [extraWishes, setExtraWishes] = useState<ExtraWish[]>([]);
@@ -344,6 +346,7 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     fetchPublicCountries().then(setCountries).catch(() => setCountries([]));
+    fetchPublicProgrammes().then(setProgrammes).catch(() => setProgrammes([]));
   }, []);
 
   // Universités disponibles = union des universités des pays préférés
@@ -374,20 +377,37 @@ export default function OnboardingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const countryName = form.preferredCountries[0] || "";
+  const selectedCountry = countries.find((country) => country.name === countryName);
+  const programmeLevels = (programmes.find((programme) => programme.countryId === selectedCountry?.id || programme.country === countryName)?.details || []).filter((detail) => detail.id && detail.name);
+  const tariff = programmeLevels.length
+    ? quote?.levels?.find((level) => level.levelId === levelId) || null
+    : quote?.configured
+      ? quote
+      : null;
+
+  useEffect(() => {
+    if (!selectedCountry) {
+      setQuote(null);
+      return;
+    }
+    fetchCountryPricing(selectedCountry.id).then(setQuote).catch(() => setQuote(null));
+  }, [selectedCountry?.id]);
+
   function set<K extends FieldKey>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
     setErrors((current) => ({ ...current, [key]: undefined }));
     setFormError("");
   }
 
-  function toggleCountry(country: string) {
-    setForm((current) => ({
-      ...current,
-      preferredCountries: current.preferredCountries.includes(country)
-        ? current.preferredCountries.filter((item) => item !== country)
-        : [...current.preferredCountries, country]
-    }));
-    setErrors((current) => ({ ...current, preferredCountries: undefined }));
+  function chooseCountry(name: string) {
+    setForm((current) => ({ ...current, preferredCountries: name ? [name] : [] }));
+    if (!lockedFields.has("targetLevel")) {
+      set("targetLevel", "");
+      setLevelId("");
+    }
+    setExtraWishes((wishes) => wishes.map((wish) => ({ ...wish, country: name, university: "" })));
+    setErrors((current) => ({ ...current, preferredCountries: undefined, targetLevel: undefined }));
     setFormError("");
   }
 
@@ -427,6 +447,9 @@ export default function OnboardingPage() {
 
   function goNext() {
     const nextErrors = validateStep(step, form);
+    if (step === 2 && lockedFields.has("preferredCountries") && form.preferredCountries.length) delete nextErrors.preferredCountries;
+    if (step === 2 && programmeLevels.length === 0) delete nextErrors.targetLevel;
+    if (step === 2 && programmeLevels.length > 0 && !lockedFields.has("targetLevel") && !levelId) nextErrors.targetLevel = "Choisissez un niveau de ce pays.";
     const wishError = step === 2 ? extraWishesError() : "";
     if (wishError) {
       setErrors(nextErrors);
@@ -453,6 +476,8 @@ export default function OnboardingPage() {
 
   async function finish() {
     const nextErrors = validateStep(3, form);
+    if (programmeLevels.length > 0 && !lockedFields.has("targetLevel") && !levelId) nextErrors.targetLevel = "Choisissez un niveau de ce pays.";
+    if (form.preferredCountries.length !== 1 && !lockedFields.has("preferredCountries")) nextErrors.preferredCountries = "Choisissez un seul pays.";
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors);
       setFormError("Corrigez les champs indiqués avant d’enregistrer.");
@@ -464,6 +489,7 @@ export default function OnboardingPage() {
     try {
       await saveOnboarding({
         ...form,
+        targetLevelId: levelId,
         languageLevelFrench: form.languageLevelFrench,
         languageLevelEnglish: form.languageLevelEnglish,
         hasLanguageTest: form.hasLanguageTest,
@@ -669,43 +695,36 @@ export default function OnboardingPage() {
 
               {step === 2 && (
                 <div className="grid gap-3">
-                  <Field label="Pays préférés" required error={errors.preferredCountries}>
+                  <Field label="Pays de destination" required error={errors.preferredCountries}>
                     {lockedFields.has("preferredCountries") ? (
                       <div className="mt-1">
                         <LockedValue value={form.preferredCountries.join(", ")} />
                       </div>
                     ) : (
-                      <div className={cn("mt-1 flex flex-wrap gap-2 rounded-2xl p-1", errors.preferredCountries && "ring-2 ring-red-200")}>
-                        {destinations.map((country) => {
-                          const active = form.preferredCountries.includes(country);
-                          return (
-                            <motion.button
-                              key={country}
-                              type="button"
-                              whileTap={{ scale: 0.96 }}
-                              onClick={() => toggleCountry(country)}
-                              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                                active
-                                  ? "border-brand bg-brand text-white shadow-md shadow-brand/25"
-                                  : "border-line bg-white text-mid hover:border-brand/40 hover:bg-brand-light"
-                              }`}
-                            >
-                              {country}
-                            </motion.button>
-                          );
-                        })}
-                      </div>
+                      <FancySelect invalid={Boolean(errors.preferredCountries)} value={countryName} onChange={chooseCountry} options={destinations} placeholder="Choisir un pays" />
                     )}
                   </Field>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Field label="Ville préférée" error={errors.preferredCity}>
                       <input className={fieldInputClass(Boolean(errors.preferredCity))} maxLength={50} value={form.preferredCity} onChange={(e) => set("preferredCity", e.target.value)} placeholder="Paris, Berlin..." />
                     </Field>
-                    <Field label="Niveau recherché" required error={errors.targetLevel}>
-                      {lockedFields.has("targetLevel") ? (
+                    <Field label="Niveau" required={programmeLevels.length > 0} error={errors.targetLevel}>
+                      {programmeLevels.length === 0 ? (
+                        <p className="mt-1 rounded-xl border border-dashed border-line bg-slate-50 px-3 py-2.5 text-xs text-muted">Ce pays n'a pas de niveau séparé. Le tarif est celui du pays.</p>
+                      ) : lockedFields.has("targetLevel") ? (
                         <LockedValue value={form.targetLevel} />
                       ) : (
-                        <FancySelect invalid={Boolean(errors.targetLevel)} value={form.targetLevel} onChange={(value) => set("targetLevel", value)} options={TARGET_LEVELS} placeholder="Choisir un niveau" />
+                        <FancySelect
+                          invalid={Boolean(errors.targetLevel)}
+                          value={levelId}
+                          onChange={(id) => {
+                            const level = programmeLevels.find((item) => item.id === id);
+                            setLevelId(id);
+                            set("targetLevel", level?.name || "");
+                          }}
+                          options={programmeLevels.map((level) => ({ value: level.id || "", label: level.name }))}
+                          placeholder="Choisir un niveau"
+                        />
                       )}
                     </Field>
                     <Field label="Domaine / formation souhaitée" required error={errors.targetField}>
@@ -728,6 +747,20 @@ export default function OnboardingPage() {
                       />
                     </Field>
                   </div>
+                  {countryName && (
+                    <div className="rounded-2xl border border-violet-100 bg-violet-50/70 p-4">
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-brand">Votre tarif</p>
+                      {tariff && tariff.tranche1 !== null && tariff.tranche2 !== null ? (
+                        <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                          <p className="text-sm text-mid">Inscription <span className="block font-display text-lg font-extrabold text-dark">{formatMoney(tariff.tranche1, tariff.currency)}</span></p>
+                          <p className="text-sm text-mid">Visa <span className="block font-display text-lg font-extrabold text-dark">{formatMoney(tariff.tranche2, tariff.currency)}</span></p>
+                          <p className="text-sm text-mid">Total <span className="block font-display text-lg font-extrabold text-dark">{formatMoney(tariff.tranche1 + tariff.tranche2, tariff.currency)}</span></p>
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-xs text-muted">{programmeLevels.length && !levelId ? "Choisissez un niveau pour voir le tarif." : "Aucun tarif n'est encore défini pour ce choix."}</p>
+                      )}
+                    </div>
+                  )}
                   <ExtraWishesField
                     wishes={extraWishes}
                     onChange={(next) => {

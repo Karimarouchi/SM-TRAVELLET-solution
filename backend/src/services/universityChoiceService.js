@@ -128,6 +128,10 @@ async function addChoice(auth, studentId, payload) {
 
   const country = await countryRepo.findById(payload.countryId);
   if (!country || !country.active) throw fail("Pays introuvable.", 404);
+  const preferred = profile.preferred_countries || [];
+  if (preferred.length === 1 && preferred[0] !== country.name) {
+    throw fail("Les autres facultés restent dans le pays choisi.", 400);
+  }
   const fieldOfStudy = normalizeField(payload.fieldOfStudy);
 
   const before = payload.universityId ? null : await universityRepo.findByCountryAndName(country.id, String(payload.universityName || ""));

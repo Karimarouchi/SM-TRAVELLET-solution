@@ -95,7 +95,7 @@ function StudentsTable({
           </div>
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3">
             <p className="min-w-0 truncate text-xs text-mid">
-              <span className="text-muted">Conseiller : </span>{student.assignedSalesName || "—"}
+              <span className="text-muted">Conseiller(ère) commercial(e) : </span>{student.assignedSalesName || "—"}
             </p>
             <div className="flex shrink-0 items-center gap-2">
               {blockButton(student)}
@@ -111,7 +111,7 @@ function StudentsTable({
         <thead>
           <tr className="border-b border-line bg-slate-50">
             <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">Étudiant</th>
-            <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted hidden sm:table-cell">Conseiller</th>
+            <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted hidden sm:table-cell">Conseiller(ère) commercial(e)</th>
             <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">Étape</th>
             <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted hidden md:table-cell">Passeport</th>
             <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted hidden md:table-cell">Compte</th>
@@ -196,8 +196,8 @@ type UsersTab = "etudiants" | "conseillers" | "rdv";
 
 const USERS_TABS: Array<{ id: UsersTab; label: string; icon: typeof Users }> = [
   { id: "etudiants", label: "Étudiants", icon: GraduationCap },
-  { id: "conseillers", label: "Conseillers", icon: Users },
-  { id: "rdv", label: "Responsables Visa", icon: UserCog }
+  { id: "conseillers", label: "Conseillers(ères) commerciaux(ales)", icon: Users },
+  { id: "rdv", label: "Gestionnaires de dossiers", icon: UserCog }
 ];
 
 function tabFromParam(value: string | null): UsersTab {
@@ -266,7 +266,7 @@ export default function AdminUsersPage() {
             <p className="mt-2 max-w-2xl text-sm text-white/85">
               {tab === "etudiants"
                 ? "Vue d'ensemble des étudiants, leur avancement réel dans le pipeline (candidature + visa), et le statut de leur compte."
-                : "Conseillers et responsables dossier visa : comptes, rôles, permissions et répartition des étudiants."}
+                : "Conseillers(ères) commerciaux(ales) et gestionnaires de dossiers : comptes, rôles, permissions et répartition des étudiants."}
             </p>
           </div>
           <div className={cn("flex gap-3", tab !== "etudiants" && "hidden")}>

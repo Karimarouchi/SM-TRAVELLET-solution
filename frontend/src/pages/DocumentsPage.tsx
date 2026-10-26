@@ -201,7 +201,7 @@ export default function DocumentsPage() {
             )
           ) : (
             t(
-              `Documents requis pour votre demande de visa${visaCountryName ? ` · ${visaCountryName}` : ""}. Votre responsable dossier visa doit valider chaque document avant le dépôt du dossier.`,
+              `Documents requis pour votre demande de visa${visaCountryName ? ` · ${visaCountryName}` : ""}. Votre gestionnaire de dossiers doit valider chaque document avant le dépôt du dossier.`,
               `Documents required for your visa application${visaCountryName ? ` · ${visaCountryName}` : ""}. Your visa officer must approve each document before the file can be submitted.`
             )
           )}
@@ -284,7 +284,7 @@ export default function DocumentsPage() {
         <>
           {!visaUploadsOpen && (
             <p className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              {t("Les documents visa se déposent une fois que le Responsable Dossier a fixé le rendez-vous.", "Visa documents can be uploaded once the visa officer has set the appointment.")}
+              {t("Les documents visa se déposent une fois que le Gestionnaire de dossiers a fixé le rendez-vous.", "Visa documents can be uploaded once the visa officer has set the appointment.")}
             </p>
           )}
           <VisaDocumentsChecklist

@@ -19,7 +19,7 @@ export default function AdminVisaDocumentsPage() {
           </div>
         </div>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-white/85">
-          Ces documents sont demandés à l'étudiant une fois son dossier transféré au Responsable Dossier Visa — distincts des documents du dossier universitaire.
+          Ces documents sont demandés à l'étudiant une fois son dossier transféré au Gestionnaire de dossiers — distincts des documents du dossier universitaire.
         </p>
       </section>
 

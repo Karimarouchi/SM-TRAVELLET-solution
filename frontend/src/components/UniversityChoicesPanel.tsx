@@ -38,10 +38,10 @@ function stageLabel(choice: UniversityChoice, t: (fr: string, en: string) => str
 }
 
 // « Mes candidatures » : jusqu'à 3 universités / filières en même temps.
-// Sans studentId : l'étudiant gère les siennes ; avec studentId : un conseiller
+// Sans studentId : l'étudiant gère les siennes ; avec studentId : un conseiller(ère) commercial(e)
 // ou un admin gère celles de l'étudiant (et définit les documents des
 // universités hors conventions).
-export default function UniversityChoicesPanel({ studentId, onChanged, readOnly = false }: { studentId?: string; onChanged?: () => void; readOnly?: boolean }) {
+export default function UniversityChoicesPanel({ studentId, onChanged, readOnly = false, refreshKey = 0 }: { studentId?: string; onChanged?: () => void; readOnly?: boolean; refreshKey?: number }) {
   const { t } = useLanguage();
   const staff = Boolean(studentId);
   const [summary, setSummary] = useState<UniversityChoicesSummary | null>(null);
@@ -64,7 +64,7 @@ export default function UniversityChoicesPanel({ studentId, onChanged, readOnly 
     load();
     fetchPublicCountries().then(setCountries).catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentId]);
+  }, [studentId, refreshKey]);
 
   useEffect(() => {
     setUniversityId("");
@@ -188,7 +188,7 @@ export default function UniversityChoicesPanel({ studentId, onChanged, readOnly 
               />
               <p className="mt-1 text-[11px] text-muted">
                 {t(
-                  "Hors conventions : votre conseiller définira les documents spécifiques demandés par cette université.",
+                  "Hors conventions : votre conseiller(ère) commercial(e) définira les documents spécifiques demandés par cette université.",
                   "Not a partner university: your advisor will define the specific documents it requires."
                 )}
               </p>
@@ -257,7 +257,7 @@ export default function UniversityChoicesPanel({ studentId, onChanged, readOnly 
                   <p className="mt-2 rounded-lg bg-amber-50 px-3 py-1.5 text-[11px] font-semibold text-amber-800">
                     {staff
                       ? t("Université hors conventions : ajoutez ses documents spécifiques dans le bloc au-dessus de la liste des documents (ou aucun).", "Non-partner university: add its specific documents in the block above the documents list (or none).")
-                      : t("Université hors conventions : votre conseiller définira les documents spécifiques demandés.", "Non-partner university: your advisor will define the specific documents required.")}
+                      : t("Université hors conventions : votre conseiller(ère) commercial(e) définira les documents spécifiques demandés.", "Non-partner university: your advisor will define the specific documents required.")}
                   </p>
                 )}
 

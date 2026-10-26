@@ -22,12 +22,12 @@ import { useEffect, useRef, useState } from "react";
 
 type FormData = {
   countryId: string;
+  levelId: string;
   prefillCurrentStudyLevel: string;
-  prefillTargetLevel: string;
   prefillPhone: string;
 };
 
-const EMPTY_FORM: FormData = { countryId: "", prefillCurrentStudyLevel: "", prefillTargetLevel: "", prefillPhone: "" };
+const EMPTY_FORM: FormData = { countryId: "", levelId: "", prefillCurrentStudyLevel: "", prefillPhone: "" };
 
 function contactName(contact: WhatsAppConversation) {
   return contact.studentName || contact.profileName || formatWhatsAppPhone(contact.phone);
@@ -136,7 +136,6 @@ function WhatsAppContactPicker({
 }
 
 const STUDY_LEVELS = ["Baccalauréat", "Licence", "Master", "Doctorat", "Autre"];
-const TARGET_LEVELS = ["Licence", "Master", "Doctorat", "Prépa / Foundation", "Autre"];
 
 export default function SalesCodesPage() {
   const { t } = useLanguage();
@@ -151,7 +150,7 @@ export default function SalesCodesPage() {
   const [contact, setContact] = useState<WhatsAppConversation | null>(null);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
-  // Tranche 1 (inscription) : le conseiller confirme l'avoir encaissée.
+  // Tranche 1 (inscription) : le conseiller(ère) commercial(e) confirme l'avoir encaissée.
   const [pricing, setPricing] = useState<CountryPricing | null>(null);
   const [paid, setPaid] = useState(false);
   const [payMethod, setPayMethod] = useState<PaymentMethod | "">("");
@@ -186,17 +185,19 @@ export default function SalesCodesPage() {
 
   if (!session?.user) return null;
 
-  const needsPayment = Boolean(pricing?.configured && (pricing.tranche1 || 0) > 0);
+  const levels = pricing?.levels || [];
+  const chosenLevel = levels.find((level) => level.levelId === form.levelId) || null;
+  const quote = levels.length ? (chosenLevel?.configured ? chosenLevel : null) : pricing?.configured ? pricing : null;
+  const needsPayment = Boolean(quote && (quote.tranche1 || 0) > 0);
   // Montant encaissé : toute la tranche 1 par défaut ; moins = paiement partiel (date limite pour le reste).
-  const fullAmount = pricing?.tranche1 || 0;
+  const fullAmount = quote?.tranche1 || 0;
   const paidNumber = payAmount.trim() ? Number(payAmount.replace(",", ".")) : fullAmount;
   const isPartial = needsPayment && Number.isFinite(paidNumber) && paidNumber > 0 && paidNumber < fullAmount;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.countryId) {
-      setError(t("Choisissez un pays.", "Choose a country."));
-      return;
+    if (levels.length && !form.levelId) {
+      /* Le niveau reste vide : l'étudiant le choisira, et le tarif suivra. */
     }
     if (needsPayment && (!paid || !payMethod)) {
       setError(t("Confirmez l'encaissement de la tranche 1 et choisissez le mode de paiement.", "Confirm the first instalment was collected and choose the payment method."));
@@ -220,9 +221,10 @@ export default function SalesCodesPage() {
     try {
       const created = await createSalesCode({
         payment: needsPayment ? { confirmed: true, method: payMethod as PaymentMethod, reference: payReference.trim() || undefined, paidAt: payDate || undefined, amount: isPartial ? paidNumber : undefined, deadline: isPartial ? payDeadline : undefined } : undefined,
-        countryId: form.countryId,
+        countryId: form.countryId || undefined,
+        levelId: form.levelId || undefined,
         prefillCurrentStudyLevel: form.prefillCurrentStudyLevel || undefined,
-        prefillTargetLevel: form.prefillTargetLevel || undefined,
+        prefillTargetLevel: chosenLevel?.levelName,
         prefillPhone: form.prefillPhone || undefined,
         whatsappContactId: contact?.id
       });
@@ -259,7 +261,7 @@ export default function SalesCodesPage() {
   return (
     <main className="mx-auto max-w-5xl px-4 sm:px-6 pb-16">
       <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-6 sm:p-8 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)]">
-        <p className="text-sm text-white/80">{t("Espace conseiller", "Advisor area")}</p>
+        <p className="text-sm text-white/80">{t("Espace conseiller(ère) commercial(e)", "Advisor area")}</p>
         <h1 className="mt-1 font-display text-3xl font-extrabold">{t("Codes étudiants", "Student codes")}</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-white/85">
           {t(
@@ -309,23 +311,37 @@ export default function SalesCodesPage() {
           </div>
           <div>
             <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-muted">
-              {t("Pays de destination", "Destination country")} <span className="text-red-500">*</span>
+              {t("Pays de destination (optionnel)", "Destination country (optional)")}
             </label>
             <FancySelect
               value={form.countryId}
-              onChange={(id) => setForm((prev) => ({ ...prev, countryId: id }))}
-              options={countries.filter((c) => c.active).map((c) => ({ value: c.id, label: c.name }))}
-              placeholder={t("Choisir un pays", "Choose a country")}
+              onChange={(id) => setForm((prev) => ({ ...prev, countryId: id, levelId: "" }))}
+              options={[{ value: "", label: t("L'étudiant choisira", "The student will choose") }, ...countries.filter((c) => c.active).map((c) => ({ value: c.id, label: c.name }))]}
+              placeholder={t("L'étudiant choisira", "The student will choose")}
             />
           </div>
-          {needsPayment && pricing && (
+          {levels.length > 0 && (
+            <div>
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-muted">
+                {t("Niveau (optionnel)", "Level (optional)")}
+              </label>
+              <FancySelect
+                value={form.levelId}
+                onChange={(id) => setForm((prev) => ({ ...prev, levelId: id }))}
+                options={[{ value: "", label: t("L'étudiant choisira", "The student will choose") }, ...levels.map((level) => ({ value: level.levelId, label: level.levelName }))]}
+                placeholder={t("L'étudiant choisira", "The student will choose")}
+              />
+              {!form.levelId && <p className="mt-1 text-[11px] text-muted">{t("Sans niveau, le tarif sera celui que l'étudiant choisira dans son dossier.", "Without a level, the price will be the one the student chooses in their file.")}</p>}
+            </div>
+          )}
+          {needsPayment && quote && (
             <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 sm:col-span-2">
               <p className="flex items-center gap-2 text-sm font-bold text-amber-900">
                 <Banknote className="h-4 w-4" aria-hidden />
-                {t("Paiement de l'inscription (tranche 1)", "Registration payment (instalment 1)")} : {formatMoney(pricing.tranche1 || 0, pricing.currency)}
+                {t("Paiement de l'inscription (tranche 1)", "Registration payment (instalment 1)")} : {formatMoney(quote.tranche1 || 0, quote.currency)}
               </p>
               <p className="mt-0.5 text-[11px] text-amber-800">
-                {t(`Prix total ${pricing.countryName} : ${formatMoney((pricing.tranche1 || 0) + (pricing.tranche2 || 0), pricing.currency)} · la tranche 2 (${formatMoney(pricing.tranche2 || 0, pricing.currency)}) sera à régler avant le dépôt du visa.`, `Total price ${pricing.countryName}: ${formatMoney((pricing.tranche1 || 0) + (pricing.tranche2 || 0), pricing.currency)} · instalment 2 (${formatMoney(pricing.tranche2 || 0, pricing.currency)}) is due before the visa filing.`)}
+                {t(`Prix total ${chosenLevel ? chosenLevel.levelName : pricing?.countryName} : ${formatMoney((quote.tranche1 || 0) + (quote.tranche2 || 0), quote.currency)} · la tranche 2 (${formatMoney(quote.tranche2 || 0, quote.currency)}) sera à régler avant le dépôt du visa.`, `Total price: ${formatMoney((quote.tranche1 || 0) + (quote.tranche2 || 0), quote.currency)} · instalment 2 (${formatMoney(quote.tranche2 || 0, quote.currency)}) is due before the visa filing.`)}
               </p>
               <label className="mt-3 flex items-start gap-2 text-sm font-semibold text-dark">
                 <input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} className="mt-0.5 h-4 w-4 accent-violet-600" />
@@ -365,7 +381,7 @@ export default function SalesCodesPage() {
                     value={payAmount}
                     onChange={(e) => setPayAmount(e.target.value)}
                     inputMode="decimal"
-                    placeholder={formatMoney(fullAmount, pricing.currency)}
+                    placeholder={formatMoney(fullAmount, quote.currency)}
                     className="w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm outline-none focus:border-brand"
                   />
                 </div>
@@ -384,7 +400,7 @@ export default function SalesCodesPage() {
               </div>
               {isPartial && (
                 <p className="mt-2 rounded-lg bg-white/70 px-3 py-2 text-[11px] font-semibold text-amber-900">
-                  {t(`Paiement partiel : il restera ${formatMoney(fullAmount - paidNumber, pricing.currency)} à payer. Le dépôt de la candidature restera bloqué tant que la tranche 1 n'est pas payée en totalité.`, `Partial payment: ${formatMoney(fullAmount - paidNumber, pricing.currency)} will remain. The application filing stays blocked until instalment 1 is fully paid.`)}
+                  {t(`Paiement partiel : il restera ${formatMoney(fullAmount - paidNumber, quote.currency)} à payer. Le dépôt de la candidature restera bloqué tant que la tranche 1 n'est pas payée en totalité.`, `Partial payment: ${formatMoney(fullAmount - paidNumber, quote.currency)} will remain. The application filing stays blocked until instalment 1 is fully paid.`)}
                 </p>
               )}
               <p className="mt-2 text-[11px] text-amber-800">
@@ -415,17 +431,6 @@ export default function SalesCodesPage() {
               value={form.prefillCurrentStudyLevel}
               onChange={(v) => setForm((prev) => ({ ...prev, prefillCurrentStudyLevel: v }))}
               options={STUDY_LEVELS}
-              placeholder={t("Non renseigné", "Not set")}
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-muted">
-              {t("Niveau recherché (optionnel)", "Target level (optional)")}
-            </label>
-            <FancySelect
-              value={form.prefillTargetLevel}
-              onChange={(v) => setForm((prev) => ({ ...prev, prefillTargetLevel: v }))}
-              options={TARGET_LEVELS}
               placeholder={t("Non renseigné", "Not set")}
             />
           </div>

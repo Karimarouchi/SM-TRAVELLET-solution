@@ -612,57 +612,47 @@ async function correctDepositedApplication(auth, applicationId, payload) {
   });
 }
 
-// Retire une candidature déjà déposée. Les documents de l'étudiant restent.
-// Aucun e-mail, aucune notification. Les commissions non versées de cette
-// candidature (conseiller et Responsable Dossier) sont retirées.
+// Retire une candidature déjà déposée, tant que l'université ne l'a pas acceptée.
+// Le vœu disparaît de « Universités visées ». Aucun e-mail. Seule la commission
+// « Candidature déposée » encore impayée du responsable est retirée.
 async function removeDepositedApplication(auth, applicationId) {
   const application = await appRepo.findById(applicationId);
   if (!application) throw fail("Candidature introuvable.", 404);
-  assertUniversityActor(auth, application);
+  const roles = authRoles(auth);
+  if (!roles.includes("ADMIN") && !roles.includes("SALES")) {
+    throw fail("Seul le conseiller ou l'administrateur peut supprimer une candidature.", 403);
+  }
   await assertApplicationAccess(auth, application);
   if (!application.applied_at) {
     throw fail("Cette candidature n'est pas encore déposée.", 400);
   }
+  if (application.status === "ACCEPTED" || application.visa_status) {
+    throw fail("Une candidature acceptée, ou dont le visa a commencé, ne peut pas être supprimée.", 400);
+  }
   const others = (await appRepo.listForStudent(application.student_id)).filter((row) => row.id !== application.id);
-  await commissionService.voidForRemovedApplication(application, others);
+  await commissionService.voidUnpaidAppliedForStudent(application, others);
+  if (application.choice_id) {
+    await choiceRepo.withdraw(application.choice_id);
+  } else {
+    const choices = await choiceRepo.listActiveForStudent(application.student_id);
+    const match = choices.find((row) => row.university_id === application.university_id && row.country_id === application.country_id);
+    if (match) await choiceRepo.withdraw(match.id);
+  }
   const removed = await appRepo.remove(applicationId);
   if (!removed) throw fail("Candidature introuvable.", 404);
-  await rewindStudentAfterRemoval(application);
+  await refreshDossierStage(application.student_id);
   return { ok: true };
 }
 
-// La candidature déposée disparaît. La même université revient à « prêt à postuler »,
-// sans e-mail ni notification. L'étape visa ne reste que si une autre candidature est encore acceptée.
-async function rewindStudentAfterRemoval(application) {
-  const created = await appRepo.create({
-    studentId: application.student_id,
-    countryId: application.country_id,
-    universityId: application.university_id,
-    programmeId: application.programme_id,
-    salesId: application.sales_id,
-    choiceId: application.choice_id,
-    fieldOfStudy: application.field_of_study,
-    translationPending: !application.translation_done_at
-  });
-  if (application.assigned_rdv_id) {
-    await appRepo.update(created.id, { assigned_rdv_id: application.assigned_rdv_id });
-  }
-  await recordHistory(
-    created.id,
-    application.student_id,
-    null,
-    "READY_TO_APPLY",
-    null,
-    "Retour à l'étape précédente : la candidature déposée a été retirée."
-  );
-
-  const rows = await appRepo.listForStudent(application.student_id);
-  if (rows.some((row) => row.status === "ACCEPTED")) {
-    await studentRepo.setDossierStage(application.student_id, "VISA");
-  } else if (rows.some((row) => row.visa_status === "ACCEPTED")) {
-    await studentRepo.setDossierStage(application.student_id, "COMPLETED");
+// Après suppression : l'étape du dossier suit ce qui reste. Le vœu n'est pas recréé.
+async function refreshDossierStage(studentId) {
+  const rows = await appRepo.listForStudent(studentId);
+  if (rows.some((row) => row.visa_status === "ACCEPTED")) {
+    await studentRepo.setDossierStage(studentId, "COMPLETED");
+  } else if (rows.some((row) => row.status === "ACCEPTED")) {
+    await studentRepo.setDossierStage(studentId, "VISA");
   } else {
-    await studentRepo.setDossierStage(application.student_id, "UNIVERSITY_APPLICATION");
+    await studentRepo.setDossierStage(studentId, "UNIVERSITY_APPLICATION");
   }
 }
 
@@ -1048,7 +1038,7 @@ async function assignRdv(auth, applicationId, payload) {
   }
   const updated = await appRepo.update(applicationId, fields);
   const rdvUser = await userRepo.findById(rdvUserId);
-  const rdvName = rdvUser ? `${rdvUser.prenom} ${rdvUser.nom}`.trim() : "Responsable Dossier Visa";
+  const rdvName = rdvUser ? `${rdvUser.prenom} ${rdvUser.nom}`.trim() : "Gestionnaire de dossiers";
   const comment = wasAlreadyAssigned
     ? `Dossier réattribué à ${rdvName}.`
     : fallback
@@ -1201,17 +1191,6 @@ async function markVisaSubmitted(auth, applicationId) {
   const updated = await appRepo.update(applicationId, { visa_status: "SUBMITTED", visa_submitted_at: new Date() });
   await recordHistory(applicationId, application.student_id, "VISA_PREPARATION", "VISA_SUBMITTED", auth.sub, "Dossier visa déposé.");
   await notifyStudent(updated, "Votre dossier visa a été déposé. En attente de la décision.", auth.sub);
-
-  if (application.assigned_rdv_id) {
-    await commissionService.awardCommission({
-      userId: application.assigned_rdv_id,
-      studentId: application.student_id,
-      countryId: application.country_id,
-      role: "RDV",
-      stage: "VISA_SUBMITTED",
-      applicationId
-    });
-  }
 
   return dto({ ...updated, country_name: (await countryRepo.findById(updated.country_id))?.name, university_name: (await universityRepo.findById(updated.university_id))?.name });
 }
@@ -1428,6 +1407,17 @@ async function scheduleVisaEmbassyAppointment(auth, applicationId, payload) {
 
   const wasScheduled = Boolean(application.visa_embassy_appointment_at);
   const updated = await appRepo.update(applicationId, { visa_embassy_appointment_at: date });
+
+  if (application.assigned_rdv_id) {
+    await commissionService.awardCommission({
+      userId: application.assigned_rdv_id,
+      studentId: application.student_id,
+      countryId: application.country_id,
+      role: "RDV",
+      stage: "VISA_SUBMITTED",
+      applicationId
+    });
+  }
 
   // Avant la transmission au visa, l'étape visa est vide : l'historique garde le statut de la candidature.
   await recordHistory(

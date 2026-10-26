@@ -15,7 +15,6 @@ import {
   OPTIONAL_LANG_LEVELS,
   LEVELS,
   MAX_YEAR,
-  TARGET_LEVELS,
   TEST_LANG_CHOICES,
   isExtraTestLang,
   YES_NO,
@@ -153,7 +152,6 @@ export default function ProfilePage() {
   const [photoBusy, setPhotoBusy] = useState(false);
   const [countries, setCountries] = useState<Country[]>([]);
   const [universities, setUniversities] = useState<PublicUniversity[]>([]);
-  const destinations = countries.map((c) => c.name);
 
   useEffect(() => {
     fetchPublicCountries().then(setCountries).catch(() => setCountries([]));
@@ -185,16 +183,6 @@ export default function ProfilePage() {
   function setField<K extends ProfileField>(key: K, value: ProfileForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
     setErrors((current) => ({ ...current, [key]: undefined }));
-  }
-
-  function toggleCountry(country: string) {
-    setForm((current) => ({
-      ...current,
-      preferredCountries: current.preferredCountries.includes(country)
-        ? current.preferredCountries.filter((item) => item !== country)
-        : [...current.preferredCountries, country]
-    }));
-    setErrors((current) => ({ ...current, preferredCountries: undefined }));
   }
 
   function toggleTestLang(lang: TestLang) {
@@ -380,7 +368,7 @@ export default function ProfilePage() {
                                     <span className="block text-sm font-semibold text-dark">
                                       {user.avatarUrl ? "Changer ma photo" : "Ajouter ma photo"}
                                     </span>
-                                    <span className="block text-xs text-muted">Elle s’affiche dans tes discussions avec le conseiller.</span>
+                                    <span className="block text-xs text-muted">Elle s’affiche dans tes discussions avec le conseiller(ère) commercial(e).</span>
                                   </span>
                                   <input
                                     type="file"
@@ -455,33 +443,16 @@ export default function ProfilePage() {
 
                         {section.id === "project" && (
                           <div className="grid gap-3">
-                            <Field label="Pays préférés" required error={errors.preferredCountries}>
-                              <div className="flex flex-wrap gap-2">
-                                {destinations.map((country) => {
-                                  const active = form.preferredCountries.includes(country);
-                                  return (
-                                    <motion.button
-                                      key={country}
-                                      type="button"
-                                      whileTap={{ scale: 0.96 }}
-                                      onClick={() => toggleCountry(country)}
-                                      className={cn(
-                                        "rounded-full border px-3 py-1.5 text-xs font-semibold",
-                                        active ? "border-brand bg-brand text-white shadow-md shadow-brand/25" : "border-line bg-white text-mid hover:bg-brand-light"
-                                      )}
-                                    >
-                                      {country}
-                                    </motion.button>
-                                  );
-                                })}
-                              </div>
+                            <Field label="Pays de destination" error={errors.preferredCountries}>
+                              <p className="rounded-xl border border-line bg-slate-50 px-3 py-2.5 text-sm font-semibold text-dark">{form.preferredCountries.join(", ") || "—"}</p>
+                              <p className="mt-1 text-[11px] text-muted">Seul votre conseiller(ère) commercial(e) peut changer le pays et le niveau.</p>
                             </Field>
                             <div className="grid gap-3 sm:grid-cols-2">
                               <Field label="Ville préférée" error={errors.preferredCity}>
                                 <input className={fieldInputClass(Boolean(errors.preferredCity))} maxLength={50} value={form.preferredCity} onChange={(e) => setField("preferredCity", e.target.value)} />
                               </Field>
-                              <Field label="Niveau recherché" required error={errors.targetLevel}>
-                                <FancySelect invalid={Boolean(errors.targetLevel)} value={form.targetLevel} onChange={(value) => setField("targetLevel", value)} options={TARGET_LEVELS} placeholder="Choisir" />
+                              <Field label="Niveau" error={errors.targetLevel}>
+                                <p className="rounded-xl border border-line bg-slate-50 px-3 py-2.5 text-sm font-semibold text-dark">{form.targetLevel || "—"}</p>
                               </Field>
                               <Field label="Formation souhaitée" required error={errors.targetField}>
                                 <input className={fieldInputClass(Boolean(errors.targetField))} maxLength={80} value={form.targetField} onChange={(e) => setField("targetField", e.target.value)} />

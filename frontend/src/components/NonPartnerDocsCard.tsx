@@ -5,7 +5,7 @@ import { FileText, GraduationCap, Info, Plus, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 // Sur la fiche d'un étudiant : une université hors conventions peut demander des
-// documents en plus de ceux du pays. Le conseiller les ajoute ici, au-dessus de la
+// documents en plus de ceux du pays. Le conseiller(ère) commercial(e) les ajoute ici, au-dessus de la
 // liste des documents. L'université est conservée dans la liste de son pays avec ces
 // documents : le prochain étudiant qui la choisit les retrouve automatiquement.
 export default function NonPartnerDocsCard({ studentId, refreshKey, onChanged }: { studentId: string; refreshKey: number; onChanged: () => void }) {

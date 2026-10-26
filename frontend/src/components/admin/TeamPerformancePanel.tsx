@@ -63,7 +63,7 @@ function Funnel({ wa }: { wa: TeamPerformance["whatsapp"] }) {
   const total = wa.conversations;
   const rows = [
     { label: "Conversations", value: wa.conversations, hint: "le contact a écrit sur la période" },
-    { label: "Répondues", value: wa.answered, hint: "le conseiller a parlé avec le contact" },
+    { label: "Répondues", value: wa.answered, hint: "le conseiller(ère) commercial(e) a parlé avec le contact" },
     { label: "Code envoyé", value: wa.codeSent, hint: "parmi les répondues" },
     { label: "Inscrits", value: wa.registered, hint: "parmi les répondues" },
     { label: "Abouties", value: wa.converted, hint: "code envoyé ou inscrit" }
@@ -233,7 +233,7 @@ function SalesCard({ person, rank, period, index, load }: { person: StaffPerform
         <MiniStat icon={Timer} label="Temps de réponse" value={wa.reply.label} />
         <MiniStat icon={Clock} label="En attente" value={wa.pendingNow} warn={wa.pendingNow > 0} />
         <MiniStat icon={UserCheck} label="Vérif. docs" value={s.documentReview.label} />
-        <MiniStat icon={Send} label="Dossier → Resp. Dossier" value={s.handoff.label} />
+        <MiniStat icon={Send} label="Dossier → Gestionnaire de dossiers" value={s.handoff.label} />
         <MiniStat icon={Flame} label="Mi-parcours" value={s.halfwayDossiers} warn={s.halfwayDossiers > 0} />
         <MiniStat icon={TrendingUp} label="Docs validés" value={s.documentsValidated} />
         <MiniStat icon={Crown} label="Dossiers complets" value={load ? load.completed : "—"} />
@@ -413,21 +413,21 @@ export default function TeamPerformancePanel({ salesLoad = [], rdvLoad = [] }: {
               <p className="text-xs text-muted">{wa.converted} contact{wa.converted > 1 ? "s" : ""} abouti{wa.converted > 1 ? "s" : ""} sur {wa.answered} répondu{wa.answered > 1 ? "s" : ""}</p>
               {wa.unassigned > 0 && (
                 <div className="mt-3">
-                  <StatusChip count={wa.unassigned} label={wa.unassigned > 1 ? "conversations sans conseiller" : "conversation sans conseiller"} />
+                  <StatusChip count={wa.unassigned} label={wa.unassigned > 1 ? "conversations sans conseiller(ère) commercial(e)" : "conversation sans conseiller(ère) commercial(e)"} />
                 </div>
               )}
             </div>
           </div>
 
           {sales.length > 0 && (
-            <Team title="Conseillers" icon={Users} count={sales.length}>
+            <Team title="Conseillers(ères) commerciaux(ales)" icon={Users} count={sales.length}>
               {sales.map((s, i) => (
                 <SalesCard key={s.id} person={s} rank={rankOf(i, s.sales!.whatsapp.conversations)} period={period} index={i} load={salesLoad.find((l) => l.id === s.id)} />
               ))}
             </Team>
           )}
           {rdv.length > 0 && (
-            <Team title="Responsables Visa" icon={UserCheck} count={rdv.length}>
+            <Team title="Gestionnaires de dossiers" icon={UserCheck} count={rdv.length}>
               {rdv.map((s, i) => (
                 <RdvCard key={s.id} person={s} rank={rankOf(i, s.rdv!.dossiers)} period={period} index={i} load={rdvLoad.find((l) => l.id === s.id)} />
               ))}

@@ -43,7 +43,7 @@ function VisaDocumentReviewRow({
   applicationId: string;
   doc: VisaDocumentChecklistItem;
   onReviewed: (d: VisaDocumentChecklistItem) => void;
-  /** Refus d'un document déjà validé par le conseiller. Pas de dépôt, pas de validation. */
+  /** Refus d'un document déjà validé par le conseiller(ère) commercial(e). Pas de dépôt, pas de validation. */
   allowRejectValidated?: boolean;
 }) {
   const { t } = useLanguage();
@@ -96,7 +96,7 @@ function VisaDocumentReviewRow({
       )}
 
       {doc.status === "REJECTED" && (
-        <p className="mt-2 text-[11px] text-muted">{t("Le conseiller contacte l'étudiant et dépose le nouveau fichier. Le dossier reste ici.", "The advisor contacts the student and uploads the new file. The file stays here.")}</p>
+        <p className="mt-2 text-[11px] text-muted">{t("Le conseiller(ère) commercial(e) contacte l'étudiant et dépose le nouveau fichier. Le dossier reste ici.", "The advisor contacts the student and uploads the new file. The file stays here.")}</p>
       )}
 
       {canReject && (
@@ -487,10 +487,10 @@ export default function RdvDossiersPage() {
 
     const tasks: Task[] = [];
     for (const a of toApply.filter((x) => x.registrationPaymentDue)) {
-      tasks.push({ key: `regpay-${a.id}`, tone: "danger", icon: Banknote, weight: 100, title: t("Paiement inscription non réglé", "Registration payment not settled"), text: `${a.studentName} · ${t("reste", "left")} ${formatMoney(a.registrationPaymentDue!.remaining, a.registrationPaymentDue!.currency)} · ${t("dépôt bloqué, prévenez le conseiller", "filing blocked, notify the advisor")}`, target: "candidatures", cta: t("Voir", "View"), profileOf: a.studentId });
+      tasks.push({ key: `regpay-${a.id}`, tone: "danger", icon: Banknote, weight: 100, title: t("Paiement inscription non réglé", "Registration payment not settled"), text: `${a.studentName} · ${t("reste", "left")} ${formatMoney(a.registrationPaymentDue!.remaining, a.registrationPaymentDue!.currency)} · ${t("dépôt bloqué, prévenez le conseiller(ère) commercial(e)", "filing blocked, notify the advisor")}`, target: "candidatures", cta: t("Voir", "View"), profileOf: a.studentId });
     }
     for (const a of toApply.filter((x) => !x.registrationPaymentDue && x.translationsPending?.length)) {
-      tasks.push({ key: `trad-${a.id}`, tone: "danger", icon: Languages, weight: 95, title: t("Traduction à valider", "Translation to approve"), text: `${a.studentName} · ${a.translationsPending!.join(", ")} · ${t("dépôt bloqué, prévenez le conseiller", "filing blocked, notify the advisor")}`, target: `app-${a.id}`, cta: t("Voir", "View"), profileOf: a.studentId });
+      tasks.push({ key: `trad-${a.id}`, tone: "danger", icon: Languages, weight: 95, title: t("Traduction à valider", "Translation to approve"), text: `${a.studentName} · ${a.translationsPending!.join(", ")} · ${t("dépôt bloqué, prévenez le conseiller(ère) commercial(e)", "filing blocked, notify the advisor")}`, target: `app-${a.id}`, cta: t("Voir", "View"), profileOf: a.studentId });
     }
     for (const a of toApply.filter((x) => !x.registrationPaymentDue && !x.translationsPending?.length)) {
       tasks.push({ key: `apply-${a.id}`, tone: "warning", icon: GraduationCap, weight: 80, title: t("Déposer la candidature", "Submit the application"), text: `${a.studentName} · ${a.universityName}${a.fieldOfStudy ? ` · ${a.fieldOfStudy}` : ""}`, target: `app-${a.id}`, cta: t("Ouvrir", "Open") });
@@ -513,7 +513,7 @@ export default function RdvDossiersPage() {
   return (
     <main className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
       <PageHero
-        eyebrow={t("Espace Responsable Dossier · Inscriptions universitaires", "Visa officer · University applications")}
+        eyebrow={t("Espace Gestionnaire de dossiers · Inscriptions universitaires", "Visa officer · University applications")}
         name={session.user.prenom}
         text={
           board.open.length === 0
@@ -672,7 +672,7 @@ export function RdvVisasPage() {
 
     const tasks: Task[] = [];
     for (const a of blocked) {
-      tasks.push({ key: `pay-${a.id}`, tone: "danger", icon: Banknote, weight: 100, title: t("Paiement visa non réglé", "Visa payment not settled"), text: `${a.studentName} · ${t("reste", "left")} ${formatMoney(a.visaPaymentDue!.remaining, a.visaPaymentDue!.currency)} · ${t("dépôt bloqué, prévenez le conseiller", "filing blocked, notify the advisor")}`, target: `app-${a.id}`, cta: t("Voir", "View"), profileOf: a.studentId });
+      tasks.push({ key: `pay-${a.id}`, tone: "danger", icon: Banknote, weight: 100, title: t("Paiement visa non réglé", "Visa payment not settled"), text: `${a.studentName} · ${t("reste", "left")} ${formatMoney(a.visaPaymentDue!.remaining, a.visaPaymentDue!.currency)} · ${t("dépôt bloqué, prévenez le conseiller(ère) commercial(e)", "filing blocked, notify the advisor")}`, target: `app-${a.id}`, cta: t("Voir", "View"), profileOf: a.studentId });
     }
     for (const a of applications.filter((x) => x.visaEmbassyAppointmentAt && new Date(x.visaEmbassyAppointmentAt).getTime() > Date.now() - 2 * 3600 * 1000)) {
       tasks.push({ key: `emb-${a.id}`, tone: "warning", icon: Landmark, weight: 88, title: t("Rendez-vous ambassade", "Embassy appointment"), text: `${a.studentName} · ${new Date(a.visaEmbassyAppointmentAt!).toLocaleString("fr-FR", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`, target: `app-${a.id}`, cta: t("Voir", "View"), profileOf: a.studentId });
@@ -755,7 +755,7 @@ export function RdvVisasPage() {
   return (
     <main className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
       <PageHero
-        eyebrow={t("Espace Responsable Dossier · Mes dossiers visa", "Visa officer · My visa files")}
+        eyebrow={t("Espace Gestionnaire de dossiers · Mes dossiers visa", "Visa officer · My visa files")}
         name={session.user.prenom}
         text={
           visaApplications.length === 0 && board.waitingAdvisor.length === 0
@@ -787,7 +787,7 @@ export function RdvVisasPage() {
       {board.waitingAdvisor.length > 0 && (
         <section className="mt-6 rounded-[20px] border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
           <p>
-            {t(`${board.waitingAdvisor.length} dossier${board.waitingAdvisor.length > 1 ? "s" : ""} en attente des documents visa chez le conseiller. ${board.waitingAdvisor.length > 1 ? "Ils vous reviendront" : "Il vous reviendra"} automatiquement (même Responsable Dossier, ou le moins chargé s'il n'est plus actif).`, `${board.waitingAdvisor.length} file(s) waiting for visa documents with the advisor. They will return to you automatically (same officer, or the least loaded if they are inactive).`)}
+            {t(`${board.waitingAdvisor.length} dossier${board.waitingAdvisor.length > 1 ? "s" : ""} en attente des documents visa chez le conseiller(ère) commercial(e). ${board.waitingAdvisor.length > 1 ? "Ils vous reviendront" : "Il vous reviendra"} automatiquement (même Gestionnaire de dossiers, ou le moins chargé s'il n'est plus actif).`, `${board.waitingAdvisor.length} file(s) waiting for visa documents with the advisor. They will return to you automatically (same officer, or the least loaded if they are inactive).`)}
             {" "}{t("Vous pouvez lancer un Meet tout de suite pour expliquer les documents visa, ou planifier la réunion et le rendez-vous ambassade.", "You can start a Meet right away to explain the visa documents, or schedule the meeting and the embassy appointment.")}
           </p>
           <ul className="mt-3 space-y-2">
@@ -853,7 +853,7 @@ export function RdvVisasPage() {
                     <div className="mt-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700">
                       <Banknote className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                       <span>
-                        <strong>{t("Paiement visa non réglé", "Visa payment not settled")}</strong> · {t("reste", "left")} {formatMoney(paymentDue.remaining, paymentDue.currency)}. {t("Le dépôt est bloqué : prévenez le conseiller.", "Filing is blocked: notify the advisor.")}
+                        <strong>{t("Paiement visa non réglé", "Visa payment not settled")}</strong> · {t("reste", "left")} {formatMoney(paymentDue.remaining, paymentDue.currency)}. {t("Le dépôt est bloqué : prévenez le conseiller(ère) commercial(e).", "Filing is blocked: notify the advisor.")}
                       </span>
                     </div>
                   )}
@@ -902,7 +902,7 @@ export function RdvVisasPage() {
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                     {app.visaStatus === "PREPARATION" && !app.visaDocsValidatedAt && (
                       <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">
-                        <Clock className="h-3.5 w-3.5" /> {t("En attente de la validation des documents visa par le conseiller.", "Waiting for the advisor to approve the visa documents.")}
+                        <Clock className="h-3.5 w-3.5" /> {t("En attente de la validation des documents visa par le conseiller(ère) commercial(e).", "Waiting for the advisor to approve the visa documents.")}
                       </span>
                     )}
                     {app.visaStatus === "PREPARATION" && appointmentButtons(app, busy)}
@@ -918,7 +918,7 @@ export function RdvVisasPage() {
                         <Send className="h-3.5 w-3.5" /> {t("Marquer comme déposé", "Mark as submitted")}
                       </button>
                         {!paymentDue && !allRequiredValidated && requiredDocs.length > 0 && (
-                        <span className="text-[11px] text-muted">{t("Le conseiller doit remplacer le document refusé avant le dépôt.", "The advisor must replace the rejected document before filing.")}</span>
+                        <span className="text-[11px] text-muted">{t("Le conseiller(ère) commercial(e) doit remplacer le document refusé avant le dépôt.", "The advisor must replace the rejected document before filing.")}</span>
                       )}
                     </>
                   )}

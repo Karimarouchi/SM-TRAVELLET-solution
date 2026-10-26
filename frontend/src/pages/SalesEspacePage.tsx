@@ -274,7 +274,7 @@ export default function SalesEspacePage() {
       <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-6 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)] sm:p-8">
         <div className="flex flex-wrap items-end justify-between gap-5">
           <div>
-            <p className="text-sm text-white/75">{t("Espace conseiller", "Advisor area")}</p>
+            <p className="text-sm text-white/75">{t("Espace conseiller(ère) commercial(e)", "Advisor area")}</p>
             <h1 className="mt-1 font-display text-3xl font-extrabold sm:text-4xl">{t("Bonjour", "Hello")}, {session.user.prenom}</h1>
             <p className="mt-2 max-w-xl text-sm text-white/85">
               {!k

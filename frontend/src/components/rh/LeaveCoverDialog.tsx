@@ -65,7 +65,7 @@ export default function LeaveCoverDialog({
     fetchLeaveCoverOptions(userId, startOn, endOn, leaveId)
       .then(async (data) => {
         if (cancelled) return;
-        // Pas de portefeuille à confier (congé passé, ou employé ni conseiller ni Responsable Dossier).
+        // Pas de portefeuille à confier (congé passé, ou employé ni conseiller(ère) commercial(e) ni Gestionnaire de dossiers).
         if (!data.needed && mode === "approve") {
           setBusy(true);
           try {

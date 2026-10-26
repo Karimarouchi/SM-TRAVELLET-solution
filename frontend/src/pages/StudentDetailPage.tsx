@@ -32,6 +32,7 @@ import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { alertDialog } from "@/components/ui/dialog-host";
 import ApplicationTimeline from "@/components/admin/ApplicationTimeline";
+import StudentDestinationForm from "@/components/admin/StudentDestinationForm";
 import UniversityChoicesPanel from "@/components/UniversityChoicesPanel";
 import ApplicationBlockers from "@/components/ApplicationBlockers";
 import StudentNotes from "@/components/StudentNotes";
@@ -99,7 +100,7 @@ const ALERT_STYLES: Record<Alert["tone"], string> = {
   info: "border-violet-200 bg-violet-50 text-violet-700"
 };
 
-// Étape du pipeline d'un étudiant (même règle que la liste du conseiller).
+// Étape du pipeline d'un étudiant (même règle que la liste du conseiller(ère) commercial(e)).
 function stageOf(onboardingCompleted: boolean, applications: UniversityApplication[]): PipelineStageKey {
   if (!onboardingCompleted) return "onboarding";
   const latest = applications.find((a) => a.status !== "CLOSED");
@@ -126,7 +127,7 @@ function scrollToSection(id: string) {
   window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
 }
 
-// Section repliée par défaut : l'admin / le conseiller l'ouvre quand il en a besoin.
+// Section repliée par défaut : l'admin / le conseiller(ère) commercial(e) l'ouvre quand il en a besoin.
 function CollapsibleSection({ id, icon, title, summary, children }: { id: string; icon: React.ReactNode; title: string; summary?: React.ReactNode; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -199,7 +200,7 @@ export default function StudentDetailPage() {
   const session = getSession();
   const role = session?.user?.role;
   const canActUniversity = role === "ADMIN";
-  // Le Responsable Dossier consulte le profil de ses étudiants en lecture seule.
+  // Le Gestionnaire de dossiers consulte le profil de ses étudiants en lecture seule.
   const isReviewer = role === "SALES" || role === "ADMIN";
   const passportExpiry = profile?.passportExpiresOn ? parseExpiry(profile.passportExpiresOn) : null;
   const passportMonthsLeft = passportExpiry ? monthsLeft(passportExpiry) : null;
@@ -288,7 +289,7 @@ export default function StudentDetailPage() {
         : reviewStudentDocument(id, name, status, reason, universityId)
       : Promise.reject(new Error(t("Étudiant inconnu.", "Unknown student.")));
 
-  // Dépôt d'un document à la place de l'étudiant (conseiller / admin) : lu en base64 puis validé d'office.
+  // Dépôt d'un document à la place de l'étudiant (conseiller(ère) commercial(e) / admin) : lu en base64 puis validé d'office.
   const uploadFor = (doc: StudentDocumentChecklistItem, file: File) =>
     new Promise<StudentDocumentChecklistItem>((resolve, reject) => {
       if (!id) return reject(new Error(t("Étudiant inconnu.", "Unknown student.")));
@@ -300,7 +301,7 @@ export default function StudentDetailPage() {
 
   const stage = useMemo(() => stageOf(Boolean(profile?.onboardingCompleted), applications), [profile, applications]);
 
-  // « Sans candidature » : on explique pourquoi (documents manquants, vœu absent…), pour le conseiller et l'admin.
+  // « Sans candidature » : on explique pourquoi (documents manquants, vœu absent…), pour le conseiller(ère) commercial(e) et l'admin.
   useEffect(() => {
     if (!id || stage !== "no_application" || !isReviewer) {
       setBlockers(null);
@@ -317,7 +318,7 @@ export default function StudentDetailPage() {
     const visaToReview = visaBundles.filter((bundle) => !bundle.application.visaStatus || bundle.application.visaStatus === "PREPARATION").flatMap((bundle) => bundle.docs).filter((d) => d.status === "SUBMITTED").length;
     if (visaToReview && isReviewer) list.push({ key: "visa-docs", tone: "warning", text: t(`${visaToReview} document${visaToReview > 1 ? "s" : ""} visa à valider`, `${visaToReview} visa document(s) to review`), target: "visa-documents" });
     const visaRejectedByRdv = visaBundles.filter((bundle) => bundle.application.visaStatus === "PREPARATION").flatMap((bundle) => bundle.docs).filter((d) => d.status === "REJECTED").length;
-    if (visaRejectedByRdv && isReviewer) list.push({ key: "visa-rejected", tone: "danger", text: t(`${visaRejectedByRdv} document${visaRejectedByRdv > 1 ? "s" : ""} visa refusé${visaRejectedByRdv > 1 ? "s" : ""} par le Responsable Dossier : contactez l'étudiant et déposez le nouveau fichier`, `${visaRejectedByRdv} visa document(s) rejected by the visa officer: contact the student and upload the new file`), target: "visa-documents" });
+    if (visaRejectedByRdv && isReviewer) list.push({ key: "visa-rejected", tone: "danger", text: t(`${visaRejectedByRdv} document${visaRejectedByRdv > 1 ? "s" : ""} visa refusé${visaRejectedByRdv > 1 ? "s" : ""} par le Gestionnaire de dossiers : contactez l'étudiant et déposez le nouveau fichier`, `${visaRejectedByRdv} visa document(s) rejected by the visa officer: contact the student and upload the new file`), target: "visa-documents" });
     const late = plans.find((p) => p.late);
     if (late) list.push({ key: "payment", tone: "danger", text: isReviewer ? t(`Paiement en retard : reste ${formatMoney(late.remainingTotal, late.currency)}`, `Payment overdue: ${formatMoney(late.remainingTotal, late.currency)} left`) : t("Paiement en retard", "Payment overdue"), target: "paiements" });
     if (profile?.passportStatus === "EXPIRED") list.push({ key: "passport", tone: "danger", text: t("Passeport expiré", "Passport expired"), target: "profil" });
@@ -344,7 +345,7 @@ export default function StudentDetailPage() {
     );
   }
 
-  // RDV (responsable visa) en relation avec l'étudiant, avec les candidatures qu'il suit.
+  // RDV (gestionnaire de dossiers) en relation avec l'étudiant, avec les candidatures qu'il suit.
   const rdvContacts = (() => {
     const map = new Map<string, { id: string; name: string; email: string | null; phone: string | null; universities: string[] }>();
     for (const app of applications) {
@@ -399,24 +400,24 @@ export default function StudentDetailPage() {
           </div>
         </div>
 
-        {/* Équipe en charge : le conseiller et le(s) Responsable(s) Dossier de l'étudiant. */}
+        {/* Équipe en charge : le conseiller(ère) commercial(e) et le(s) Responsable(s) Dossier de l'étudiant. */}
         <div className="mt-5">
           <p className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white/70">
             <UsersRound className="h-3.5 w-3.5" aria-hidden /> {t("Équipe en charge", "Team in charge")}
           </p>
           <div className="grid gap-2.5 md:grid-cols-2">
             <TeamCard
-              role={t("Conseiller", "Advisor")}
+              role={t("Conseiller(ère) commercial(e)", "Advisor")}
               icon={UserRound}
               name={profile.assignedSalesName || null}
               detail={profile.coverOwnerName ? t("En congé : vous le remplacez", "On leave: you are covering") : null}
               email={profile.assignedSalesEmail || null}
               phone={profile.assignedSalesPhone || null}
-              empty={t("Aucun conseiller assigné.", "No advisor assigned.")}
+              empty={t("Aucun conseiller(ère) commercial(e) assigné.", "No advisor assigned.")}
             />
             {rdvContacts.length === 0 ? (
               <TeamCard
-                role={t("Responsable Dossier", "Visa officer")}
+                role={t("Gestionnaire de dossiers", "Visa officer")}
                 icon={Plane}
                 name={null}
                 empty={openApplications.length
@@ -427,7 +428,7 @@ export default function StudentDetailPage() {
               rdvContacts.map((rdv) => (
                 <TeamCard
                   key={rdv.id}
-                  role={t("Responsable Dossier", "Visa officer")}
+                  role={t("Gestionnaire de dossiers", "Visa officer")}
                   icon={Plane}
                   name={rdv.name}
                   detail={`${t("Suit", "Handles")} : ${rdv.universities.join(", ")}`}
@@ -533,7 +534,7 @@ export default function StudentDetailPage() {
                   summary={visaDocs.length ? <DocSummary docs={visaDocs} /> : undefined}
                 >
                   <p className="text-xs text-muted">
-                    {t("La liste des documents est celle du pays. Le conseiller ou l'étudiant dépose le fichier, le conseiller le valide. Le Responsable Dossier peut ensuite refuser un document validé, avec un motif : le conseiller est prévenu et redépose le fichier. Le dossier reste chez le Responsable Dossier.", "The document list is the country's. The advisor or the student uploads the file, and the advisor approves it. The visa officer can then reject an approved document, with a reason: the advisor is notified and uploads the new file. The file stays with the visa officer.")}
+                    {t("La liste des documents est celle du pays. Le conseiller(ère) commercial(e) ou l'étudiant dépose le fichier, le conseiller(ère) commercial(e) le valide. Le Gestionnaire de dossiers peut ensuite refuser un document validé, avec un motif : le conseiller(ère) commercial(e) est prévenu et redépose le fichier. Le dossier reste chez le Gestionnaire de dossiers.", "The document list is the country's. The advisor or the student uploads the file, and the advisor approves it. The visa officer can then reject an approved document, with a reason: the advisor is notified and uploads the new file. The file stays with the visa officer.")}
                   </p>
                   <div className="mt-3 space-y-4">
                     {visaBundles.map((bundle) => {
@@ -546,16 +547,16 @@ export default function StudentDetailPage() {
                         <div key={bundle.application.id}>
                           <p className="text-xs font-bold text-dark">{bundle.application.universityName}{bundle.application.countryName ? ` · ${bundle.application.countryName}` : ""}</p>
                           {!appointed && (role === "SALES" || role === "ADMIN") ? (
-                            <p className="mt-1 text-xs text-amber-700">{t("Les documents visa se déposent une fois le rendez-vous fixé par le Responsable Dossier.", "Visa documents are uploaded once the visa officer has set the appointment.")}</p>
+                            <p className="mt-1 text-xs text-amber-700">{t("Les documents visa se déposent une fois le rendez-vous fixé par le Gestionnaire de dossiers.", "Visa documents are uploaded once the visa officer has set the appointment.")}</p>
                           ) : withOfficer ? (
-                            <p className="mt-1 text-xs text-muted">{t("Dossier visa chez le Responsable Dossier. S'il refuse un document, contactez l'étudiant et déposez le nouveau fichier ici.", "The visa file is with the visa officer. If they reject a document, contact the student and upload the new file here.")}</p>
+                            <p className="mt-1 text-xs text-muted">{t("Dossier visa chez le Gestionnaire de dossiers. S'il refuse un document, contactez l'étudiant et déposez le nouveau fichier ici.", "The visa file is with the visa officer. If they reject a document, contact the student and upload the new file here.")}</p>
                           ) : canConfirmEmpty ? (
-                            <p className="mt-1 text-xs text-muted">{t("Validez tous les documents visa obligatoires : le dossier revient ensuite au même Responsable Dossier.", "Approve every required visa document: the file then returns to the same visa officer.")}</p>
+                            <p className="mt-1 text-xs text-muted">{t("Validez tous les documents visa obligatoires : le dossier revient ensuite au même Gestionnaire de dossiers.", "Approve every required visa document: the file then returns to the same visa officer.")}</p>
                           ) : null}
                           {canConfirmEmpty && bundle.docs.filter((d) => d.required).length === 0 && (
                             <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
                               <p className="text-sm font-bold text-dark">{t("Aucun document visa obligatoire pour ce pays", "No required visa document for this country")}</p>
-                              <p className="mt-1 text-xs text-mid">{t("Confirmez pour transmettre le dossier au Responsable Dossier : il pourra alors déposer le visa.", "Confirm to pass the file to the visa officer: they will then be able to submit the visa.")}</p>
+                              <p className="mt-1 text-xs text-mid">{t("Confirmez pour transmettre le dossier au Gestionnaire de dossiers : il pourra alors déposer le visa.", "Confirm to pass the file to the visa officer: they will then be able to submit the visa.")}</p>
                               <button
                                 type="button"
                                 onClick={async () => {
@@ -569,7 +570,7 @@ export default function StudentDetailPage() {
                                 }}
                                 className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-xs font-bold text-white hover:opacity-90"
                               >
-                                <CheckCircle2 className="h-3.5 w-3.5" /> {t("Confirmer et transmettre au Responsable Dossier", "Confirm and pass to the visa officer")}
+                                <CheckCircle2 className="h-3.5 w-3.5" /> {t("Confirmer et transmettre au Gestionnaire de dossiers", "Confirm and pass to the visa officer")}
                               </button>
                             </div>
                           )}
@@ -612,11 +613,11 @@ export default function StudentDetailPage() {
                   <GraduationCap className="h-5 w-5 text-brand" /> {t("Candidatures universitaires", "University applications")} ({applications.length})
                 </h2>
                 <div className="mt-3">
-                  <ApplicationTimeline applications={applications} canAct={canActUniversity} canMarkTranslation={isReviewer} onChanged={loadApplications} />
+                  <ApplicationTimeline applications={applications} canAct={canActUniversity} canDelete={role === "SALES" || role === "ADMIN"} canMarkTranslation={isReviewer} onChanged={reloadAfterChoice} />
                 </div>
               </section>
 
-              {id && <div className="[&>section]:mt-0"><UniversityChoicesPanel studentId={id} onChanged={reloadAfterChoice} readOnly={!isReviewer} /></div>}
+              {id && <div className="[&>section]:mt-0"><UniversityChoicesPanel studentId={id} refreshKey={choicesVersion} onChanged={reloadAfterChoice} readOnly={!isReviewer} /></div>}
             </div>
 
             {/* Colonne latérale : profil et paiements */}
@@ -641,8 +642,11 @@ export default function StudentDetailPage() {
                     </div>
                   </InfoGroup>
                   <InfoGroup title={t("Projet d'études", "Study project")}>
-                    <InfoRow label={t("Pays préférés", "Preferred countries")} value={profile.preferredCountries.join(", ")} />
-                    <InfoRow label={t("Niveau recherché", "Target level")} value={profile.targetLevel} />
+                    <InfoRow label={t("Pays", "Country")} value={profile.preferredCountries.join(", ")} />
+                    <InfoRow label={t("Niveau", "Level")} value={profile.targetLevel} />
+                    {id && (role === "SALES" || role === "ADMIN") && (
+                      <StudentDestinationForm studentId={id} profile={profile} onSaved={(next) => { setProfile(next); reloadPayments(); }} />
+                    )}
                     <InfoRow label={t("Formation", "Program")} value={profile.targetField} />
                     <InfoRow label={t("Budget annuel", "Annual budget")} value={profile.annualBudget ? `${Number(profile.annualBudget)} €` : ""} />
                   </InfoGroup>
@@ -730,10 +734,10 @@ function DocumentReviewRow({
   translationMode?: "staff" | "readonly";
   onTranslationChanged?: () => void;
   studentId?: string;
-  /** Conseiller / admin : dépose un fichier à la place de l'étudiant (validé automatiquement). */
+  /** Conseiller(ère) commercial(e) / admin : dépose un fichier à la place de l'étudiant (validé automatiquement). */
   onUpload?: (file: File) => Promise<StudentDocumentChecklistItem>;
   canReview?: boolean;
-  /** Responsable Dossier : peut seulement refuser (avec motif) un document déjà validé. */
+  /** Gestionnaire de dossiers : peut seulement refuser (avec motif) un document déjà validé. */
   rejectOnly?: boolean;
   doc: StudentDocumentChecklistItem;
   reviewFor: (name: string, status: "VALIDATED" | "REJECTED", reason?: string, universityId?: string | null) => Promise<StudentDocumentChecklistItem>;
@@ -878,7 +882,7 @@ function DocumentReviewRow({
                 rows={2}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder={rejectOnly ? t("Motif du refus (obligatoire, visible par l'étudiant et le conseiller)", "Rejection reason (required, visible to the student and the advisor)") : t("Motif du refus (obligatoire, visible par l'étudiant)", "Rejection reason (required, visible to the student)")}
+                placeholder={rejectOnly ? t("Motif du refus (obligatoire, visible par l'étudiant et le conseiller(ère) commercial(e))", "Rejection reason (required, visible to the student and the advisor)") : t("Motif du refus (obligatoire, visible par l'étudiant)", "Rejection reason (required, visible to the student)")}
                 className="w-full resize-none rounded-lg border border-line bg-slate-50 px-3 py-1.5 text-xs outline-none focus:border-brand"
                 autoFocus
               />
@@ -905,7 +909,7 @@ function DocumentReviewRow({
       )}
       {open && error && <p className="mt-2 text-xs text-red-500">{error}</p>}
 
-      {/* Traduction : le conseiller / l'admin choisit les documents validés qui doivent aussi être traduits. */}
+      {/* Traduction : le conseiller(ère) commercial(e) / l'admin choisit les documents validés qui doivent aussi être traduits. */}
       {doc.translation && <TranslationSlot translation={doc.translation} docName={doc.name} mode={translationMode} onChanged={() => onTranslationChanged?.()} />}
       {open && !doc.translation && doc.status === "VALIDATED" && translationMode === "staff" && studentId && (
         <div className="mt-3">
@@ -1029,7 +1033,7 @@ function VisaSalesReviewRow({
         </label>
       )}
       {open && doc.status === "REJECTED" && canUpload && !canRejectStudent && (
-        <p className="mt-3 text-xs text-muted">{t("Contactez l'étudiant, puis déposez le nouveau fichier. Le dossier reste chez le Responsable Dossier.", "Contact the student, then upload the new file. The file stays with the visa officer.")}</p>
+        <p className="mt-3 text-xs text-muted">{t("Contactez l'étudiant, puis déposez le nouveau fichier. Le dossier reste chez le Gestionnaire de dossiers.", "Contact the student, then upload the new file. The file stays with the visa officer.")}</p>
       )}
       {open && canUpload && <StaffVisaUploadButton applicationId={applicationId} doc={doc} onUploaded={onReviewed} />}
       {open && (canValidate || showReject) && (

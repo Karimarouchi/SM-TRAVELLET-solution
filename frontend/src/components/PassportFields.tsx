@@ -94,12 +94,12 @@ export default function PassportFields({
           <span>
             {status === "EXPIRED" ? (
               <>
-                <strong>Votre passeport est expiré.</strong> Vous pouvez continuer, mais il faudra le renouveler avant toute démarche. Votre conseiller en sera informé.
+                <strong>Votre passeport est expiré.</strong> Vous pouvez continuer, mais il faudra le renouveler avant toute démarche. Votre conseiller(ère) commercial(e) en sera informé.
               </>
             ) : (
               <>
                 <strong>Votre passeport expire dans {monthsLabel(left)}</strong>, soit moins de {PASSPORT_MIN_VALIDITY_MONTHS} mois de validité. Vous pouvez continuer, mais pensez à le
-                renouveler : votre conseiller en sera informé.
+                renouveler : votre conseiller(ère) commercial(e) en sera informé.
               </>
             )}
           </span>

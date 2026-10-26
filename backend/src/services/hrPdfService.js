@@ -20,7 +20,7 @@ const BRAND_LINE = "#ddd6fe";
 const INK = "#1c1917";
 const GREY = "#64748b";
 const MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-const ROLE_LABELS = { ADMIN: "administrateur", SALES: "conseiller", RDV: "responsable dossier" };
+const ROLE_LABELS = { ADMIN: "administrateur", SALES: "Conseiller(ère) commercial(e)", RDV: "Gestionnaire de dossiers" };
 
 function money(amount) {
   const [int, dec] = (Math.round(Number(amount) * 1000) / 1000).toFixed(3).split(".");
@@ -435,7 +435,8 @@ function drawLetterAttestation(doc, data, title, afterEmployment) {
     y = 344;
   }
   const job = data.jobTitle || roleLabel(data.roles) || "Employé";
-  doc.font("Helvetica").fontSize(12).text("est employé(e) au sein de notre société en qualité d'", left, y, { continued: true, lineBreak: false });
+  const liaison = /^[aeiouéèêëàâîïôùûh]/i.test(job) ? "d'" : "de ";
+  doc.font("Helvetica").fontSize(12).text(`est employé(e) au sein de notre société en qualité ${liaison}`, left, y, { continued: true, lineBreak: false });
   doc.font("Helvetica-Bold").text(job, { continued: true, lineBreak: false });
   doc.font("Helvetica").text(", et ce", { lineBreak: false });
   y += 21;

@@ -72,7 +72,7 @@ export default function DeleteStudentModal({
         "Son compte, son profil et son historique",
         preview.documents ? `${plural(preview.documents, "document déposé", "documents déposés")} (fichiers effacés du serveur)` : null,
         preview.applications ? `${plural(preview.applications, "candidature")} et leur suivi (entretiens, visa)` : null,
-        preview.codesUsed ? `${plural(preview.codesUsed, "code conseiller utilisé", "codes conseiller utilisés")} pour s'inscrire` : null,
+        preview.codesUsed ? `${plural(preview.codesUsed, "code conseiller(ère) commercial(e) utilisé", "codes conseiller(ère) commercial(e) utilisés")} pour s'inscrire` : null,
         "Ses notifications"
       ].filter(Boolean)
     : [];
@@ -111,7 +111,7 @@ export default function DeleteStudentModal({
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-snug text-amber-900">
               <p className="flex items-center gap-1.5 font-bold"><AlertTriangle className="h-4 w-4 shrink-0" /> Suppression impossible</p>
               <p className="mt-1">
-                Cet étudiant a généré {plural(preview.commissions, "commission")} pour des conseillers ou des responsables visa. Le supprimer effacerait
+                Cet étudiant a généré {plural(preview.commissions, "commission")} pour des conseillers(ères) commerciaux(ales) ou des gestionnaires de dossiers. Le supprimer effacerait
                 ces gains : l'historique de commissions doit être conservé.
               </p>
               <p className="mt-1">Vous pouvez à la place <strong>bloquer son compte</strong> : il ne pourra plus se connecter, et tout son historique est gardé.</p>

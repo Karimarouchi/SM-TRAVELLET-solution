@@ -48,6 +48,28 @@ export default function AppLayout() {
     }
   }, [navigate, location.pathname]);
 
+  // Une seule fois pour toutes les pages : si le serveur a une version plus
+  // récente, on recharge. Sinon la page demandée s'affiche tout de suite.
+  useEffect(() => {
+    const current = [...document.querySelectorAll("script[src]")]
+      .map((node) => (node as HTMLScriptElement).src)
+      .find((src) => src.includes("/assets/index-"));
+    const currentName = current?.match(/\/assets\/index-[^"?]+\.js/)?.[0];
+    if (!currentName) return;
+    let cancelled = false;
+    fetch(`${import.meta.env.BASE_URL}index.html`, { cache: "no-store" })
+      .then((res) => res.text())
+      .then((html) => {
+        if (cancelled) return;
+        const nextName = html.match(/\/assets\/index-[^"?]+\.js/)?.[0];
+        if (nextName && nextName !== currentName) window.location.reload();
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [location.pathname]);
+
   const session = getSession();
   if (!session?.user) return null;
 
@@ -69,16 +91,17 @@ export default function AppLayout() {
 
       <div className="relative z-10 min-h-screen pt-24 text-dark">
         <LeaveCoverBanner />
-        {adminArea ? <AdminAreaTransition /> : <Outlet />}
+        {adminArea ? <AdminAreaTransition /> : <Outlet key={location.pathname} />}
       </div>
     </div>
   );
 }
 
 function AdminAreaTransition() {
+  const location = useLocation();
   return (
-    <div style={{ viewTransitionName: "admin-area" }}>
-      <Outlet />
+    <div id="admin-area">
+      <Outlet key={location.pathname} />
     </div>
   );
 }

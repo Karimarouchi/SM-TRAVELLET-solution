@@ -299,7 +299,7 @@ export function validateField(key: ProfileField, form: ProfileForm): string {
       if (!NAME_LIKE.test(text)) return "La ville ne doit contenir que des lettres.";
       return "";
     case "targetLevel":
-      return text ? "" : "Choisissez le niveau recherché.";
+      return "";
     case "targetField":
       if (!text) return "La formation souhaitée est obligatoire.";
       if (!TEXT_LIKE.test(text)) return "La formation contient des caractères non autorisés.";

@@ -5,7 +5,13 @@ import { cn } from "@/lib/utils";
 import { Lock, MessageSquarePlus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-// Remarques internes sur un étudiant : visibles seulement par l'équipe SM (admin, conseiller, Responsable Dossier).
+function authorRoleLabel(role: string) {
+  if (role === "Conseiller") return "Conseiller(ère) commercial(e)";
+  if (role === "Responsable Dossier" || role === "Responsable dossier") return "Gestionnaire de dossiers";
+  return role;
+}
+
+// Remarques internes sur un étudiant : visibles seulement par l'équipe SM (admin, conseiller(ère) commercial(e), Gestionnaire de dossiers).
 export default function StudentNotes({ studentId }: { studentId: string }) {
   const { t } = useLanguage();
   const [notes, setNotes] = useState<StudentNote[] | null>(null);
@@ -83,7 +89,7 @@ export default function StudentNotes({ studentId }: { studentId: string }) {
             <div className="flex items-start justify-between gap-3">
               <p className="text-xs">
                 <span className="font-bold text-dark">{note.authorName}</span>
-                {note.authorRole && <span className="ml-1.5 rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-bold text-brand">{note.authorRole}</span>}
+                {note.authorRole && <span className="ml-1.5 rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-bold text-brand">{authorRoleLabel(note.authorRole)}</span>}
                 <span className="ml-2 text-muted">{new Date(note.createdAt).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
               </p>
               {note.canDelete && (

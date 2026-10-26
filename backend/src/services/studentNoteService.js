@@ -13,7 +13,7 @@ function fail(message, status) {
   return error;
 }
 
-const ROLE_LABELS = { ADMIN: "Admin", SALES: "Conseiller", RDV: "Responsable Dossier" };
+const ROLE_LABELS = { ADMIN: "Admin", SALES: "Conseiller(ère) commercial(e)", RDV: "Gestionnaire de dossiers" };
 
 function dto(row, auth) {
   const isAdmin = authRoles(auth).includes("ADMIN");

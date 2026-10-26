@@ -218,7 +218,7 @@ export default function RhLeavePage() {
                           <span className="ml-2 text-muted">{request.days} j{request.coversAbsence ? " · absence couverte" : ""}{request.reason ? ` · ${request.reason}` : ""}</span>
                           {request.status === "APPROVED" && request.cover && request.cover.length > 0 && (
                             <span className="mt-0.5 block text-xs text-mid">
-                              Remplacé par {request.cover.map((sub) => `${sub.name} (${sub.percent} %${request.cover!.some((other) => other.scope !== sub.scope) ? `, ${sub.scope === "RDV" ? "dossiers" : "conseiller"}` : ""})`).join(", ")}
+                              Remplacé par {request.cover.map((sub) => `${sub.name} (${sub.percent} %${request.cover!.some((other) => other.scope !== sub.scope) ? `, ${sub.scope === "RDV" ? "dossiers" : "conseiller(ère) commercial(e)"}` : ""})`).join(", ")}
                               {request.endOn >= todayTunis() && (
                                 <button
                                   type="button"

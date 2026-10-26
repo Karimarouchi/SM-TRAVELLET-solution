@@ -53,7 +53,7 @@ function TrancheBox({ title, hint, state, currency }: { title: string; hint: str
 }
 
 // Paiements d'un étudiant : tranches par pays, enregistrement (admin ou
-// conseiller de l'étudiant) et historique. L'admin peut annuler un paiement.
+// conseiller(ère) commercial(e) de l'étudiant) et historique. L'admin peut annuler un paiement.
 export default function StudentPaymentsPanel({ studentId, onChanged, compact = false }: { studentId: string; onChanged?: () => void; compact?: boolean }) {
   const [summary, setSummary] = useState<StudentPaymentsSummary | null>(null);
   const [countries, setCountries] = useState<Country[]>([]);
@@ -157,7 +157,7 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
             <Banknote className="h-5 w-5 text-brand" aria-hidden /> Paiements
           </h2>
           <p className="mt-1 text-xs text-muted">
-            Deux tranches : la 1ʳᵉ à l'inscription (code), la 2ᵉ avant le dépôt du visa. Le Responsable Dossier ne peut pas déposer le visa tant que la tranche 2 n'est pas réglée.
+            Deux tranches : la 1ʳᵉ à l'inscription (code), la 2ᵉ avant le dépôt du visa. Le Gestionnaire de dossiers ne peut pas déposer le visa tant que la tranche 2 n'est pas réglée.
           </p>
         </div>
         {!adding && (
@@ -313,7 +313,7 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
                     {payment.receiptNumber ? <span className="font-bold text-brand">Reçu {payment.receiptNumber}</span> : null}
                     {payment.receiptNumber ? " · " : ""}
                     {payment.reference ? `${payment.referenceLabel || "Réf."} ${payment.reference} · ` : ""}
-                    Saisi par {payment.recordedByName || (payment.recordedByRole === "SALES" ? "le conseiller" : "l'administrateur")}
+                    Saisi par {payment.recordedByName || (payment.recordedByRole === "SALES" ? "le conseiller(ère) commercial(e)" : "l'administrateur")}
                   </p>
                   {payment.status === "CANCELLED" && <p className="mt-0.5 font-semibold text-red-600">Annulé : {payment.cancelReason}</p>}
                   {payment.status === "ACTIVE" && summary.canCancel && (

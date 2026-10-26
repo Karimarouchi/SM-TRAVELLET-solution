@@ -106,7 +106,7 @@ export type HrLeaveRequest = {
   cover?: HrLeaveCoverSubstitute[];
 };
 
-// ── Remplacement pendant un congé (conseiller / Responsable Dossier) ──
+// ── Remplacement pendant un congé (conseiller(ère) commercial(e) / Gestionnaire de dossiers) ──
 export type HrCoverScope = "SALES" | "RDV";
 export type HrLeaveCoverSubstitute = { scope: HrCoverScope; id: string; name: string; percent: number };
 export type HrCoverPlan = Partial<Record<HrCoverScope, { substitutes: { id: string; percent: number }[]; overrides: Record<string, string> }>>;

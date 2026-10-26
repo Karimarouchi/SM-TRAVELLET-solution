@@ -125,7 +125,7 @@ export default function AdminPage() {
         <p className="text-sm text-white/80">Espace administrateur</p>
         <h1 className="mt-1 font-display text-3xl font-extrabold">Dashboard</h1>
         <p className="mt-2 max-w-2xl text-sm text-white/85">
-          Vue réelle de l'activité : comptes, dossiers, destinations et charge des conseillers.
+          Vue réelle de l'activité : comptes, dossiers, destinations et charge des conseillers(ères) commerciaux(ales).
         </p>
       </section>
 
@@ -217,7 +217,7 @@ export default function AdminPage() {
                       ) : null}
                     </div>
                     <p className="mt-0.5 text-xs text-mid">
-                      Conseiller&nbsp;: <span className="font-semibold">{alert.sales || "—"}</span>
+                      Conseiller(ère) commercial(e)&nbsp;: <span className="font-semibold">{alert.sales || "—"}</span>
                     </p>
                     <span className={cn(
                       "mt-2 inline-block rounded-lg px-2.5 py-1 text-[11px] font-semibold",

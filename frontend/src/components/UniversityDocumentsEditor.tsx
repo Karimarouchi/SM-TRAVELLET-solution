@@ -18,7 +18,7 @@ const FILE_TYPES: Array<{ value: AcceptedFileType; label: string }> = [
 ];
 
 // Documents demandés EN PLUS de ceux du pays, pour une université précise.
-// Utilisé par l'admin (universités conventionnées) et par le conseiller
+// Utilisé par l'admin (universités conventionnées) et par le conseiller(ère) commercial(e)
 // (universités hors conventions de ses étudiants).
 export default function UniversityDocumentsEditor({
   universityId,

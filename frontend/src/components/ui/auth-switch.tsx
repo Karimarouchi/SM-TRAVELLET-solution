@@ -59,7 +59,7 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
     try {
       const salesCode = String(form.get("salesCode") || "").trim();
       if (!salesCode) {
-        setError(t("Le code reçu de votre conseiller est obligatoire pour vous inscrire.", "The code from your advisor is required to sign up."));
+        setError(t("Le code reçu de votre conseiller(ère) commercial(e) est obligatoire pour vous inscrire.", "The code from your advisor is required to sign up."));
         setLoading(false);
         return;
       }
@@ -183,7 +183,7 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
                 <input name="passwordConfirm" type="password" placeholder={t("Confirmer le mot de passe", "Confirm password")} required minLength={8} autoComplete="new-password" />
               </div>
 
-              {/* Le code envoyé par le conseiller est obligatoire : sans lui, pas d'inscription. */}
+              {/* Le code envoyé par le conseiller(ère) commercial(e) est obligatoire : sans lui, pas d'inscription. */}
               <div className="as-input-field">
                 <span className="as-icon"><KeyRound size={18} /></span>
                 <input
@@ -191,8 +191,8 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
                   type="text"
                   required
                   defaultValue={presetCode}
-                  placeholder={t("Code du conseiller", "Advisor code")}
-                  aria-label={t("Code d'inscription reçu de votre conseiller", "Registration code from your advisor")}
+                  placeholder={t("Code du conseiller(ère) commercial(e)", "Advisor code")}
+                  aria-label={t("Code d'inscription reçu de votre conseiller(ère) commercial(e)", "Registration code from your advisor")}
                   autoComplete="off"
                   autoCapitalize="characters"
                   spellCheck={false}

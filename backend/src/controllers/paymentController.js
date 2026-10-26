@@ -62,7 +62,7 @@ async function setPricing(req, res) {
 
 async function removePricing(req, res) {
   try {
-    res.json(await paymentService.removePricing(req.params.countryId));
+    res.json(await paymentService.removePricing(req.params.countryId, String(req.query.levelId || "").trim()));
   } catch (error) {
     handle(res, error, 400);
   }

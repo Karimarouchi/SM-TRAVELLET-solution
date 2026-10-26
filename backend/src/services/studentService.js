@@ -113,8 +113,7 @@ function validateOnboarding(body) {
     required(body.currentStudyLevel, "Le niveau d’études actuel"),
     required(body.lastDiploma, "Le dernier diplôme"),
     required(body.studyField, "Le domaine d’études"),
-    preferredCountries.length ? null : "Au moins un pays préféré est obligatoire.",
-    required(body.targetLevel, "Le niveau recherché"),
+    preferredCountries.length ? null : "Choisissez un pays.",
     required(body.targetField, "La formation souhaitée"),
     required(body.targetIntake, "La rentrée souhaitée"),
     required(body.annualBudget, "Le budget annuel estimé"),
@@ -266,7 +265,8 @@ function validateOnboarding(body) {
     diplomaYear,
     preferredCountries,
     preferredCity: String(body.preferredCity || "").trim(),
-    targetLevel: String(body.targetLevel).trim(),
+    targetLevel: String(body.targetLevel || "").trim(),
+    targetLevelId: String(body.targetLevelId || "").trim(),
     targetField: String(body.targetField).trim(),
     targetIntake: String(body.targetIntake).trim(),
     targetUniversity: body.targetUniversity
@@ -390,8 +390,47 @@ async function saveOnboarding(userId, body) {
   // serveur, indépendante du verrouillage visuel côté frontend).
   if (locked.includes("preferredCountries")) fields.preferredCountries = existingRow.preferred_countries || [];
   if (locked.includes("currentStudyLevel")) fields.currentStudyLevel = existingRow.current_study_level || "";
-  if (locked.includes("targetLevel")) fields.targetLevel = existingRow.target_level || "";
+  if (locked.includes("targetLevel")) {
+    fields.targetLevel = existingRow.target_level || "";
+    fields.targetLevelId = existingRow.target_level_id || "";
+  }
   if (locked.includes("phone") || !fields.phone) fields.phone = existingRow.phone || "";
+
+  // Après l'onboarding, seul le conseiller change le pays et le niveau.
+  // Au premier enregistrement : un seul pays, et un niveau de ce pays s'il en a.
+  const countryRepo = require("../repositories/countryRepository");
+  const programmeService = require("./programmeService");
+  if (existingRow.onboarding_completed) {
+    fields.preferredCountries = existingRow.preferred_countries || [];
+    fields.targetLevel = existingRow.target_level || "";
+    fields.targetLevelId = existingRow.target_level_id || "";
+  } else if (fields.preferredCountries.length !== 1) {
+    const error = new Error("Choisissez un seul pays.");
+    error.status = 400;
+    throw error;
+  } else {
+    const country = await countryRepo.findByNameCaseInsensitive(fields.preferredCountries[0]);
+    if (!country) {
+      const error = new Error("Pays introuvable.");
+      error.status = 400;
+      throw error;
+    }
+    const levels = await programmeService.levelsForCountry(country.id);
+    if (levels.length && !locked.includes("targetLevel")) {
+      const level = levels.find((item) => item.id === fields.targetLevelId) || levels.find((item) => item.name === fields.targetLevel);
+      if (!level) {
+        const error = new Error("Choisissez un niveau de ce pays.");
+        error.status = 400;
+        throw error;
+      }
+      fields.targetLevel = level.name;
+      fields.targetLevelId = level.id;
+    }
+    if (!levels.length && !locked.includes("targetLevel")) {
+      fields.targetLevel = "";
+      fields.targetLevelId = "";
+    }
+  }
 
   // Un numéro n'appartient qu'à un seul étudiant. Vérifié seulement quand il
   // change : un doublon ancien déjà en base ne bloque pas les autres champs.
@@ -403,6 +442,23 @@ async function saveOnboarding(userId, body) {
   }
 
   let profile = studentProfileDto(await students.updateOnboarding(userId, fields));
+  if (firstOnboarding && fields.preferredCountries.length === 1) {
+    const chosen = await countryRepo.findByNameCaseInsensitive(fields.preferredCountries[0]);
+    if (chosen) {
+      await require("./paymentService").ensurePlanForChoice(userId, chosen.id, fields.targetLevelId || null).catch(() => undefined);
+      if (existingRow.activation_code_id && !existingRow.code_country_id && profile.assignedSalesId) {
+        await require("./commissionService")
+          .awardCommission({
+            userId: profile.assignedSalesId,
+            studentId: userId,
+            countryId: chosen.id,
+            role: "SALES",
+            stage: "CODE_CLAIMED"
+          })
+          .catch(() => undefined);
+      }
+    }
+  }
   if (!profile.assignedSalesId && (await settings.isAutoAssignEnabled())) {
     // Pourcentages si le mode est activé dans Paramètres, sinon le moins chargé.
     const salesId = await autoAssign.pickOrFallback("students", () => sales.findLeastLoadedActive());
@@ -541,4 +597,38 @@ async function assertCanView(auth, studentUserId) {
   return profile;
 }
 
-module.exports = { getMine, getDetail, saveOnboarding, updateIdentity, saveAvatar, listStudents, assignSales, assertCanView };
+async function setStudyDestination(auth, studentId, body) {
+  const row = await assertCanView(auth, studentId);
+  if (auth.role !== "ADMIN" && auth.role !== "SALES") {
+    const error = new Error("Seul le conseiller ou l'administrateur peut changer la destination.");
+    error.status = 403;
+    throw error;
+  }
+  const countryRepo = require("../repositories/countryRepository");
+  const programmeService = require("./programmeService");
+  const country = await countryRepo.findById(String(body.countryId || ""));
+  if (!country || country.active === false) {
+    const error = new Error("Pays introuvable.");
+    error.status = 400;
+    throw error;
+  }
+  const levels = await programmeService.levelsForCountry(country.id);
+  let level = null;
+  if (levels.length) {
+    level = levels.find((item) => item.id === String(body.levelId || ""));
+    if (!level) {
+      const error = new Error("Choisissez un niveau de ce pays.");
+      error.status = 400;
+      throw error;
+    }
+  }
+  await students.setDestination(studentId, {
+    preferredCountries: [country.name],
+    targetLevel: level ? level.name : "",
+    targetLevelId: level ? level.id : null
+  });
+  await require("./paymentService").retargetStudentPlan(studentId, country.id, level ? level.id : null);
+  return getDetail(auth, studentId);
+}
+
+module.exports = { getMine, getDetail, saveOnboarding, updateIdentity, saveAvatar, listStudents, assignSales, assertCanView, setStudyDestination };

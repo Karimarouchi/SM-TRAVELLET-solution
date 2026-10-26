@@ -21,7 +21,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { CountUp } from "./anim";
 
-const ROLE_LABEL: Record<CommissionRole, string> = { SALES: "Conseiller", RDV: "Responsable Dossier" };
+const ROLE_LABEL: Record<CommissionRole, string> = { SALES: "Conseiller(ère) commercial(e)", RDV: "Gestionnaire de dossiers" };
 const dt = (value: number) => formatMoney(value, "TND");
 const frDate = (value: string) => new Date(value).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
 const MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
@@ -191,7 +191,7 @@ export default function CommissionPayoutsPanel() {
       <div className="rounded-[22px] border border-line bg-white p-5 shadow-sm">
         <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark"><HandCoins className="h-5 w-5 text-brand" /> Commissions à verser</h2>
         <p className="mt-1 text-xs text-muted">
-          Les commissions gagnées par les conseillers et les Responsables Dossier s'accumulent ici. Cliquez sur <strong>Payer</strong> une fois l'argent remis : le versement est daté et classé dans
+          Les commissions gagnées par les conseillers(ères) commerciaux(ales) et les Gestionnaires de dossiers s'accumulent ici. Cliquez sur <strong>Payer</strong> une fois l'argent remis : le versement est daté et classé dans
           l'historique, et l'employé est prévenu. Les montants se règlent hors de l'application.
         </p>
       </div>

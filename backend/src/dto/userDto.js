@@ -29,7 +29,7 @@ function lockedFieldsFromRow(row) {
   const locked = [];
   if (row.code_country_name) locked.push("preferredCountries");
   if (row.code_prefill_current_study_level) locked.push("currentStudyLevel");
-  if (row.code_prefill_target_level) locked.push("targetLevel");
+  if (row.code_prefill_target_level || row.code_prefill_level_id) locked.push("targetLevel");
   if (row.code_prefill_phone) locked.push("phone");
   return locked;
 }
@@ -49,6 +49,7 @@ function studentProfileDto(row) {
     preferredCountries: row.preferred_countries || [],
     preferredCity: row.preferred_city || "",
     targetLevel: row.target_level || "",
+    targetLevelId: row.target_level_id || "",
     targetField: row.target_field || "",
     targetIntake: row.target_intake || "",
     targetUniversity: row.target_university || "",

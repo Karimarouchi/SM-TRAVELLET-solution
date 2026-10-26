@@ -110,7 +110,7 @@ export function WhatsAppFunnelBars({ funnel }: { funnel: WhatsAppFunnel }) {
   const total = funnel.conversations;
   const rows = [
     { label: "Conversations", value: funnel.conversations, hint: "le contact a écrit sur la période" },
-    { label: "Répondues", value: funnel.answered, hint: "le conseiller a parlé avec le contact" },
+    { label: "Répondues", value: funnel.answered, hint: "le conseiller(ère) commercial(e) a parlé avec le contact" },
     { label: "Code envoyé", value: funnel.codeSent, hint: "parmi les répondues" },
     { label: "Inscrits", value: funnel.registered, hint: "parmi les répondues" },
     { label: "Abouties", value: funnel.converted, hint: "code envoyé ou inscrit" }

@@ -213,7 +213,7 @@ export default function AdminProgrammesPage() {
                     ? "Configurez les pays de destination et les documents requis pour chaque pays."
                     : activeTab === "universities"
                       ? "Configurez les universités disponibles pour chaque pays, utilisées dans le formulaire étudiant."
-                      : "Documents demandés à l'étudiant une fois son dossier transféré au Responsable Dossier Visa."}
+                      : "Documents demandés à l'étudiant une fois son dossier transféré au Gestionnaire de dossiers."}
               </p>
             </div>
             {activeTab === "programmes" && (

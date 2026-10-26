@@ -80,10 +80,10 @@ function VisaDocumentRow({ doc, onUploaded, locked, freezeValidated }: { doc: Vi
       )}
 
       {held && (
-        <p className="mt-3 text-xs text-muted">{t("Document validé. S'il doit être changé, votre conseiller vous le demandera.", "Document approved. If it must be changed, your advisor will ask you.")}</p>
+        <p className="mt-3 text-xs text-muted">{t("Document validé. S'il doit être changé, votre conseiller(ère) commercial(e) vous le demandera.", "Document approved. If it must be changed, your advisor will ask you.")}</p>
       )}
       {!locked && freezeValidated && doc.status === "REJECTED" && (
-        <p className="mt-3 text-xs text-muted">{t("Vous pouvez déposer le nouveau fichier, ou le remettre à votre conseiller.", "You can upload the new file, or give it to your advisor.")}</p>
+        <p className="mt-3 text-xs text-muted">{t("Vous pouvez déposer le nouveau fichier, ou le remettre à votre conseiller(ère) commercial(e).", "You can upload the new file, or give it to your advisor.")}</p>
       )}
       {locked || held ? null : <div className="mt-3 flex items-center gap-3">
         <button
@@ -118,7 +118,7 @@ export default function VisaDocumentsChecklist({
   documents: VisaDocumentChecklistItem[];
   onUploaded: (updated: VisaDocumentChecklistItem) => void;
   locked?: boolean;
-  /** Dossier déjà chez le Responsable Dossier : un document validé ne se remplace qu'après son refus. */
+  /** Dossier déjà chez le Gestionnaire de dossiers : un document validé ne se remplace qu'après son refus. */
   freezeValidated?: boolean;
 }) {
   const { t } = useLanguage();
@@ -127,7 +127,7 @@ export default function VisaDocumentsChecklist({
       <div className="mt-16 text-center">
         <p className="mt-4 font-display text-lg font-bold text-dark">{t("Aucun document visa requis pour l'instant", "No visa document required yet")}</p>
         <p className="text-sm text-muted">
-          {t("La liste apparaîtra dès que votre responsable dossier visa l'aura configurée.", "The list will appear once your visa officer has configured it.")}
+          {t("La liste apparaîtra dès que votre gestionnaire de dossiers l'aura configurée.", "The list will appear once your visa officer has configured it.")}
         </p>
       </div>
     );

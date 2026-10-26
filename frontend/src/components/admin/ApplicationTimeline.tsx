@@ -75,15 +75,18 @@ function fmtDateTime(value: string | null) {
 export default function ApplicationTimeline({
   applications,
   canAct,
+  canDelete = false,
   canMarkTranslation = false,
   collapsible = false,
   onChanged
 }: {
   applications: UniversityApplication[];
   canAct: boolean;
-  /** Conseiller / admin : confirme la fin de la traduction des documents. */
+  /** Conseiller(ère) commercial(e) / admin : retire une candidature déposée, tant qu'elle n'est pas acceptée. */
+  canDelete?: boolean;
+  /** Conseiller(ère) commercial(e) / admin : confirme la fin de la traduction des documents. */
   canMarkTranslation?: boolean;
-  /** Liste du Responsable Dossier : cartes fermées, ouvertes sur demande. */
+  /** Liste du Gestionnaire de dossiers : cartes fermées, ouvertes sur demande. */
   collapsible?: boolean;
   onChanged: () => void;
 }) {
@@ -98,13 +101,13 @@ export default function ApplicationTimeline({
   return (
     <div className="space-y-3">
       {applications.map((app) => (
-        <ApplicationCard key={app.id} app={app} canAct={canAct} canMarkTranslation={canMarkTranslation} collapsible={collapsible} onChanged={onChanged} />
+        <ApplicationCard key={app.id} app={app} canAct={canAct} canDelete={canDelete} canMarkTranslation={canMarkTranslation} collapsible={collapsible} onChanged={onChanged} />
       ))}
     </div>
   );
 }
 
-function ApplicationCard({ app, canAct, canMarkTranslation, collapsible = false, onChanged }: { app: UniversityApplication; canAct: boolean; canMarkTranslation: boolean; collapsible?: boolean; onChanged: () => void }) {
+function ApplicationCard({ app, canAct, canDelete = false, canMarkTranslation, collapsible = false, onChanged }: { app: UniversityApplication; canAct: boolean; canDelete?: boolean; canMarkTranslation: boolean; collapsible?: boolean; onChanged: () => void }) {
   // La liste du RDV mélange plusieurs étudiants : leur nom est joint à chaque candidature.
   const studentName = (app as UniversityApplication & { studentName?: string }).studentName;
   const [open, setOpen] = useState(!collapsible);
@@ -187,7 +190,7 @@ function ApplicationCard({ app, canAct, canMarkTranslation, collapsible = false,
       {inTranslation && (
         <div className="mt-2 rounded-xl bg-cyan-50 px-3 py-2 text-xs text-cyan-800">
           <p className="flex items-center gap-1.5 font-semibold"><Languages className="h-3.5 w-3.5" /> Documents validés, en cours de traduction.</p>
-          <p className="mt-0.5">Le dossier part chez le Responsable Dossier (« À déposer ») dès que le conseiller confirme la fin de la traduction.</p>
+          <p className="mt-0.5">Le dossier part chez le Gestionnaire de dossiers (« À déposer ») dès que le conseiller(ère) commercial(e) confirme la fin de la traduction.</p>
           {canMarkTranslation && (
             <button type="button" disabled={busy} onClick={() => act(() => markApplicationTranslationDone(app.id))} className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-cyan-700 disabled:opacity-60">
               <CheckCircle2 className="h-3 w-3" /> Traduction terminée
@@ -198,17 +201,17 @@ function ApplicationCard({ app, canAct, canMarkTranslation, collapsible = false,
       {app.status === "READY_TO_APPLY" && Boolean((app as UniversityApplication & { translationsPending?: string[] }).translationsPending?.length) && (
         <p className="mt-2 flex items-start gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          Traduction à valider avant le dépôt : {(app as UniversityApplication & { translationsPending?: string[] }).translationsPending!.join(", ")}. Le dépôt de la candidature est bloqué, prévenez le conseiller.
+          Traduction à valider avant le dépôt : {(app as UniversityApplication & { translationsPending?: string[] }).translationsPending!.join(", ")}. Le dépôt de la candidature est bloqué, prévenez le conseiller(ère) commercial(e).
         </p>
       )}
       {app.status === "READY_TO_APPLY" && app.registrationPaymentDue && (
         <p className="mt-2 flex items-start gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          Paiement de l'inscription non réglé : il reste {formatMoney(app.registrationPaymentDue.remaining, app.registrationPaymentDue.currency)}. Le dépôt de la candidature est bloqué, prévenez le conseiller.
+          Paiement de l'inscription non réglé : il reste {formatMoney(app.registrationPaymentDue.remaining, app.registrationPaymentDue.currency)}. Le dépôt de la candidature est bloqué, prévenez le conseiller(ère) commercial(e).
         </p>
       )}
       {app.assignedRdvName && app.status !== "CLOSED" && (
-        <p className="mt-2 text-xs text-muted">Suivie par le Responsable Dossier <span className="font-semibold text-dark">{app.assignedRdvName}</span></p>
+        <p className="mt-2 text-xs text-muted">Suivie par le Gestionnaire de dossiers <span className="font-semibold text-dark">{app.assignedRdvName}</span></p>
       )}
       {app.appliedAt && (
         <p className="mt-2 text-xs text-muted">Déposée le {fmt(app.appliedAt)}{app.applicationReference ? ` · Réf. ${app.applicationReference}` : ""}</p>
@@ -260,8 +263,8 @@ function ApplicationCard({ app, canAct, canMarkTranslation, collapsible = false,
         <p className="mt-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
           Accepté le {fmt(app.decisionAt)}{app.acceptanceReference ? ` · Réf. ${app.acceptanceReference}` : ""}
           {app.visaStatus
-            ? " · Dossier visa chez le Responsable Visa"
-            : " · Documents visa à valider par le conseiller"}
+            ? " · Dossier visa chez le Gestionnaire de dossiers"
+            : " · Documents visa à valider par le conseiller(ère) commercial(e)"}
         </p>
       )}
 
@@ -331,24 +334,26 @@ function ApplicationCard({ app, canAct, canMarkTranslation, collapsible = false,
             </>
           )}
           {app.appliedAt && (
-            <>
-              <button type="button" disabled={busy} onClick={() => setModal("rename")} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-dark hover:bg-slate-200">
-                <Pencil className="h-3 w-3" /> Modifier le nom
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => act(async () => {
-                  const ok = await confirmDialog(`Supprimer la candidature ${app.universityName} ? Elle disparaît de la liste. Les commissions non versées de cette candidature sont retirées, pour le conseiller et le Responsable Dossier. Aucun e-mail ne sera envoyé.`, { tone: "danger", confirmLabel: "Supprimer" });
-                  if (!ok) return;
-                  await deleteDepositedApplication(app.id);
-                })}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-100"
-              >
-                <Trash2 className="h-3 w-3" /> Supprimer
-              </button>
-            </>
+            <button type="button" disabled={busy} onClick={() => setModal("rename")} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-dark hover:bg-slate-200">
+              <Pencil className="h-3 w-3" /> Modifier le nom
+            </button>
           )}
+        </div>
+      )}
+      {canDelete && app.appliedAt && app.status !== "ACCEPTED" && !app.visaStatus && (
+        <div className="mt-3">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => act(async () => {
+              const ok = await confirmDialog(`Supprimer la candidature ${app.universityName} ? Elle disparaît aussi des universités visées. La commission « Candidature déposée » du gestionnaire de dossiers est retirée si elle n'est pas encore payée. Aucun e-mail ne sera envoyé.`, { tone: "danger", confirmLabel: "Supprimer" });
+              if (!ok) return;
+              await deleteDepositedApplication(app.id);
+            })}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-100"
+          >
+            <Trash2 className="h-3 w-3" /> Supprimer
+          </button>
         </div>
       )}
       </>}
@@ -539,7 +544,7 @@ function RenameUniversityModal({ app, onClose, onDone }: { app: UniversityApplic
 function PortalAccount({ app, onChanged }: { app: UniversityApplication; onChanged: () => void }) {
   const [show, setShow] = useState(false);
   const [editing, setEditing] = useState(false);
-  // Le Responsable Dossier qui a déposé la candidature (ou l'admin) peut corriger ce compte ; le serveur vérifie l'affectation.
+  // Le Gestionnaire de dossiers qui a déposé la candidature (ou l'admin) peut corriger ce compte ; le serveur vérifie l'affectation.
   const user = getSession()?.user;
   const roles = user?.roles?.length ? user.roles : [user?.role];
   const canEdit = roles.includes("RDV") || roles.includes("ADMIN");
@@ -755,8 +760,8 @@ function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onCl
                 <RecapLine label="Université" value={recap.application.universityName} />
                 <RecapLine label="Filière" value={recap.application.fieldOfStudy} />
                 <RecapLine label="Pays" value={recap.application.countryName} />
-                <RecapLine label="Responsable Dossier" value={recap.application.rdvName} />
-                <RecapLine label="Conseiller" value={recap.student.salesName} />
+                <RecapLine label="Gestionnaire de dossiers" value={recap.application.rdvName} />
+                <RecapLine label="Conseiller(ère) commercial(e)" value={recap.student.salesName} />
               </div>
               <div className="space-y-1.5 rounded-xl border border-line px-3 py-2.5">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-muted">Étudiant</p>

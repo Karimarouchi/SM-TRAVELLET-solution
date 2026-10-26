@@ -13,7 +13,7 @@ const STAGE_LABELS = {
   APPLIED: "Candidature déposée",
   ACCEPTED: "Acceptation université",
   VISA_DOCUMENTS_VALIDATED: "Documents visa validés",
-  VISA_SUBMITTED: "Dossier visa déposé",
+  VISA_SUBMITTED: "Prise de rendez-vous visa",
   VISA_ACCEPTED: "Visa obtenu"
 };
 
@@ -112,6 +112,11 @@ async function awardCommission({ userId, studentId, countryId, role, stage, appl
   try {
     const rule = await commissionRepo.findActiveRule(countryId, role, stage);
     if (!rule || Number(rule.amount_dinar) <= 0) return;
+    // « Candidature déposée » : une seule par responsable et par étudiant, même s'il dépose dans plusieurs pays.
+    if (stage === "APPLIED") {
+      const already = await commissionRepo.listForStudentStage(studentId, "APPLIED");
+      if (already.some((row) => row.user_id === userId)) return;
+    }
     const earning = await commissionRepo.recordEarning({
       ruleId: rule.id,
       userId,
@@ -135,6 +140,41 @@ async function awardCommission({ userId, studentId, countryId, role, stage, appl
   } catch (err) {
     logger.error("Échec de l'attribution d'une commission", { message: err.message, userId, studentId, countryId, role, stage });
   }
+}
+
+// Suppression d'une candidature pas encore acceptée. Seule la commission
+// « Candidature déposée » du responsable est concernée. Le code d'inscription
+// du conseiller reste. Une ligne déjà versée reste, et bloque une nouvelle
+// attribution pour cet étudiant. S'il a encore une autre candidature déposée,
+// la ligne impayée est conservée.
+async function voidUnpaidAppliedForStudent(application, otherApplications) {
+  const rdvId = application.assigned_rdv_id;
+  if (!rdvId) return [];
+  const earnings = (await commissionRepo.listForStudentStage(application.student_id, "APPLIED")).filter((row) => row.user_id === rdvId);
+  const keeper = (otherApplications || []).find((row) => row.applied_at);
+  const removed = [];
+  if (keeper) {
+    const paid = earnings.find((row) => row.payout_id);
+    const keep = paid || earnings[0];
+    if (keep && keep.application_id === application.id) await commissionRepo.retargetApplication(keep.id, keeper.id);
+    for (const earning of earnings) {
+      if (!keep || earning.id === keep.id || earning.payout_id) continue;
+      const gone = await commissionRepo.removeEarning(earning.id);
+      if (gone) removed.push(gone);
+    }
+    return removed;
+  }
+  for (const earning of earnings) {
+    const gone = await commissionRepo.removeEarning(earning.id);
+    if (gone) removed.push(gone);
+  }
+  if (removed.length) {
+    logger.info("Commission candidature déposée retirée", {
+      applicationId: application.id,
+      lines: removed.map((row) => ({ amount: row.amount_dinar }))
+    });
+  }
+  return removed;
 }
 
 // La candidature disparaît : les commissions gagnées grâce à elle
@@ -226,6 +266,7 @@ module.exports = {
   listAllEarnings,
   listEarningsForUser,
   awardCommission,
+  voidUnpaidAppliedForStudent,
   voidForRemovedApplication,
   voidUnpaidVisaDocumentsCommission
 };

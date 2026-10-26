@@ -23,7 +23,7 @@ const STAGE_LABELS: Record<CommissionStage, string> = {
   APPLIED: "Candidature déposée",
   ACCEPTED: "Candidature acceptée par l'université",
   VISA_DOCUMENTS_VALIDATED: "Documents visa validés",
-  VISA_SUBMITTED: "Dossier visa déposé",
+  VISA_SUBMITTED: "Prise de rendez-vous visa",
   VISA_ACCEPTED: "Visa accepté"
 };
 
@@ -108,7 +108,7 @@ function RuleRow({
   );
 }
 
-/* ─── Statistiques de commissions, même style que Conseillers/RDV ────── */
+/* ─── Statistiques de commissions, même style que Conseillers(ères) commerciaux(ales)/RDV ────── */
 function CommissionsStats({ earnings }: { earnings: CommissionEarning[] }) {
   const blur = useAmountBlur();
   const totalPaid = earnings.reduce((sum, e) => sum + e.amountDinar, 0);
@@ -137,7 +137,7 @@ function CommissionsStats({ earnings }: { earnings: CommissionEarning[] }) {
     },
     {
       key: "sales",
-      label: "Versé aux Conseillers",
+      label: "Versé aux Conseillers(ères) commerciaux(ales)",
       value: `${totalSales.toFixed(2)} DT`,
       hint: `${salesEarnings.length} commission${salesEarnings.length > 1 ? "s" : ""}`,
       icon: Users,
@@ -146,7 +146,7 @@ function CommissionsStats({ earnings }: { earnings: CommissionEarning[] }) {
     },
     {
       key: "rdv",
-      label: "Versé aux Responsables Dossier",
+      label: "Versé aux Gestionnaires de dossiers",
       value: `${totalRdv.toFixed(2)} DT`,
       hint: `${rdvEarnings.length} commission${rdvEarnings.length > 1 ? "s" : ""}`,
       icon: UserCog,
@@ -217,7 +217,7 @@ export default function CommissionsPanel() {
       <CommissionsStats earnings={earnings} />
 
       <p className="mt-6 text-xs font-medium text-muted">
-        Taux de commission par destination — montant fixe en dinars versé par l'agence à chaque conseiller ou responsable dossier, une seule fois par étudiant à chaque étape franchie. L'étudiant ne paie jamais rien de ce montant.
+        Taux de commission par destination — montant fixe en dinars versé par l'agence à chaque conseiller(ère) commercial(e) ou gestionnaire de dossiers, une seule fois par étudiant à chaque étape franchie. L'étudiant ne paie jamais rien de ce montant.
       </p>
 
       {loading ? (
@@ -242,7 +242,7 @@ export default function CommissionsPanel() {
                   <div className="grid gap-5 border-t border-line bg-white px-4 py-4 xl:grid-cols-2">
                     <div>
                       <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted">
-                        <Users className="h-3.5 w-3.5 text-brand" /> Conseiller
+                        <Users className="h-3.5 w-3.5 text-brand" /> Conseiller(ère) commercial(e)
                       </p>
                       <div className="space-y-2">
                         {SALES_STAGES.map((stage) => (
@@ -252,7 +252,7 @@ export default function CommissionsPanel() {
                     </div>
                     <div>
                       <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted">
-                        <UserCog className="h-3.5 w-3.5 text-brand" /> Responsable Dossier Visa
+                        <UserCog className="h-3.5 w-3.5 text-brand" /> Gestionnaire de dossiers
                       </p>
                       <div className="space-y-2">
                         {RDV_STAGES.map((stage) => (
@@ -319,7 +319,7 @@ export default function CommissionsPanel() {
                   <td className="px-4 py-2.5">
                     <p className="text-xs font-bold text-dark">{e.userName}</p>
                     <span className={cn("inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold", e.role === "SALES" ? "bg-brand-light text-brand" : "bg-violet-50 text-violet-700")}>
-                      {e.role === "SALES" ? "Conseiller" : "Responsable Dossier"}
+                      {e.role === "SALES" ? "Conseiller(ère) commercial(e)" : "Gestionnaire de dossiers"}
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-xs text-mid">{e.studentName}</td>

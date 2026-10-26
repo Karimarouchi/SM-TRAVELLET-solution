@@ -143,7 +143,7 @@ function HideMessageModal({ message, onClose, onConfirm }: { message: WhatsAppMe
           <p className="font-bold">L'étudiant le verra toujours sur son WhatsApp.</p>
           <p className="mt-1">
             WhatsApp ne permet pas de supprimer un message envoyé depuis l'application. Il sera seulement masqué ici, pour les
-            conseillers et l'admin. Pour corriger une erreur, envoyez plutôt un nouveau message à l'étudiant.
+            conseillers(ères) commerciaux(ales) et l'admin. Pour corriger une erreur, envoyez plutôt un nouveau message à l'étudiant.
           </p>
         </div>
         {error && <p className="mt-3 text-xs font-semibold text-red-600">{error}</p>}
@@ -201,7 +201,7 @@ function LinkStudentModal({ onClose, onPick }: { onClose: () => void; onPick: (s
           </h3>
           <button type="button" onClick={onClose} className="rounded-full p-1.5 text-muted hover:bg-slate-100"><X className="h-4 w-4" /></button>
         </div>
-        <p className="mt-1 text-xs text-muted">La conversation sera ensuite suivie par le conseiller de cet étudiant.</p>
+        <p className="mt-1 text-xs text-muted">La conversation sera ensuite suivie par le conseiller(ère) commercial(e) de cet étudiant.</p>
         <label className="mt-4 flex items-center gap-2 rounded-xl border border-line bg-slate-50 px-3 py-2.5 focus-within:border-brand">
           <Search className="h-4 w-4 text-muted" />
           <input autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nom ou email de l'étudiant" className="w-full bg-transparent text-sm outline-none" />
@@ -267,7 +267,7 @@ function AssignOwnerModal({
       <div className="flex max-h-[80vh] w-full max-w-sm flex-col rounded-2xl bg-white p-6 shadow-2xl">
         <div className="flex items-center justify-between">
           <h3 className="flex items-center gap-2 font-display text-lg font-bold text-dark">
-            <UserCog className="h-5 w-5 text-brand" /> Responsable
+            <UserCog className="h-5 w-5 text-brand" /> Conseiller(ère) commercial(e)
           </h3>
           <button type="button" onClick={onClose} className="rounded-full p-1.5 text-muted hover:bg-slate-100"><X className="h-4 w-4" /></button>
         </div>
@@ -581,7 +581,7 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
   ];
 
   // Admin, messagerie « inscrits » : les discussions sont regroupées par
-  // conseiller (celui à qui l'étudiant est rattaché), « sans conseiller » à la fin.
+  // conseiller(ère) commercial(e) (celui à qui l'étudiant est rattaché), « sans conseiller(ère) commercial(e) » à la fin.
   const groupByOwner = isAdmin && segment === "registered";
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const toggleGroup = (key: string) =>
@@ -594,7 +594,7 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
     const map = new Map<string, { key: string; ownerId: string | null; name: string; items: WhatsAppConversation[]; unread: number }>();
     for (const item of visible) {
       const key = item.ownerId || "none";
-      const group = map.get(key) || { key, ownerId: item.ownerId, name: item.ownerName || "Sans conseiller", items: [], unread: 0 };
+      const group = map.get(key) || { key, ownerId: item.ownerId, name: item.ownerName || "Sans conseiller(ère) commercial(e)", items: [], unread: 0 };
       group.items.push(item);
       group.unread += item.unread;
       map.set(key, group);
@@ -641,7 +641,7 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
         {!isAdmin && item.coverOwnerName && (
           <span className="mt-1 block truncate text-[10px] font-semibold text-orange-700">Remplacement de {item.coverOwnerName}</span>
         )}
-        {/* En liste groupée, le conseiller est déjà dans l'en-tête du groupe. */}
+        {/* En liste groupée, le conseiller(ère) commercial(e) est déjà dans l'en-tête du groupe. */}
         {isAdmin && !groupByOwner && (
           <span className={cn("mt-1 block truncate text-[10px] font-semibold", item.ownerName ? "text-brand/70" : "text-amber-600")}>
             {item.ownerName ? `→ ${item.ownerName}` : "Non attribuée"}
@@ -724,7 +724,7 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
                     const open = !collapsed.has(group.key) || search.trim() !== "";
                     return (
                       <div key={group.key}>
-                        {/* En-tête de conseiller : nom, nombre de discussions, non-lus. Un clic replie le groupe. */}
+                        {/* En-tête de conseiller(ère) commercial(e) : nom, nombre de discussions, non-lus. Un clic replie le groupe. */}
                         <button
                           type="button"
                           onClick={() => toggleGroup(group.key)}
@@ -844,7 +844,7 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
                     {isAdmin && (
                       <button
                         type="button"
-                        title={`Responsable : ${active.ownerName || "non attribuée"}`}
+                        title={`Conseiller(ère) commercial(e) : ${active.ownerName || "non attribuée"}`}
                         onClick={() => setAssignOpen(true)}
                         className="inline-flex items-center gap-1 rounded-full p-2 text-white transition hover:bg-white/15 md:border md:border-line md:bg-white md:px-3 md:py-1.5 md:text-[11px] md:font-bold md:text-mid md:hover:border-brand md:hover:text-brand"
                       >
@@ -944,12 +944,12 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
                   })}
                 </div>
 
-                {/* L'admin (ou le remplaçant pendant un congé) qui répond dans la discussion d'un conseiller écrit AU NOM de ce conseiller. */}
+                {/* L'admin (ou le remplaçant pendant un congé) qui répond dans la discussion d'un conseiller(ère) commercial(e) écrit AU NOM de ce conseiller(ère) commercial(e). */}
                 {(isAdmin || active.coverOwnerName) && active.ownerId && active.ownerId !== me.id && active.windowOpen && (
                   <div className="flex items-start gap-2 bg-emerald-50 px-4 py-1.5 text-[12px] leading-snug text-emerald-900">
                     <UserCog className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <span>
-                      {active.coverOwnerName && !isAdmin ? "Remplacement pendant son congé : vous" : "Vous"} répondez au nom de <strong>{active.ownerName}</strong> : la discussion apparaîtra comme envoyée par ce conseiller.
+                      {active.coverOwnerName && !isAdmin ? "Remplacement pendant son congé : vous" : "Vous"} répondez au nom de <strong>{active.ownerName}</strong> : la discussion apparaîtra comme envoyée par ce conseiller(ère) commercial(e).
                     </span>
                   </div>
                 )}
@@ -1053,7 +1053,7 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
                 <p className="mt-4 font-display text-lg font-bold text-dark">WhatsApp de l'agence</p>
                 <p className="mt-1 max-w-sm text-sm text-muted">
                   {isAdmin
-                    ? "Toutes les conversations WhatsApp, réparties entre les conseillers. Sélectionnez-en une pour la lire."
+                    ? "Toutes les conversations WhatsApp, réparties entre les conseillers(ères) commerciaux(ales). Sélectionnez-en une pour la lire."
                     : "Les conversations WhatsApp qui vous sont attribuées. Sélectionnez-en une pour répondre."}
                 </p>
               </div>

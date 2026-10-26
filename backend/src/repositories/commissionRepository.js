@@ -86,6 +86,14 @@ async function listEarningsForUser(userId) {
   return result.rows;
 }
 
+async function listForStudentStage(studentId, stage) {
+  const result = await query(
+    `SELECT * FROM commission_earnings WHERE student_id = $1 AND stage = $2`,
+    [studentId, stage]
+  );
+  return result.rows;
+}
+
 async function listForStudentCountry(studentId, countryId) {
   const result = await query(
     `SELECT * FROM commission_earnings WHERE student_id = $1 AND country_id = $2`,
@@ -110,6 +118,7 @@ module.exports = {
   setRuleActive,
   removeRule,
   recordEarning,
+  listForStudentStage,
   listAllEarnings,
   listEarningsForUser,
   listForStudentCountry,

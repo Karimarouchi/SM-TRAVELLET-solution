@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { Upload } from "lucide-react";
 import { useState } from "react";
 
-// Conseiller ou Responsable Dossier : dépose un document visa à la place de l'étudiant (validé directement).
+// Conseiller(ère) commercial(e) ou Gestionnaire de dossiers : dépose un document visa à la place de l'étudiant (validé directement).
 export default function StaffVisaUploadButton({
   applicationId,
   doc,

@@ -32,6 +32,7 @@ function codeDto(row) {
     countryName: row.country_name || null,
     prefillCurrentStudyLevel: row.prefill_current_study_level,
     prefillTargetLevel: row.prefill_target_level,
+    prefillLevelId: row.prefill_level_id || null,
     prefillPhone: row.prefill_phone,
     paymentReceipt: row.payment_receipt || null,
     whatsappContactId: row.whatsapp_contact_id || null,
@@ -80,19 +81,30 @@ function codeMessage(code, contactName) {
 
 async function createCode(auth, payload) {
   const salesId = auth.sub;
-  if (!payload.countryId) throw fail("Le pays est obligatoire pour générer un code.", 400);
+  const levelId = String(payload.levelId || "").trim();
+  if (levelId && !payload.countryId) throw fail("Choisissez le pays du niveau.", 400);
 
   // Contact WhatsApp choisi : uniquement parmi les conversations du sales.
   let contact = null;
   if (payload.whatsappContactId) {
     contact = await whatsappService.getAccessibleConversation(auth, payload.whatsappContactId);
   }
-  const country = await countryRepo.findById(payload.countryId);
-  if (!country) throw fail("Pays introuvable.", 404);
-  if (!country.active) throw fail("Ce pays est désactivé.", 400);
+  const country = payload.countryId ? await countryRepo.findById(payload.countryId) : null;
+  if (payload.countryId && !country) throw fail("Pays introuvable.", 404);
+  if (country && !country.active) throw fail("Ce pays est désactivé.", 400);
 
-  // Tranche 1 (inscription) : le conseiller confirme l'avoir encaissée.
-  const payment = await paymentService.prepareCodePayment(country.id, payload.payment);
+  let levelName = null;
+  if (country && levelId) {
+    const levels = await require("./programmeService").levelsForCountry(country.id);
+    const level = levels.find((item) => item.id === levelId);
+    if (!level) throw fail("Ce niveau n'appartient pas à ce pays.", 400);
+    levelName = level.name;
+  }
+
+  // Tranche 1 : encaissée seulement quand le tarif est déjà connu
+  // (pays sans niveau, ou pays + niveau). Sinon l'étudiant choisit et le tarif suit.
+  const payment = country ? await paymentService.prepareCodePayment(country.id, payload.payment, levelId || null) : null;
+  if (country && levelId && !payment) throw fail("Ce niveau n'a pas encore de tarif.", 400);
 
   let expiresAt = null;
   if (payload.expiresAt) {
@@ -107,9 +119,10 @@ async function createCode(auth, payload) {
     const row = await salesCodeRepo.create({
       code,
       salesId,
-      countryId: country.id,
+      countryId: country ? country.id : null,
       prefillCurrentStudyLevel: payload.prefillCurrentStudyLevel ? String(payload.prefillCurrentStudyLevel).trim() : null,
-      prefillTargetLevel: payload.prefillTargetLevel ? String(payload.prefillTargetLevel).trim() : null,
+      prefillTargetLevel: levelName || (payload.prefillTargetLevel ? String(payload.prefillTargetLevel).trim() : null),
+      prefillLevelId: levelId || null,
       prefillPhone: payload.prefillPhone ? String(payload.prefillPhone).trim() : contact ? `+${contact.phone}` : null,
       expiresAt,
       whatsappContactId: contact?.id,
@@ -117,7 +130,7 @@ async function createCode(auth, payload) {
     });
     const dto = codeDto({
       ...row,
-      country_name: country.name,
+      country_name: country ? country.name : null,
       whatsapp_phone: contact?.phone,
       whatsapp_profile_name: contact?.profile_name
     });
@@ -169,6 +182,7 @@ async function applyCodeToNewStudent(userId, rawCode) {
     preferredCountries: country ? [country.name] : [],
     currentStudyLevel: claimed.prefill_current_study_level,
     targetLevel: claimed.prefill_target_level,
+    targetLevelId: claimed.prefill_level_id,
     phone: claimed.prefill_phone
   });
   await notificationService.notifyStudentAssigned(claimed.sales_id, userId);

@@ -197,7 +197,7 @@ function EmployeeDetail({
       <section className="rounded-[24px] border border-line bg-white p-5">
         <h2 className="font-display text-lg font-bold text-dark">{row.prenom} {row.nom}</h2>
         <p className="text-xs text-muted">
-          {row.mode === "sales" ? "L'arrivée du conseiller est sa première réponse WhatsApp quand une conversation attend, sinon son heure de connexion." : "L'arrivée au bureau est la première connexion. Le départ est la dernière action sur un dossier, sinon la déconnexion."}
+          {row.mode === "sales" ? "L'arrivée du conseiller(ère) commercial(e) est sa première réponse WhatsApp quand une conversation attend, sinon son heure de connexion." : "L'arrivée au bureau est la première connexion. Le départ est la dernière action sur un dossier, sinon la déconnexion."}
           {row.leaveDays ? ` ${row.leaveDays} jour(s) de congé accepté : ni absence, ni retard, rien n'est retiré.` : ""}
           {row.holidayDays ? ` ${row.holidayDays} jour(s) férié(s) ce mois.` : ""}
         </p>

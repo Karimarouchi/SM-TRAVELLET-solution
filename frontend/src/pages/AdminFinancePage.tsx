@@ -115,7 +115,7 @@ function Overview() {
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <Breakdown title="Par pays" rows={data.byCountry} />
-        <Breakdown title="Par conseiller" rows={data.bySales} />
+        <Breakdown title="Par conseiller(ère) commercial(e)" rows={data.bySales} />
       </div>
       <FinanceStatsSection />
     </div>
@@ -157,11 +157,11 @@ function Payments({ initialStudent }: { initialStudent: string | null }) {
 
   useEffect(() => setPage(1), [status, countryId, salesId, search]);
 
-  // Conseillers présents dans les plans, pour le filtre.
+  // Conseillers(ères) commerciaux(ales) présents dans les plans, pour le filtre.
   const salesOptions = useMemo(() => {
     const map = new Map<string, string>();
-    (plans || []).forEach((p) => p.salesId && map.set(p.salesId, p.salesName || "Conseiller"));
-    return [{ value: "", label: "Tous les conseillers" }, ...[...map.entries()].map(([value, label]) => ({ value, label }))];
+    (plans || []).forEach((p) => p.salesId && map.set(p.salesId, p.salesName || "Conseiller(ère) commercial(e)"));
+    return [{ value: "", label: "Tous les conseillers(ères) commerciaux(ales)" }, ...[...map.entries()].map(([value, label]) => ({ value, label }))];
   }, [plans]);
 
   const pageSize = 10;
@@ -211,7 +211,7 @@ function Payments({ initialStudent }: { initialStudent: string | null }) {
           <div className="mx-auto mt-10 h-8 w-8 animate-spin rounded-full border-2 border-line border-t-brand" />
         ) : plans.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-line bg-white p-6 text-sm text-muted">
-            Aucun plan de paiement ne correspond. Les plans se créent quand un conseiller génère un code d'inscription pour un pays qui a un tarif, ou quand un paiement est enregistré sur la fiche d'un étudiant.
+            Aucun plan de paiement ne correspond. Les plans se créent quand un conseiller(ère) commercial(e) génère un code d'inscription pour un pays qui a un tarif, ou quand un paiement est enregistré sur la fiche d'un étudiant.
           </p>
         ) : (
           visiblePlans.map((plan) => {
@@ -227,7 +227,7 @@ function Payments({ initialStudent }: { initialStudent: string | null }) {
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-bold text-dark">{plan.studentName}</span>
                     <span className="block truncate text-[11px] text-muted">
-                      {plan.countryName} · {plan.salesName || "Sans conseiller"}
+                      {plan.countryName} · {plan.salesName || "Sans conseiller(ère) commercial(e)"}
                     </span>
                   </span>
                   <span className="flex flex-wrap items-center gap-2">
@@ -285,26 +285,43 @@ const parseAmount = (value: string) => Number(value.replace(/\s/g, "").replace("
 const PRESETS = [500, 1000, 1500, 2000];
 
 function PricingCard({ row, onSaved, index }: { row: CountryPricing; onSaved: (next: CountryPricing) => void; index: number }) {
-  const [currency, setCurrency] = useState<Currency>(row.currency);
-  const [tranche1, setTranche1] = useState(row.tranche1 === null ? "" : String(row.tranche1));
-  const [tranche2, setTranche2] = useState(row.tranche2 === null ? "" : String(row.tranche2));
+  const levels = row.levels || [];
+  const [levelId, setLevelId] = useState(levels[0]?.levelId || "");
+  const active = levels.find((level) => level.levelId === levelId) || null;
+  const baseline = active || row;
+  const [currency, setCurrency] = useState<Currency>(baseline.currency);
+  const [tranche1, setTranche1] = useState(baseline.tranche1 === null ? "" : String(baseline.tranche1));
+  const [tranche2, setTranche2] = useState(baseline.tranche2 === null ? "" : String(baseline.tranche2));
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const next = (row.levels || []).find((level) => level.levelId === levelId) || null;
+    const picked = next || row;
+    setCurrency(picked.currency);
+    setTranche1(picked.tranche1 === null ? "" : String(picked.tranche1));
+    setTranche2(picked.tranche2 === null ? "" : String(picked.tranche2));
+    setSaved(false);
+    setError("");
+    // Le changement de niveau recharge ses montants. L'enregistrement met à jour la carte sans la réinitialiser.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [levelId]);
 
   const blur = useAmountBlur();
   const t1 = parseAmount(tranche1);
   const t2 = parseAmount(tranche2);
   const total = t1 + t2;
   const symbol = currency === "EUR" ? "€" : "DT";
-  const dirty = !row.configured || currency !== row.currency || t1 !== (row.tranche1 ?? 0) || t2 !== (row.tranche2 ?? 0);
+  const dirty = !baseline.configured || currency !== baseline.currency || t1 !== (baseline.tranche1 ?? 0) || t2 !== (baseline.tranche2 ?? 0);
   const canSave = dirty && total > 0 && !busy;
+  const pricedLevels = levels.filter((level) => level.configured).length;
 
   const save = async () => {
     setBusy(true);
     setError("");
     try {
-      const next = await saveFinancePricing(row.countryId, { currency, tranche1: t1, tranche2: t2 });
+      const next = await saveFinancePricing(row.countryId, { currency, tranche1: t1, tranche2: t2, ...(active ? { levelId: active.levelId } : {}) });
       onSaved(next);
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2500);
@@ -316,11 +333,12 @@ function PricingCard({ row, onSaved, index }: { row: CountryPricing; onSaved: (n
   };
 
   const remove = async () => {
-    if (!(await confirmDialog(`Supprimer le tarif de ${row.countryName} ? Les étudiants déjà engagés gardent leur tarif ; les nouveaux codes ne demanderont plus de paiement.`, { tone: "danger", confirmLabel: "Supprimer" }))) return;
+    const name = active ? `${active.levelName} (${row.countryName})` : row.countryName;
+    if (!(await confirmDialog(`Supprimer le tarif de ${name} ? Les étudiants déjà engagés gardent leur tarif ; les nouveaux codes ne demanderont plus de paiement.`, { tone: "danger", confirmLabel: "Supprimer" }))) return;
     setBusy(true);
     setError("");
     try {
-      const next = await removeFinancePricing(row.countryId);
+      const next = await removeFinancePricing(row.countryId, active?.levelId);
       onSaved(next);
       setTranche1("");
       setTranche2("");
@@ -362,19 +380,20 @@ function PricingCard({ row, onSaved, index }: { row: CountryPricing; onSaved: (n
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: Math.min(index, 8) * 0.04 }}
-      className={cn("relative flex min-w-0 flex-col overflow-hidden rounded-[22px] border bg-white p-5 shadow-sm transition-shadow hover:shadow-lg", dirty && row.configured ? "border-amber-300" : "border-line")}
+      className={cn("relative flex min-w-0 flex-col overflow-hidden rounded-[22px] border bg-white p-5 shadow-sm transition-shadow hover:shadow-lg", dirty && baseline.configured ? "border-amber-300" : "border-line")}
     >
-      <div className={cn("absolute inset-x-0 top-0 h-1 bg-gradient-to-r", row.configured ? "from-emerald-500 to-emerald-300" : "from-slate-300 to-slate-200")} />
+      <div className={cn("absolute inset-x-0 top-0 h-1 bg-gradient-to-r", baseline.configured ? "from-emerald-500 to-emerald-300" : "from-slate-300 to-slate-200")} />
 
       <div className="flex items-center gap-3">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-violet-500 text-xs font-extrabold text-white shadow-sm">{row.code}</span>
         <div className="min-w-0 flex-1">
           <h3 className="truncate font-display text-lg font-bold text-dark">{row.countryName}</h3>
-          {row.configured ? (
-            <p className="text-[11px] font-bold text-emerald-600">Tarif défini · <Amount>{formatMoney((row.tranche1 ?? 0) + (row.tranche2 ?? 0), row.currency)}</Amount></p>
+          {baseline.configured ? (
+            <p className="text-[11px] font-bold text-emerald-600">Tarif défini · <Amount>{formatMoney((baseline.tranche1 ?? 0) + (baseline.tranche2 ?? 0), baseline.currency)}</Amount></p>
           ) : (
             <p className="text-[11px] font-semibold text-muted">Aucun tarif · aucun paiement exigé</p>
           )}
+          {levels.length > 0 && <p className="text-[11px] font-semibold text-muted">{pricedLevels} / {levels.length} niveaux tarifés</p>}
         </div>
         <div className="inline-flex shrink-0 rounded-full border border-line bg-slate-50 p-0.5" role="group" aria-label="Monnaie">
           {(["TND", "EUR"] as Currency[]).map((c) => (
@@ -384,6 +403,13 @@ function PricingCard({ row, onSaved, index }: { row: CountryPricing; onSaved: (n
           ))}
         </div>
       </div>
+
+      {levels.length > 0 && (
+        <div className="mt-4">
+          <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted">Niveau</label>
+          <FancySelect value={levelId} onChange={setLevelId} options={levels.map((level) => ({ value: level.levelId, label: level.levelName }))} placeholder="Choisir un niveau" />
+        </div>
+      )}
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         {amountField("Tranche 1", "à l'inscription", tranche1, setTranche1)}
@@ -419,18 +445,18 @@ function PricingCard({ row, onSaved, index }: { row: CountryPricing; onSaved: (n
         <div className="min-h-[1.25rem] text-xs font-bold">
           {saved ? (
             <span className="inline-flex items-center gap-1 text-emerald-600"><CheckCircle2 className="h-3.5 w-3.5" /> Enregistré</span>
-          ) : dirty && row.configured ? (
+          ) : dirty && baseline.configured ? (
             <span className="inline-flex items-center gap-1 text-amber-600"><AlertTriangle className="h-3.5 w-3.5" /> Modifications non enregistrées</span>
           ) : null}
         </div>
         <div className="flex items-center gap-2">
-          {row.configured && (
-            <button type="button" disabled={busy} onClick={remove} aria-label={`Supprimer le tarif de ${row.countryName}`} title="Supprimer le tarif" className="rounded-xl bg-red-50 p-2 text-red-500 transition hover:bg-red-500 hover:text-white disabled:opacity-60">
+          {baseline.configured && (
+            <button type="button" disabled={busy} onClick={remove} aria-label={`Supprimer le tarif de ${active ? active.levelName : row.countryName}`} title="Supprimer le tarif" className="rounded-xl bg-red-50 p-2 text-red-500 transition hover:bg-red-500 hover:text-white disabled:opacity-60">
               <Trash2 className="h-4 w-4" />
             </button>
           )}
           <button type="button" disabled={!canSave} onClick={save} className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">
-            <Save className="h-3.5 w-3.5" /> {busy ? "Enregistrement…" : row.configured ? "Enregistrer" : "Définir le tarif"}
+            <Save className="h-3.5 w-3.5" /> {busy ? "Enregistrement…" : baseline.configured ? "Enregistrer" : "Définir le tarif"}
           </button>
         </div>
       </div>
@@ -452,10 +478,17 @@ function Pricing() {
   }, []);
 
   const configured = (rows || []).filter((r) => r.configured);
+  const leaves = (rows || []).flatMap((row) =>
+    row.levels?.length
+      ? row.levels.filter((level) => level.configured).map((level) => ({ currency: level.currency, total: (level.tranche1 ?? 0) + (level.tranche2 ?? 0) }))
+      : row.configured
+        ? [{ currency: row.currency, total: (row.tranche1 ?? 0) + (row.tranche2 ?? 0) }]
+        : []
+  );
   const averages = (["TND", "EUR"] as Currency[])
     .map((c) => {
-      const list = configured.filter((r) => r.currency === c);
-      return list.length ? { currency: c, average: list.reduce((s, r) => s + (r.tranche1 ?? 0) + (r.tranche2 ?? 0), 0) / list.length } : null;
+      const list = leaves.filter((item) => item.currency === c);
+      return list.length ? { currency: c, average: list.reduce((s, item) => s + item.total, 0) / list.length } : null;
     })
     .filter(Boolean) as Array<{ currency: Currency; average: number }>;
 
@@ -463,7 +496,7 @@ function Pricing() {
     if (filter === "set" && !r.configured) return false;
     if (filter === "unset" && r.configured) return false;
     const q = search.trim().toLowerCase();
-    return !q || r.countryName.toLowerCase().includes(q) || r.code.toLowerCase().includes(q);
+    return !q || r.countryName.toLowerCase().includes(q) || r.code.toLowerCase().includes(q) || (r.levels || []).some((level) => level.levelName.toLowerCase().includes(q));
   });
 
   // 4 pays par page ; retour à la première page quand la recherche ou le filtre change.
@@ -483,14 +516,14 @@ function Pricing() {
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl bg-violet-50 p-4">
               <p className="text-[11px] font-bold uppercase tracking-wide text-brand">Tranche 1 · inscription</p>
-              <p className="mt-1 text-xs text-mid">Encaissée à l'inscription : le conseiller la confirme en créant le code.</p>
+              <p className="mt-1 text-xs text-mid">Encaissée à l'inscription : le conseiller(ère) commercial(e) la confirme en créant le code.</p>
             </div>
             <div className="rounded-2xl bg-sky-50 p-4">
               <p className="text-[11px] font-bold uppercase tracking-wide text-sky-600">Tranche 2 · visa</p>
               <p className="mt-1 text-xs text-mid">Encaissée avant le dépôt du dossier visa : sans elle, le dépôt est bloqué.</p>
             </div>
           </div>
-          <p className="mt-3 flex items-start gap-1.5 text-[11px] text-muted"><Info className="mt-0.5 h-3.5 w-3.5 shrink-0" /> Le tarif est figé pour chaque étudiant à son inscription : modifier un prix ne change pas les étudiants déjà engagés.</p>
+          <p className="mt-3 flex items-start gap-1.5 text-[11px] text-muted"><Info className="mt-0.5 h-3.5 w-3.5 shrink-0" /> Chaque niveau du programme a son tarif. Un pays sans niveau garde un seul tarif. Modifier un prix ici ne change pas les étudiants déjà engagés. Si le conseiller(ère) commercial(e) change le pays ou le niveau sur la fiche, l'argent déjà encaissé reste et le reste à payer est recalculé.</p>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-[22px] border border-line bg-white p-4 shadow-sm">
@@ -536,7 +569,7 @@ function Pricing() {
         <>
           <div className="grid gap-4 lg:grid-cols-2">
             {paged.map((row, i) => (
-              <PricingCard key={`${row.countryId}:${row.configured}`} row={row} index={i} onSaved={(next) => setRows((prev) => (prev || []).map((r) => (r.countryId === next.countryId ? next : r)))} />
+              <PricingCard key={row.countryId} row={row} index={i} onSaved={(next) => setRows((prev) => (prev || []).map((r) => (r.countryId === next.countryId ? next : r)))} />
             ))}
           </div>
           {visible.length > PRICING_PAGE_SIZE && (

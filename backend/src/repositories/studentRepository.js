@@ -7,6 +7,7 @@ async function findByUserId(userId) {
             c.name AS code_country_name,
             sc.prefill_current_study_level AS code_prefill_current_study_level,
             sc.prefill_target_level AS code_prefill_target_level,
+            sc.prefill_level_id AS code_prefill_level_id,
             sc.prefill_phone AS code_prefill_phone
      FROM student_profiles sp
      LEFT JOIN sales_codes sc ON sc.id = sp.activation_code_id
@@ -64,6 +65,7 @@ async function updateOnboarding(userId, fields) {
       language_level_italian = $33,
       language_level_spanish = $34,
       language_tests_extra = $35::jsonb,
+      target_level_id = $36,
       onboarding_completed = TRUE,
       onboarding_completed_at = NOW(),
       updated_at = NOW()
@@ -104,25 +106,41 @@ async function updateOnboarding(userId, fields) {
       fields.languageLevelGerman || null,
       fields.languageLevelItalian || null,
       fields.languageLevelSpanish || null,
-      JSON.stringify(fields.languageTestsExtra || {})
+      JSON.stringify(fields.languageTestsExtra || {}),
+      fields.targetLevelId || null
     ]
   );
   return result.rows[0];
 }
 
-async function applyActivationCode(userId, { activationCodeId, assignedSalesId, preferredCountries, currentStudyLevel, targetLevel, phone }) {
+async function applyActivationCode(userId, { activationCodeId, assignedSalesId, preferredCountries, currentStudyLevel, targetLevel, targetLevelId, phone }) {
   const result = await query(
     `UPDATE student_profiles
      SET activation_code_id = $2,
          assigned_sales_id = $3,
-         preferred_countries = $4,
+         preferred_countries = CASE WHEN cardinality($4::text[]) > 0 THEN $4 ELSE preferred_countries END,
          current_study_level = COALESCE(NULLIF($5, ''), current_study_level),
          target_level = COALESCE(NULLIF($6, ''), target_level),
-         phone = COALESCE(NULLIF(phone, ''), NULLIF($7, '')),
+         target_level_id = COALESCE(NULLIF($7, ''), target_level_id),
+         phone = COALESCE(NULLIF(phone, ''), NULLIF($8, '')),
          updated_at = NOW()
      WHERE user_id = $1
      RETURNING *`,
-    [userId, activationCodeId, assignedSalesId, preferredCountries, currentStudyLevel || "", targetLevel || "", phone || ""]
+    [userId, activationCodeId, assignedSalesId, preferredCountries, currentStudyLevel || "", targetLevel || "", targetLevelId || "", phone || ""]
+  );
+  return result.rows[0] || null;
+}
+
+async function setDestination(userId, { preferredCountries, targetLevel, targetLevelId }) {
+  const result = await query(
+    `UPDATE student_profiles
+     SET preferred_countries = $2,
+         target_level = $3,
+         target_level_id = $4,
+         updated_at = NOW()
+     WHERE user_id = $1
+     RETURNING *`,
+    [userId, preferredCountries, targetLevel || "", targetLevelId || null]
   );
   return result.rows[0] || null;
 }
@@ -286,6 +304,7 @@ module.exports = {
   setPhone,
   findStudentIdByPhone,
   applyActivationCode,
+  setDestination,
   setDossierStage,
   updateOnboarding,
   assignSales,

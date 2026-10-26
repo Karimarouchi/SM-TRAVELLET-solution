@@ -143,7 +143,7 @@ async function getBoard() {
       nom: row.nom,
       email: row.email,
       phone: row.phone || "",
-      jobTitle: row.job_title || "Conseiller",
+      jobTitle: !row.job_title || String(row.job_title).trim().toLowerCase() === "conseiller" ? "Conseiller(ère) commercial(e)" : row.job_title,
       isActive: row.is_active !== false,
       studentCount: row.student_count,
       students: mapped.filter((item) => item.assignedSalesId === row.id)

@@ -40,7 +40,7 @@ function SalesPicker({ candidates, value, onChange }: { candidates: BoardSales[]
         <span className="flex min-w-0 items-center gap-2">
           {selected && <UserAvatar name={`${selected.prenom} ${selected.nom}`} size="sm" className="h-6 w-6 text-[9px]" />}
           <span className="truncate font-semibold text-dark">
-            {selected ? `${selected.prenom} ${selected.nom}` : "Choisir un conseiller"}
+            {selected ? `${selected.prenom} ${selected.nom}` : "Choisir un conseiller(ère) commercial(e)"}
           </span>
         </span>
         <ChevronDown className={cn("h-4 w-4 shrink-0 text-brand transition-transform", open && "rotate-180")} />
@@ -230,7 +230,7 @@ function MoveStudentModal({
 }) {
   const [busy, setBusy] = useState(false);
   const destinations = [
-    { id: "unassigned", label: "Non affectés", sub: "Retirer le conseiller" },
+    { id: "unassigned", label: "Non affectés", sub: "Retirer le conseiller(ère) commercial(e)" },
     ...sales
       .filter((s) => s.isActive)
       .map((s) => ({ id: s.id, label: `${s.prenom} ${s.nom}`, sub: `${s.students.length} étudiant${s.students.length > 1 ? "s" : ""}` }))
@@ -253,7 +253,7 @@ function MoveStudentModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="font-display text-lg font-bold text-dark">Déplacer {student.prenom} {student.nom}</h3>
-        <p className="mt-1 text-xs text-muted">Choisissez le nouveau conseiller.</p>
+        <p className="mt-1 text-xs text-muted">Choisissez le nouveau conseiller(ère) commercial(e).</p>
         <div className="mt-4 space-y-2">
           {destinations.map((d) => (
             <button
@@ -276,7 +276,7 @@ function MoveStudentModal({
               </span>
             </button>
           ))}
-          {!destinations.length && <p className="text-sm text-muted">Aucun autre conseiller actif.</p>}
+          {!destinations.length && <p className="text-sm text-muted">Aucun autre conseiller(ère) commercial(e) actif.</p>}
         </div>
         <button type="button" onClick={onClose} className="mt-4 w-full rounded-full border border-line py-2.5 text-sm font-bold text-mid">
           Annuler
@@ -322,7 +322,7 @@ function TransferModal({
           <ArrowRightLeft className="h-5 w-5 text-brand" /> Transférer & bloquer
         </h3>
         <p className="mt-2 text-xs text-muted">
-          Tous les étudiants actuellement suivis par <span className="font-semibold text-dark">{from.prenom} {from.nom}</span> ({from.students.length}) seront transférés au conseiller choisi, puis son compte sera bloqué.
+          Tous les étudiants actuellement suivis par <span className="font-semibold text-dark">{from.prenom} {from.nom}</span> ({from.students.length}) seront transférés au conseiller(ère) commercial(e) choisi, puis son compte sera bloqué.
         </p>
 
         {candidates.length ? (
@@ -332,7 +332,7 @@ function TransferModal({
           </div>
         ) : (
           <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            Aucun autre conseiller actif disponible pour le transfert.
+            Aucun autre conseiller(ère) commercial(e) actif disponible pour le transfert.
           </p>
         )}
 
@@ -477,8 +477,8 @@ export default function AdminAssignment({ onChanged }: { onChanged?: () => void 
         <div>
           <h2 className="font-display text-2xl font-extrabold">Affectation</h2>
           <p className="text-sm text-muted">
-            <span className="hidden lg:inline">Glissez les cartes étudiants vers un conseiller.</span>
-            <span className="lg:hidden">Touchez « Déplacer » sur une carte pour changer son conseiller.</span>
+            <span className="hidden lg:inline">Glissez les cartes étudiants vers un conseiller(ère) commercial(e).</span>
+            <span className="lg:hidden">Touchez « Déplacer » sur une carte pour changer son conseiller(ère) commercial(e).</span>
           </p>
         </div>
         <span className="rounded-full bg-brand-light px-4 py-2 text-xs font-bold text-brand">
@@ -489,7 +489,7 @@ export default function AdminAssignment({ onChanged }: { onChanged?: () => void 
       <form onSubmit={onCreate} className="rounded-[24px] border border-line bg-white p-4 sm:p-6">
         <div className="mb-4 flex items-center gap-2">
           <Plus className="h-5 w-5 text-brand" />
-          <h3 className="font-display text-lg font-bold">Créer un compte conseiller</h3>
+          <h3 className="font-display text-lg font-bold">Créer un compte conseiller(ère) commercial(e)</h3>
         </div>
         <div className="grid gap-3 md:grid-cols-5">
           <input className="rounded-xl border border-line px-3 py-2.5 text-sm outline-none focus:border-brand" placeholder="Prénom" value={form.prenom} onChange={(e) => setForm({ ...form, prenom: e.target.value })} required />
@@ -508,7 +508,7 @@ export default function AdminAssignment({ onChanged }: { onChanged?: () => void 
       <div className="mt-6 flex flex-wrap gap-4 pb-4">
         <DropColumn
           title="Non affectés"
-          hint="En attente d'un conseiller"
+          hint="En attente d'un conseiller(ère) commercial(e)"
           count={board?.unassigned.length || 0}
           dropId="unassigned"
           accent="amber"
@@ -533,8 +533,8 @@ export default function AdminAssignment({ onChanged }: { onChanged?: () => void 
               <div className="flex items-center gap-1.5">
                 <Link
                   to={`/admin/equipe/${item.id}`}
-                  title="Voir les statistiques de ce conseiller"
-                  aria-label="Voir les statistiques de ce conseiller"
+                  title="Voir les statistiques de ce conseiller(ère) commercial(e)"
+                  aria-label="Voir les statistiques de ce conseiller(ère) commercial(e)"
                   className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 transition hover:bg-emerald-600 hover:text-white"
                 >
                   <BarChart3 className="h-3 w-3" />
@@ -542,7 +542,7 @@ export default function AdminAssignment({ onChanged }: { onChanged?: () => void 
                 {item.isActive && item.students.length > 0 && (
                   <button
                     type="button"
-                    title="Transférer tout le travail à un autre conseiller, puis bloquer ce compte"
+                    title="Transférer tout le travail à un autre conseiller(ère) commercial(e), puis bloquer ce compte"
                     onClick={() => setTransferTarget(item)}
                     className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-red-100 hover:text-red-600"
                   >
@@ -578,7 +578,7 @@ export default function AdminAssignment({ onChanged }: { onChanged?: () => void 
         {!sales.length && (
           <div className="flex min-h-[200px] w-[300px] shrink-0 items-center justify-center rounded-[24px] border border-dashed border-line bg-white text-sm text-muted">
             <UserRound className="mr-2 h-4 w-4" />
-            Aucun conseiller pour le moment
+            Aucun conseiller(ère) commercial(e) pour le moment
           </div>
         )}
       </div>

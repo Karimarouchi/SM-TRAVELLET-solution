@@ -22,13 +22,13 @@ async function findBySales(salesId) {
   return result.rows;
 }
 
-async function create({ code, salesId, countryId, prefillCurrentStudyLevel, prefillTargetLevel, prefillPhone, expiresAt, whatsappContactId, payment }) {
+async function create({ code, salesId, countryId, prefillCurrentStudyLevel, prefillTargetLevel, prefillLevelId, prefillPhone, expiresAt, whatsappContactId, payment }) {
   const result = await query(
-    `INSERT INTO sales_codes (code, sales_id, country_id, prefill_current_study_level, prefill_target_level, prefill_phone, expires_at, whatsapp_contact_id,
+    `INSERT INTO sales_codes (code, sales_id, country_id, prefill_current_study_level, prefill_target_level, prefill_level_id, prefill_phone, expires_at, whatsapp_contact_id,
                               payment_currency, payment_tranche1, payment_tranche2, payment_method, payment_reference, payment_paid_at, payment_receipt, payment_paid_amount, payment_deadline, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW())
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW())
      RETURNING *`,
-    [code, salesId, countryId, prefillCurrentStudyLevel, prefillTargetLevel, prefillPhone, expiresAt, whatsappContactId || null,
+    [code, salesId, countryId, prefillCurrentStudyLevel, prefillTargetLevel, prefillLevelId || null, prefillPhone, expiresAt, whatsappContactId || null,
       payment?.currency || null, payment ? payment.tranche1 : null, payment ? payment.tranche2 : null, payment?.method || null, payment?.reference || null, payment?.paidAt || null, payment?.receiptNumber || null, payment?.paidAmount ?? null, payment?.deadline || null]
   );
   return result.rows[0];

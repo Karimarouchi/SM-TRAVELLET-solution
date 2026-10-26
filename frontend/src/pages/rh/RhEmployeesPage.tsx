@@ -9,14 +9,14 @@ const CONTRACTS: { id: HrContract; label: string; leave: string }[] = [
   { id: "CDD", label: "CDD", leave: "à saisir" }
 ];
 
-const ROLE_LABEL: Record<string, string> = { ADMIN: "Admin", SALES: "Conseiller", RDV: "Responsable dossier" };
+const ROLE_LABEL: Record<string, string> = { ADMIN: "Admin", SALES: "Conseiller(ère) commercial(e)", RDV: "Gestionnaire de dossiers" };
 const STAGE_LABEL: Record<string, string> = {
   CODE_CLAIMED: "Étudiant inscrit via un code",
   DOCUMENTS_VALIDATED: "Documents du dossier validés",
   APPLIED: "Candidature déposée",
   ACCEPTED: "Candidature acceptée",
   VISA_DOCUMENTS_VALIDATED: "Documents visa validés",
-  VISA_SUBMITTED: "Dossier visa déposé",
+  VISA_SUBMITTED: "Prise de rendez-vous visa",
   VISA_ACCEPTED: "Visa accepté"
 };
 const LEAVE_STATUS: Record<string, string> = { PENDING: "En attente", APPROVED: "Accepté", REJECTED: "Refusé" };

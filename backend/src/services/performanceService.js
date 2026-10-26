@@ -371,7 +371,7 @@ async function computeReport(period) {
       pendingNow: teamPending,
       // Conversations à traiter, les plus anciennes d'abord, avec leur conseiller.
       pending: pendingAll
-        .map((item) => ({ ...item, ownerName: item.ownerId ? fullName(staffById.get(item.ownerId)?.prenom, staffById.get(item.ownerId)?.nom) || "Conseiller" : "" }))
+        .map((item) => ({ ...item, ownerName: item.ownerId ? fullName(staffById.get(item.ownerId)?.prenom, staffById.get(item.ownerId)?.nom) || "Conseiller(ère) commercial(e)" : "" }))
         .sort((a, b) => b.waitingMinutes - a.waitingMinutes)
     },
     staff

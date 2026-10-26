@@ -30,6 +30,7 @@ export const PRESET_IMAGES = [
 ];
 
 export const EMPTY_DETAIL: ProgrammeDetail = {
+  id: "",
   name: "",
   desc: "",
   lang: "",

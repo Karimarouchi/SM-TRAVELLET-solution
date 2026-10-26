@@ -10,7 +10,7 @@ export function DetailLevelManager({
   details: ProgrammeDetail[];
   onChange: (details: ProgrammeDetail[]) => void;
 }) {
-  const addLevel = () => onChange([...details, { ...EMPTY_DETAIL }]);
+  const addLevel = () => onChange([...details, { ...EMPTY_DETAIL, id: crypto.randomUUID() }]);
 
   const updateLevel = (i: number, updated: ProgrammeDetail) => {
     const next = [...details];

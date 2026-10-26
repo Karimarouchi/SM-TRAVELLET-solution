@@ -23,9 +23,9 @@ function readFile(file: File) {
   });
 }
 
-// Champ « traduction » d'un document validé : demandé par le conseiller (ou l'admin), rempli par l'étudiant ou par le conseiller.
-// mode "student" : l'étudiant dépose ; "staff" : le conseiller / l'admin dépose (validé d'office), valide, refuse ou supprime la demande ;
-// mode "readonly" : simple suivi (Responsable Dossier).
+// Champ « traduction » d'un document validé : demandé par le conseiller(ère) commercial(e) (ou l'admin), rempli par l'étudiant ou par le conseiller(ère) commercial(e).
+// mode "student" : l'étudiant dépose ; "staff" : le conseiller(ère) commercial(e) / l'admin dépose (validé d'office), valide, refuse ou supprime la demande ;
+// mode "readonly" : simple suivi (Gestionnaire de dossiers).
 export default function TranslationSlot({
   translation,
   docName,
@@ -79,7 +79,7 @@ export default function TranslationSlot({
     });
   };
 
-  // L'étudiant ne peut plus changer une traduction validée ; le conseiller / l'admin peut toujours la remplacer.
+  // L'étudiant ne peut plus changer une traduction validée ; le conseiller(ère) commercial(e) / l'admin peut toujours la remplacer.
   const showUpload = (mode === "student" && translation.status !== "VALIDATED") || mode === "staff";
 
   return (
@@ -94,8 +94,8 @@ export default function TranslationSlot({
       </div>
       <p className="mt-1 text-[11px] text-violet-800">
         {mode === "student"
-          ? t("Votre conseiller demande aussi la version traduite de ce document. Déposez-la ici.", "Your advisor also asks for the translated version of this document. Upload it here.")
-          : t("Version traduite à déposer par l'étudiant ou par le conseiller.", "Translated version to be uploaded by the student or the advisor.")}
+          ? t("Votre conseiller(ère) commercial(e) demande aussi la version traduite de ce document. Déposez-la ici.", "Your advisor also asks for the translated version of this document. Upload it here.")
+          : t("Version traduite à déposer par l'étudiant ou par le conseiller(ère) commercial(e).", "Translated version to be uploaded by the student or the advisor.")}
       </p>
 
       {translation.status === "REJECTED" && translation.rejectionReason && (

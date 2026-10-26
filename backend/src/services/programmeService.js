@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const programmeRepo = require("../repositories/programmeRepository");
@@ -11,17 +12,32 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB max
 // regroupées dans un sous-objet « details » : ils sont lus des deux façons et toujours renvoyés à plat.
 const LEVEL_FIELDS = ["lang", "fees", "dates", "status", "scholarship"];
 
-function normalizeDetails(list) {
+function normalizeDetails(list, { assignIds = false } = {}) {
   if (!Array.isArray(list)) return [];
   return list
     .filter((level) => level && typeof level === "object")
     .map((level) => {
       const nested = level.details && typeof level.details === "object" ? level.details : {};
-      const flat = { name: String(level.name || "").trim(), desc: String(level.desc || "").trim() };
+      const given = String(level.id || "").trim();
+      const id = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(given)
+        ? given
+        : assignIds
+          ? crypto.randomUUID()
+          : "";
+      const flat = { id, name: String(level.name || "").trim(), desc: String(level.desc || "").trim() };
       for (const key of LEVEL_FIELDS) flat[key] = String(level[key] ?? nested[key] ?? "").trim();
       return flat;
     })
     .filter((level) => level.name || level.desc);
+}
+
+// Vitrine publique : les frais (texte du programme et tarif) n'y figurent pas.
+function publicProgramme(programme) {
+  if (!programme) return null;
+  return {
+    ...programme,
+    details: (programme.details || []).map(({ fees, ...rest }) => rest)
+  };
 }
 
 function programmeDto(row) {
@@ -161,6 +177,38 @@ async function resolveOrCreateCountryByName(name, { reactivate = true } = {}) {
   throw error;
 }
 
+async function levelsByCountry() {
+  const { query } = require("../../db");
+  const rows = (await query("SELECT country_id, details FROM programmes WHERE country_id IS NOT NULL")).rows;
+  const map = new Map();
+  for (const row of rows) {
+    const levels = normalizeDetails(row.details).filter((level) => level.id && level.name);
+    const list = map.get(row.country_id) || [];
+    for (const level of levels) {
+      if (!list.some((item) => item.id === level.id)) list.push(level);
+    }
+    map.set(row.country_id, list);
+  }
+  return map;
+}
+
+async function levelsForCountry(countryId) {
+  if (!countryId) return [];
+  const map = await levelsByCountry();
+  return map.get(countryId) || [];
+}
+
+async function pruneRemovedLevelPrices(countryId) {
+  const { query } = require("../../db");
+  const keep = new Set((await levelsForCountry(countryId)).map((level) => level.id));
+  const rows = (await query("SELECT level_id FROM level_pricing WHERE country_id = $1", [countryId])).rows;
+  for (const row of rows) {
+    if (!keep.has(row.level_id)) {
+      await query("DELETE FROM level_pricing WHERE country_id = $1 AND level_id = $2", [countryId, row.level_id]);
+    }
+  }
+}
+
 async function createProgramme(payload) {
   if (!payload.title || !payload.title.trim()) {
     const error = new Error("Le titre du programme est obligatoire.");
@@ -192,7 +240,7 @@ async function createProgramme(payload) {
     gradientStyle: payload.gradientStyle?.trim() || "linear-gradient(135deg,#0f172a 0%,#4c1d95 52%,#1d4ed8 100%)",
     isFeatured: Boolean(payload.isFeatured),
     displayOrder: Number(payload.displayOrder) || 0,
-    details: normalizeDetails(payload.details)
+    details: normalizeDetails(payload.details, { assignIds: true })
   });
 
   return programmeDto(row);
@@ -224,10 +272,13 @@ async function updateProgramme(id, payload) {
     gradientStyle: payload.gradientStyle !== undefined ? payload.gradientStyle.trim() : existing.gradient_style,
     isFeatured: payload.isFeatured !== undefined ? Boolean(payload.isFeatured) : existing.is_featured,
     displayOrder: payload.displayOrder !== undefined ? Number(payload.displayOrder) : existing.display_order,
-    details: payload.details !== undefined ? normalizeDetails(payload.details) : normalizeDetails(existing.details)
+    details: payload.details !== undefined ? normalizeDetails(payload.details, { assignIds: true }) : normalizeDetails(existing.details, { assignIds: true })
   });
 
-  return programmeDto(row);
+  const saved = programmeDto(row);
+  if (countryId) await pruneRemovedLevelPrices(countryId);
+  if (existing.country_id && existing.country_id !== countryId) await pruneRemovedLevelPrices(existing.country_id);
+  return saved;
 }
 
 async function removeProgramme(id) {
@@ -291,5 +342,8 @@ module.exports = {
   createProgramme,
   updateProgramme,
   removeProgramme,
-  saveImage
+  saveImage,
+  publicProgramme,
+  levelsByCountry,
+  levelsForCountry
 };

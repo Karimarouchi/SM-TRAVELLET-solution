@@ -7,7 +7,7 @@ function handle(res, error) {
 async function listPublic(_req, res) {
   try {
     const list = await programmeService.listAll();
-    res.json(list);
+    res.json(list.map((item) => programmeService.publicProgramme(item)));
   } catch (err) {
     handle(res, err);
   }

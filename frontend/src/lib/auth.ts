@@ -44,6 +44,7 @@ export type StudentProfile = {
   preferredCountries: string[];
   preferredCity: string;
   targetLevel: string;
+  targetLevelId?: string;
   targetField: string;
   targetIntake: string;
   targetUniversity: string;
@@ -72,7 +73,7 @@ export type StudentProfile = {
   assignedSalesName?: string;
   assignedSalesEmail?: string | null;
   assignedSalesPhone?: string | null;
-  /** Dossier confié à l'utilisateur connecté pendant le congé de ce conseiller. */
+  /** Dossier confié à l'utilisateur connecté pendant le congé de ce conseiller(ère) commercial(e). */
   coverOwnerName?: string | null;
   lockedFields: string[];
   dossierStage: string;
@@ -502,7 +503,7 @@ export type WhatsAppFunnel = {
   conversionRate: number | null;
 };
 
-// Conversation qui attend une réponse (Dashboard) : à quel conseiller, depuis quand, où l'ouvrir.
+// Conversation qui attend une réponse (Dashboard) : à quel conseiller(ère) commercial(e), depuis quand, où l'ouvrir.
 export type PendingConversation = {
   contactId: string;
   name: string;
@@ -637,10 +638,11 @@ export async function fetchMyStudents(params?: { page?: number; pageSize?: numbe
 export type SalesCode = {
   id: string;
   code: string;
-  countryId: string;
+  countryId: string | null;
   countryName: string | null;
   prefillCurrentStudyLevel: string | null;
   prefillTargetLevel: string | null;
+  prefillLevelId?: string | null;
   prefillPhone: string | null;
   whatsappContactId: string | null;
   whatsappContactLabel: string | null;
@@ -657,7 +659,8 @@ export type SalesCode = {
 };
 
 export type SalesCodePayload = {
-  countryId: string;
+  countryId?: string;
+  levelId?: string;
   prefillCurrentStudyLevel?: string;
   prefillTargetLevel?: string;
   prefillPhone?: string;
@@ -856,6 +859,7 @@ export async function logout() {
 }
 
 export type ProgrammeDetail = {
+  id?: string;
   name: string;       // ex: "Licence", "Master", "English Language Courses"
   desc: string;       // description longue du niveau
   lang: string;       // ex: "Français ou Anglais"
@@ -1271,7 +1275,7 @@ export type StudentDocumentChecklistItem = {
   rejectionReason: string | null;
   submittedAt: string | null;
   reviewedAt: string | null;
-  /** Traduction demandée par le conseiller pour ce document validé. */
+  /** Traduction demandée par le conseiller(ère) commercial(e) pour ce document validé. */
   translation?: TranslationSlot | null;
 };
 
@@ -1279,7 +1283,7 @@ export async function fetchMyDocuments(): Promise<StudentDocumentChecklistItem[]
   return request<StudentDocumentChecklistItem[]>("/api/students/me/documents");
 }
 
-// Le conseiller (ou l'admin) dépose un document à la place de l'étudiant : validé automatiquement.
+// Le conseiller(ère) commercial(e) (ou l'admin) dépose un document à la place de l'étudiant : validé automatiquement.
 export async function uploadStudentDocumentAsStaff(
   studentId: string,
   name: string,
@@ -1554,7 +1558,7 @@ export async function markApplicationApplied(
   });
 }
 
-// Correction du compte créé sur la plateforme de l'université (Responsable Dossier ou admin).
+// Correction du compte créé sur la plateforme de l'université (Gestionnaire de dossiers ou admin).
 // Mot de passe laissé vide = inchangé.
 export async function updateApplicationPortalAccount(
   applicationId: string,
@@ -1668,7 +1672,7 @@ export async function assignApplicationRdv(applicationId: string, rdvUserId?: st
   });
 }
 
-// Le conseiller confirme les documents visa (même si le pays n'en demande aucun) : le dossier part chez le RDV.
+// Le conseiller(ère) commercial(e) confirme les documents visa (même si le pays n'en demande aucun) : le dossier part chez le RDV.
 export async function confirmVisaDocuments(applicationId: string): Promise<UniversityApplication> {
   return request<UniversityApplication>(`/api/applications/${applicationId}/visa-docs-confirm`, { method: "POST" });
 }
@@ -1878,7 +1882,7 @@ export async function fetchUniversityPicker(countryId: string): Promise<Universi
   return request<UniversityPickerItem[]>(`/api/countries/${countryId}/university-picker`);
 }
 
-// Documents propres à une université (admin : toutes ; conseiller : hors conventions).
+// Documents propres à une université (admin : toutes ; conseiller(ère) commercial(e) : hors conventions).
 export async function fetchUniversityDocuments(universityId: string): Promise<DocumentRequirement[]> {
   return request<DocumentRequirement[]>(`/api/universities/${universityId}/documents`);
 }
@@ -1990,6 +1994,15 @@ export function formatMoney(amount: number, currency: Currency | string): string
   return `${amount.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} ${symbol}`;
 }
 
+export type LevelPricing = {
+  levelId: string;
+  levelName: string;
+  configured: boolean;
+  currency: Currency;
+  tranche1: number | null;
+  tranche2: number | null;
+};
+
 export type CountryPricing = {
   countryId: string;
   countryName: string;
@@ -1998,6 +2011,8 @@ export type CountryPricing = {
   currency: Currency;
   tranche1: number | null;
   tranche2: number | null;
+  /** Un tarif par niveau du programme. Vide si le pays n'a aucun niveau. */
+  levels?: LevelPricing[];
 };
 
 export type TrancheState = { due: number; paid: number; remaining: number; complete: boolean; /** Date limite promise pour payer le reste (AAAA-MM-JJ). */ deadline?: string | null };
@@ -2019,6 +2034,8 @@ export type PaymentPlan = {
   remainingTotal: number;
   status: "PAID" | "PARTIAL" | "UNPAID";
   late: boolean;
+  levelId?: string | null;
+  levelName?: string | null;
 };
 
 export type StudentPayment = {
@@ -2210,15 +2227,20 @@ export async function fetchFinancePricing(): Promise<CountryPricing[]> {
   return request<CountryPricing[]>("/api/admin/finance/pricing");
 }
 
-export async function saveFinancePricing(countryId: string, payload: { currency: Currency; tranche1: number; tranche2: number }): Promise<CountryPricing> {
+export async function saveFinancePricing(countryId: string, payload: { currency: Currency; tranche1: number; tranche2: number; levelId?: string }): Promise<CountryPricing> {
   return request<CountryPricing>(`/api/admin/finance/pricing/${countryId}`, { method: "PUT", body: JSON.stringify(payload) });
 }
 
-export async function removeFinancePricing(countryId: string): Promise<CountryPricing> {
-  return request<CountryPricing>(`/api/admin/finance/pricing/${countryId}`, { method: "DELETE" });
+export async function removeFinancePricing(countryId: string, levelId?: string): Promise<CountryPricing> {
+  const query = levelId ? `?levelId=${encodeURIComponent(levelId)}` : "";
+  return request<CountryPricing>(`/api/admin/finance/pricing/${countryId}${query}`, { method: "DELETE" });
 }
 
-// Tarif d'un pays (conseiller : pour confirmer la tranche 1 à la création d'un code).
+export async function setStudentDestination(studentId: string, payload: { countryId: string; levelId?: string }): Promise<{ profile: StudentProfile }> {
+  return request(`/api/students/${studentId}/destination`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+// Tarif d'un pays (conseiller(ère) commercial(e) : pour confirmer la tranche 1 à la création d'un code).
 export async function fetchCountryPricing(countryId: string): Promise<CountryPricing> {
   return request<CountryPricing>(`/api/finance/pricing/${countryId}`);
 }
@@ -2257,7 +2279,7 @@ export type SalesAttentionItem = { key: string; tone: "danger" | "warning" | "in
 
 export type SalesOverviewStudent = {
   id: string;
-  /** Étudiant d'un conseiller en congé, traité en remplacement. */
+  /** Étudiant d'un conseiller(ère) commercial(e) en congé, traité en remplacement. */
   coverOwnerName?: string | null;
   prenom: string;
   nom: string;

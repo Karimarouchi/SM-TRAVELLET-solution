@@ -160,14 +160,14 @@ function StudentCard({ student }: { student: StudentOverview }) {
       <dl className="mt-4 space-y-2 text-xs">
         <div className="flex items-center gap-2">
           <UserRound className="h-3.5 w-3.5 shrink-0 text-brand" />
-          <dt className="sr-only">Conseiller</dt>
+          <dt className="sr-only">Conseiller(ère) commercial(e)</dt>
           <dd className="min-w-0 truncate text-mid">
             {student.assignedSalesName ? (
               <>
-                <span className="font-semibold">{student.assignedSalesName}</span> · conseiller
+                <span className="font-semibold">{student.assignedSalesName}</span> · conseiller(ère) commercial(e)
               </>
             ) : (
-              <span className="font-semibold text-amber-600">Aucun conseiller assigné</span>
+              <span className="font-semibold text-amber-600">Aucun conseiller(ère) commercial(e) assigné</span>
             )}
           </dd>
         </div>

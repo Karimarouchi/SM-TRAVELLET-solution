@@ -40,11 +40,11 @@ const RDV_STATUS_META: Record<string, { label: string; color: string }> = {
 };
 
 const ADDITIONAL_ROLES = [
-  { value: "SALES", label: "Conseiller" },
-  { value: "RDV", label: "Responsable Dossier Visa" },
+  { value: "SALES", label: "Conseiller(ère) commercial(e)" },
+  { value: "RDV", label: "Gestionnaire de dossiers" },
   { value: "ADMIN", label: "Administrateur" }
 ];
-const ROLE_LABELS: Record<string, string> = { SALES: "Conseiller", RDV: "Responsable dossier visa", ADMIN: "Administrateur", STUDENT: "Étudiant" };
+const ROLE_LABELS: Record<string, string> = { SALES: "Conseiller(ère) commercial(e)", RDV: "Gestionnaire de dossiers", ADMIN: "Administrateur", STUDENT: "Étudiant" };
 const PERMISSIONS = [
   { value: "MANAGE_PROGRAMMES", label: "Gérer les programmes" },
   { value: "MANAGE_COUNTRIES", label: "Gérer les pays, documents et universités" },
@@ -162,7 +162,7 @@ function NewRdvModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-3" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
         <div className="flex items-center justify-between">
-          <h3 className="font-display text-lg font-bold text-dark">Nouveau compte Responsable Dossier</h3>
+          <h3 className="font-display text-lg font-bold text-dark">Nouveau compte Gestionnaire de dossiers</h3>
           <button type="button" onClick={onClose} className="rounded-full p-1.5 text-muted hover:bg-slate-100"><X className="h-4 w-4" /></button>
         </div>
         <div className="mt-4 space-y-3">
@@ -195,7 +195,7 @@ function SalesStats({ sales }: { sales: BoardSales[] }) {
       key: "total",
       label: "Étudiants gérés",
       value: totalStudents,
-      hint: `Par ${active.length} conseiller${active.length > 1 ? "s" : ""} actif${active.length > 1 ? "s" : ""}`,
+      hint: `Par ${active.length} conseiller(ère) commercial(e)${active.length > 1 ? "s" : ""} actif${active.length > 1 ? "s" : ""}`,
       icon: Users,
       color: "from-violet-500 to-purple-600"
     },
@@ -211,13 +211,13 @@ function SalesStats({ sales }: { sales: BoardSales[] }) {
       key: "load",
       label: "Charge moyenne",
       value: avgLoad,
-      hint: "Étudiants par conseiller actif",
+      hint: "Étudiants par conseiller(ère) commercial(e) actif",
       icon: Users2,
       color: "from-sky-500 to-blue-600"
     },
     {
       key: "top",
-      label: "Meilleur conseiller",
+      label: "Meilleur conseiller(ère) commercial(e)",
       value: topSales ? `${topSales.prenom} ${topSales.nom}` : "—",
       hint: topSales ? `${topCompleted} dossier${topCompleted > 1 ? "s" : ""} complet${topCompleted > 1 ? "s" : ""}` : "Aucune donnée",
       icon: Trophy,
@@ -244,7 +244,7 @@ function SalesStats({ sales }: { sales: BoardSales[] }) {
   );
 }
 
-/* ─── Onglet : Conseillers (stats + liste + attribution) ────── */
+/* ─── Onglet : Conseillers(ères) commerciaux(ales) (stats + liste + attribution) ────── */
 function SalesTab({ board, onOpenAccess, onChanged }: { board: AssignmentBoard | null; onOpenAccess: (id: string, name: string) => void; onChanged: () => void }) {
   const sales = board?.sales || [];
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
@@ -254,7 +254,7 @@ function SalesTab({ board, onOpenAccess, onChanged }: { board: AssignmentBoard |
       <SalesStats sales={sales} />
 
       <div className="mt-6 flex items-center justify-between">
-        <h2 className="font-display text-lg font-bold text-dark">Liste des conseillers</h2>
+        <h2 className="font-display text-lg font-bold text-dark">Liste des conseillers(ères) commerciaux(ales)</h2>
         <div className="flex items-center gap-1 rounded-xl border border-line bg-white p-1 shadow-sm">
           <button
             type="button"
@@ -281,7 +281,7 @@ function SalesTab({ board, onOpenAccess, onChanged }: { board: AssignmentBoard |
 
       {!sales.length ? (
         <p className="mt-4 rounded-[20px] border border-dashed border-line bg-white p-8 text-sm text-muted">
-          Aucun conseiller pour l'instant.
+          Aucun conseiller(ère) commercial(e) pour l'instant.
         </p>
       ) : viewMode === "cards" ? (
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -292,7 +292,7 @@ function SalesTab({ board, onOpenAccess, onChanged }: { board: AssignmentBoard |
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h3 className="truncate font-display text-base font-bold">{item.prenom} {item.nom}</h3>
-                    <p className="text-xs text-muted">{item.jobTitle || "Conseiller"}</p>
+                    <p className="text-xs text-muted">{!item.jobTitle || item.jobTitle.toLowerCase() === "conseiller" ? "Conseiller(ère) commercial(e)" : item.jobTitle}</p>
                   </div>
                   <span className={cn("rounded-full px-2.5 py-1 text-[10px] font-bold uppercase", item.isActive ? "bg-brand-light text-brand" : "bg-slate-100 text-muted")}>
                     {item.isActive ? "Actif" : "Inactif"}
@@ -325,7 +325,7 @@ function SalesTab({ board, onOpenAccess, onChanged }: { board: AssignmentBoard |
           <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="border-b border-line bg-slate-50">
-                <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">Conseiller</th>
+                <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">Conseiller(ère) commercial(e)</th>
                 <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted hidden sm:table-cell">Téléphone</th>
                 <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">Étudiants</th>
                 <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted hidden md:table-cell">Statut</th>
@@ -379,7 +379,7 @@ function SalesTab({ board, onOpenAccess, onChanged }: { board: AssignmentBoard |
 }
 
 /* ─── Attribution des dossiers visa : glisser-déposer, exactement comme
-   le tableau d'affectation des Conseillers ─────────────────────────── */
+   le tableau d'affectation des Conseillers(ères) commerciaux(ales) ─────────────────────────── */
 type DraggableVisaCard = { id: string; studentName: string; countryName: string; universityName: string; status?: string };
 
 function RdvStudentCard({ card, onMove }: { card: DraggableVisaCard; onMove: () => void }) {
@@ -530,8 +530,8 @@ function RdvAssignmentBoard({
     <div id="attribution-visa" className="mt-8 scroll-mt-28">
       <h2 className="font-display text-2xl font-extrabold">Attribution des dossiers visa</h2>
       <p className="text-sm text-muted">
-        <span className="hidden lg:inline">Glissez les dossiers acceptés vers un Responsable Visa.</span>
-        <span className="lg:hidden">Touchez « Attribuer » sur un dossier pour choisir son Responsable Visa.</span>
+        <span className="hidden lg:inline">Glissez les dossiers acceptés vers un Gestionnaire de dossiers.</span>
+        <span className="lg:hidden">Touchez « Attribuer » sur un dossier pour choisir son Gestionnaire de dossiers.</span>
       </p>
 
       {error && <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
@@ -588,7 +588,7 @@ function RdvAssignmentBoard({
                 </button>
               ))}
               {!rdvUsers.some((r) => r.isActive && r.id !== moveTarget.fromId) && (
-                <p className="text-sm text-muted">Aucun autre Responsable Visa actif.</p>
+                <p className="text-sm text-muted">Aucun autre Gestionnaire de dossiers actif.</p>
               )}
             </div>
             <button type="button" onClick={() => setMoveTarget(null)} className="mt-4 w-full rounded-full border border-line py-2.5 text-sm font-bold text-mid">
@@ -625,7 +625,7 @@ function RdvStats({
   const stats = [
     {
       key: "active",
-      label: "Responsables Dossier actifs",
+      label: "Gestionnaires de dossiers actifs",
       value: active.length,
       hint: `${rdvUsers.length} compte${rdvUsers.length > 1 ? "s" : ""} au total`,
       icon: UserCog,
@@ -641,7 +641,7 @@ function RdvStats({
     },
     {
       key: "top",
-      label: "Meilleur Responsable Dossier",
+      label: "Meilleur Gestionnaire de dossiers",
       value: topRdv ? `${topRdv.prenom} ${topRdv.nom}` : "—",
       hint: topRdv ? `${topCount} dossier${topCount > 1 ? "s" : ""} suivi${topCount > 1 ? "s" : ""}` : "Aucune donnée",
       icon: Trophy,
@@ -650,7 +650,7 @@ function RdvStats({
     },
     {
       key: "uncovered",
-      label: "Pays sans Responsable Dossier",
+      label: "Pays sans Gestionnaire de dossiers",
       value: uncoveredCountries.length,
       hint: uncoveredCountries.length ? uncoveredCountries.map((c) => c.name).join(", ") : "Toutes les destinations couvertes",
       icon: MapPinOff,
@@ -676,7 +676,7 @@ function RdvStats({
   );
 }
 
-/* ─── Onglet : Responsables Visa (RDV) ──────────────────────── */
+/* ─── Onglet : Gestionnaires de dossiers (RDV) ──────────────────────── */
 function RdvTab({ onNewRdv, onOpenAccess }: { onNewRdv: () => void; onOpenAccess: (id: string, name: string) => void }) {
   const [rdvUsers, setRdvUsers] = useState<RdvUser[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
@@ -698,7 +698,7 @@ function RdvTab({ onNewRdv, onOpenAccess }: { onNewRdv: () => void; onOpenAccess
       const entries = await Promise.all(users.map(async (u) => [u.id, await fetchRdvStudents(u.id).catch(() => [])] as const));
       setStudentsByRdv(Object.fromEntries(entries));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Impossible de charger les Responsables Visa.");
+      setError(err instanceof Error ? err.message : "Impossible de charger les Gestionnaires de dossiers.");
     }
   };
 
@@ -709,7 +709,7 @@ function RdvTab({ onNewRdv, onOpenAccess }: { onNewRdv: () => void; onOpenAccess
       <RdvStats rdvUsers={rdvUsers} countries={countries} assignments={assignments} studentsByRdv={studentsByRdv} />
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-lg font-bold text-dark">Liste des Responsables Visa</h2>
+        <h2 className="font-display text-lg font-bold text-dark">Liste des Gestionnaires de dossiers</h2>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 rounded-xl border border-line bg-white p-1 shadow-sm">
             <button
@@ -734,21 +734,21 @@ function RdvTab({ onNewRdv, onOpenAccess }: { onNewRdv: () => void; onOpenAccess
             </button>
           </div>
           <button type="button" onClick={onNewRdv} className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white hover:opacity-90">
-            <Plus className="h-3.5 w-3.5" /> Nouveau compte Responsable Dossier
+            <Plus className="h-3.5 w-3.5" /> Nouveau compte Gestionnaire de dossiers
           </button>
         </div>
       </div>
 
       {!rdvUsers.length ? (
         <p className="mt-4 rounded-2xl border border-dashed border-line bg-white p-8 text-sm text-muted">
-          Aucun Responsable Dossier Visa pour l'instant. Créez un compte dédié, ou accordez le rôle Responsable Dossier à un conseiller existant depuis l'onglet Conseillers.
+          Aucun Gestionnaire de dossiers pour l'instant. Créez un compte dédié, ou accordez le rôle Gestionnaire de dossiers à un conseiller(ère) commercial(e) existant depuis l'onglet Conseillers(ères) commerciaux(ales).
         </p>
       ) : viewMode === "table" ? (
         <div className="mt-4 overflow-x-auto rounded-2xl border border-line bg-white shadow-sm">
           <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="border-b border-line bg-slate-50">
-                <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">Responsable</th>
+                <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">Gestionnaire de dossiers</th>
                 <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted hidden sm:table-cell">Pays couverts</th>
                 <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted">Dossiers</th>
                 <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-muted hidden md:table-cell">Statut</th>
@@ -879,7 +879,7 @@ function RdvTab({ onNewRdv, onOpenAccess }: { onNewRdv: () => void; onOpenAccess
   );
 }
 
-// Conseillers et responsables dossier visa : section de la page Utilisateurs.
+// Conseillers(ères) commerciaux(ales) et gestionnaires de dossiers : section de la page Utilisateurs.
 // Le Dashboard renvoie ici avec ?tab=rdv&focus=attribution-visa (ou
 // ?tab=conseillers&focus=affectation) : on fait défiler jusqu'à la zone à régler.
 export function TeamSection({ tab }: { tab: "sales" | "rdv" }) {

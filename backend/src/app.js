@@ -185,6 +185,7 @@ app.get("/api/students", requireAuth, requireRoles("SALES", "ADMIN"), studentCon
 app.get("/api/students/:id/application-blockers", requireAuth, requireRoles("SALES", "ADMIN"), studentController.blockers);
 app.get("/api/students/:id", requireAuth, requireRoles("SALES", "ADMIN", "RDV"), studentController.detail);
 app.patch("/api/students/:id/assign", requireAuth, requireRoles("ADMIN"), studentController.assign);
+app.patch("/api/students/:id/destination", requireAuth, requireRoles("SALES", "ADMIN"), studentController.destination);
 app.post("/api/students/avis", requireAuth, requireRoles("STUDENT"), avisController.createStudentAvis);
 app.get("/api/documents/files/:filename", requireAuth, studentDocumentController.file);
 app.get("/api/documents/files/:filename/link", requireAuth, studentDocumentController.fileLink);
@@ -226,7 +227,7 @@ app.patch("/api/applications/:id/apply", requireAuth, requireRoles("RDV", "ADMIN
 app.patch("/api/applications/:id/portal-account", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.updatePortalAccount);
 // Correction silencieuse d'une candidature déjà déposée : ni e-mail, ni notification.
 app.patch("/api/applications/:id/university", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.correctUniversity);
-app.delete("/api/applications/:id", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.removeDeposited);
+app.delete("/api/applications/:id", requireAuth, requireRoles("SALES", "ADMIN"), universityApplicationController.removeDeposited);
 app.patch("/api/applications/:id/interview", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.scheduleInterview);
 app.patch("/api/applications/:id/interview-completed", requireAuth, requireRoles("RDV", "ADMIN", "STUDENT"), universityApplicationController.completeInterview);
 app.patch("/api/applications/:id/accept", requireAuth, requireRoles("RDV", "ADMIN"), universityApplicationController.markAccepted);
@@ -282,7 +283,7 @@ app.get("/api/admin/finance/payments", requireAuth, requireRoles("ADMIN"), payme
 app.get("/api/admin/finance/pricing", requireAuth, requireRoles("ADMIN"), paymentController.listPricing);
 app.put("/api/admin/finance/pricing/:countryId", requireAuth, requireRoles("ADMIN"), paymentController.setPricing);
 app.delete("/api/admin/finance/pricing/:countryId", requireAuth, requireRoles("ADMIN"), paymentController.removePricing);
-app.get("/api/finance/pricing/:countryId", requireAuth, requireRoles("SALES", "ADMIN"), paymentController.getPricing);
+app.get("/api/finance/pricing/:countryId", requireAuth, requireRoles("STUDENT", "SALES", "ADMIN"), paymentController.getPricing);
 app.get("/api/students/me/payments", requireAuth, requireRoles("STUDENT"), paymentController.mySummary);
 app.get("/api/students/:id/payments", requireAuth, requireRoles("SALES", "ADMIN", "RDV"), paymentController.studentSummary);
 app.post("/api/students/:id/payments", requireAuth, requireRoles("SALES", "ADMIN"), paymentController.record);

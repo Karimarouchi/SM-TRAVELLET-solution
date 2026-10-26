@@ -26,7 +26,7 @@ function stepLabel(app: RdvMyApplication, t: (fr: string, en: string) => string)
   }
 }
 
-// Recherche parmi TOUS les étudiants affectés au Responsable Dossier (candidatures en cours, visas, reportées, terminées).
+// Recherche parmi TOUS les étudiants affectés au Gestionnaire de dossiers (candidatures en cours, visas, reportées, terminées).
 export default function RdvStudentSearch({ applications }: { applications: RdvMyApplication[] }) {
   const { t } = useLanguage();
   const [query, setQuery] = useState("");

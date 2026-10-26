@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { AlertTriangle, Ban, CheckCircle2, Percent, RotateCcw, Save, Scale } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-// Paramètres → répartition des nouveaux arrivants entre les conseillers :
+// Paramètres → répartition des nouveaux arrivants entre les conseillers(ères) commerciaux(ales) :
 // équitable (par charge) ou par pourcentage (ex. 40 % / 40 % / 20 %).
 export default function AutoAssignSharesCard() {
   const [data, setData] = useState<AutoAssignSettings | null>(null);
@@ -28,7 +28,7 @@ export default function AutoAssignSharesCard() {
 
   const active = useMemo(() => (data?.shares || []).filter((s) => s.isActive), [data]);
   const blocked = useMemo(() => (data?.shares || []).filter((s) => !s.isActive), [data]);
-  // Tous les conseillers actifs sauf le dernier sont réglables ; le dernier reçoit
+  // Tous les conseillers(ères) commerciaux(ales) actifs sauf le dernier sont réglables ; le dernier reçoit
   // automatiquement ce qui reste : le total ne dépasse jamais 100 %.
   const lastId = active.length ? active[active.length - 1].salesId : null;
   const editableSum = active.slice(0, -1).reduce((sum, s) => sum + (percents[s.salesId] || 0), 0);
@@ -45,14 +45,14 @@ export default function AutoAssignSharesCard() {
     if (salesId === lastId) return;
     const typed = raw === "" ? 0 : Math.round(Number(raw));
     const othersSum = active.slice(0, -1).reduce((sum, s) => sum + (s.salesId === salesId ? 0 : percents[s.salesId] || 0), 0);
-    // Au plus ce qui reste après les autres conseillers.
+    // Au plus ce qui reste après les autres conseillers(ères) commerciaux(ales).
     const value = Number.isFinite(typed) ? Math.min(100 - othersSum, Math.max(0, typed)) : 0;
     setPercents((current) => ({ ...current, [salesId]: value }));
     setSaved(false);
     setError("");
   }
 
-  // Parts égales ; le reste de la division va aux premiers conseillers (33/33/34).
+  // Parts égales ; le reste de la division va aux premiers conseillers(ères) commerciaux(ales) (33/33/34).
   function splitEvenly() {
     if (!active.length) return;
     const base = Math.floor(100 / active.length);
@@ -82,8 +82,8 @@ export default function AutoAssignSharesCard() {
   }
 
   const modes: { id: AutoAssignMode; icon: typeof Scale; title: string; text: string }[] = [
-    { id: "balanced", icon: Scale, title: "Équitable (par charge)", text: "Le nouvel arrivant va au conseiller qui a le moins de monde." },
-    { id: "percentage", icon: Percent, title: "Par pourcentage", text: "Vous fixez la part de chaque conseiller, par exemple 40 % / 40 % / 20 %." }
+    { id: "balanced", icon: Scale, title: "Équitable (par charge)", text: "Le nouvel arrivant va au conseiller(ère) commercial(e) qui a le moins de monde." },
+    { id: "percentage", icon: Percent, title: "Par pourcentage", text: "Vous fixez la part de chaque conseiller(ère) commercial(e), par exemple 40 % / 40 % / 20 %." }
   ];
 
   return (
@@ -92,7 +92,7 @@ export default function AutoAssignSharesCard() {
         <Percent className="h-5 w-5 text-brand" /> Répartition par pourcentage
       </h2>
       <p className="mt-1 text-xs text-muted">
-        Comment répartir les nouveaux arrivants entre les conseillers : les nouveaux contacts WhatsApp et les étudiants sans conseiller
+        Comment répartir les nouveaux arrivants entre les conseillers(ères) commerciaux(ales) : les nouveaux contacts WhatsApp et les étudiants sans conseiller(ère) commercial(e)
         sont affectés automatiquement, à chaque fois.
       </p>
 
@@ -136,7 +136,7 @@ export default function AutoAssignSharesCard() {
           {mode === "percentage" && (
             <div className="mt-5">
               {!active.length ? (
-                <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">Aucun conseiller actif : créez ou débloquez un conseiller pour fixer des pourcentages.</p>
+                <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">Aucun conseiller(ère) commercial(e) actif : créez ou débloquez un conseiller(ère) commercial(e) pour fixer des pourcentages.</p>
               ) : (
                 <>
                   <ul className="divide-y divide-line/70 rounded-2xl border border-line">
@@ -208,8 +208,8 @@ export default function AutoAssignSharesCard() {
                     </span>
                     <span className="text-xs">
                       {active.length > 1
-                        ? "Le dernier conseiller reçoit automatiquement le reste : le total fait toujours 100 %."
-                        : "Un seul conseiller actif : il reçoit 100 %."}
+                        ? "Le dernier conseiller(ère) commercial(e) reçoit automatiquement le reste : le total fait toujours 100 %."
+                        : "Un seul conseiller(ère) commercial(e) actif : il reçoit 100 %."}
                     </span>
                   </div>
                   <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100" aria-hidden>
@@ -236,7 +236,7 @@ export default function AutoAssignSharesCard() {
               )}
               <p className="mt-3 text-[11px] leading-snug text-muted">
                 Les pourcentages comptent les <strong>nouveaux arrivants</strong> à partir de l'enregistrement : sur 10 nouveaux, 4 / 4 / 2 pour 40 / 40 / 20. Les compteurs
-                repartent de zéro à chaque changement. Si un conseiller est bloqué, les parts des autres sont recalées sur 100 %. Un conseiller ajouté ensuite reçoit
+                repartent de zéro à chaque changement. Si un conseiller(ère) commercial(e) est bloqué, les parts des autres sont recalées sur 100 %. Un conseiller(ère) commercial(e) ajouté ensuite reçoit
                 0 % tant que vous ne lui donnez pas de part.
               </p>
             </div>

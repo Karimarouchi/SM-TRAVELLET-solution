@@ -5,8 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 const EMAIL = /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/;
 
-// Destinataires d'un mail : on cherche un étudiant par son nom et on clique pour l'ajouter. Le conseiller et le
-// Responsable Dossier ne voient que leurs propres étudiants ; seul l'admin peut aussi saisir une adresse libre.
+// Destinataires d'un mail : on cherche un étudiant par son nom et on clique pour l'ajouter. Le conseiller(ère) commercial(e) et le
+// Gestionnaire de dossiers ne voient que leurs propres étudiants ; seul l'admin peut aussi saisir une adresse libre.
 export default function RecipientInput({
   value,
   onChange,
