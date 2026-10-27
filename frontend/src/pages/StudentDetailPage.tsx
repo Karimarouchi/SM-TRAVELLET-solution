@@ -588,7 +588,7 @@ export default function StudentDetailPage() {
                                   canOpenFile={role !== "RDV"}
                                   canUpload={isSalesSide && appointed && visaOpen && (!withOfficer || doc.status !== "VALIDATED")}
                                   canValidate={isSalesSide && appointed && visaOpen && (doc.status === "SUBMITTED" || (!withOfficer && doc.status === "REJECTED"))}
-                                  canRejectStudent={isSalesSide && appointed && !withOfficer && (doc.status === "SUBMITTED" || doc.status === "REJECTED")}
+                                  canRejectStudent={isSalesSide && appointed && visaOpen && (doc.status === "SUBMITTED" || (!withOfficer && doc.status === "REJECTED"))}
                                   canRejectValidated={role === "ADMIN" && withOfficer && doc.status === "VALIDATED"}
                                   studyDocs={studyDocs}
                                   onReviewed={(updated) => {
@@ -1032,6 +1032,9 @@ function VisaSalesReviewRow({
           </select>
         </label>
       )}
+      {open && doc.status === "REJECTED" && doc.rejectionReason && (
+        <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{t("Motif", "Reason")} : {doc.rejectionReason}</p>
+      )}
       {open && doc.status === "REJECTED" && canUpload && !canRejectStudent && (
         <p className="mt-3 text-xs text-muted">{t("Contactez l'étudiant, puis déposez le nouveau fichier. Le dossier reste chez le Gestionnaire de dossiers.", "Contact the student, then upload the new file. The file stays with the visa officer.")}</p>
       )}
@@ -1040,11 +1043,11 @@ function VisaSalesReviewRow({
         <div className="mt-3">
           {rejecting ? (
             <div className="space-y-2">
-              <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} placeholder={t("Motif du refus", "Rejection reason")} className="w-full rounded-lg border border-line px-3 py-2 text-xs" />
+              <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={500} placeholder={t("Motif du refus (obligatoire, visible par l'étudiant)", "Rejection reason (required, visible to the student)")} className="w-full rounded-lg border border-line px-3 py-2 text-xs" />
               <div className="flex gap-2">
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || !reason.trim()}
                   onClick={async () => {
                     setBusy(true);
                     setError("");
@@ -1058,7 +1061,7 @@ function VisaSalesReviewRow({
                       setBusy(false);
                     }
                   }}
-                  className="rounded-lg bg-red-500 px-3 py-1.5 text-xs font-bold text-white"
+                  className="rounded-lg bg-red-500 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
                 >
                   {t("Confirmer le refus", "Confirm rejection")}
                 </button>

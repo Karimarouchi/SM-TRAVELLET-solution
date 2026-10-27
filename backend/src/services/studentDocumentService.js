@@ -631,7 +631,8 @@ async function getVisaChecklistForApplication(auth, applicationId) {
   return getVisaChecklist(application.country_id, application.student_id);
 }
 
-// Le conseiller valide (ou refuse) un fichier déposé par l'étudiant.
+// Le conseiller valide (ou refuse) un fichier déposé par l'étudiant, y compris
+// quand le dossier est déjà chez le Responsable Dossier.
 // Le Responsable Dossier, une fois le dossier chez lui, refuse seulement un
 // document déjà validé, avec un motif. L'étudiant n'est pas notifié : le
 // conseiller le contacte et redépose le fichier.
@@ -670,7 +671,7 @@ async function reviewVisaDocument(auth, applicationId, requirementId, status, re
     }
   } else if (!(isSales || isAdmin)) {
     throw fail("La validation des documents visa est réservée au conseiller.", 403);
-  } else if (status === "REJECTED" && application.visa_status) {
+  } else if (status === "REJECTED" && application.visa_status && current.status !== "SUBMITTED") {
     throw fail("Une fois le dossier chez le Responsable Dossier, seul lui peut refuser un document déjà validé.", 403);
   } else if (status === "VALIDATED" && !["SUBMITTED", "REJECTED", "VALIDATED"].includes(current.status)) {
     throw fail("Ce document n'est pas en attente de validation.", 409);
