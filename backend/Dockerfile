@@ -15,6 +15,8 @@ FROM node:20-alpine
 # reconnaissance de Windows ; sur ce Linux, poppler transforme le PDF en
 # image et tesseract (français) lit le texte. py3-pillow est exigé par
 # pytesseract. Le lien « python » évite l'échec quand l'API cherche ce nom.
+# fontconfig + font-liberation : sans police, poppler dessine une page vide
+# pour les PDF dont l'Helvetica n'est pas incluse, et tesseract ne lit rien.
 RUN apk add --no-cache \
     postgresql17-client \
     su-exec \
@@ -24,6 +26,8 @@ RUN apk add --no-cache \
     tesseract-ocr \
     tesseract-ocr-data-fra \
     poppler-utils \
+    fontconfig \
+    font-liberation \
   && pip3 install --break-system-packages --no-cache-dir pytesseract pypdf \
   && ln -sf /usr/bin/python3 /usr/bin/python
 

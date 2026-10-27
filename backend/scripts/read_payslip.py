@@ -3,6 +3,7 @@ import asyncio
 import json
 import re
 import shutil
+import statistics
 import subprocess
 import sys
 import tempfile
@@ -64,6 +65,7 @@ def fold(value):
 
 def parse_number(raw):
     token = str(raw or "").replace("O", "0").replace("o", "0").replace(" ", "")
+    token = re.sub(r"[-–—_|]+$", "", token)
     token = token.replace(".", "").replace(",", ".")
     if token.startswith("."):
         token = f"0{token}"
@@ -338,7 +340,42 @@ def recognize_tesseract(image_path):
             grouped[key] = []
             order.append(key)
         grouped[key].append(_Word(text, float(data["left"][index]), float(data["top"][index])))
-    return _Result([_Line(grouped[key]) for key in order])
+    lines = [_Line(grouped[key]) for key in order]
+    # Un scan penché décale les montants (à droite) vers la ligne suivante.
+    # Tesseract donne des cadres droits : on redresse les y avec la pente médiane.
+    slopes = []
+    for line in lines:
+        ordered = sorted(line.words, key=lambda word: word.bounding_rect.x)
+        for left, right in zip(ordered, ordered[1:]):
+            dx = right.bounding_rect.x - left.bounding_rect.x
+            if dx > 40:
+                slopes.append((right.bounding_rect.y - left.bounding_rect.y) / dx)
+    slope = statistics.median(slopes) if len(slopes) >= 5 else 0.0
+    for line in lines:
+        for word in line.words:
+            word.bounding_rect.y -= slope * word.bounding_rect.x
+    return _Result(lines)
+
+
+def header_month_tesseract(path, page_index):
+    # L'en-tête (mois en haut à droite) est petit : relu seul, en 300 dpi.
+    import pytesseract
+    from PIL import Image
+
+    folder = tempfile.mkdtemp(prefix="payslip-head-")
+    try:
+        page = str(page_index + 1)
+        subprocess.run(["pdftoppm", "-png", "-r", "300", "-f", page, "-l", page, path, str(Path(folder) / "head")], check=True)
+        images = list(Path(folder).glob("head*.png"))
+        if not images:
+            return None, None
+        image = Image.open(images[0]).convert("L")
+        top = image.crop((0, 0, image.width, int(image.height * 0.12)))
+        text = fold(pytesseract.image_to_string(top, lang="fra", config="--psm 11"))
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+    month = next((number for name, number in MONTHS.items() if name in text), None)
+    return month, year_in(text)
 
 
 def render_with_poppler(path):
@@ -369,6 +406,9 @@ async def extract(path):
     try:
         for index, image in enumerate(images):
             slip = read_page(recognize_tesseract(str(image)))
+            month, year = header_month_tesseract(path, index)
+            slip["month"] = month or slip["month"]
+            slip["year"] = year or slip["year"]
             slip["page"] = index
             pages.append(slip)
     finally:
