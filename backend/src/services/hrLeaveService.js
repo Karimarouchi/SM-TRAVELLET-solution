@@ -2,6 +2,9 @@ const hrRepo = require("../repositories/hrRepository");
 const settings = require("../repositories/settingsRepository");
 const { monthlyLeave, getSettings } = require("./hrService");
 const leaveCovers = require("./hrLeaveCoverService");
+const notificationService = require("./notificationService");
+const notificationRepo = require("../repositories/notificationRepository");
+const logger = require("../logger");
 
 function fail(message, status = 400) {
   const error = new Error(message);
@@ -274,7 +277,38 @@ async function createRequest(auth, body, { forSelf }) {
   });
   if (plan) await leaveCovers.saveForApprovedLeave({ leaveId: id, userId, startOn, endOn: explained.coveredEnd, plan, by: auth.sub });
   const created = await hrRepo.findLeaveRequest(id);
+  const period = `du ${frDay(startOn)} au ${frDay(explained.coveredEnd)} (${wholeJours(days)})`;
+  if (forSelf) {
+    const name = `${employee.prenom || ""} ${employee.nom || ""}`.trim() || "Un employé";
+    await notifyOtherAdmins(userId, {
+      type: "HR_LEAVE_REQUESTED",
+      title: `Demande de congé : ${name}`,
+      body: `${name} demande un congé ${period}.${created.reason ? ` Motif : ${created.reason.replace(/[.\s]+$/, "")}.` : ""} À accepter ou refuser dans RH > Congés.`,
+      link: `/admin/rh/conges?user=${userId}`
+    });
+  } else if (approveNow) {
+    await notificationService.notify(userId, {
+      type: "HR_LEAVE_APPROVED",
+      title: "Congé enregistré",
+      body: `Un congé ${period} a été enregistré pour vous.`,
+      link: "/rh"
+    });
+  }
   return requestDto(created);
+}
+
+function frDay(iso) {
+  return new Date(`${iso}T12:00:00Z`).toLocaleDateString("fr-FR", { timeZone: "UTC", day: "numeric", month: "long", year: "numeric" });
+}
+
+// La cloche des admins, sauf celui qui fait la demande (un admin qui demande son propre congé).
+async function notifyOtherAdmins(requesterId, payload) {
+  try {
+    const ids = (await notificationRepo.listActiveAdminIds()).filter((id) => id !== requesterId);
+    if (ids.length) await notificationService.notify(ids, payload);
+  } catch (error) {
+    logger.error("Échec de la notification de demande de congé", { message: error.message });
+  }
 }
 
 async function decide(auth, id, body) {
@@ -303,6 +337,10 @@ async function decide(auth, id, body) {
   }
   await hrRepo.setLeaveStatus(id, status, auth.sub);
   if (plan) await leaveCovers.saveForApprovedLeave({ leaveId: id, userId: request.user_id, startOn: request.start_on, endOn: request.end_on, plan, by: auth.sub });
+  const period = `du ${frDay(request.start_on)} au ${frDay(request.end_on)}`;
+  await notificationService.notify(request.user_id, status === "APPROVED"
+    ? { type: "HR_LEAVE_APPROVED", title: "Congé accepté", body: `Votre demande de congé ${period} est acceptée.`, link: "/rh" }
+    : { type: "HR_LEAVE_REJECTED", title: "Congé refusé", body: `Votre demande de congé ${period} est refusée.`, link: "/rh" });
   return requestDto(await hrRepo.findLeaveRequest(id));
 }
 
