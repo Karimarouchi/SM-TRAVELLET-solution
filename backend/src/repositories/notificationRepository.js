@@ -19,13 +19,23 @@ async function listActiveAdminIds() {
   return result.rows.map((row) => row.id);
 }
 
-async function listForUser(userId, { before, limit, unreadOnly }) {
+// Espace admin « RH » : congés, paie, documents et contrats des employés.
+// Tout le reste (étudiants, dossiers, WhatsApp...) appartient à l'espace « Clients ».
+const HR_TYPES = "(type LIKE 'HR\\_%' OR type = 'SALARY_DUE')";
+
+function areaClause(area) {
+  if (area === "hr") return ` AND ${HR_TYPES}`;
+  if (area === "clients") return ` AND NOT ${HR_TYPES}`;
+  return "";
+}
+
+async function listForUser(userId, { before, limit, unreadOnly, area }) {
   const result = await query(
     `SELECT id, type, title, body, link, read_at, created_at
      FROM notifications
      WHERE user_id = $1
        AND ($2::timestamptz IS NULL OR created_at < $2)
-       AND ($4::boolean IS NOT TRUE OR read_at IS NULL)
+       AND ($4::boolean IS NOT TRUE OR read_at IS NULL)${areaClause(area)}
      ORDER BY created_at DESC
      LIMIT $3`,
     [userId, before, limit, unreadOnly]
@@ -33,9 +43,9 @@ async function listForUser(userId, { before, limit, unreadOnly }) {
   return result.rows;
 }
 
-async function unreadCount(userId) {
+async function unreadCount(userId, area) {
   const result = await query(
-    "SELECT COUNT(*)::int AS count FROM notifications WHERE user_id = $1 AND read_at IS NULL",
+    `SELECT COUNT(*)::int AS count FROM notifications WHERE user_id = $1 AND read_at IS NULL${areaClause(area)}`,
     [userId]
   );
   return result.rows[0].count;
@@ -48,8 +58,8 @@ async function markRead(userId, id) {
   );
 }
 
-async function markAllRead(userId) {
-  await query("UPDATE notifications SET read_at = NOW() WHERE user_id = $1 AND read_at IS NULL", [userId]);
+async function markAllRead(userId, area) {
+  await query(`UPDATE notifications SET read_at = NOW() WHERE user_id = $1 AND read_at IS NULL${areaClause(area)}`, [userId]);
 }
 
 module.exports = { createForUsers, listActiveAdminIds, listForUser, unreadCount, markRead, markAllRead };

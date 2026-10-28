@@ -6,6 +6,7 @@ import {
   fetchNotifications,
   markAllNotificationsRead,
   markNotificationRead,
+  notificationAreaOf,
   type AppNotification
 } from "@/lib/notifications";
 import { getSession } from "@/lib/auth";
@@ -28,10 +29,13 @@ export default function NotificationBell() {
   const location = useLocation();
 
   const previousUnread = useRef<number | null>(null);
-  const staff = isStaffRole(getSession()?.user.role);
+  const role = getSession()?.user.role;
+  const staff = isStaffRole(role);
+  // Admin : la cloche ne montre que l'espace ouvert (RH ou Clients).
+  const area = notificationAreaOf(role, location.pathname);
 
   const refreshCount = useCallback(() => {
-    fetchNotificationUnread()
+    fetchNotificationUnread(area)
       .then((count) => {
         // Son uniquement quand une nouvelle notification arrive (pas au premier chargement) et seulement pour l'équipe SM.
         if (staff && previousUnread.current !== null && count > previousUnread.current) playNotificationSound();
@@ -39,7 +43,12 @@ export default function NotificationBell() {
         setUnread(count);
       })
       .catch(() => undefined);
-  }, [staff]);
+  }, [staff, area]);
+
+  // Changement d'espace : le compteur repart de zéro, sans son.
+  useEffect(() => {
+    previousUnread.current = null;
+  }, [area]);
 
   useEffect(() => {
     refreshCount();
@@ -58,7 +67,7 @@ export default function NotificationBell() {
   useEffect(() => {
     if (!open) return;
     setLoading(true);
-    fetchNotifications({ limit: 8 })
+    fetchNotifications({ limit: 8, area })
       .then((data) => setItems(data.notifications))
       .catch(() => undefined)
       .finally(() => setLoading(false));
@@ -91,7 +100,7 @@ export default function NotificationBell() {
   async function onReadAll() {
     setItems((current) => current.map((n) => ({ ...n, read: true })));
     setUnread(0);
-    await markAllNotificationsRead().catch(() => undefined);
+    await markAllNotificationsRead(area).catch(() => undefined);
     emitNotificationsChanged();
   }
 
@@ -171,7 +180,7 @@ export default function NotificationBell() {
               {loading && !items.length && <p className="px-4 py-8 text-center text-xs text-muted">Chargement...</p>}
             </div>
 
-            <Link to="/notifications" className="block border-t border-line px-4 py-3 text-center text-sm font-bold text-brand transition hover:bg-brand/5 sm:py-2.5 sm:text-xs">
+            <Link to={area === "hr" ? "/admin/rh/notifications" : "/notifications"} className="block border-t border-line px-4 py-3 text-center text-sm font-bold text-brand transition hover:bg-brand/5 sm:py-2.5 sm:text-xs">
               Voir toutes les notifications
             </Link>
           </motion.div>

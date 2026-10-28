@@ -14,7 +14,7 @@ async function list(req, res) {
 
 async function unreadCount(req, res) {
   try {
-    res.json({ unread: await notificationService.unreadCount(req.auth) });
+    res.json({ unread: await notificationService.unreadCount(req.auth, req.query.area) });
   } catch (error) {
     handle(res, error);
   }
@@ -31,7 +31,7 @@ async function markRead(req, res) {
 
 async function markAllRead(req, res) {
   try {
-    await notificationService.markAllRead(req.auth);
+    await notificationService.markAllRead(req.auth, req.query.area);
     res.json({ ok: true });
   } catch (error) {
     handle(res, error);

@@ -5,12 +5,14 @@ import {
   fetchNotifications,
   markAllNotificationsRead,
   markNotificationRead,
+  notificationAreaOf,
   type AppNotification
 } from "@/lib/notifications";
+import { getSession } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { Bell, CheckCheck, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 function dayLabel(value: string) {
   const date = new Date(value);
@@ -24,6 +26,7 @@ function dayLabel(value: string) {
 
 export default function NotificationsPage() {
   const navigate = useNavigate();
+  const area = notificationAreaOf(getSession()?.user.role, useLocation().pathname);
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [items, setItems] = useState<AppNotification[]>([]);
   const [hasMore, setHasMore] = useState(false);
@@ -33,7 +36,7 @@ export default function NotificationsPage() {
 
   const load = useCallback(async () => {
     try {
-      const data = await fetchNotifications({ limit: 30, unread: filter === "unread" });
+      const data = await fetchNotifications({ limit: 30, unread: filter === "unread", area });
       setItems(data.notifications);
       setHasMore(data.hasMore);
       setError("");
@@ -42,7 +45,7 @@ export default function NotificationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, area]);
 
   useEffect(() => {
     setLoading(true);
@@ -55,7 +58,7 @@ export default function NotificationsPage() {
     if (!items.length) return;
     setLoadingMore(true);
     try {
-      const data = await fetchNotifications({ limit: 30, unread: filter === "unread", before: items[items.length - 1].createdAt });
+      const data = await fetchNotifications({ limit: 30, unread: filter === "unread", area, before: items[items.length - 1].createdAt });
       setItems((current) => [...current, ...data.notifications]);
       setHasMore(data.hasMore);
     } catch (err) {
@@ -76,7 +79,7 @@ export default function NotificationsPage() {
 
   async function onReadAll() {
     setItems((current) => (filter === "unread" ? [] : current.map((n) => ({ ...n, read: true }))));
-    await markAllNotificationsRead().catch(() => undefined);
+    await markAllNotificationsRead(area).catch(() => undefined);
     emitNotificationsChanged();
   }
 

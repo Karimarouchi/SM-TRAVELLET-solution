@@ -335,7 +335,8 @@ const Navbar1 = () => {
         </nav>
 
         <div className="flex shrink-0 items-center gap-1.5 xl:gap-3">
-        {(isStaffRole(role) || role === "STUDENT") && (
+        {/* Espace RH : pas de boîte mail de l'agence (elle concerne les clients). */}
+        {(isStaffRole(role) || role === "STUDENT") && !rhMode && (
           <Link
             to={role === "STUDENT" ? STUDENT_MAIL_HREF : MAIL_HREF}
             title={role === "STUDENT" ? t("Mes e-mails", "My emails") : t("Mail de l'agence", "Agency mail")}

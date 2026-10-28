@@ -114,15 +114,20 @@ function mapNotification(row) {
   };
 }
 
-async function list(auth, { before, limit, unread }) {
+// "hr" ou "clients" : la cloche de l'admin ne montre que l'espace ouvert. Sans valeur : tout.
+function areaOf(value) {
+  return value === "hr" || value === "clients" ? value : null;
+}
+
+async function list(auth, { before, limit, unread, area }) {
   const pageSize = Math.min(Math.max(Number(limit) || 30, 1), 100);
   const beforeDate = before && !Number.isNaN(Date.parse(before)) ? new Date(before) : null;
-  const rows = await repo.listForUser(auth.sub, { before: beforeDate, limit: pageSize, unreadOnly: unread === "true" });
+  const rows = await repo.listForUser(auth.sub, { before: beforeDate, limit: pageSize, unreadOnly: unread === "true", area: areaOf(area) });
   return { notifications: rows.map(mapNotification), hasMore: rows.length === pageSize };
 }
 
-async function unreadCount(auth) {
-  return repo.unreadCount(auth.sub);
+async function unreadCount(auth, area) {
+  return repo.unreadCount(auth.sub, areaOf(area));
 }
 
 async function markRead(auth, id) {
@@ -130,8 +135,8 @@ async function markRead(auth, id) {
   await repo.markRead(auth.sub, id);
 }
 
-async function markAllRead(auth) {
-  await repo.markAllRead(auth.sub);
+async function markAllRead(auth, area) {
+  await repo.markAllRead(auth.sub, areaOf(area));
 }
 
 module.exports = { notify, notifyAdmins, notifyStudentAssigned, notifyPassportRisk, list, unreadCount, markRead, markAllRead };

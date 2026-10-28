@@ -72,6 +72,7 @@ export default function App() {
           <Route path="/admin/rh/paie" element={<RhPayrollPage />} />
           <Route path="/admin/rh/absences" element={<RhAbsencesPage />} />
           <Route path="/admin/rh/parametres" element={<RhSettingsPage />} />
+          <Route path="/admin/rh/notifications" element={<NotificationsPage />} />
           <Route path="/rh" element={<MyRhPage />} />
           <Route path="/conseiller" element={<SalesEspacePage />} />
           <Route path="/conseiller/codes" element={<SalesCodesPage />} />
