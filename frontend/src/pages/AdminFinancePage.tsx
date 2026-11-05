@@ -1,4 +1,5 @@
 import { confirmDialog } from "@/components/ui/dialog-host";
+import { SkeletonPage, SkeletonRows } from "@/components/ui/skeleton";
 import CommissionsPanel from "@/components/admin/CommissionsPanel";
 import FinanceChargesPanel from "@/components/admin/FinanceChargesPanel";
 import CommissionPayoutsPanel from "@/components/admin/CommissionPayoutsPanel";
@@ -55,7 +56,7 @@ function Overview() {
   }, []);
 
   if (error) return <p className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>;
-  if (!data) return <div className="mx-auto mt-16 h-10 w-10 animate-spin rounded-full border-2 border-line border-t-brand" />;
+  if (!data) return <SkeletonPage className="mt-6" />;
 
   const month: Partial<Record<Currency, number>> = {};
   const total: Partial<Record<Currency, number>> = {};
@@ -208,7 +209,7 @@ function Payments({ initialStudent }: { initialStudent: string | null }) {
 
       <div className="mt-4 space-y-3">
         {!plans ? (
-          <div className="mx-auto mt-10 h-8 w-8 animate-spin rounded-full border-2 border-line border-t-brand" />
+          <SkeletonRows rows={5} />
         ) : plans.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-line bg-white p-6 text-sm text-muted">
             Aucun plan de paiement ne correspond. Les plans se créent quand un conseiller(ère) commercial(e) génère un code d'inscription pour un pays qui a un tarif, ou quand un paiement est enregistré sur la fiche d'un étudiant.
@@ -562,7 +563,7 @@ function Pricing() {
       </div>
 
       {!rows ? (
-        <div className="mx-auto mt-10 h-8 w-8 animate-spin rounded-full border-2 border-line border-t-brand" />
+        <SkeletonRows rows={6} />
       ) : visible.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-line bg-white p-8 text-center text-sm text-muted">Aucun pays ne correspond.</p>
       ) : (

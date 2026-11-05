@@ -27,6 +27,7 @@ import {
   type ReusableStudyDocument,
   type VisaDocumentChecklistItem
 } from "@/lib/auth";
+import { SkeletonPage } from "@/components/ui/skeleton";
 import { openProtectedFile } from "@/lib/auth";
 import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -332,7 +333,7 @@ export default function StudentDetailPage() {
   if (loading) {
     return (
       <main className="mx-auto max-w-4xl px-4 sm:px-6 pb-16 pt-10 text-center">
-        <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-line border-t-brand" />
+        <SkeletonPage className="text-left" />
       </main>
     );
   }

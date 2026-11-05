@@ -56,6 +56,7 @@ module.exports = {
     appSecret: process.env.WHATSAPP_APP_SECRET || "",
     verifyToken: process.env.WHATSAPP_VERIFY_TOKEN || "",
     phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || "",
+    wabaId: process.env.WHATSAPP_WABA_ID || "",
     graphVersion: process.env.WHATSAPP_GRAPH_VERSION || "v23.0"
   }
 };

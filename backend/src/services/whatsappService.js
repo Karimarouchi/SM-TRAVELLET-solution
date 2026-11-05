@@ -407,6 +407,13 @@ function metaErrorToHttp(metaError) {
   if (code === 131056) {
     return fail("Trop de messages envoyés à ce contact en peu de temps. Réessayez dans quelques instants.", 429);
   }
+  if (code === 131042) return fail("Meta refuse l'envoi : problème de moyen de paiement sur le compte WhatsApp.", 402);
+  if (code === 131049) return fail("Meta a retenu ce message pour ce contact. Attendez au moins 24 h avant de réessayer.", 429);
+  if (code === 131050) return fail("Ce contact a refusé les messages marketing de l'agence. Ne réessayez pas.", 409);
+  if (code === 132000 || code === 132012) return fail("Les valeurs du modèle ne correspondent pas à ce que Meta attend.", 400);
+  if (code === 132001) return fail("Ce modèle n'existe pas dans cette langue ou n'est pas encore approuvé.", 409);
+  if (code === 132015) return fail("Ce modèle est en pause chez Meta pour mauvaise qualité.", 409);
+  if (code === 132016) return fail("Ce modèle est désactivé définitivement par Meta : créez-en un nouveau.", 409);
   const detail = metaError?.error_data?.details || metaError?.message || "Erreur inconnue.";
   return fail(`WhatsApp a refusé l'envoi : ${detail}`, 502);
 }
@@ -501,6 +508,99 @@ async function sendText(auth, contactId, text) {
     // de toute façon que le numéro de l'agence, jamais un nom d'employé.
     ...senderFields(auth, conversation)
   });
+  await repo.touchOutbound(contactId);
+  await repo.markRead(contactId, auth.sub);
+  const sentRow = (await repo.listMessages(contactId, { before: null, limit: 5 })).find((m) => m.id === inserted.id) || inserted;
+  return mapMessage(sentRow, { forAdmin: isAdmin(auth) });
+}
+
+// ── Modèles approuvés (fenêtre de 24 h fermée) ───────────────────────────
+const TEMPLATE_BUTTONS = ["QUICK_REPLY", "PHONE_NUMBER", "URL"];
+
+function templateVariables(body) {
+  const keys = [...new Set([...body.matchAll(/\{\{\s*(\w+)\s*\}\}/g)].map((match) => match[1]))];
+  return keys.every((key) => /^\d+$/.test(key)) ? keys.sort((a, b) => Number(a) - Number(b)) : keys;
+}
+
+// Un modèle se remplit ici seulement par le texte de son corps. Une image en en-tête ou une
+// variable dans l'en-tête ou un bouton demande d'autres valeurs : il n'est pas proposé.
+function usableTemplate(row) {
+  const components = row.components || [];
+  const body = components.find((item) => item.type === "BODY");
+  if (!body?.text) return null;
+  const header = components.find((item) => item.type === "HEADER");
+  if (header && (header.format !== "TEXT" || /\{\{/.test(header.text || ""))) return null;
+  const buttons = components.find((item) => item.type === "BUTTONS")?.buttons || [];
+  if (buttons.some((button) => !TEMPLATE_BUTTONS.includes(button.type) || /\{\{/.test(button.url || ""))) return null;
+  return { name: row.name, language: row.language, category: row.category, body: body.text, variables: templateVariables(body.text) };
+}
+
+async function approvedTemplates() {
+  if (!env.whatsapp.token || !env.whatsapp.wabaId) {
+    throw fail("Modèles WhatsApp non configurés sur ce serveur (WHATSAPP_WABA_ID).", 503);
+  }
+  const rows = [];
+  let url = `https://graph.facebook.com/${env.whatsapp.graphVersion}/${env.whatsapp.wabaId}/message_templates?fields=name,language,status,category,components&status=approved&limit=100`;
+  while (url) {
+    let response;
+    let data;
+    try {
+      response = await fetch(url, { headers: { Authorization: `Bearer ${env.whatsapp.token}` } });
+      data = await response.json().catch(() => ({}));
+    } catch (error) {
+      logger.error("WhatsApp : Meta injoignable (modèles)", { message: error.message });
+      throw fail("Impossible de joindre WhatsApp. Réessayez dans un instant.", 502);
+    }
+    if (!response.ok) {
+      logger.error("WhatsApp : lecture des modèles refusée par Meta", { error: data.error });
+      throw fail(`WhatsApp a refusé la lecture des modèles : ${data.error?.message || "Erreur inconnue."}`, 502);
+    }
+    rows.push(...(data.data || []));
+    url = data.paging?.next || null;
+  }
+  return rows.filter((row) => row.status === "APPROVED").map(usableTemplate).filter(Boolean);
+}
+
+async function listTemplates(auth) {
+  if (!authRoles(auth).some((role) => role === "SALES" || role === "ADMIN")) {
+    throw fail("Seuls les conseillers et l'admin peuvent envoyer un message WhatsApp.", 403);
+  }
+  return approvedTemplates();
+}
+
+async function sendTemplate(auth, contactId, payload) {
+  if (!authRoles(auth).some((role) => role === "SALES" || role === "ADMIN")) {
+    throw fail("Seuls les conseillers et l'admin peuvent envoyer un message WhatsApp.", 403);
+  }
+  const conversation = await getAccessibleConversation(auth, contactId);
+  if (conversation.blocked_at) throw fail("Ce contact est bloqué : débloquez-le pour lui écrire.", 409);
+  if (windowInfo(conversation.last_inbound_at).windowOpen) {
+    throw fail("La fenêtre de 24 h est ouverte : écrivez un message normal, il n'y a pas besoin de modèle.", 409);
+  }
+  const template = (await approvedTemplates()).find((item) => item.name === payload?.name && item.language === payload?.language);
+  if (!template) throw fail("Ce modèle n'est pas approuvé par Meta.", 404);
+
+  // Meta refuse les retours à la ligne dans une valeur de variable.
+  const values = template.variables.map((key) => String(payload?.variables?.[key] || "").replace(/\s+/g, " ").trim());
+  if (values.some((value) => !value)) throw fail("Remplissez toutes les valeurs du modèle.", 400);
+  const named = template.variables.some((key) => !/^\d+$/.test(key));
+  const parameters = values.map((text, index) => ({ type: "text", text, ...(named ? { parameter_name: template.variables[index] } : {}) }));
+
+  // Le modèle appartient au numéro configuré : un ancien contact peut encore garder l'ID de l'ancien numéro.
+  const waMessageId = await postToMeta({ ...conversation, wa_phone_number_id: null }, contactId, {
+    type: "template",
+    template: {
+      name: template.name,
+      language: { code: template.language },
+      ...(parameters.length ? { components: [{ type: "body", parameters }] } : {})
+    }
+  });
+
+  const body = template.variables.reduce(
+    (text, key, index) => text.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g"), () => values[index]),
+    template.body
+  );
+  const inserted = await repo.insertMessage({ contactId, waMessageId, direction: "out", type: "template", body, status: "sent", ...senderFields(auth, conversation) });
   await repo.touchOutbound(contactId);
   await repo.markRead(contactId, auth.sub);
   const sentRow = (await repo.listMessages(contactId, { before: null, limit: 5 })).find((m) => m.id === inserted.id) || inserted;
@@ -943,6 +1043,8 @@ module.exports = {
   sendText,
   sendReminderToStudent,
   hideMessage,
+  listTemplates,
+  sendTemplate,
   sendMedia,
   getMedia,
   buildAutoReplyText,

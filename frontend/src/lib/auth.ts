@@ -438,6 +438,16 @@ export async function fetchAdminInsights(): Promise<AdminInsights> {
   return request<AdminInsights>("/api/admin/insights");
 }
 
+export type UniversitySuccess = {
+  year: number | null;
+  years: number[];
+  universities: Array<{ id: string; name: string; countryName: string; total: number }>;
+};
+
+export async function fetchUniversitySuccess(year?: number | null): Promise<UniversitySuccess> {
+  return request<UniversitySuccess>(`/api/admin/insights/universities${year ? `?year=${year}` : ""}`);
+}
+
 export async function fetchAdminDashboard(params: {
   period?: string;
   salesId?: string;
@@ -475,7 +485,15 @@ export type AdminSettings = {
   /** Message de bienvenue au tout premier message d'un nouveau client WhatsApp. */
   whatsappWelcomeEnabled: boolean;
   whatsappWelcomeText: string;
+  /** Pause de chaque conseiller(ère) : non comptée dans son temps de réponse WhatsApp. */
+  salesPauses: SalesPause[];
+  /** Réponses rapides WhatsApp : le conseiller(ère) tape /raccourci pour insérer le texte. */
+  whatsappQuickReplies: QuickReply[];
 };
+
+export type QuickReply = { shortcut: string; text: string };
+
+export type SalesPause = { userId: string; prenom: string; nom: string; start: string; end: string };
 
 export async function fetchAdminSettings() {
   return request<AdminSettings>("/api/admin/settings");
@@ -1414,6 +1432,8 @@ export type ApplicationStatus =
 
 export type UniversityApplication = {
   id: string;
+  universityCelebratedAt?: string | null;
+  visaCelebratedAt?: string | null;
   studentId: string;
   countryId: string;
   countryName: string;
@@ -1485,6 +1505,10 @@ export type ApplicationHistoryEntry = {
 
 export async function fetchMyApplications(): Promise<UniversityApplication[]> {
   return request<UniversityApplication[]>("/api/students/me/applications");
+}
+
+export async function markApplicationCelebrated(applicationId: string, kind: "university" | "visa") {
+  await request(`/api/students/me/applications/${applicationId}/celebrated`, { method: "POST", body: JSON.stringify({ kind }) });
 }
 
 export async function fetchStudentApplications(studentId: string): Promise<UniversityApplication[]> {
@@ -1772,6 +1796,7 @@ export type RdvStudent = {
   universityName: string;
   programmeTitle: string | null;
   status: string;
+  visaStatus: string | null;
   updatedAt: string;
 };
 
@@ -2195,12 +2220,8 @@ export type FinanceExercise = {
   collected: number;
   collectedEur: number;
   salaries: number;
-  primes: number;
-  paidLeave: number;
-  deductions: number;
   commissions: number;
-  salaryPayments: Array<{ id: string; userId: string; prenom: string; nom: string; month: string; amount: number; paidOn: string; onSlip: boolean }>;
-  salaryExtra: number;
+  salaryPayments: Array<{ id: string; userId: string; prenom: string; nom: string; month: string; amount: number; paidOn: string }>;
   personnel: number;
   fixed: number;
   variable: number;

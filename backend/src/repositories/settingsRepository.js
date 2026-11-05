@@ -154,6 +154,33 @@ async function setWorkHoursConfig({ days, start, end, timezone }) {
   return getWorkHoursConfig();
 }
 
+// Pause de chaque conseiller : { userId: { start: "12:30", end: "13:30" } }.
+async function getSalesPauses() {
+  try {
+    return JSON.parse((await get("sales_pauses")) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+async function setSalesPauses(pauses) {
+  await set("sales_pauses", JSON.stringify(pauses));
+}
+
+// Réponses rapides WhatsApp communes : [{ shortcut: "prix", text: "..." }].
+async function getWhatsAppQuickReplies() {
+  try {
+    const rows = JSON.parse((await get("whatsapp_quick_replies")) || "[]");
+    return Array.isArray(rows) ? rows : [];
+  } catch {
+    return [];
+  }
+}
+
+async function setWhatsAppQuickReplies(rows) {
+  await set("whatsapp_quick_replies", JSON.stringify(rows));
+}
+
 // Réponse automatique WhatsApp des jours non travaillés (activée par défaut, texte modifiable).
 const DEFAULT_AUTO_REPLY = [
   "Bonjour 👋",
@@ -222,6 +249,10 @@ module.exports = {
   clearGoogleConnection,
   getWorkHoursConfig,
   setWorkHoursConfig,
+  getSalesPauses,
+  setSalesPauses,
+  getWhatsAppQuickReplies,
+  setWhatsAppQuickReplies,
   STALLED_ALERT_FREQUENCIES,
   WEEKDAY_IDS
 };

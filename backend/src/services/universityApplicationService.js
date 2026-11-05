@@ -79,6 +79,8 @@ function dto(row) {
     staffMeetLink: row.staff_meet_link,
     staffMeetInstructions: row.staff_meet_instructions,
     visaDocsValidatedAt: row.visa_docs_validated_at,
+    universityCelebratedAt: row.university_celebrated_at || null,
+    visaCelebratedAt: row.visa_celebrated_at || null,
     translationDoneAt: row.translation_done_at || null,
     postponedKind: row.postponed_kind || null,
     postponedAt: row.postponed_at || null,
@@ -1450,6 +1452,16 @@ async function scheduleVisaEmbassyAppointment(auth, applicationId, payload) {
 
 // Vue "mes dossiers" pour un RDV : toutes les candidatures qui lui sont
 // assignées, tous étudiants confondus.
+// L'étudiant a vu la célébration de son acceptation (université ou visa).
+async function markCelebrated(auth, applicationId, kind) {
+  const application = await appRepo.findById(applicationId);
+  if (!application || application.student_id !== auth.sub) throw fail("Candidature introuvable.", 404);
+  const accepted = kind === "visa" ? application.visa_status === "ACCEPTED" : kind === "university" && application.status === "ACCEPTED";
+  if (!accepted) throw fail("Cette acceptation n'existe pas.", 400);
+  await appRepo.markCelebrated(applicationId, kind);
+  return { ok: true };
+}
+
 async function listMineForRdv(auth) {
   const roles = authRoles(auth);
   if (!roles.includes("RDV") && !roles.includes("ADMIN")) {
@@ -1745,6 +1757,7 @@ async function depositRecap(auth, applicationId) {
 }
 
 module.exports = {
+  markCelebrated,
   depositRecap,
   updatePortalAccount,
   correctDepositedApplication,

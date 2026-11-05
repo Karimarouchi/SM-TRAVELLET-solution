@@ -5,6 +5,7 @@ import {
   type AdminDashboard,
   type StudentOverview
 } from "@/lib/auth";
+import { SkeletonCards, SkeletonRows } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
   ConversionFunnelChart,
@@ -88,12 +89,14 @@ export default function AdminPage() {
   }, []);
 
   const [pipelineStudents, setPipelineStudents] = useState<StudentOverview[]>([]);
+  const [pipelineLoaded, setPipelineLoaded] = useState(false);
   const [pipelineBusyId, setPipelineBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchStudentsOverview()
       .then((payload) => setPipelineStudents(payload.students || []))
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => setPipelineLoaded(true));
   }, []);
 
   async function togglePipelineBlock(student: StudentOverview) {
@@ -136,7 +139,11 @@ export default function AdminPage() {
         <h2 className="font-display text-xl font-bold text-dark">Pipeline des étudiants</h2>
         <p className="mt-0.5 text-xs text-muted">Avancement réel de chaque étudiant, candidature et visa compris.</p>
         <div className="mt-5">
-          <StudentsPipelineBoard students={pipelineStudents} busyId={pipelineBusyId} onToggleBlock={togglePipelineBlock} />
+          {pipelineLoaded ? (
+            <StudentsPipelineBoard students={pipelineStudents} busyId={pipelineBusyId} onToggleBlock={togglePipelineBlock} />
+          ) : (
+            <SkeletonCards count={4} />
+          )}
         </div>
       </section>
 
@@ -144,6 +151,7 @@ export default function AdminPage() {
       <AdminInsightsSection />
 
       {/* ── Actions prioritaires ─────────────────────────────────────────── */}
+      {!data && !error ? <SkeletonRows rows={4} className="mt-4" /> : (
       <div className="mt-4">
         <section className="rounded-[24px] border border-line bg-white p-6">
           <div className="flex items-center justify-between">
@@ -254,6 +262,7 @@ export default function AdminPage() {
           </div>
         </section>
       </div>
+      )}
 
       {/* ── Statistiques WhatsApp et délais, par employé ─────────────────── */}
       <TeamPerformancePanel salesLoad={data?.salesPerformance} rdvLoad={data?.rdvPerformance} />

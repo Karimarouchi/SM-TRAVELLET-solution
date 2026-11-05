@@ -146,6 +146,9 @@ app.get("/api/whatsapp/unread-count", requireAuth, requireRoles("SALES", "ADMIN"
 app.get("/api/whatsapp/conversations/:contactId/messages", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.getMessages);
 app.post("/api/whatsapp/conversations/:contactId/messages", requireAuth, requireRoles("SALES"), whatsappController.sendMessage);
 app.post("/api/whatsapp/conversations/:contactId/media", requireAuth, requireRoles("SALES"), whatsappController.sendMedia);
+app.get("/api/whatsapp/quick-replies", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.listQuickReplies);
+app.get("/api/whatsapp/templates", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.listTemplates);
+app.post("/api/whatsapp/conversations/:contactId/template", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.sendTemplate);
 app.get("/api/whatsapp/conversations/:contactId/messages/:messageId/media", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.getMedia);
 app.post("/api/whatsapp/conversations/:contactId/messages/:messageId/hide", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.hideMessage);
 app.patch("/api/whatsapp/conversations/:contactId/mute", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.setMuted);
@@ -218,6 +221,7 @@ app.post("/api/applications/:id/visa-documents", requireAuth, requireRoles("SALE
 app.patch("/api/applications/:id/visa-documents/review", requireAuth, requireRoles("SALES", "RDV", "ADMIN"), studentDocumentController.reviewVisa);
 
 app.get("/api/students/me/applications", requireAuth, requireRoles("STUDENT"), universityApplicationController.listMine);
+app.post("/api/students/me/applications/:id/celebrated", requireAuth, requireRoles("STUDENT"), universityApplicationController.markCelebrated);
 app.get("/api/students/:id/applications", requireAuth, requireRoles("SALES", "ADMIN", "RDV"), universityApplicationController.listForStudent);
 app.get("/api/students/:id/applications/history", requireAuth, requireRoles("SALES", "ADMIN", "RDV"), universityApplicationController.historyForStudent);
 app.patch("/api/applications/:id/translation-done", requireAuth, requireRoles("SALES", "ADMIN"), universityApplicationController.markTranslationDone);
@@ -371,6 +375,7 @@ app.post("/api/hr/me/absences", requireAuth, requireRoles("ADMIN", "SALES", "RDV
 app.get("/api/hr/me/absences/file", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), hrController.myAbsenceCertificateFile);
 
 app.get("/api/admin/insights", requireAuth, requireRoles("ADMIN"), adminController.insights);
+app.get("/api/admin/insights/universities", requireAuth, requireRoles("ADMIN"), adminController.universitySuccess);
 app.get("/api/admin/dashboard", requireAuth, requireRoles("ADMIN"), adminController.dashboard);
 app.get("/api/admin/board", requireAuth, requireRoles("ADMIN"), adminController.board);
 app.get("/api/admin/students-overview", requireAuth, requireRoles("ADMIN"), adminController.studentsOverview);

@@ -1,4 +1,5 @@
 import { confirmDialog } from "@/components/ui/dialog-host";
+import { SkeletonLines } from "@/components/ui/skeleton";
 import { useLanguage } from "@/lib/i18n";
 import { addStudentNote, deleteStudentNote, fetchStudentNotes, type StudentNote } from "@/lib/notes";
 import { cn } from "@/lib/utils";
@@ -82,7 +83,7 @@ export default function StudentNotes({ studentId }: { studentId: string }) {
       {error && <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">{error}</p>}
 
       <div className={cn("mt-4 space-y-2.5", notes && notes.length > 4 && "max-h-[420px] overflow-y-auto pr-1")}>
-        {notes === null && !error && <p className="text-xs text-muted">{t("Chargement…", "Loading…")}</p>}
+        {notes === null && !error && <SkeletonLines lines={3} />}
         {notes && notes.length === 0 && <p className="rounded-xl border border-dashed border-amber-200 bg-white/60 px-3 py-3 text-xs text-muted">{t("Aucune remarque pour l'instant.", "No notes yet.")}</p>}
         {notes?.map((note) => (
           <article key={note.id} className="rounded-xl border border-line bg-white px-3.5 py-3">

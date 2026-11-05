@@ -20,6 +20,14 @@ async function insights(req, res) {
   }
 }
 
+async function universitySuccess(req, res) {
+  try {
+    res.json(await require("../services/insightsService").universitySuccess(req.query.year));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function board(req, res) {
   try {
     res.json(await adminService.getBoard());
@@ -213,4 +221,4 @@ async function userPerformance(req, res) {
 }
 
 module.exports = {
-  insights, dashboard, board, studentsOverview, setStudentActive, getSettings, updateSettings, teamPerformance, userPerformance, autoAssignShares, saveAutoAssignShares, studentDeletionPreview, deleteStudent, createSales, setSalesActive, transferSales, deleteSales, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };
+  insights, universitySuccess, dashboard, board, studentsOverview, setStudentActive, getSettings, updateSettings, teamPerformance, userPerformance, autoAssignShares, saveAutoAssignShares, studentDeletionPreview, deleteStudent, createSales, setSalesActive, transferSales, deleteSales, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };

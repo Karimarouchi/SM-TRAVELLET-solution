@@ -1,4 +1,5 @@
 import { NotificationIcon, notificationTime } from "@/components/notification-visual";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import {
   NOTIFICATIONS_CHANGED,
   emitNotificationsChanged,
@@ -170,7 +171,7 @@ export default function NotificationsPage() {
             </p>
           </div>
         )}
-        {loading && !items.length && <p className="px-6 py-12 text-center text-sm text-muted">Chargement...</p>}
+        {loading && !items.length && <SkeletonRows rows={5} flat className="px-6 py-5" />}
       </section>
 
       {hasMore && (

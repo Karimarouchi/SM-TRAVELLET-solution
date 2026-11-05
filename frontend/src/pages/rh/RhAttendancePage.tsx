@@ -1,4 +1,5 @@
 import EmployeePicker from "@/components/rh/EmployeePicker";
+import { SkeletonPage } from "@/components/ui/skeleton";
 import { confirmHrAbsences, fetchHrAttendance, saveHrAttendanceAmount, saveHrAttendanceDay, type HrAttendanceDay, type HrAttendanceEmployee, type HrAttendanceMonth } from "@/lib/hr";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -105,7 +106,7 @@ export default function RhAttendancePage() {
       </div>
       {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
       {!data || !selected ? (
-        <div className="mx-auto mt-16 h-10 w-10 animate-spin rounded-full border-2 border-line border-t-orange-500" />
+        data && !error ? <p className="mt-6 rounded-2xl border border-dashed border-line bg-white p-5 text-sm text-muted">Aucun employé.</p> : !error && <SkeletonPage className="mt-6" />
       ) : (
         <div className="mt-6 space-y-4">
           <EmployeePicker

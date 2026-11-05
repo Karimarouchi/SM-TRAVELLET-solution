@@ -1,4 +1,5 @@
 import { confirmDialog } from "@/components/ui/dialog-host";
+import { SkeletonPage } from "@/components/ui/skeleton";
 import { Amount } from "@/components/ui/hidden-amounts";
 import { fetchFinanceExercise, formatMoney, removeFinanceCharge, saveFinanceCharge, type FinanceCharge, type FinanceExercise } from "@/lib/auth";
 import { Trash2 } from "lucide-react";
@@ -135,20 +136,16 @@ export default function FinanceChargesPanel() {
   }, [year]);
 
   if (error && !data) return <p className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>;
-  if (!data) return <div className="mx-auto mt-16 h-10 w-10 animate-spin rounded-full border-2 border-line border-t-brand" />;
+  if (!data) return <SkeletonPage className="mt-6" />;
 
   const fixed = data.charges.filter((row) => row.kind === "FIXED");
   const variable = data.charges.filter((row) => row.kind === "VARIABLE");
   const lines: Array<[string, number]> = [
     ["Encaissé en dinars", data.collected],
-    ["Salaires des fiches émises", -data.salaries],
-    ["Primes", -data.primes],
-    ["Congés versés", -data.paidLeave],
-    ["Retenues déjà déduites des salaires", data.deductions],
+    ["Salaires payés", -data.salaries],
     ["Commissions versées", -data.commissions],
     ["Charges fixes", -data.fixed],
-    ["Charges variables", -data.variable],
-    ...(data.salaryExtra > 0 ? [["Salaires payés sans fiche", -data.salaryExtra] as [string, number]] : [])
+    ["Charges variables", -data.variable]
   ];
 
   return (
@@ -164,7 +161,7 @@ export default function FinanceChargesPanel() {
             <input type="number" min={2000} max={2100} value={year} onChange={(event) => setYear(Number(event.target.value) || year)} className="mt-1 block w-28 rounded-xl border-0 px-3 py-2 text-sm font-bold text-dark" />
           </label>
         </div>
-        <p className="mt-3 max-w-3xl text-sm text-white/85">Encaissements en dinars, moins les salaires, les primes, les congés versés, les commissions et les charges. Une retenue d'absence ou de retard est déjà sortie du salaire, elle est donc rendue ici.</p>
+        <p className="mt-3 max-w-3xl text-sm text-white/85">Encaissements en dinars, moins les salaires payés, les commissions et les charges. Un salaire compte quand il est payé depuis Paie, dans l'année de son mois.</p>
         <dl className="mt-4 grid gap-2 sm:grid-cols-2">
           {lines.map(([label, value]) => (
             <div key={label} className="flex items-center justify-between gap-3 text-sm">
@@ -178,13 +175,13 @@ export default function FinanceChargesPanel() {
 
       <section className="rounded-[24px] border border-line bg-white p-5">
         <h3 className="font-display text-lg font-bold text-dark">Salaires payés</h3>
-        <p className="mt-1 text-xs text-muted">Enregistrés depuis Paie. La date et le montant sont ceux du bouton Payer. Si la fiche du mois est déjà émise, le salaire est déjà retiré du résultat et n'est pas compté une deuxième fois.</p>
+        <p className="mt-1 text-xs text-muted">Enregistrés depuis Paie. Le mois, la date et le montant sont ceux du bouton Payer. Ce montant comprend déjà les primes, les congés et les retenues.</p>
         <ul className="mt-3 divide-y divide-line">
           {(data.salaryPayments || []).map((payment) => (
             <li key={payment.id} className="flex flex-wrap items-center justify-between gap-3 py-2 text-sm">
               <span>
                 <span className="block font-semibold text-dark">Salaire de {payment.prenom} {payment.nom}</span>
-                <span className="text-[11px] text-muted">{payment.month} · payé le {payment.paidOn}{payment.onSlip ? " · déjà dans les fiches émises" : " · ajouté au résultat"}</span>
+                <span className="text-[11px] text-muted">{payment.month} · payé le {payment.paidOn}</span>
               </span>
               <Amount className="font-bold text-dark">{money(payment.amount)}</Amount>
             </li>

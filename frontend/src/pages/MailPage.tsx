@@ -13,6 +13,7 @@ import {
   type MailStatus,
   type OutgoingAttachment
 } from "@/lib/mail";
+import { SkeletonLines, SkeletonRows } from "@/components/ui/skeleton";
 import { getSession } from "@/lib/auth";
 import RecipientInput from "@/components/RecipientInput";
 import { useLanguage } from "@/lib/i18n";
@@ -332,7 +333,7 @@ export default function MailPage() {
             </div>
 
             {error && <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">{error}</p>}
-            {loading && !list && <p className="py-10 text-center text-sm text-muted">{t("Chargement…", "Loading…")}</p>}
+            {loading && !list && <SkeletonRows rows={6} flat className="mt-4" />}
             {list?.folderMissing && <p className="py-8 text-center text-sm text-muted">{t("Aucun dossier « Envoyés » trouvé sur ce serveur.", "No “Sent” folder found on this server.")}</p>}
             {list && !list.folderMissing && list.items.length === 0 && !loading && <p className="py-10 text-center text-sm text-muted">{search ? t("Aucun mail ne correspond.", "No matching mail.") : t("Aucun mail.", "No mail.")}</p>}
 
@@ -382,7 +383,7 @@ export default function MailPage() {
                 <p>{t("Sélectionnez un mail pour le lire.", "Select a mail to read it.")}</p>
               </div>
             ) : messageLoading || !message ? (
-              <p className="py-16 text-center text-sm text-muted">{t("Chargement du mail…", "Loading mail…")}</p>
+              <SkeletonLines lines={7} className="py-6" />
             ) : (
               <div>
                 <button type="button" onClick={() => { setSelected(null); setMessage(null); }} className="mb-3 inline-flex items-center gap-1.5 text-xs font-bold text-mid hover:text-brand lg:hidden"><ArrowLeft className="h-3.5 w-3.5" /> {t("Retour à la liste", "Back to list")}</button>

@@ -1,4 +1,5 @@
 import EmployeePicker from "@/components/rh/EmployeePicker";
+import { SkeletonPage } from "@/components/ui/skeleton";
 import LeaveCoverDialog from "@/components/rh/LeaveCoverDialog";
 import { coverHrAbsences, createHrLeave, decideHrLeave, fetchHrLeave, fetchLeaveAbsences, setHrLeaveBalance, settleHrLeave, updateLeaveCover, type HrAbsenceToCover, type HrCoverPlan, type HrLeaveEmployee } from "@/lib/hr";
 import { cn } from "@/lib/utils";
@@ -93,7 +94,7 @@ export default function RhLeavePage() {
       <p className="mt-1 text-sm text-muted">Le solde monte avec le contrat. Une année terminée se reporte ou se paie.</p>
       {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
       {!rows || !selected ? (
-        <div className="mx-auto mt-16 h-10 w-10 animate-spin rounded-full border-2 border-line border-t-orange-500" />
+        rows && !error ? <p className="mt-6 rounded-2xl border border-dashed border-line bg-white p-5 text-sm text-muted">Aucun employé.</p> : !error && <SkeletonPage className="mt-6" />
       ) : (
         <div className="mt-6 space-y-4">
           <EmployeePicker

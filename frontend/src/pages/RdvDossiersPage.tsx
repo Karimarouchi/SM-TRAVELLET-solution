@@ -13,6 +13,7 @@ import {
   type RdvMyApplication,
   type VisaDocumentChecklistItem
 } from "@/lib/auth";
+import { SkeletonPage } from "@/components/ui/skeleton";
 import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { MeetLinkButton } from "@/components/MeetLinkButton";
@@ -358,6 +359,7 @@ const DAY = 24 * 3600 * 1000;
 // Données communes aux deux pages du RDV : ses dossiers et les documents visa.
 function useRdvData() {
   const [applications, setApplications] = useState<RdvMyApplication[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [docsByApp, setDocsByApp] = useState<Record<string, VisaDocumentChecklistItem[]>>({});
@@ -378,7 +380,8 @@ function useRdvData() {
         setApplications(apps);
         loadDocs(apps);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Impossible de charger les dossiers."));
+      .catch((err) => setError(err instanceof Error ? err.message : "Impossible de charger les dossiers."))
+      .finally(() => setLoaded(true));
   };
 
   useEffect(() => { load(); }, []);
@@ -398,7 +401,7 @@ function useRdvData() {
     }
   };
 
-  return { applications, error, busyId, docsByApp, setDocsByApp, load, run };
+  return { applications, loaded, error, busyId, docsByApp, setDocsByApp, load, run };
 }
 
 function ErrorBanner({ message }: { message: string }) {
@@ -473,7 +476,7 @@ function PageHero({ eyebrow, name, text }: { eyebrow: string; name: string; text
 export default function RdvDossiersPage() {
   const { t } = useLanguage();
   const session = getSession();
-  const { applications, error, load } = useRdvData();
+  const { applications, loaded, error, load } = useRdvData();
 
   const board = useMemo(() => {
     const toApply = applications.filter((a) => a.status === "READY_TO_APPLY");
@@ -509,6 +512,8 @@ export default function RdvDossiersPage() {
   }, [applications, t]);
 
   if (!session?.user) return null;
+
+  if (!loaded) return <main className="mx-auto max-w-6xl px-4 pb-16 sm:px-6"><SkeletonPage /></main>;
 
   return (
     <main className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
@@ -651,7 +656,7 @@ function VisaFileCard({ app, meta, children }: { app: RdvMyApplication; meta: { 
 export function RdvVisasPage() {
   const { t } = useLanguage();
   const session = getSession();
-  const { applications, error, busyId, docsByApp, setDocsByApp, load, run } = useRdvData();
+  const { applications, loaded, error, busyId, docsByApp, setDocsByApp, load, run } = useRdvData();
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
   const [postponeTarget, setPostponeTarget] = useState<RdvMyApplication | null>(null);
   const [prepMeetingTarget, setPrepMeetingTarget] = useState<RdvMyApplication | null>(null);
@@ -751,6 +756,8 @@ export function RdvVisasPage() {
     { id: "submitted", label: t("Déposés", "Filed"), count: board.visaSubmitted.length },
     { id: "done", label: t("Terminés", "Closed"), count: board.visaDone.length }
   ];
+
+  if (!loaded) return <main className="mx-auto max-w-6xl px-4 pb-16 sm:px-6"><SkeletonPage /></main>;
 
   return (
     <main className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">

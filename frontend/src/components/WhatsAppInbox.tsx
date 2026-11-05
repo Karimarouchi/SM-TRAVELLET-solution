@@ -1,4 +1,5 @@
 import { confirmDialog } from "@/components/ui/dialog-host";
+import { SkeletonRows, SkeletonThread } from "@/components/ui/skeleton";
 import WhatsAppDiagnosticModal from "@/components/WhatsAppDiagnosticModal";
 import { fetchAssignmentBoard, fetchMyStudents, getSession, type BoardSales, type BoardStudent } from "@/lib/auth";
 import {
@@ -6,6 +7,7 @@ import {
   blockWhatsAppConversation,
   fetchWhatsAppConversations,
   fetchWhatsAppMessages,
+  fetchWhatsAppQuickReplies,
   formatWhatsAppPhone,
   hideWhatsAppMessage,
   linkWhatsAppStudent,
@@ -23,6 +25,7 @@ import {
 } from "@/lib/whatsapp";
 import { playWhatsAppSound } from "@/lib/sounds";
 import WhatsAppMedia from "@/components/WhatsAppMedia";
+import WhatsAppTemplatePicker from "@/components/WhatsAppTemplatePicker";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import {
@@ -58,7 +61,7 @@ import { Link, useSearchParams } from "react-router-dom";
 const MAX_LENGTH = 4096;
 const LIST_POLL_MS = 10_000;
 const THREAD_POLL_MS = 5_000;
-const TEXT_TYPES = ["text", "button", "interactive"];
+const TEXT_TYPES = ["text", "button", "interactive", "template"];
 
 // Gras façon WhatsApp : *texte* s'affiche en gras (sur une seule ligne).
 function withBold(text: string) {
@@ -324,6 +327,10 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
   const [attachment, setAttachment] = useState<{ file: File; previewUrl: string | null } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [sending, setSending] = useState(false);
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [threadLoaded, setThreadLoaded] = useState(false);
+  const [quickReplies, setQuickReplies] = useState<Array<{ shortcut: string; text: string }>>([]);
+  const [quickIndex, setQuickIndex] = useState(0);
   const [error, setError] = useState("");
   const [linkOpen, setLinkOpen] = useState(false);
   const [hideTarget, setHideTarget] = useState<WhatsAppMessage | null>(null);
@@ -395,12 +402,15 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
       setConversations((previous) => previous.map((item) => (item.id === contactId ? { ...item, unread: 0 } : item)));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Impossible de charger les messages.");
+    } finally {
+      setThreadLoaded(true);
     }
   }, []);
 
   useEffect(() => {
     if (!activeId) return;
     setThread([]);
+    setThreadLoaded(false);
     setHasMore(false);
     lastMessageIdRef.current = null;
     lastInboundIdRef.current = undefined;
@@ -469,6 +479,21 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
     });
   }
 
+  useEffect(() => {
+    fetchWhatsAppQuickReplies().then(setQuickReplies).catch(() => setQuickReplies([]));
+  }, []);
+
+  // « / » au début du message : propose les réponses rapides dont le raccourci commence par ce qui est tapé.
+  const quickMatches = /^\/\S*$/.test(text)
+    ? quickReplies.filter((reply) => reply.shortcut.startsWith(text.slice(1).toLowerCase())).slice(0, 6)
+    : [];
+  const quickActive = Math.min(quickIndex, Math.max(0, quickMatches.length - 1));
+
+  function pickQuickReply(reply: { text: string }) {
+    setText(reply.text.slice(0, MAX_LENGTH));
+    setQuickIndex(0);
+  }
+
   async function onSend() {
     const body = text.trim();
     if (!activeId || sending || (!body && !attachment)) return;
@@ -499,6 +524,19 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (quickMatches.length) {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        const step = event.key === "ArrowDown" ? 1 : quickMatches.length - 1;
+        setQuickIndex((quickActive + step) % quickMatches.length);
+        return;
+      }
+      if (event.key === "Tab" || (event.key === "Enter" && !event.shiftKey)) {
+        event.preventDefault();
+        pickQuickReply(quickMatches[quickActive]);
+        return;
+      }
+    }
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       onSend();
@@ -746,6 +784,7 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
                     );
                   })
                 : visible.map(renderRow)}
+              {!listLoaded && <SkeletonRows rows={7} flat className="px-4 py-4" />}
               {listLoaded && !visible.length && (
                 <p className="px-5 py-10 text-center text-sm text-muted">
                   {inSegment.length
@@ -868,6 +907,7 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
                       </button>
                     </div>
                   )}
+                  {!threadLoaded && <SkeletonThread className="pt-2" />}
                   {thread.map((item, index) => {
                     const mine = item.direction === "out";
                     const previous = thread[index - 1];
@@ -962,11 +1002,25 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
                 {!active.windowOpen && !active.blocked && (
                   <div className="flex items-start gap-2 bg-[#fff8e1] px-4 py-2 text-[12px] leading-snug text-amber-900">
                     <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    <span>
-                      <span className="font-bold">Fenêtre de 24 h fermée.</span> L'étudiant doit vous réécrire pour que vous puissiez répondre
-                      <span className="hidden md:inline"> (ou un modèle de message approuvé par Meta est nécessaire)</span>.
+                    <span className="min-w-0 flex-1">
+                      <span className="font-bold">Fenêtre de 24 h fermée.</span> Envoyez un modèle : dès que le client répond, vous pourrez écrire normalement.
                     </span>
+                    <button type="button" onClick={() => setTemplateOpen((value) => !value)} className="shrink-0 rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-bold text-white transition hover:bg-emerald-700">
+                      Envoyer un modèle
+                    </button>
                   </div>
+                )}
+                {templateOpen && !active.windowOpen && !active.blocked && (
+                  <WhatsAppTemplatePicker
+                    key={active.id}
+                    contactId={active.id}
+                    onClose={() => setTemplateOpen(false)}
+                    onSent={(message) => {
+                      setTemplateOpen(false);
+                      setThread((previous) => [...previous, message]);
+                      loadList();
+                    }}
+                  />
                 )}
                 {error && <p className="bg-[#f0f2f5] px-4 pt-2 text-xs text-red-500">{error}</p>}
 
@@ -1020,9 +1074,26 @@ export default function WhatsAppInbox({ segment }: { segment: WhatsAppSegment })
                         <button type="button" onClick={clearAttachment} aria-label="Retirer le fichier" className="shrink-0 rounded-full p-1.5 text-[#667781] hover:bg-black/5"><X className="h-4 w-4" /></button>
                       </div>
                     )}
+                    {quickMatches.length > 0 && active.windowOpen && (
+                      <ul className="absolute bottom-full left-0 right-0 z-20 mb-2 overflow-hidden rounded-2xl border border-line bg-white shadow-xl">
+                        {quickMatches.map((reply, index) => (
+                          <li key={reply.shortcut}>
+                            <button
+                              type="button"
+                              onMouseDown={(event) => event.preventDefault()}
+                              onClick={() => pickQuickReply(reply)}
+                              className={cn("block w-full px-3 py-2 text-left", index === quickActive ? "bg-emerald-50" : "hover:bg-slate-50")}
+                            >
+                              <span className="block text-xs font-bold text-emerald-700">/{reply.shortcut}</span>
+                              <span dir="auto" className="block truncate text-[12px] text-[#667781]">{reply.text}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     <textarea
                       value={text}
-                      onChange={(event) => setText(event.target.value.slice(0, MAX_LENGTH))}
+                      onChange={(event) => { setText(event.target.value.slice(0, MAX_LENGTH)); setQuickIndex(0); }}
                       onKeyDown={onKeyDown}
                       disabled={!active.windowOpen || sending}
                       rows={Math.min(5, Math.max(1, text.split("\n").length))}

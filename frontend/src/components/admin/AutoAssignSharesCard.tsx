@@ -1,4 +1,5 @@
 import { fetchAutoAssignShares, saveAutoAssignShares, type AutoAssignMode, type AutoAssignSettings } from "@/lib/auth";
+import { SkeletonLines } from "@/components/ui/skeleton";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, Ban, CheckCircle2, Percent, RotateCcw, Save, Scale } from "lucide-react";
@@ -103,7 +104,7 @@ export default function AutoAssignSharesCard() {
       )}
 
       {!data ? (
-        !error && <p className="mt-4 text-sm text-muted">Chargement...</p>
+        !error && <SkeletonLines lines={4} className="mt-4" />
       ) : (
         <>
           <div className="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Mode de répartition">

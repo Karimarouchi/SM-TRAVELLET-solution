@@ -1,4 +1,5 @@
 import { fetchMyMails, markMyMailRead, type StudentMail } from "@/lib/mail";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Mail, Paperclip } from "lucide-react";
@@ -41,7 +42,7 @@ export default function StudentMailsPage() {
       </section>
 
       {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
-      {!mails && !error && <p className="mt-8 text-center text-sm text-muted">{t("Chargement…", "Loading…")}</p>}
+      {!mails && !error && <SkeletonRows rows={4} className="mt-6" />}
       {mails && mails.length === 0 && (
         <p className="mt-6 rounded-[20px] border border-dashed border-line bg-white p-8 text-center text-sm text-muted">{t("Aucun e-mail reçu pour le moment.", "No email received yet.")}</p>
       )}

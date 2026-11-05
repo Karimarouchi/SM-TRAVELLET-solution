@@ -20,6 +20,14 @@ async function listMine(req, res) {
   }
 }
 
+async function markCelebrated(req, res) {
+  try {
+    res.json(await service.markCelebrated(req.auth, req.params.id, req.body?.kind));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function historyForStudent(req, res) {
   try {
     res.json(await service.getHistoryForStudent(req.auth, req.params.id));
@@ -237,6 +245,7 @@ async function scheduleVisaEmbassyAppointment(req, res) {
 }
 
 module.exports = {
+  markCelebrated,
   updatePortalAccount,
   correctUniversity,
   removeDeposited,

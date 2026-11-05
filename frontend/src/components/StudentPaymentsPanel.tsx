@@ -1,4 +1,5 @@
 import { FancySelect } from "@/components/ui/fancy-select";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import { Amount } from "@/components/ui/hidden-amounts";
 import {
   PAYMENT_METHOD_LABELS,
@@ -260,7 +261,7 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
 
       <div className="mt-4 space-y-4">
         {!summary ? (
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-line border-t-brand" />
+          !error && <SkeletonRows rows={3} avatar={false} />
         ) : summary.plans.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-line bg-slate-50 p-5 text-sm text-muted">
             Aucun plan de paiement pour cet étudiant (inscrit avant la mise en place des paiements, ou pays sans tarif). Il n'est pas bloqué au dépôt du visa. Enregistrer un paiement crée son plan à partir du tarif du pays.

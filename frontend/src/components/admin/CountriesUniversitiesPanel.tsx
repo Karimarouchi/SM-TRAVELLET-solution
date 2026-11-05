@@ -1,4 +1,5 @@
 import { alertDialog, confirmDialog } from "@/components/ui/dialog-host";
+import { SkeletonCards, SkeletonLines } from "@/components/ui/skeleton";
 import {
   createCountryUniversity,
   deleteCountryUniversity,
@@ -177,9 +178,7 @@ export default function CountriesUniversitiesPanel() {
         </div>
       </div>
       {loading ? (
-        <div className="mt-16 flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-line border-t-brand" />
-        </div>
+        <SkeletonCards className="mt-6" />
       ) : (
         <div className="mt-5 space-y-3">
           {countries
@@ -207,7 +206,7 @@ export default function CountriesUniversitiesPanel() {
                 {isOpen && (
                   <div className="border-t border-line bg-slate-50 px-4 py-4">
                     {listLoading === c.id ? (
-                      <p className="text-xs text-muted">Chargement...</p>
+                      <SkeletonLines lines={3} />
                     ) : (
                       <div className="space-y-4">
                         <div className="relative">

@@ -1,4 +1,5 @@
 import { fetchUserPerformance, type StaffDetail, type PerfContactItem, type PerfDossierItem, type PerformancePeriod, type StaffPerformance, type PerfWorkHours } from "@/lib/auth";
+import { Skeleton, SkeletonGroup, SkeletonPage } from "@/components/ui/skeleton";
 import { formatWhatsAppPhone } from "@/lib/whatsapp";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import StaffCommissionsBlock from "@/components/admin/StaffCommissionsBlock";
@@ -216,7 +217,17 @@ export default function AdminStaffStatsPage() {
             </div>
           </div>
         ) : (
-          <h1 className="mt-1 font-display text-2xl font-extrabold">{error ? "Introuvable" : "Chargement..."}</h1>
+          error ? (
+            <h1 className="mt-1 font-display text-2xl font-extrabold">Introuvable</h1>
+          ) : (
+            <SkeletonGroup className="mt-2 flex items-center gap-4">
+              <Skeleton light className="h-14 w-14 shrink-0 rounded-full" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton light className="h-7 w-56 max-w-full" />
+                <Skeleton light className="h-3 w-72 max-w-full" />
+              </div>
+            </SkeletonGroup>
+          )
         )}
       </section>
 
@@ -232,6 +243,8 @@ export default function AdminStaffStatsPage() {
       {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
       {user && (user.sales || user.rdv) && <StaffCommissionsBlock userId={user.id} name={`${user.prenom} ${user.nom}`.trim()} />}
+
+      {!user && !error && <SkeletonPage className="mt-6" />}
 
       {user?.sales && <SalesWhatsAppBlock user={user} />}
 

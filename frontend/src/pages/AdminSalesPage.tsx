@@ -19,9 +19,10 @@ import {
   type RdvUser,
   type UnassignedVisaApplication
 } from "@/lib/auth";
+import { SkeletonPage, SkeletonRows } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import { BarChart3, GraduationCap, LayoutGrid, List, Mail, MapPinOff, Phone, Plus, ShieldCheck, Trophy, UserCog, Users, Users2, X, ArrowRightLeft } from "lucide-react";
+import { BarChart3, GraduationCap, LayoutGrid, List, Mail, MapPinOff, Phone, Plane, Plus, ShieldCheck, Trophy, Users, Users2, X, ArrowRightLeft } from "lucide-react";
 import { DragEvent, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
@@ -36,7 +37,8 @@ const RDV_STATUS_META: Record<string, { label: string; color: string }> = {
   INTERVIEW_COMPLETED: { label: "Entretien terminé", color: "bg-violet-50 text-violet-700 border-violet-200" },
   ACCEPTED: { label: "Accepté", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
   REJECTED: { label: "Refusé", color: "bg-red-50 text-red-600 border-red-200" },
-  CLOSED: { label: "Clôturé", color: "bg-slate-100 text-slate-500 border-slate-200" }
+  CLOSED: { label: "Clôturé", color: "bg-slate-100 text-slate-500 border-slate-200" },
+  POSTPONED: { label: "Reporté", color: "bg-amber-50 text-amber-700 border-amber-200" }
 };
 
 const ADDITIONAL_ROLES = [
@@ -100,7 +102,7 @@ function AccessModal({ userId, name, onClose, onSaved }: { userId: string; name:
         </div>
 
         {loading ? (
-          <div className="mt-6 flex justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-line border-t-brand" /></div>
+          <SkeletonRows rows={4} className="mt-6" />
         ) : (
           <>
             <p className="mt-4 text-[11px] font-bold uppercase tracking-wider text-muted">Rôles additionnels</p>
@@ -380,13 +382,29 @@ function SalesTab({ board, onOpenAccess, onChanged }: { board: AssignmentBoard |
 
 /* ─── Attribution des dossiers visa : glisser-déposer, exactement comme
    le tableau d'affectation des Conseillers(ères) commerciaux(ales) ─────────────────────────── */
-type DraggableVisaCard = { id: string; studentName: string; countryName: string; universityName: string; status?: string };
+type VisaCardFile = { id: string; studentId: string; studentName: string; countryName: string; universityName: string; status?: string };
+type DraggableVisaCard = { studentId: string; studentName: string; files: VisaCardFile[] };
+
+// Une carte par étudiant : tous ses dossiers de la colonne, qui se déplacent ensemble.
+function studentCards(files: VisaCardFile[]): DraggableVisaCard[] {
+  const cards = new Map<string, DraggableVisaCard>();
+  for (const file of files) {
+    const card = cards.get(file.studentId);
+    if (card) card.files.push(file);
+    else cards.set(file.studentId, { studentId: file.studentId, studentName: file.studentName, files: [file] });
+  }
+  return [...cards.values()];
+}
+
+// Refusés et clôturés cachés tant que l'étudiant a un autre dossier actif.
+function visibleFiles(files: VisaCardFile[]) {
+  const active = files.filter((file) => file.status !== "REJECTED" && file.status !== "CLOSED");
+  return active.length ? active : files;
+}
 
 function RdvStudentCard({ card, onMove }: { card: DraggableVisaCard; onMove: () => void }) {
-  const meta = card.status ? (RDV_STATUS_META[card.status] || { label: card.status, color: "bg-slate-100 text-slate-500 border-slate-200" }) : null;
-
   function onDragStart(event: DragEvent<HTMLElement>) {
-    event.dataTransfer.setData("text/plain", card.id);
+    event.dataTransfer.setData("text/plain", card.files.map((file) => file.id).join(","));
     event.dataTransfer.effectAllowed = "move";
   }
 
@@ -398,23 +416,32 @@ function RdvStudentCard({ card, onMove }: { card: DraggableVisaCard; onMove: () 
     >
       <div className="flex items-center gap-2.5">
         <UserAvatar name={card.studentName} size="lg" className="h-8 w-8 text-[11px]" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-display text-sm font-bold text-dark">{card.studentName}</p>
-          <p className="flex items-center gap-1.5 truncate text-[11px] text-muted">
-            <GraduationCap className="h-3 w-3 shrink-0 text-brand" /> {card.universityName} · {card.countryName}
-          </p>
-        </div>
+        <Link to={`/conseiller/etudiants/${card.studentId}`} draggable={false} className="min-w-0 flex-1 truncate font-display text-sm font-bold text-dark hover:text-brand hover:underline">
+          {card.studentName}
+        </Link>
       </div>
-      {meta && (
-        <span className={cn("mt-2.5 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold", meta.color)}>
-          {meta.label}
-        </span>
-      )}
+      <ul className="mt-2 space-y-2">
+        {visibleFiles(card.files).map((file) => {
+          const meta = file.status ? (RDV_STATUS_META[file.status] || { label: file.status, color: "bg-slate-100 text-slate-500 border-slate-200" }) : null;
+          return (
+            <li key={file.id} className="min-w-0">
+              <p className="flex items-center gap-1.5 truncate text-[11px] text-muted">
+                <GraduationCap className="h-3 w-3 shrink-0 text-brand" /> {file.universityName} · {file.countryName}
+              </p>
+              {meta && (
+                <span className={cn("mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold", meta.color)}>
+                  {meta.label}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
       {/* Alternative tactile au glisser-déposer (téléphone/tablette). */}
       <button
         type="button"
         onClick={onMove}
-        className={cn("mt-2.5 inline-flex items-center gap-1 rounded-full bg-brand/10 px-2.5 py-0.5 text-[10px] font-bold text-brand transition hover:bg-brand hover:text-white lg:hidden", meta && "ml-2")}
+        className="mt-2.5 inline-flex items-center gap-1 rounded-full bg-brand/10 px-2.5 py-0.5 text-[10px] font-bold text-brand transition hover:bg-brand hover:text-white lg:hidden"
       >
         <ArrowRightLeft className="h-3 w-3" /> Attribuer
       </button>
@@ -440,7 +467,7 @@ function RdvDropColumn({
   inactive?: boolean;
   droppable: boolean;
   headerExtra?: React.ReactNode;
-  onDropCard: (applicationId: string, rdvUserId: string) => void;
+  onDropCard: (applicationIds: string[], rdvUserId: string) => void;
   onMoveCard: (card: DraggableVisaCard, fromId: string | null) => void;
 }) {
   const [over, setOver] = useState(false);
@@ -449,8 +476,8 @@ function RdvDropColumn({
     event.preventDefault();
     setOver(false);
     if (!droppable || !dropId) return;
-    const applicationId = event.dataTransfer.getData("text/plain");
-    if (applicationId) onDropCard(applicationId, dropId);
+    const applicationIds = event.dataTransfer.getData("text/plain").split(",").filter(Boolean);
+    if (applicationIds.length) onDropCard(applicationIds, dropId);
   }
 
   return (
@@ -477,14 +504,14 @@ function RdvDropColumn({
             <h3 className="truncate font-display text-sm font-bold text-dark">{title}</h3>
           </div>
           <p className={cn("mt-1 text-xs font-bold", accent === "amber" ? "text-amber-600" : "text-brand")}>
-            {cards.length} dossier{cards.length > 1 ? "s" : ""}
+            {cards.length} étudiant{cards.length > 1 ? "s" : ""}
           </p>
         </div>
         {headerExtra}
       </div>
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto pr-0.5">
         {cards.map((card) => (
-          <RdvStudentCard key={card.id} card={card} onMove={() => onMoveCard(card, dropId)} />
+          <RdvStudentCard key={card.studentId} card={card} onMove={() => onMoveCard(card, dropId)} />
         ))}
         {!cards.length && (
           <p className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-line px-3 py-8 text-center text-xs text-muted">
@@ -515,15 +542,15 @@ function RdvAssignmentBoard({
 
   useEffect(() => { loadUnassigned(); }, []);
 
-  async function onDropCard(applicationId: string, rdvUserId: string) {
+  async function onDropCard(applicationIds: string[], rdvUserId: string) {
     setError("");
     try {
-      await assignApplicationRdv(applicationId, rdvUserId);
-      loadUnassigned();
-      onChanged();
+      for (const applicationId of applicationIds) await assignApplicationRdv(applicationId, rdvUserId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Attribution impossible.");
     }
+    loadUnassigned();
+    onChanged();
   }
 
   return (
@@ -542,7 +569,7 @@ function RdvAssignmentBoard({
           accent="amber"
           dropId={null}
           droppable={false}
-          cards={unassigned.map((a) => ({ id: a.id, studentName: a.studentName, countryName: a.countryName, universityName: a.universityName }))}
+          cards={studentCards(unassigned)}
           onDropCard={onDropCard}
           onMoveCard={(card, fromId) => setMoveTarget({ card, fromId })}
         />
@@ -553,7 +580,7 @@ function RdvAssignmentBoard({
             dropId={rdv.id}
             inactive={!rdv.isActive}
             droppable={rdv.isActive}
-            cards={(studentsByRdv[rdv.id] || []).map((s) => ({ id: s.id, studentName: s.studentName, countryName: s.countryName, universityName: s.universityName, status: s.status }))}
+            cards={studentCards(studentsByRdv[rdv.id] || [])}
             onDropCard={onDropCard}
             onMoveCard={(card, fromId) => setMoveTarget({ card, fromId })}
           />
@@ -567,7 +594,7 @@ function RdvAssignmentBoard({
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="font-display text-lg font-bold text-dark">Attribuer le dossier de {moveTarget.card.studentName}</h3>
-            <p className="mt-1 text-xs text-muted">{moveTarget.card.universityName} · {moveTarget.card.countryName}</p>
+            <p className="mt-1 text-xs text-muted">{visibleFiles(moveTarget.card.files).map((file) => `${file.universityName} · ${file.countryName}`).join(" / ")}</p>
             <div className="mt-4 space-y-2">
               {rdvUsers.filter((r) => r.isActive && r.id !== moveTarget.fromId).map((r) => (
                 <button
@@ -576,7 +603,7 @@ function RdvAssignmentBoard({
                   onClick={async () => {
                     const target = moveTarget;
                     setMoveTarget(null);
-                    await onDropCard(target.card.id, r.id);
+                    await onDropCard(target.card.files.map((file) => file.id), r.id);
                   }}
                   className="flex w-full items-center gap-3 rounded-2xl border border-line px-3 py-2.5 text-left transition hover:border-brand hover:bg-brand-light/40"
                 >
@@ -602,6 +629,45 @@ function RdvAssignmentBoard({
   );
 }
 
+// Dossier d'inscription : l'université n'a pas encore accepté. Dossier visa : elle a accepté, le visa suit.
+const isEnrolmentOpen = (file: RdvStudent) => !["ACCEPTED", "REJECTED", "CLOSED", "POSTPONED"].includes(file.status);
+const isVisaOpen = (file: RdvStudent) => file.status === "ACCEPTED" && file.visaStatus !== "ACCEPTED" && file.visaStatus !== "REJECTED";
+
+function openFilesLabel(files: RdvStudent[]) {
+  const enrolments = files.filter(isEnrolmentOpen).length;
+  const visas = files.filter(isVisaOpen).length;
+  return `${enrolments} inscription${enrolments > 1 ? "s" : ""} · ${visas} visa${visas > 1 ? "s" : ""} en cours`;
+}
+
+// Étapes d'un dossier visa en cours : le visa suit l'acceptation par l'université.
+const VISA_STAGES: Array<{ key: string | null; label: string }> = [
+  { key: null, label: "Documents en préparation" },
+  { key: "PREPARATION", label: "Chez le Gestionnaire de dossiers" },
+  { key: "SUBMITTED", label: "Visa déposé" }
+];
+
+function StageList({ stages }: { stages: Array<{ label: string; files: RdvStudent[] }> }) {
+  const filled = stages.filter((stage) => stage.files.length > 0);
+  if (!filled.length) return <p className="mt-3 text-sm text-muted">Aucun dossier en cours.</p>;
+  return (
+    <div className="mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {filled.map((stage) => (
+        <div key={stage.label} className="min-w-0">
+          <p className="text-xs font-bold text-dark">{stage.label} <span className="font-semibold text-muted">({stage.files.length})</span></p>
+          <ul className="mt-1.5 divide-y divide-line/60">
+            {stage.files.map((file) => (
+              <li key={file.id} className="py-1.5">
+                <Link to={`/conseiller/etudiants/${file.studentId}`} className="block truncate text-sm font-semibold text-brand hover:underline">{file.studentName}</Link>
+                <span className="block truncate text-[11px] text-muted">{file.universityName} · {file.countryName}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ─── Statistiques de l'équipe RDV ──────────────────────────── */
 function RdvStats({
   rdvUsers,
@@ -614,9 +680,15 @@ function RdvStats({
   assignments: RdvAssignment[];
   studentsByRdv: Record<string, RdvStudent[]>;
 }) {
-  const active = rdvUsers.filter((r) => r.isActive);
-  const allStudents = Object.values(studentsByRdv).flat();
-  const inProgress = allStudents.filter((s) => s.status !== "CLOSED").length;
+  const [openPanel, setOpenPanel] = useState<"enrolment" | "visa" | null>(null);
+  // Un dossier confié à un remplaçant apparaît chez les deux gestionnaires : compté une fois.
+  const allStudents = [...new Map(Object.values(studentsByRdv).flat().map((file) => [file.id, file])).values()];
+  const visaFiles = allStudents.filter((s) => s.status === "ACCEPTED");
+  const enrolmentFiles = allStudents.filter((s) => s.status !== "ACCEPTED");
+  const enrolmentOpen = enrolmentFiles.filter(isEnrolmentOpen);
+  const visaOpen = visaFiles.filter(isVisaOpen);
+  const enrolmentStages = Object.entries(RDV_STATUS_META).map(([key, meta]) => ({ label: meta.label, files: enrolmentOpen.filter((s) => s.status === key) }));
+  const visaStages = VISA_STAGES.map((stage) => ({ label: stage.label, files: visaOpen.filter((s) => (s.visaStatus || null) === stage.key) }));
   const covered = new Set(assignments.map((a) => a.countryId));
   const uncoveredCountries = countries.filter((c) => c.active && !covered.has(c.id));
   const topRdv = [...rdvUsers].sort((a, b) => (studentsByRdv[b.id]?.length || 0) - (studentsByRdv[a.id]?.length || 0))[0];
@@ -624,19 +696,21 @@ function RdvStats({
 
   const stats = [
     {
-      key: "active",
-      label: "Gestionnaires de dossiers actifs",
-      value: active.length,
-      hint: `${rdvUsers.length} compte${rdvUsers.length > 1 ? "s" : ""} au total`,
-      icon: UserCog,
+      key: "enrolment",
+      label: "Dossiers d'inscription en cours",
+      value: enrolmentOpen.length,
+      panel: "enrolment" as const,
+      hint: `${enrolmentFiles.length} dossier${enrolmentFiles.length > 1 ? "s" : ""} d'inscription au total`,
+      icon: GraduationCap,
       color: "from-violet-500 to-purple-600"
     },
     {
-      key: "inprogress",
+      key: "visa",
       label: "Dossiers visa en cours",
-      value: inProgress,
-      hint: `${allStudents.length} dossier${allStudents.length > 1 ? "s" : ""} suivi${allStudents.length > 1 ? "s" : ""} au total`,
-      icon: GraduationCap,
+      value: visaOpen.length,
+      panel: "visa" as const,
+      hint: `${visaFiles.length} dossier${visaFiles.length > 1 ? "s" : ""} visa au total`,
+      icon: Plane,
       color: "from-sky-500 to-blue-600"
     },
     {
@@ -659,20 +733,46 @@ function RdvStats({
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-      {stats.map((stat) => (
-        <div key={stat.key} className="min-w-0 rounded-[20px] border border-line bg-white p-4 sm:p-5">
-          <div className={cn("flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br text-white", stat.color)}>
-            <stat.icon className="h-4 w-4" />
+    <>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        {stats.map((stat) => {
+          const body = (
+            <>
+              <div className={cn("flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br text-white", stat.color)}>
+                <stat.icon className="h-4 w-4" />
+              </div>
+              <p className={cn("mt-3 font-display font-extrabold text-dark", stat.isText ? "truncate text-lg" : "text-2xl")}>
+                {stat.value}
+              </p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted sm:text-xs">{stat.label}</p>
+              <p className="mt-1 truncate text-[11px] text-brand" title={stat.hint}>{stat.hint}</p>
+            </>
+          );
+          const panel = stat.panel;
+          if (!panel) return <div key={stat.key} className="min-w-0 rounded-[20px] border border-line bg-white p-4 sm:p-5">{body}</div>;
+          return (
+            <button
+              key={stat.key}
+              type="button"
+              aria-expanded={openPanel === panel}
+              onClick={() => setOpenPanel((current) => (current === panel ? null : panel))}
+              className={cn("min-w-0 rounded-[20px] border bg-white p-4 text-left transition hover:border-brand sm:p-5", openPanel === panel ? "border-brand" : "border-line")}
+            >
+              {body}
+            </button>
+          );
+        })}
+      </div>
+      {openPanel && (
+        <section className="mt-3 rounded-[20px] border border-line bg-white p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="font-display text-base font-bold text-dark">{openPanel === "visa" ? "Dossiers visa en cours" : "Dossiers d'inscription en cours"}</h3>
+            <button type="button" onClick={() => setOpenPanel(null)} aria-label="Fermer" className="rounded-full p-1 text-muted hover:text-dark"><X className="h-4 w-4" /></button>
           </div>
-          <p className={cn("mt-3 font-display font-extrabold text-dark", stat.isText ? "truncate text-lg" : "text-2xl")}>
-            {stat.value}
-          </p>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted sm:text-xs">{stat.label}</p>
-          <p className="mt-1 truncate text-[11px] text-brand" title={stat.hint}>{stat.hint}</p>
-        </div>
-      ))}
-    </div>
+          <StageList stages={openPanel === "visa" ? visaStages : enrolmentStages} />
+        </section>
+      )}
+    </>
   );
 }
 
@@ -682,6 +782,7 @@ function RdvTab({ onNewRdv, onOpenAccess }: { onNewRdv: () => void; onOpenAccess
   const [countries, setCountries] = useState<Country[]>([]);
   const [assignments, setAssignments] = useState<RdvAssignment[]>([]);
   const [studentsByRdv, setStudentsByRdv] = useState<Record<string, RdvStudent[]>>({});
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
 
@@ -699,10 +800,14 @@ function RdvTab({ onNewRdv, onOpenAccess }: { onNewRdv: () => void; onOpenAccess
       setStudentsByRdv(Object.fromEntries(entries));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Impossible de charger les Gestionnaires de dossiers.");
+    } finally {
+      setLoaded(true);
     }
   };
 
   useEffect(() => { load(); }, []);
+
+  if (!loaded) return <SkeletonPage className="mt-5" />;
 
   return (
     <div className="mt-5">
@@ -759,7 +864,6 @@ function RdvTab({ onNewRdv, onOpenAccess }: { onNewRdv: () => void; onOpenAccess
               {rdvUsers.map((rdv) => {
                 const covered = assignments.filter((a) => a.rdvUserId === rdv.id).length;
                 const students = studentsByRdv[rdv.id] || [];
-                const inProgress = students.filter((s) => s.status !== "CLOSED").length;
                 return (
                   <tr key={rdv.id} className="transition hover:bg-brand/5">
                     <td className="px-4 py-3">
@@ -772,7 +876,7 @@ function RdvTab({ onNewRdv, onOpenAccess }: { onNewRdv: () => void; onOpenAccess
                       </div>
                     </td>
                     <td className="px-4 py-3 hidden sm:table-cell text-xs text-mid">{covered} pays</td>
-                    <td className="px-4 py-3 text-xs text-mid">{students.length} · {inProgress} en cours</td>
+                    <td className="px-4 py-3 text-xs text-mid">{openFilesLabel(students)}</td>
                     <td className="px-4 py-3 hidden md:table-cell">
                       <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold uppercase", rdv.isActive ? "bg-brand-light text-brand" : "bg-slate-100 text-muted")}>
                         {rdv.isActive ? "Actif" : "Inactif"}
@@ -803,7 +907,6 @@ function RdvTab({ onNewRdv, onOpenAccess }: { onNewRdv: () => void; onOpenAccess
           {rdvUsers.map((rdv) => {
             const covered = new Set(assignments.filter((a) => a.rdvUserId === rdv.id).map((a) => a.countryId));
             const rdvStudents = studentsByRdv[rdv.id] || [];
-            const inProgress = rdvStudents.filter((s) => s.status !== "CLOSED").length;
             return (
               <article key={rdv.id} className={cn("min-w-0 rounded-[20px] border bg-white p-4 sm:p-5", rdv.isActive ? "border-line" : "border-dashed border-slate-300 opacity-80")}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -865,7 +968,7 @@ function RdvTab({ onNewRdv, onOpenAccess }: { onNewRdv: () => void; onOpenAccess
                 </div>
 
                 <p className="mt-3 flex items-center gap-2 text-xs text-mid">
-                  <GraduationCap className="h-3.5 w-3.5 text-brand" /> {rdvStudents.length} dossier{rdvStudents.length > 1 ? "s" : ""} · {inProgress} en cours
+                  <GraduationCap className="h-3.5 w-3.5 text-brand" /> {openFilesLabel(rdvStudents)}
                 </p>
               </article>
             );

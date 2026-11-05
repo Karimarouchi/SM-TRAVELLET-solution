@@ -1,4 +1,5 @@
 import EmployeePicker from "@/components/rh/EmployeePicker";
+import { SkeletonPage } from "@/components/ui/skeleton";
 import { confirmDialog } from "@/components/ui/dialog-host";
 import { addHrEmployeeDocument, addHrPayrollEntry, cancelHrSalaryPayment, confirmHrPayslipImport, decideHrDocumentRequest, downloadHrPdf, fetchHrDocumentRequests, fetchHrPayroll, issueHrPayslip, payHrSalary, previewHrPayslipImport, removeHrEmployeeDocument, removeHrOfficialPayslip, removeHrPayrollEntry, reopenHrPayslip, saveHrPayrollNote, scheduleHrDocumentRequest, setHrPayrollCommission, type HrPayrollEmployee, type HrPayrollMonth, type HrPayslipDraft, type HrPayslipImport, type HrPendingDocument, type HrSalaryPayment } from "@/lib/hr";
 import { cn } from "@/lib/utils";
@@ -179,7 +180,7 @@ export default function RhPayrollPage() {
         </ul>
       </section>
       {!data || !selected ? (
-        <div className="mx-auto mt-16 h-10 w-10 animate-spin rounded-full border-2 border-line border-t-orange-500" />
+        data && !error ? <p className="mt-6 rounded-2xl border border-dashed border-line bg-white p-5 text-sm text-muted">Aucun employé.</p> : !error && <SkeletonPage className="mt-6" />
       ) : (
         <div className="mt-6 space-y-4">
           <EmployeePicker
@@ -529,7 +530,7 @@ function Detail({
         </div>
         </>
         )}
-        <PayBar row={row} busy={busy} paidOn={paidOn} onPaidOn={onPaidOn} onPay={onPay} onCancelPay={onCancelPay} />
+        <PayBar row={row} month={month} onMonth={onOpenMonth} busy={busy} paidOn={paidOn} onPaidOn={onPaidOn} onPay={onPay} onCancelPay={onCancelPay} />
       </section>
       {!row.official && <section className="rounded-[24px] border border-line bg-white p-5">
         <h3 className="font-display font-bold text-dark">Primes et avances</h3>
@@ -584,8 +585,10 @@ function Detail({
   );
 }
 
-function PayBar({ row, busy, paidOn, onPaidOn, onPay, onCancelPay }: {
+function PayBar({ row, month, onMonth, busy, paidOn, onPaidOn, onPay, onCancelPay }: {
   row: HrPayrollEmployee;
+  month: string;
+  onMonth: (value: string) => void;
   busy: boolean;
   paidOn: string;
   onPaidOn: (value: string) => void;
@@ -597,7 +600,7 @@ function PayBar({ row, busy, paidOn, onPaidOn, onPay, onCancelPay }: {
     return (
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-800">Salaire payé</p>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-800">Salaire de {frMonth(month)} payé</p>
           <p className="text-sm font-semibold text-dark">{money(row.payment.amount)} · le {frDate(row.payment.paidOn)}</p>
         </div>
         <button type="button" disabled={busy} onClick={() => onCancelPay(row.payment!.id)} className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-dark ring-1 ring-emerald-200">Annuler le paiement</button>
@@ -605,11 +608,19 @@ function PayBar({ row, busy, paidOn, onPaidOn, onPay, onCancelPay }: {
     );
   }
   return (
-    <div className="mt-4 flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-line bg-slate-50 px-4 py-3">
-      <label className="text-xs font-bold text-mid">Date du paiement
-        <input type="date" value={paidOn} onChange={(event) => onPaidOn(event.target.value)} className="mt-1 block rounded-xl border border-line bg-white px-3 py-2 text-sm" />
-      </label>
-      <button type="button" disabled={busy || net <= 0} onClick={onPay} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Payer {money(net)}</button>
+    <div className="mt-4 rounded-2xl border border-line bg-slate-50 px-4 py-3">
+      <p className="text-sm font-bold text-dark">Salaire à verser : {frMonth(month)}</p>
+      <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-wrap gap-3">
+          <label className="text-xs font-bold text-mid">Salaire du mois
+            <input type="month" value={month} disabled={busy} onChange={(event) => { if (event.target.value) onMonth(event.target.value); }} className="mt-1 block rounded-xl border border-line bg-white px-3 py-2 text-sm" />
+          </label>
+          <label className="text-xs font-bold text-mid">Date du paiement
+            <input type="date" value={paidOn} onChange={(event) => onPaidOn(event.target.value)} className="mt-1 block rounded-xl border border-line bg-white px-3 py-2 text-sm" />
+          </label>
+        </div>
+        <button type="button" disabled={busy || net <= 0} onClick={onPay} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Payer {money(net)}</button>
+      </div>
     </div>
   );
 }
@@ -618,7 +629,7 @@ function PaymentHistory({ payments, busy, onCancel }: { payments: HrSalaryPaymen
   return (
     <section className="rounded-[24px] border border-line bg-white p-5">
       <h3 className="font-display text-lg font-bold text-dark">Historique des paiements</h3>
-      <p className="mt-1 text-xs text-muted">Chaque salaire payé depuis cette page, avec la date et le montant. Un paiement dont la fiche est déjà émise est déjà dans le résultat de l'exercice. Les autres s'y ajoutent.</p>
+      <p className="mt-1 text-xs text-muted">Chaque salaire payé depuis cette page, avec son mois, la date et le montant. Chaque paiement entre dans le résultat de l'année de son mois.</p>
       <ul className="mt-3 divide-y divide-line">
         {payments.map((payment) => (
           <li key={payment.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">

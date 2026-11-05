@@ -1,4 +1,5 @@
 import { fetchStudentsOverview, type PipelineStageKey, type StudentOverview } from "@/lib/auth";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import { PassportBadge } from "@/components/PassportBadge";
 import ApplicationBlockers from "@/components/ApplicationBlockers";
 import { STAGE_META } from "@/components/admin/StudentsPipelineBoard";
@@ -109,7 +110,7 @@ export default function AdminPipelineStagePage() {
       </div>
 
       {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
-      {loading && <p className="mt-6 text-sm text-muted">Chargement...</p>}
+      {loading && <SkeletonRows rows={6} className="mt-6" />}
 
       {!loading && !error && !filtered.length && (
         <p className="mt-6 rounded-[20px] border border-dashed border-line bg-white p-8 text-center text-sm text-muted">

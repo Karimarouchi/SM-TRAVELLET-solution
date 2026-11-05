@@ -1,4 +1,5 @@
 import { alertDialog, confirmDialog } from "@/components/ui/dialog-host";
+import { SkeletonCards } from "@/components/ui/skeleton";
 import {
   deleteCountryDocument,
   createCountryDocument,
@@ -199,10 +200,7 @@ export default function VisaDocumentsPanel() {
         </div>
       </div>
       {loading ? (
-        <div className="mt-16 flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-line border-t-brand" />
-          <p className="text-sm text-muted">Chargement des pays...</p>
-        </div>
+        <SkeletonCards className="mt-6" />
       ) : countries.length === 0 ? (
         <div className="mt-16 text-center">
           <Globe2 className="mx-auto h-12 w-12 text-line" />

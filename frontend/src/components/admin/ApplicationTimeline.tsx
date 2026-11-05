@@ -22,6 +22,7 @@ import {
   type CountryUniversity,
   type UniversityApplication
 } from "@/lib/auth";
+import { SkeletonLines } from "@/components/ui/skeleton";
 import { confirmDialog } from "@/components/ui/dialog-host";
 import { cn, studentProfilePath } from "@/lib/utils";
 import { Link } from "react-router-dom";
@@ -752,7 +753,7 @@ function ApplyModal({ app, onClose, onDone }: { app: UniversityApplication; onCl
         <div className="mt-4 space-y-3">
           <p className="text-xs text-muted">Vérifiez chaque détail de cette candidature avant de saisir le compte de l'université.</p>
           {recapError && <p className="text-xs text-red-500">{recapError}</p>}
-          {!recap && !recapError && <p className="text-xs text-muted">Chargement…</p>}
+          {!recap && !recapError && <SkeletonLines lines={4} />}
           {recap && (
             <>
               <div className="space-y-1.5 rounded-xl border border-brand/20 bg-brand/5 px-3 py-2.5">

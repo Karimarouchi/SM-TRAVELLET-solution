@@ -75,6 +75,17 @@ async function update(id, fields) {
   return result.rows[0] || null;
 }
 
+// Sans toucher updated_at : voir la célébration n'est pas une activité sur le dossier.
+async function markCelebrated(id, kind) {
+  const visa = kind === "visa";
+  await query(
+    `UPDATE university_applications
+     SET university_celebrated_at = COALESCE(university_celebrated_at, NOW())${visa ? ", visa_celebrated_at = COALESCE(visa_celebrated_at, NOW())" : ""}
+     WHERE id = $1`,
+    [id]
+  );
+}
+
 async function listForRdv(rdvUserId) {
   const result = await query(
     `SELECT ua.*, c.name AS country_name, cu.name AS university_name, p.title AS programme_title,
@@ -321,6 +332,7 @@ async function rdvHasStudent(rdvUserId, studentId) {
 }
 
 module.exports = {
+  markCelebrated,
   hasTranslatedApplication,
   listAcceptedWithAppointment,
   rdvHasStudent,

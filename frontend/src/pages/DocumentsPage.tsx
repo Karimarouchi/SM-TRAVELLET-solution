@@ -1,4 +1,5 @@
 import VisaDocumentsChecklist from "@/components/VisaDocumentsChecklist";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import TranslationSlot from "@/components/TranslationSlot";
 import { fetchMyDocuments, fetchMyVisaChecklist, uploadMyDocument, type StudentDocumentChecklistItem, type VisaDocumentChecklistItem } from "@/lib/auth";
 import { useLanguage } from "@/lib/i18n";
@@ -249,10 +250,7 @@ export default function DocumentsPage() {
       )}
 
       {loading ? (
-        <div className="mt-16 flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-line border-t-brand" />
-          <p className="text-sm text-muted">{t("Chargement de vos documents...", "Loading your documents...")}</p>
-        </div>
+        <SkeletonRows rows={6} className="mt-6" />
       ) : tab === "dossier" ? (
         documents.length === 0 ? (
           <div className="mt-16 text-center">

@@ -1,4 +1,5 @@
 import { downloadHrPdf, fetchMyAbsences, fetchMyDocumentRequests, fetchMyDocuments, fetchMyHolidays, fetchMyLeave, fetchMyPayslips, previewMyLeave, requestHrDocument, requestMyLeave, submitMyAbsence, type HrAbsenceDay, type HrDocumentRequest, type HrEmployeeDocument, type HrHoliday, type HrLeaveEmployee, type HrLeavePreview, type HrMyPayslip } from "@/lib/hr";
+import { SkeletonPage } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { HeartPulse, LayoutDashboard, Palmtree, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -259,7 +260,7 @@ export default function MyRhPage() {
       </section>
       {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
       {!data ? (
-        <div className="mx-auto mt-16 h-10 w-10 animate-spin rounded-full border-2 border-line border-t-orange-500" />
+        !error && <SkeletonPage className="mt-6" stats={3} />
       ) : tab === "conge" && !data.balance ? (
         <p className="mt-6 rounded-2xl border border-dashed border-line bg-white p-5 text-sm text-muted">Votre fiche RH n'est pas encore remplie. L'administrateur enregistre le contrat et la date d'embauche. Le solde de congé apparaîtra ensuite.</p>
       ) : tab === "conge" && data.balance ? (

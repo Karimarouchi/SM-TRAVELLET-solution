@@ -1,4 +1,5 @@
 import { alertDialog, confirmDialog } from "@/components/ui/dialog-host";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import {
   fetchArchive,
   fetchAdminDashboard,
@@ -306,10 +307,7 @@ export default function ArchivePage() {
 
       {/* ── Table / Content ─────────────── */}
       {loading ? (
-        <div className="mt-20 flex flex-col items-center gap-4">
-          <div className="h-12 w-12 animate-spin rounded-full border-2 border-line border-t-brand" />
-          <p className="text-sm text-muted">{t("Chargement de l'archive…", "Loading archive…")}</p>
-        </div>
+        <SkeletonRows rows={7} className="mt-6" />
       ) : filtered.length === 0 ? (
         <div className="mt-20 flex flex-col items-center gap-4 text-center">
           <span className="flex h-20 w-20 items-center justify-center rounded-3xl bg-brand/10">

@@ -1,4 +1,5 @@
 import { fetchTeamPerformance, type PerformancePeriod, type StaffPerformance, type TeamPerformance } from "@/lib/auth";
+import { SkeletonStats } from "@/components/ui/skeleton";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, BarChart3, Clock, Crown, Flame, MessageCircle, Send, Sparkles, Timer, TrendingUp, UserCheck, Users } from "lucide-react";
@@ -354,14 +355,14 @@ export default function TeamPerformancePanel({ salesLoad = [], rdvLoad = [] }: {
         </div>
 
         {error && <p className="relative mt-4 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-white">{error}</p>}
-        {!data && !error && <p className="relative mt-6 text-sm text-white/80">Chargement...</p>}
+        {!data && !error && <SkeletonStats light className="relative mt-6" />}
 
         {data && wa && (
           <div className="relative mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
             <GlassStat
               icon={Timer}
               label="Temps moyen de réponse"
-              hint={wa.reply.count ? `pour répondre aux étudiants, sur ${wa.reply.count} réponse${wa.reply.count > 1 ? "s" : ""}, en heures de travail` : "pas encore de donnée"}
+              hint={wa.reply.count ? `pour répondre aux étudiants, sur ${wa.reply.count} réponse${wa.reply.count > 1 ? "s" : ""}, en heures de travail, hors pause` : "pas encore de donnée"}
             >
               <DurationValue label={wa.reply.label} />
             </GlassStat>

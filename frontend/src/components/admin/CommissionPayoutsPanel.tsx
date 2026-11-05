@@ -1,4 +1,5 @@
 import { STAGE_LABELS_FR } from "@/components/MyCommissionsCard";
+import { SkeletonPage } from "@/components/ui/skeleton";
 import { alertDialog, confirmDialog } from "@/components/ui/dialog-host";
 import { Amount } from "@/components/ui/hidden-amounts";
 import { UserAvatar } from "@/components/ui/user-avatar";
@@ -182,7 +183,7 @@ export default function CommissionPayoutsPanel() {
   const historyTotal = filteredPayouts.reduce((sum, p) => sum + p.amountDinar, 0);
 
   if (error) return <p className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>;
-  if (!due) return <div className="mx-auto mt-16 h-10 w-10 animate-spin rounded-full border-2 border-line border-t-brand" />;
+  if (!due) return <SkeletonPage className="mt-6" />;
 
   const years = [now.getFullYear(), now.getFullYear() - 1, now.getFullYear() - 2];
 

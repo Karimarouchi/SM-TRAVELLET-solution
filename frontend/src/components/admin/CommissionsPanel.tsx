@@ -1,4 +1,5 @@
 import { Amount, useAmountBlur } from "@/components/ui/hidden-amounts";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import {
   fetchAdminCountries,
   fetchAllCommissionEarnings,
@@ -221,7 +222,7 @@ export default function CommissionsPanel() {
       </p>
 
       {loading ? (
-        <div className="mt-8 flex justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-brand" /></div>
+        <SkeletonRows rows={5} className="mt-3" />
       ) : (
         <div className="mt-3 space-y-3">
           {countries.map((c) => {

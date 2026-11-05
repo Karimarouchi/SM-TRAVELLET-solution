@@ -1,4 +1,5 @@
 import { fetchLeaveCoverOptions, type HrCoverOptions, type HrCoverPlan, type HrCoverScope } from "@/lib/hr";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Loader2, Plus, Search, Trash2, UserRoundCheck, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -170,7 +171,7 @@ export default function LeaveCoverDialog({
         {loadError ? (
           <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{loadError}</p>
         ) : !options ? (
-          <p className="mt-5 flex items-center gap-2 text-sm text-muted"><Loader2 className="h-4 w-4 animate-spin" /> Chargement du portefeuille...</p>
+          <SkeletonRows rows={3} flat className="mt-5" />
         ) : (
           <>
             <p className="mt-4 rounded-xl bg-orange-50 px-4 py-3 text-[13px] leading-snug text-orange-950">

@@ -1,4 +1,5 @@
-import { fetchAdminInsights, fetchFinanceExercise, type AdminInsights, type FinanceExercise } from "@/lib/auth";
+import { fetchAdminInsights, fetchFinanceExercise, fetchUniversitySuccess, type AdminInsights, type FinanceExercise, type UniversitySuccess } from "@/lib/auth";
+import { SkeletonStats } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
   ArrowDownRight,
@@ -120,6 +121,58 @@ function Card({ icon: Icon, title, tone, children, delay = 0, className }: { ico
 const money = (value: number, currency: string) =>
   `${value.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} ${currency === "EUR" ? "€" : currency === "TND" ? "DT" : currency}`;
 
+// Étudiants arrivés au bout par université (université et visa acceptés), filtrés par année.
+function UniversitySuccessCard() {
+  const [year, setYear] = useState<number | null>(null);
+  const [data, setData] = useState<UniversitySuccess | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetchUniversitySuccess(year)
+      .then((next) => {
+        setData(next);
+        setError("");
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "Statistique indisponible."));
+  }, [year]);
+
+  const rows = data?.universities || [];
+  const total = rows.reduce((sum, row) => sum + row.total, 0);
+  const top = rows[0]?.total || 0;
+
+  return (
+    <Card icon={GraduationCap} title="Étudiants acceptés par université" tone="bg-emerald-100 text-emerald-600" delay={0.2} className="col-span-full">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="font-display text-3xl font-extrabold leading-none text-dark">{total}</p>
+          <p className="mt-1 text-[11px] text-muted">étudiant{total > 1 ? "s" : ""} avec l'université et le visa acceptés</p>
+        </div>
+        <label className="text-[11px] font-bold text-muted">Année du visa
+          <select value={year ?? ""} onChange={(event) => setYear(event.target.value ? Number(event.target.value) : null)} className="mt-1 block rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-semibold text-dark">
+            <option value="">Toutes les années</option>
+            {(data?.years || []).map((value) => <option key={value} value={value}>{value}</option>)}
+          </select>
+        </label>
+      </div>
+      {error && <p className="mt-3 text-xs text-red-500">{error}</p>}
+      {!error && data && rows.length === 0 && <p className="mt-4 border-t border-line pt-3 text-xs text-muted">Aucun étudiant accepté par l'université et le visa sur cette période.</p>}
+      {rows.length > 0 && (
+        <div className="mt-4 grid gap-x-8 gap-y-3 border-t border-line pt-3 md:grid-cols-2">
+          {rows.map((row) => (
+            <div key={row.id} className="min-w-0">
+              <div className="mb-1 flex items-center justify-between gap-3 text-[11px]">
+                <span className="min-w-0 truncate font-semibold text-dark" title={row.name}>{row.name} <span className="font-normal text-muted">· {row.countryName}</span></span>
+                <strong className="shrink-0 text-dark">{row.total}</strong>
+              </div>
+              <Bar percent={top > 0 ? (row.total / top) * 100 : 0} className="bg-emerald-500" />
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 // ── Section ──────────────────────────────────────────────────────────────────
 
 export default function AdminInsightsSection() {
@@ -143,7 +196,7 @@ export default function AdminInsightsSection() {
   }, [revealed]);
 
   if (error) return <p className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>;
-  if (!data) return null;
+  if (!data) return <SkeletonStats className="mt-6" />;
 
   const blur = revealed ? "" : "select-none blur-[8px]";
   const eyeLabel = revealed ? "Masquer les montants" : "Afficher les montants";
@@ -303,7 +356,7 @@ export default function AdminInsightsSection() {
           <p className={cn("font-display text-3xl font-extrabold leading-none transition", (exercise?.result || 0) < 0 ? "text-rose-600" : "text-dark", blur)}>
             {exercise ? money(exercise.result, "TND") : "–"}
           </p>
-          <p className="mt-1 text-[11px] text-muted">encaissé moins salaires, primes, commissions et charges</p>
+          <p className="mt-1 text-[11px] text-muted">encaissé moins salaires payés, commissions et charges</p>
           {exercise && (
             <div className="mt-4 space-y-2 border-t border-line pt-3 text-xs">
               <p className="flex items-center justify-between"><span className="text-muted">Encaissé</span><strong className={cn("text-dark transition", blur)}>{money(exercise.collected, "TND")}</strong></p>
@@ -362,6 +415,8 @@ export default function AdminInsightsSection() {
             )}
           </div>
         </Card>
+
+        <UniversitySuccessCard />
       </div>
     </section>
   );

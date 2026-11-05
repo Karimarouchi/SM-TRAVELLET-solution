@@ -66,6 +66,23 @@ export async function sendWhatsAppMessage(contactId: string, text: string) {
   });
 }
 
+export async function fetchWhatsAppQuickReplies() {
+  return request<Array<{ shortcut: string; text: string }>>("/api/whatsapp/quick-replies");
+}
+
+export type WhatsAppTemplate = { name: string; language: string; category: string; body: string; variables: string[] };
+
+export async function fetchWhatsAppTemplates() {
+  return request<WhatsAppTemplate[]>("/api/whatsapp/templates");
+}
+
+export async function sendWhatsAppTemplate(contactId: string, payload: { name: string; language: string; variables: Record<string, string> }) {
+  return request<WhatsAppMessage>(`/api/whatsapp/conversations/${contactId}/template`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
 export const WA_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export const WA_MAX_DOCUMENT_BYTES = 16 * 1024 * 1024;
 /** Formats acceptés par WhatsApp : images JPEG/PNG, PDF, Word, Excel, PowerPoint, texte. */

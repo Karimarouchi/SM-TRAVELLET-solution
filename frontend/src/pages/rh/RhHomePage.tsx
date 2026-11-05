@@ -1,4 +1,5 @@
 import LeaveCoverDialog from "@/components/rh/LeaveCoverDialog";
+import { SkeletonStats } from "@/components/ui/skeleton";
 import { decideHrLeave, fetchHrInbox, type HrInbox } from "@/lib/hr";
 import { cn } from "@/lib/utils";
 import {
@@ -284,7 +285,7 @@ export default function RhHomePage() {
         </div>
 
         {!summary ? (
-          <div className="mx-auto mt-10 h-8 w-8 animate-spin rounded-full border-2 border-line border-t-orange-500" />
+          !error && <SkeletonStats className="mt-6" />
         ) : (
           <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -42,9 +42,13 @@ son espace.
 ## Règle des 24 h (imposée par WhatsApp)
 
 On ne peut répondre librement que dans les **24 h qui suivent le dernier
-message de l'étudiant**. Passé ce délai, la zone de saisie est désactivée
-avec un bandeau d'explication : l'étudiant doit réécrire (ou il faudrait un
-modèle de message approuvé par Meta, non géré ici).
+message de l'étudiant**. Passé ce délai, la zone de saisie est désactivée et
+le bandeau propose « Envoyer un modèle » : le sales choisit un modèle approuvé
+dans WhatsApp Manager. Dès que le client répond, la fenêtre de 24 h se rouvre
+et le sales peut écrire normalement. Chaque modèle livré est facturé par Meta.
+
+Seuls les modèles sans image ni document en en-tête, et sans variable dans
+l'en-tête ou les boutons, sont proposés.
 
 ## 1. Variables d'environnement (`backend/.env`)
 
@@ -52,7 +56,8 @@ modèle de message approuvé par Meta, non géré ici).
 WHATSAPP_TOKEN=            # token permanent du System User (Meta Business)
 WHATSAPP_APP_SECRET=       # clé secrète de l'app Meta (Paramètres → Général)
 WHATSAPP_VERIFY_TOKEN=     # texte libre que VOUS choisissez, recopié chez Meta
-WHATSAPP_PHONE_NUMBER_ID=1185838064603179
+WHATSAPP_PHONE_NUMBER_ID=1558741613979533
+WHATSAPP_WABA_ID=1720238673011035  # compte WhatsApp : sert à lire les modèles approuvés
 WHATSAPP_GRAPH_VERSION=v23.0
 ```
 

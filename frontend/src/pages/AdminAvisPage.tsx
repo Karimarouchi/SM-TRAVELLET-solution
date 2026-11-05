@@ -1,4 +1,5 @@
 import { confirmDialog } from "@/components/ui/dialog-host";
+import { SkeletonCards } from "@/components/ui/skeleton";
 import {
   createManualAvis,
   deleteAvis,
@@ -274,9 +275,7 @@ export default function AdminAvisPage() {
 
         {/* Table View */}
         {loading ? (
-          <div className="flex h-64 items-center justify-center rounded-2xl border border-dashed border-line bg-white/50">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand/30 border-t-brand" />
-          </div>
+          <SkeletonCards />
         ) : filteredAvis.length === 0 ? (
           <div className="flex h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-line bg-white/50 text-center">
             <MessageSquareQuote className="mb-3 h-10 w-10 text-muted/30" />

@@ -31,6 +31,30 @@ async function sendMessage(req, res) {
   }
 }
 
+async function listQuickReplies(req, res) {
+  try {
+    res.json(await require("../repositories/settingsRepository").getWhatsAppQuickReplies());
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
+async function listTemplates(req, res) {
+  try {
+    res.json(await whatsappService.listTemplates(req.auth));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
+async function sendTemplate(req, res) {
+  try {
+    res.status(201).json(await whatsappService.sendTemplate(req.auth, req.params.contactId, req.body || {}));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function sendMedia(req, res) {
   try {
     const { file, filename, caption } = req.body || {};
@@ -124,4 +148,4 @@ async function unreadCount(req, res) {
   }
 }
 
-module.exports = { listConversations, getMessages, sendMessage, hideMessage, sendMedia, getMedia, diagnostic, resetDiagnostic, setMuted, setBlocked, linkStudent, assignOwner, unreadCount };
+module.exports = { listConversations, getMessages, sendMessage, listQuickReplies, listTemplates, sendTemplate, hideMessage, sendMedia, getMedia, diagnostic, resetDiagnostic, setMuted, setBlocked, linkStudent, assignOwner, unreadCount };

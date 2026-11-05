@@ -1,4 +1,5 @@
 import { NotificationIcon, notificationTime } from "@/components/notification-visual";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import {
   NOTIFICATIONS_CHANGED,
   emitNotificationsChanged,
@@ -177,7 +178,7 @@ export default function NotificationBell() {
                   <p className="mt-1 text-xs text-muted">Vous serez prévenu ici des nouveautés de vos dossiers.</p>
                 </div>
               )}
-              {loading && !items.length && <p className="px-4 py-8 text-center text-xs text-muted">Chargement...</p>}
+              {loading && !items.length && <SkeletonRows rows={3} flat className="px-4 py-4" />}
             </div>
 
             <Link to={area === "hr" ? "/admin/rh/notifications" : "/notifications"} className="block border-t border-line px-4 py-3 text-center text-sm font-bold text-brand transition hover:bg-brand/5 sm:py-2.5 sm:text-xs">

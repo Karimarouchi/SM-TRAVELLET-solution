@@ -1,4 +1,5 @@
 import { addHrHoliday, fetchHrBrandPreview, fetchHrBranding, fetchHrHolidays, fetchHrSettings, removeHrHoliday, saveHrBrandFile, saveHrSettings, setHrHolidayPaid, type HrHoliday, type HrSettings } from "@/lib/hr";
+import { SkeletonForm } from "@/components/ui/skeleton";
 import { Check, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -83,7 +84,7 @@ export default function RhSettingsPage() {
       <section className="mt-6 rounded-[24px] border border-line bg-white p-5 shadow-sm">
         <h2 className="font-display text-lg font-bold text-dark">Règles de calcul</h2>
         {!settings ? (
-          <div className="mx-auto mt-6 h-8 w-8 animate-spin rounded-full border-2 border-line border-t-orange-500" />
+          !error && <SkeletonForm fields={4} className="mt-4 border-0 p-0" />
         ) : (
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <label className="block text-xs font-bold text-mid">

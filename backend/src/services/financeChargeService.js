@@ -105,23 +105,12 @@ async function exercise(yearValue) {
   const today = tunisToday();
   const from = `${year}-01-01`;
   const to = `${year + 1}-01-01`;
-  const [collected, personnel, payouts, charges, salaryRows] = await Promise.all([
+  const [collected, payouts, charges, salaryRows] = await Promise.all([
     query(
       `SELECT currency, COALESCE(SUM(amount), 0)::float AS total
        FROM student_payments
        WHERE status = 'ACTIVE' AND paid_at >= $1 AND paid_at < $2
        GROUP BY currency`,
-      [from, to]
-    ),
-    query(
-      `SELECT COALESCE(SUM(base_salary), 0)::float AS salaries,
-              COALESCE(SUM(bonus), 0)::float AS primes,
-              COALESCE(SUM(paid_leave), 0)::float AS paid_leave,
-              COALESCE(SUM(CASE WHEN presence_adjustment IS NOT NULL
-                THEN presence_adjustment
-                ELSE absence_deduction + lateness_deduction + unpaid_holiday_deduction END), 0)::float AS deductions
-       FROM hr_payslips
-       WHERE month >= $1 AND month < $2`,
       [from, to]
     ),
     query(
@@ -132,22 +121,16 @@ async function exercise(yearValue) {
     ),
     query("SELECT * FROM finance_charges ORDER BY kind, created_at"),
     query(
-      `SELECT p.id, p.user_id, u.prenom, u.nom, p.month::text AS month, p.amount::float AS amount, p.paid_on::text AS paid_on,
-              EXISTS (SELECT 1 FROM hr_payslips s WHERE s.user_id = p.user_id AND s.month = p.month) AS on_slip
+      `SELECT p.id, p.user_id, u.prenom, u.nom, p.month::text AS month, p.amount::float AS amount, p.paid_on::text AS paid_on
        FROM hr_salary_payments p
        JOIN users u ON u.id = p.user_id
-       WHERE p.paid_on >= $1 AND p.paid_on < $2
-       ORDER BY p.paid_on DESC, u.nom`,
+       WHERE p.month >= $1 AND p.month < $2
+       ORDER BY p.month DESC, u.nom`,
       [from, to]
     )
   ]);
   const byCurrency = Object.fromEntries(collected.rows.map((row) => [row.currency, round3(row.total)]));
   const collectedTnd = byCurrency.TND || 0;
-  const people = personnel.rows[0] || {};
-  const salaries = round3(people.salaries);
-  const primes = round3(people.primes);
-  const paidLeave = round3(people.paid_leave);
-  const deductions = round3(people.deductions);
   const commissions = round3(payouts.rows[0]?.total);
   const listed = charges.rows.map((row) => dto(row, year, collectedTnd, today));
   const fixed = round3(listed.filter((row) => row.kind === "FIXED").reduce((sum, row) => sum + row.yearCost, 0));
@@ -159,22 +142,19 @@ async function exercise(yearValue) {
     nom: row.nom,
     month: String(row.month).slice(0, 7),
     amount: round3(row.amount),
-    paidOn: String(row.paid_on).slice(0, 10),
-    onSlip: row.on_slip === true
+    paidOn: String(row.paid_on).slice(0, 10)
   }));
-  const salaryExtra = round3(salaryPayments.filter((row) => !row.onSlip).reduce((sum, row) => sum + row.amount, 0));
-  const personnelCost = round3(salaries + primes + paidLeave - deductions + commissions + salaryExtra);
+  // Seul le bouton Payer compte, dans l'année du mois du salaire (décembre payé en janvier reste en décembre).
+  // Le montant payé contient déjà primes, congés et retenues.
+  const salaries = round3(salaryPayments.reduce((sum, row) => sum + row.amount, 0));
+  const personnelCost = round3(salaries + commissions);
   return {
     year,
     collected: collectedTnd,
     collectedEur: byCurrency.EUR || 0,
     salaries,
-    primes,
-    paidLeave,
-    deductions,
     commissions,
     salaryPayments,
-    salaryExtra,
     personnel: personnelCost,
     fixed,
     variable,

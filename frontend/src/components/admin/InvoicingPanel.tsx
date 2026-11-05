@@ -1,4 +1,5 @@
 import { alertDialog } from "@/components/ui/dialog-host";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import { Amount } from "@/components/ui/hidden-amounts";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { createInvoice, downloadInvoicePdf, fetchInvoicing, formatMoney, type Currency, type InvoicingPayment, type InvoicingStudent } from "@/lib/auth";
@@ -113,7 +114,7 @@ export default function InvoicingPanel() {
   }
 
   if (error) return <p className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>;
-  if (!students) return <div className="mx-auto mt-16 h-10 w-10 animate-spin rounded-full border-2 border-line border-t-brand" />;
+  if (!students) return <SkeletonRows rows={6} className="mt-6" />;
 
   return (
     <div className="mt-6 space-y-5">

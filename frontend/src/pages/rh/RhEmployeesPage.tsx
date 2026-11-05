@@ -1,4 +1,5 @@
 import EmployeePicker from "@/components/rh/EmployeePicker";
+import { SkeletonCards, SkeletonRows } from "@/components/ui/skeleton";
 import { addHrEmployeeDocument, downloadHrPdf, fetchHrEmployeeDossier, fetchHrEmployees, removeHrEmployeeDocument, saveHrEmployee, type HrContract, type HrEmployee, type HrEmployeeDossier, type HrIdentityFile } from "@/lib/hr";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -143,7 +144,7 @@ export default function RhEmployeesPage() {
       {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
       {!rows ? (
-        <div className="mx-auto mt-16 h-10 w-10 animate-spin rounded-full border-2 border-line border-t-orange-500" />
+        !error && <SkeletonCards className="mt-6" />
       ) : (
         <div className="mt-6 space-y-4">
           <EmployeePicker
@@ -238,7 +239,7 @@ export default function RhEmployeesPage() {
             </section>
 
             {!dossier ? (
-              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-line border-t-orange-500" />
+              <SkeletonRows rows={3} avatar={false} />
             ) : selected.hiredOn && dossier.ready && dossier.leave && dossier.payslips && dossier.commissions ? (
               <Dossier employee={selected} dossier={dossier} />
             ) : (

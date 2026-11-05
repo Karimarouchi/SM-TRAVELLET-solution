@@ -1,4 +1,5 @@
 import { FancySelect } from "@/components/ui/fancy-select";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import {
   PAYMENT_METHOD_LABELS,
   PAYMENT_REFERENCE_LABELS,
@@ -451,9 +452,7 @@ export default function SalesCodesPage() {
 
       {/* Liste des codes */}
       {loading ? (
-        <div className="mt-10 flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-line border-t-brand" />
-        </div>
+        <SkeletonRows rows={6} className="mt-6" />
       ) : (
         <>
           <section className="mt-8">

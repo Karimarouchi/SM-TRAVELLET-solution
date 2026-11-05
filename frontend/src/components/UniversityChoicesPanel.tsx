@@ -1,4 +1,5 @@
 import { confirmDialog } from "@/components/ui/dialog-host";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import { FancySelect } from "@/components/ui/fancy-select";
 import {
   addMyUniversityChoice,
@@ -218,7 +219,7 @@ export default function UniversityChoicesPanel({ studentId, onChanged, readOnly 
 
       <div className="mt-4 space-y-3">
         {!summary ? (
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-line border-t-brand" />
+          !error && <SkeletonRows rows={3} />
         ) : summary.choices.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-line bg-slate-50 p-5 text-sm text-muted">
             {t("Aucune candidature en cours. Ajoutez l'université et la filière que vous visez.", "No application in progress. Add the university and field you are aiming for.")}

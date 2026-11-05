@@ -438,13 +438,16 @@ async function setStudentActive(studentId, isActive) {
 }
 
 async function getSettings() {
-  const [autoAssignSales, stalledAlert, emailSender, workHours, whatsappAutoReply, whatsappWelcome] = await Promise.all([
+  const [autoAssignSales, stalledAlert, emailSender, workHours, whatsappAutoReply, whatsappWelcome, staff, pauses, quickReplies] = await Promise.all([
     settings.isAutoAssignEnabled(),
     settings.getStalledAlertConfig(),
     settings.getEmailSenderConfig(),
     settings.getWorkHoursConfig(),
     settings.getWhatsAppAutoReply(),
-    settings.getWhatsAppWelcome()
+    settings.getWhatsAppWelcome(),
+    require("../repositories/performanceRepository").listStaff(),
+    settings.getSalesPauses(),
+    settings.getWhatsAppQuickReplies()
   ]);
   return {
     autoAssignSales,
@@ -463,7 +466,11 @@ async function getSettings() {
     whatsappAutoReplyEnabled: whatsappAutoReply.enabled,
     whatsappAutoReplyText: whatsappAutoReply.text,
     whatsappWelcomeEnabled: whatsappWelcome.enabled,
-    whatsappWelcomeText: whatsappWelcome.text
+    whatsappWelcomeText: whatsappWelcome.text,
+    whatsappQuickReplies: quickReplies,
+    salesPauses: staff
+      .filter((person) => person.is_active && (person.role === "SALES" || (person.extra_roles || []).includes("SALES")))
+      .map((person) => ({ userId: person.id, prenom: person.prenom, nom: person.nom, start: pauses[person.id]?.start || "", end: pauses[person.id]?.end || "" }))
   };
 }
 
@@ -584,6 +591,35 @@ async function updateSettings(body) {
     const end = hm(body.workEnd, current.end);
     const timezone = body.workTimezone !== undefined ? String(body.workTimezone).trim() || "Africa/Tunis" : current.timezone;
     await settings.setWorkHoursConfig({ days, start, end, timezone });
+  }
+
+  if (body.whatsappQuickReplies !== undefined) {
+    if (!Array.isArray(body.whatsappQuickReplies) || body.whatsappQuickReplies.length > 100) throw fail("Réponses rapides invalides (100 maximum).", 400);
+    const seen = new Set();
+    const rows = body.whatsappQuickReplies.map((row) => {
+      const shortcut = String(row?.shortcut || "").trim().replace(/^\//, "").toLowerCase();
+      const text = String(row?.text || "").trim();
+      if (!/^[a-z0-9_-]{1,30}$/.test(shortcut)) throw fail("Un raccourci contient seulement des lettres sans accent, des chiffres, - ou _ (30 caractères maximum).", 400);
+      if (!text || text.length > 4096) throw fail(`Le texte de /${shortcut} est vide ou trop long.`, 400);
+      if (seen.has(shortcut)) throw fail(`Le raccourci /${shortcut} existe deux fois.`, 400);
+      seen.add(shortcut);
+      return { shortcut, text };
+    });
+    await settings.setWhatsAppQuickReplies(rows);
+  }
+
+  if (body.salesPauses !== undefined) {
+    if (!Array.isArray(body.salesPauses)) throw fail("Pauses invalides.", 400);
+    const pauses = {};
+    for (const row of body.salesPauses) {
+      const start = String(row?.start || "").trim();
+      const end = String(row?.end || "").trim();
+      if (!start && !end) continue;
+      if (!/^\d{2}:\d{2}$/.test(start) || !/^\d{2}:\d{2}$/.test(end)) throw fail("Indiquez le début et la fin de chaque pause.", 400);
+      if (start >= end) throw fail("La fin de la pause doit être après son début.", 400);
+      pauses[String(row.userId)] = { start, end };
+    }
+    await settings.setSalesPauses(pauses);
   }
 
   return getSettings();
@@ -852,6 +888,7 @@ async function listRdvStudents(rdvUserId) {
     universityName: r.university_name,
     programmeTitle: r.programme_title,
     status: r.status,
+    visaStatus: r.visa_status || null,
     updatedAt: r.updated_at
   }));
 }

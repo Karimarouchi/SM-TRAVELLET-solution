@@ -1,4 +1,5 @@
 import { fetchStudentsOverview, setStudentActive, type StudentOverview } from "@/lib/auth";
+import { SkeletonPage } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Ban, CheckCircle2, ChevronLeft, ChevronRight, GraduationCap, Search, Trash2, Unlock, UserCog, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -319,7 +320,7 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {loading && <p className="mt-6 text-sm text-muted">Chargement...</p>}
+      {loading && <SkeletonPage className="mt-6" />}
 
       {/* ── Pipeline (colonnes toujours visibles, bulles avatar au survol) ── */}
       {!loading && (

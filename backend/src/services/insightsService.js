@@ -167,4 +167,36 @@ async function getInsights() {
   return { postponed: post, acceptance, visa, delays, finances: fin, commissions: comm, newStudents: students, withoutRdv: noRdv };
 }
 
-module.exports = { getInsights };
+// Étudiants arrivés au bout, par université : université ET visa acceptés.
+// L'année est celle de l'acceptation du visa. Sans année : depuis le début.
+async function universitySuccess(yearValue) {
+  const parsed = Number(yearValue);
+  const year = Number.isInteger(parsed) && parsed >= 2000 && parsed <= 2100 ? parsed : null;
+  const decidedOn = "COALESCE(ua.visa_decision_at, ua.updated_at)";
+  const [universities, years] = await Promise.all([
+    query(
+      `SELECT cu.id, cu.name, c.name AS country_name, COUNT(DISTINCT ua.student_id)::int AS total
+       FROM university_applications ua
+       JOIN country_universities cu ON cu.id = ua.university_id
+       JOIN countries c ON c.id = ua.country_id
+       WHERE ua.status = 'ACCEPTED' AND ua.visa_status = 'ACCEPTED'
+         AND ($1::int IS NULL OR EXTRACT(YEAR FROM ${decidedOn})::int = $1)
+       GROUP BY cu.id, cu.name, c.name
+       ORDER BY total DESC, cu.name`,
+      [year]
+    ),
+    query(
+      `SELECT DISTINCT EXTRACT(YEAR FROM ${decidedOn})::int AS year
+       FROM university_applications ua
+       WHERE ua.status = 'ACCEPTED' AND ua.visa_status = 'ACCEPTED'
+       ORDER BY year DESC`
+    )
+  ]);
+  return {
+    year,
+    years: years.rows.map((row) => row.year),
+    universities: universities.rows.map((row) => ({ id: row.id, name: row.name, countryName: row.country_name, total: row.total }))
+  };
+}
+
+module.exports = { getInsights, universitySuccess };

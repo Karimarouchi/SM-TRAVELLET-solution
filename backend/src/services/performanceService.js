@@ -1,7 +1,7 @@
 const settings = require("../repositories/settingsRepository");
 const performanceRepo = require("../repositories/performanceRepository");
 const hrRepo = require("../repositories/hrRepository");
-const { parseWorkHours, businessMinutesBetween, formatMinutes, zonedParts, isoDate } = require("./businessHours");
+const { parseWorkHours, businessMinutesBetween, withPause, formatMinutes, zonedParts, isoDate } = require("./businessHours");
 
 // Statistiques Admin (Dashboard + page d'un employé). Toutes les durées sont
 // en heures ouvrées (jours et plages définis dans Paramètres).
@@ -99,9 +99,10 @@ function whatsappFunnel(conversations) {
 }
 
 async function computeReport(period) {
-  const [rawHours, holidayRows] = await Promise.all([
+  const [rawHours, holidayRows, pauses] = await Promise.all([
     settings.getWorkHoursConfig(),
-    hrRepo.listHolidays()
+    hrRepo.listHolidays(),
+    settings.getSalesPauses()
   ]);
   const config = parseWorkHours(rawHours);
   config.closedDates = new Set(
@@ -168,7 +169,8 @@ async function computeReport(period) {
       continue;
     }
     if (!inPeriod(turn.startedAt, since)) continue;
-    const value = minutes(turn.startedAt, turn.repliedAt);
+    // Temps de réponse : la pause de la personne qui a répondu n'est pas comptée.
+    const value = businessMinutesBetween(turn.startedAt, turn.repliedAt, withPause(config, pauses[turn.repliedBy]));
     teamReply.push(value);
     push(reply, turn.repliedBy, value);
     if (turn.first) {
@@ -403,20 +405,25 @@ async function buildUserDetail(user) {
   const detail = {};
 
   if (user.sales) {
-    const [conversations, messages, students, reviews, applications] = await Promise.all([
+    const [conversations, messages, students, reviews, applications, pauses] = await Promise.all([
       performanceRepo.listConversations(),
       performanceRepo.listMessagesForTurns(null),
       performanceRepo.listSalesStudents(),
       performanceRepo.listReviewEvents(user.id),
-      performanceRepo.listApplications()
+      performanceRepo.listApplications(),
+      settings.getSalesPauses()
     ]);
+    const replyConfig = withPause(config, pauses[user.id]);
     const conversationById = new Map(conversations.map((c) => [c.id, c]));
     detail.reply = sortDesc(
       buildTurns(messages)
         .filter((t) => t.repliedAt && t.repliedBy === user.id)
         .map((t) => {
           const c = conversationById.get(t.contactId);
-          return event(c ? contactLabel(c) : "Contact", t.first ? "Première réponse" : "Réponse", t.startedAt, t.repliedAt);
+          return {
+            ...event(c ? contactLabel(c) : "Contact", t.first ? "Première réponse" : "Réponse", t.startedAt, t.repliedAt),
+            minutes: businessMinutesBetween(t.startedAt, t.repliedAt, replyConfig)
+          };
         })
     );
     detail.review = sortDesc(

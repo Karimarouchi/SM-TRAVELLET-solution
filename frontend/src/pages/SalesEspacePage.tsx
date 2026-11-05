@@ -1,4 +1,5 @@
 import ApplicationBlockers from "@/components/ApplicationBlockers";
+import { Skeleton, SkeletonRows } from "@/components/ui/skeleton";
 import { STAGE_META, StageBadge } from "@/components/admin/StudentsPipelineBoard";
 import MyCommissionsCard from "@/components/MyCommissionsCard";
 import { PassportBadge } from "@/components/PassportBadge";
@@ -20,7 +21,6 @@ import {
   FileCheck2,
   GraduationCap,
   KeyRound,
-  Loader2,
   MessageCircle,
   Search,
   Sparkles,
@@ -278,7 +278,7 @@ export default function SalesEspacePage() {
             <h1 className="mt-1 font-display text-3xl font-extrabold sm:text-4xl">{t("Bonjour", "Hello")}, {session.user.prenom}</h1>
             <p className="mt-2 max-w-xl text-sm text-white/85">
               {!k
-                ? t("Chargement de votre journée…", "Loading your day…")
+                ? !error && <Skeleton light className="h-4 w-64 max-w-full" />
                 : k.needAttention
                   ? t(`${k.students} étudiant${k.students > 1 ? "s" : ""} suivis · ${k.needAttention} dossier${k.needAttention > 1 ? "s" : ""} à traiter aujourd'hui.`, `${k.students} students · ${k.needAttention} file(s) to handle today.`)
                   : t(`${k.students} étudiant${k.students > 1 ? "s" : ""} suivis · tout est à jour, bravo !`, `${k.students} students · everything is up to date, well done!`)}
@@ -321,7 +321,7 @@ export default function SalesEspacePage() {
             )}
           </div>
           {!data ? (
-            <div className="flex items-center gap-2 rounded-2xl border border-line bg-white p-6 text-sm text-muted"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> {t("Chargement…", "Loading…")}</div>
+            !error && <SkeletonRows rows={3} />
           ) : urgent.length === 0 ? (
             <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 px-5 py-4">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600"><CheckCircle2 className="h-5 w-5" aria-hidden /></span>

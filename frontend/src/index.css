@@ -61,3 +61,41 @@ html[data-area="clients"]::view-transition-new(admin-area) {
 @keyframes admin-area-enter-left {
   from { opacity: 0; transform: translateX(-28px); }
 }
+
+/* Squelettes de chargement : apparition retardée pour ne pas clignoter sur une réponse rapide. */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: #e9ebf2;
+}
+
+.skeleton-light {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+  animation: skeleton-shine 1.4s ease-in-out infinite;
+}
+
+.skeleton-group {
+  animation: skeleton-appear 0.2s ease-out 0.15s both;
+}
+
+@keyframes skeleton-shine {
+  to { transform: translateX(100%); }
+}
+
+@keyframes skeleton-appear {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after { animation: none; }
+  .skeleton-group { animation-duration: 0.01ms; animation-delay: 0s; }
+}

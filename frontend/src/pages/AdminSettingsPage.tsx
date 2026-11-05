@@ -1,4 +1,5 @@
-import { fetchAdminSettings, updateAdminSettings, type AdminSettings, type StalledAlertFrequency } from "@/lib/auth";
+import { fetchAdminSettings, updateAdminSettings, type AdminSettings, type QuickReply, type SalesPause, type StalledAlertFrequency } from "@/lib/auth";
+import { SkeletonForm } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, CheckCircle2, Clock, KeyRound, Mail, MessageCircle, Save, Settings as SettingsIcon, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -40,6 +41,12 @@ export default function AdminSettingsPage() {
   const [saved, setSaved] = useState(false);
   const [senderSaved, setSenderSaved] = useState(false);
   const [workForm, setWorkForm] = useState({ workDays: [1, 2, 3, 4, 5] as number[], workStart: "09:00", workEnd: "18:00" });
+  const [pauses, setPauses] = useState<SalesPause[]>([]);
+  const [pauseSaving, setPauseSaving] = useState(false);
+  const [pauseSaved, setPauseSaved] = useState(false);
+  const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
+  const [quickSaving, setQuickSaving] = useState(false);
+  const [quickSaved, setQuickSaved] = useState(false);
   const [workSaving, setWorkSaving] = useState(false);
   const [workSaved, setWorkSaved] = useState(false);
   const [autoReply, setAutoReply] = useState({ enabled: true, text: "" });
@@ -70,6 +77,8 @@ export default function AdminSettingsPage() {
           workStart: data.workStart || "09:00",
           workEnd: data.workEnd || "18:00"
         });
+        setPauses(data.salesPauses || []);
+        setQuickReplies(data.whatsappQuickReplies || []);
         setAutoReply({ enabled: data.whatsappAutoReplyEnabled !== false, text: data.whatsappAutoReplyText || "" });
         setWelcome({ enabled: data.whatsappWelcomeEnabled !== false, text: data.whatsappWelcomeText || "" });
       })
@@ -143,6 +152,40 @@ export default function AdminSettingsPage() {
     }
   }
 
+  async function savePauses() {
+    setPauseSaving(true);
+    setError("");
+    setPauseSaved(false);
+    try {
+      const updated = await updateAdminSettings({ salesPauses: pauses });
+      setSettings(updated);
+      setPauses(updated.salesPauses || []);
+      setPauseSaved(true);
+      window.setTimeout(() => setPauseSaved(false), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Enregistrement impossible.");
+    } finally {
+      setPauseSaving(false);
+    }
+  }
+
+  async function saveQuickReplies() {
+    setQuickSaving(true);
+    setError("");
+    setQuickSaved(false);
+    try {
+      const updated = await updateAdminSettings({ whatsappQuickReplies: quickReplies });
+      setSettings(updated);
+      setQuickReplies(updated.whatsappQuickReplies || []);
+      setQuickSaved(true);
+      window.setTimeout(() => setQuickSaved(false), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Enregistrement impossible.");
+    } finally {
+      setQuickSaving(false);
+    }
+  }
+
   async function saveAutoReply() {
     setAutoReplySaving(true);
     setError("");
@@ -199,7 +242,7 @@ export default function AdminSettingsPage() {
       {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
       {loading ? (
-        <p className="mt-6 text-sm text-muted">Chargement...</p>
+        <SkeletonForm fields={6} className="mt-6" />
       ) : (
         <>
           {/* ── Répartition par pourcentage ──────────────────────────────── */}
@@ -430,6 +473,102 @@ export default function AdminSettingsPage() {
               {workSaved && (
                 <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
                   <CheckCircle2 className="h-4 w-4" /> Horaires enregistrés
+                </span>
+              )}
+            </div>
+          </section>
+
+          {/* ── Pauses des conseillers ────────────────────────────────────── */}
+          <section className="mt-4 rounded-[24px] border border-line bg-white p-6">
+            <h2 className="flex items-center gap-2 font-display text-xl font-bold text-dark">
+              <Clock className="h-5 w-5 text-brand" /> Pauses des conseillers(ères)
+            </h2>
+            <p className="mt-1 text-xs text-muted">Une pause par personne, chaque jour travaillé. Elle n'est pas comptée dans son temps de réponse WhatsApp, y compris sur les réponses déjà envoyées. Laissez vide s'il n'y a pas de pause.</p>
+            <div className="mt-4 space-y-3">
+              {pauses.map((row) => (
+                <div key={row.userId} className="grid items-end gap-3 sm:grid-cols-[1fr_140px_140px_auto]">
+                  <p className="truncate text-sm font-semibold text-dark sm:pb-2.5">{row.prenom} {row.nom}</p>
+                  {(["start", "end"] as const).map((field) => (
+                    <div key={field}>
+                      <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">{field === "start" ? "Début" : "Fin"}</label>
+                      <input
+                        type="time"
+                        value={row[field]}
+                        onChange={(e) => setPauses((current) => current.map((item) => (item.userId === row.userId ? { ...item, [field]: e.target.value } : item)))}
+                        className="w-full rounded-xl border border-line bg-slate-50 px-3 py-2.5 text-sm"
+                      />
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    disabled={!row.start && !row.end}
+                    onClick={() => setPauses((current) => current.map((item) => (item.userId === row.userId ? { ...item, start: "", end: "" } : item)))}
+                    className="rounded-xl border border-line px-3 py-2.5 text-xs font-bold text-muted disabled:opacity-40"
+                  >
+                    Sans pause
+                  </button>
+                </div>
+              ))}
+              {pauses.length === 0 && <p className="text-sm text-muted">Aucun(e) conseiller(ère) actif(ve).</p>}
+            </div>
+            <div className="mt-5 flex items-center gap-3">
+              <button type="button" disabled={pauseSaving} onClick={savePauses} className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white disabled:opacity-60">
+                <Save className="h-4 w-4" /> {pauseSaving ? "Enregistrement..." : "Enregistrer les pauses"}
+              </button>
+              {pauseSaved && (
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
+                  <CheckCircle2 className="h-4 w-4" /> Pauses enregistrées
+                </span>
+              )}
+            </div>
+          </section>
+
+          {/* ── Réponses rapides WhatsApp ─────────────────────────────────── */}
+          <section className="mt-4 rounded-[24px] border border-line bg-white p-6">
+            <h2 className="flex items-center gap-2 font-display text-xl font-bold text-dark">
+              <MessageCircle className="h-5 w-5 text-emerald-600" /> Réponses rapides WhatsApp
+            </h2>
+            <p className="mt-1 text-xs text-muted">Communes à tous les conseillers(ères). Dans une conversation, taper « / » affiche la liste, et « /prix » insère le texte. Le message reste modifiable avant l'envoi.</p>
+            <div className="mt-4 space-y-3">
+              {quickReplies.map((reply, index) => (
+                <div key={index} className="grid gap-2 sm:grid-cols-[170px_1fr_auto]">
+                  <label className="flex items-center rounded-xl border border-line bg-slate-50 px-3 text-sm font-bold text-emerald-700">
+                    /
+                    <input
+                      aria-label="Raccourci"
+                      value={reply.shortcut}
+                      maxLength={30}
+                      placeholder="prix"
+                      onChange={(e) => setQuickReplies((current) => current.map((row, i) => (i === index ? { ...row, shortcut: e.target.value } : row)))}
+                      className="w-full border-0 bg-transparent px-1 py-2.5 text-sm font-semibold text-dark outline-none"
+                    />
+                  </label>
+                  <textarea
+                    aria-label="Texte"
+                    dir="auto"
+                    rows={2}
+                    value={reply.text}
+                    placeholder="Texte inséré dans le message"
+                    onChange={(e) => setQuickReplies((current) => current.map((row, i) => (i === index ? { ...row, text: e.target.value } : row)))}
+                    className="w-full rounded-xl border border-line bg-slate-50 px-3 py-2.5 text-sm"
+                  />
+                  <button type="button" onClick={() => setQuickReplies((current) => current.filter((_, i) => i !== index))} className="self-start rounded-xl border border-line px-3 py-2.5 text-xs font-bold text-muted hover:text-red-600">
+                    Supprimer
+                  </button>
+                </div>
+              ))}
+              {quickReplies.length === 0 && <p className="text-sm text-muted">Aucune réponse rapide pour l'instant.</p>}
+            </div>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <button type="button" onClick={() => setQuickReplies((current) => [...current, { shortcut: "", text: "" }])} className="rounded-xl border border-line px-5 py-2.5 text-sm font-bold text-dark">
+                Ajouter une réponse
+              </button>
+              <button type="button" disabled={quickSaving} onClick={saveQuickReplies} className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white disabled:opacity-60">
+                <Save className="h-4 w-4" /> {quickSaving ? "Enregistrement..." : "Enregistrer les réponses"}
+              </button>
+              {quickSaved && (
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
+                  <CheckCircle2 className="h-4 w-4" /> Réponses enregistrées
                 </span>
               )}
             </div>

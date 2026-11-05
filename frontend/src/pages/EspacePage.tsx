@@ -1,4 +1,6 @@
 import DocumentsSummaryCard from "@/components/DocumentsSummaryCard";
+import { Skeleton, SkeletonGroup, SkeletonPage } from "@/components/ui/skeleton";
+import AcceptanceCelebration from "@/components/espace/AcceptanceCelebration";
 import DossierProgress from "@/components/espace/DossierProgress";
 import { buildSteps } from "@/components/espace/dossierSteps";
 import ReviewCard from "@/components/espace/ReviewCard";
@@ -42,7 +44,7 @@ import {
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
-const WHATSAPP_HREF = "https://wa.me/21657031130";
+const WHATSAPP_HREF = "https://wa.me/21656819899";
 
 type Tone = "danger" | "warning" | "info";
 type Todo = { key: string; tone: Tone; icon: typeof FileText; title: string; text: string; to?: string; href?: string; cta: string };
@@ -105,6 +107,7 @@ export default function EspacePage() {
   const session = getSession();
   const [profile, setProfile] = useState<StudentProfile | null>(session?.profile || null);
   const [applications, setApplications] = useState<UniversityApplication[]>([]);
+  const [ready, setReady] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [documents, setDocuments] = useState<StudentDocumentChecklistItem[]>([]);
   const [visaDocuments, setVisaDocuments] = useState<VisaDocumentChecklistItem[]>([]);
@@ -114,18 +117,20 @@ export default function EspacePage() {
   const [choiceCount, setChoiceCount] = useState<{ used: number; limit: number } | null>(null);
 
   const load = () => {
-    fetchMe().then((data) => setProfile(data.profile || null)).catch(() => undefined);
-    fetchMyApplications().then(setApplications).catch(() => undefined);
-    fetchMyDocuments().then(setDocuments).catch(() => undefined);
-    fetchMyVisaChecklist()
-      .then((data) => {
-        setVisaCountryName(data.application?.countryName || "");
-        setVisaUploadsOpen(Boolean(data.application?.uploadsOpen));
-        setVisaDocuments(data.application?.uploadsOpen ? data.checklist : []);
-      })
-      .catch(() => undefined);
-    fetchMyPayments().then(setPayments).catch(() => undefined);
-    fetchMyUniversityChoices().then((data) => setChoiceCount({ used: data.used, limit: data.limit })).catch(() => undefined);
+    Promise.all([
+      fetchMe().then((data) => setProfile(data.profile || null)).catch(() => undefined),
+      fetchMyApplications().then(setApplications).catch(() => undefined),
+      fetchMyDocuments().then(setDocuments).catch(() => undefined),
+      fetchMyVisaChecklist()
+        .then((data) => {
+          setVisaCountryName(data.application?.countryName || "");
+          setVisaUploadsOpen(Boolean(data.application?.uploadsOpen));
+          setVisaDocuments(data.application?.uploadsOpen ? data.checklist : []);
+        })
+        .catch(() => undefined),
+      fetchMyPayments().then(setPayments).catch(() => undefined),
+      fetchMyUniversityChoices().then((data) => setChoiceCount({ used: data.used, limit: data.limit })).catch(() => undefined)
+    ]).finally(() => setReady(true));
   };
 
   useEffect(load, []);
@@ -206,8 +211,25 @@ export default function EspacePage() {
   const passportDate = profile?.passportExpiresOn ? parseExpiry(profile.passportExpiresOn) : null;
   const progressPct = journey.steps.length ? Math.round((journey.doneCount / journey.steps.length) * 100) : 0;
 
+  if (!ready) {
+    return (
+      <main className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
+        <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-6 shadow-[0_16px_40px_rgba(109,40,217,.22)] sm:p-8">
+          <SkeletonGroup>
+            <Skeleton light className="h-3.5 w-28" />
+            <Skeleton light className="mt-3 h-9 w-64 max-w-full" />
+            <Skeleton light className="mt-5 h-9 w-72 max-w-full rounded-full" />
+            <Skeleton light className="mt-5 h-2 w-full max-w-md rounded-full" />
+          </SkeletonGroup>
+        </section>
+        <SkeletonPage className="mt-6" />
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
+      <AcceptanceCelebration applications={applications} firstName={user.prenom} />
       {/* ── En-tête : accueil + conseiller(ère) commercial(e) ───────────────────────────── */}
       <section className="overflow-hidden rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-6 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)] sm:p-8">
         <div className="grid gap-6 lg:grid-cols-[1fr_340px] lg:items-center">

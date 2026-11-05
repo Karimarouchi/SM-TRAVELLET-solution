@@ -1,4 +1,5 @@
 import { disconnectGoogle, fetchGoogleConnectUrl, fetchGoogleStatus, type GoogleStatus } from "@/lib/google";
+import { SkeletonLines } from "@/components/ui/skeleton";
 import { AlertTriangle, CalendarClock, CheckCircle2, Copy, Link2Off, Loader2, Video } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -90,7 +91,7 @@ export default function GoogleCalendarCard() {
       )}
 
       {!status ? (
-        <p className="mt-4 text-sm text-muted">Chargement...</p>
+        <SkeletonLines lines={2} className="mt-4" />
       ) : !status.configured ? (
         <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Google n'est pas configuré sur ce serveur : ajoutez <strong>GOOGLE_CLIENT_ID</strong> et <strong>GOOGLE_CLIENT_SECRET</strong> dans le

@@ -1,4 +1,5 @@
 import { confirmDialog } from "@/components/ui/dialog-host";
+import { SkeletonLines } from "@/components/ui/skeleton";
 import {
   createUniversityDocument,
   deleteUniversityDocument,
@@ -80,7 +81,7 @@ export default function UniversityDocumentsEditor({
 
       <div className="mt-2 space-y-1.5">
         {loading ? (
-          <p className="text-[11px] text-muted">Chargement…</p>
+          <SkeletonLines lines={2} />
         ) : docs.length === 0 ? (
           <p className="rounded-lg border border-dashed border-line bg-white px-3 py-2 text-[11px] text-muted">
             Aucun document spécifique pour l'instant : seuls les documents communs du pays sont demandés.

@@ -107,7 +107,19 @@ function minutesOnDay(config, year, month, day, fromDate, toDate) {
   const start = Math.max(fromDate.getTime(), dayStart.getTime());
   const end = Math.min(toDate.getTime(), dayEnd.getTime());
   if (end <= start) return 0;
-  return Math.round((end - start) / 60000);
+  let paused = 0;
+  if (config.pause) {
+    const pauseStart = zonedLocalToUtc(year, month, day, config.pause.start.h, config.pause.start.m, 0, config.timezone);
+    const pauseEnd = zonedLocalToUtc(year, month, day, config.pause.end.h, config.pause.end.m, 0, config.timezone);
+    paused = Math.max(0, Math.min(end, pauseEnd.getTime()) - Math.max(start, pauseStart.getTime()));
+  }
+  return Math.round((end - start - paused) / 60000);
+}
+
+// Horaires d'une personne : ceux de l'agence, moins sa pause de chaque jour travaillé.
+function withPause(config, pause) {
+  if (!pause) return config;
+  return { ...config, pause: { start: parseHm(pause.start, "00:00"), end: parseHm(pause.end, "00:00") } };
 }
 
 function businessMinutesBetween(from, to, config) {
@@ -150,6 +162,7 @@ module.exports = {
   pad,
   parseWorkHours,
   businessMinutesBetween,
+  withPause,
   formatMinutes,
   average,
   isoDate,
