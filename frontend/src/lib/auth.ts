@@ -489,6 +489,9 @@ export type AdminSettings = {
   salesPauses: SalesPause[];
   /** Réponses rapides WhatsApp : le conseiller(ère) tape /raccourci pour insérer le texte. */
   whatsappQuickReplies: QuickReply[];
+  /** Numérotation des factures de l'année en cours. */
+  invoiceYear: number;
+  invoiceLastNumber: number;
 };
 
 export type QuickReply = { shortcut: string; text: string };

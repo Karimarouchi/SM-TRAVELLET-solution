@@ -154,7 +154,7 @@ async function createInvoice(auth, { studentId, paymentIds }) {
        RETURNING last_number`,
       [year]
     );
-    const number = `FAC-${year}-${String(counter.rows[0].last_number).padStart(3, "0")}`;
+    const number = invoiceNumber(year, counter.rows[0].last_number);
     const total = money(rows.reduce((sum, r) => sum + Number(r.amount), 0));
     const invoice = await client.query(
       `INSERT INTO invoices (invoice_number, student_id, currency, total, issued_by)
@@ -166,6 +166,32 @@ async function createInvoice(auth, { studentId, paymentIds }) {
     }
     return { id: invoice.rows[0].id, number, total, currency: rows[0].currency, issuedAt: dateOnly(invoice.rows[0].issued_at) };
   });
+}
+
+// ── Numérotation ──
+// Un compteur par année : chaque 1er janvier repart de FAC-AAAA-000000.
+const invoiceNumber = (year, value) => `FAC-${year}-${String(value).padStart(6, "0")}`;
+
+async function getInvoiceCounter() {
+  const year = new Date().getFullYear();
+  const { rows } = await db.query("SELECT last_number FROM invoice_counters WHERE year = $1", [year]);
+  return { year, lastNumber: rows[0]?.last_number || 0 };
+}
+
+async function setInvoiceCounter(value) {
+  const lastNumber = Number(value);
+  if (!Number.isInteger(lastNumber) || lastNumber < 0 || lastNumber > 999999) throw fail("Le numéro de facture doit être compris entre 0 et 999999.", 400);
+  const year = new Date().getFullYear();
+  const { rows } = await db.query(
+    `SELECT COALESCE(MAX(substring(invoice_number from '[0-9]+$')::int), 0) AS issued FROM invoices WHERE invoice_number LIKE $1`,
+    [`FAC-${year}-%`]
+  );
+  if (lastNumber < rows[0].issued) throw fail(`La facture ${invoiceNumber(year, rows[0].issued)} existe déjà : le dernier numéro ne peut pas être plus petit.`, 400);
+  await db.query(
+    `INSERT INTO invoice_counters (year, last_number) VALUES ($1, $2)
+     ON CONFLICT (year) DO UPDATE SET last_number = EXCLUDED.last_number`,
+    [year, lastNumber]
+  );
 }
 
 // ── PDF ──
@@ -311,4 +337,4 @@ async function renderPdf(invoiceId, stream) {
   return data.invoice.invoice_number;
 }
 
-module.exports = { listStudents, createInvoice, renderPdf, loadInvoice };
+module.exports = { listStudents, createInvoice, renderPdf, loadInvoice, getInvoiceCounter, setInvoiceCounter };

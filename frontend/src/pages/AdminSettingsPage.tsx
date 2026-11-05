@@ -1,7 +1,7 @@
 import { fetchAdminSettings, updateAdminSettings, type AdminSettings, type QuickReply, type SalesPause, type StalledAlertFrequency } from "@/lib/auth";
 import { SkeletonForm } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, CheckCircle2, Clock, KeyRound, Mail, MessageCircle, Save, Settings as SettingsIcon, ShieldCheck } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, FileText, KeyRound, Mail, MessageCircle, Save, Settings as SettingsIcon, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import BackupPanel from "@/components/admin/BackupPanel";
 import GoogleCalendarCard from "@/components/admin/GoogleCalendarCard";
@@ -44,6 +44,9 @@ export default function AdminSettingsPage() {
   const [pauses, setPauses] = useState<SalesPause[]>([]);
   const [pauseSaving, setPauseSaving] = useState(false);
   const [pauseSaved, setPauseSaved] = useState(false);
+  const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [invoiceSaving, setInvoiceSaving] = useState(false);
+  const [invoiceSaved, setInvoiceSaved] = useState(false);
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
   const [quickSaving, setQuickSaving] = useState(false);
   const [quickSaved, setQuickSaved] = useState(false);
@@ -79,6 +82,7 @@ export default function AdminSettingsPage() {
         });
         setPauses(data.salesPauses || []);
         setQuickReplies(data.whatsappQuickReplies || []);
+        setInvoiceNumber(String(data.invoiceLastNumber ?? 0));
         setAutoReply({ enabled: data.whatsappAutoReplyEnabled !== false, text: data.whatsappAutoReplyText || "" });
         setWelcome({ enabled: data.whatsappWelcomeEnabled !== false, text: data.whatsappWelcomeText || "" });
       })
@@ -166,6 +170,23 @@ export default function AdminSettingsPage() {
       setError(err instanceof Error ? err.message : "Enregistrement impossible.");
     } finally {
       setPauseSaving(false);
+    }
+  }
+
+  async function saveInvoiceNumber() {
+    setInvoiceSaving(true);
+    setError("");
+    setInvoiceSaved(false);
+    try {
+      const updated = await updateAdminSettings({ invoiceLastNumber: Number(invoiceNumber) });
+      setSettings(updated);
+      setInvoiceNumber(String(updated.invoiceLastNumber));
+      setInvoiceSaved(true);
+      window.setTimeout(() => setInvoiceSaved(false), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Enregistrement impossible.");
+    } finally {
+      setInvoiceSaving(false);
     }
   }
 
@@ -518,6 +539,39 @@ export default function AdminSettingsPage() {
               {pauseSaved && (
                 <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
                   <CheckCircle2 className="h-4 w-4" /> Pauses enregistrées
+                </span>
+              )}
+            </div>
+          </section>
+
+          {/* ── Numérotation des factures ─────────────────────────────────── */}
+          <section className="mt-4 rounded-[24px] border border-line bg-white p-6">
+            <h2 className="flex items-center gap-2 font-display text-xl font-bold text-dark">
+              <FileText className="h-5 w-5 text-brand" /> Numérotation des factures
+            </h2>
+            <p className="mt-1 text-xs text-muted">Indiquez le dernier numéro déjà utilisé : la facture suivante prend le numéro d'après. Chaque 1er janvier, le compteur repart de zéro pour la nouvelle année.</p>
+            <label className="mt-4 block max-w-sm">
+              <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Dernier numéro de facture</span>
+              <span className="flex items-center rounded-xl border border-line bg-slate-50 px-3">
+                <span className="shrink-0 whitespace-nowrap text-sm font-semibold text-muted">FAC-{settings?.invoiceYear}-</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={999999}
+                  value={invoiceNumber}
+                  onChange={(e) => setInvoiceNumber(e.target.value)}
+                  className="w-full border-0 bg-transparent px-1 py-2.5 text-sm font-semibold text-dark outline-none"
+                />
+              </span>
+            </label>
+            <p className="mt-2 text-xs font-semibold text-mid">Prochaine facture : FAC-{settings?.invoiceYear}-{String((Number(invoiceNumber) || 0) + 1).padStart(6, "0")}</p>
+            <div className="mt-5 flex items-center gap-3">
+              <button type="button" disabled={invoiceSaving} onClick={saveInvoiceNumber} className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white disabled:opacity-60">
+                <Save className="h-4 w-4" /> {invoiceSaving ? "Enregistrement..." : "Enregistrer le numéro"}
+              </button>
+              {invoiceSaved && (
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
+                  <CheckCircle2 className="h-4 w-4" /> Numéro enregistré
                 </span>
               )}
             </div>
