@@ -159,9 +159,10 @@ async function monthContext(monthValue) {
   ]);
   const documents = await payrollRepo.listDocumentsForUsers(staff.map((row) => row.id));
   const entries = await payrollRepo.listEntries();
-  const [monthPayments, yearPayments] = await Promise.all([
+  const [monthPayments, yearPayments, dueCommissions] = await Promise.all([
     payrollRepo.listSalaryPaymentsForMonth(parts.start),
-    payrollRepo.listSalaryPaymentsForYear(parts.year)
+    payrollRepo.listSalaryPaymentsForYear(parts.year),
+    payrollRepo.dueCommissions()
   ]);
   const monthEnd = nextMonth(parts.year, parts.month).slice(0, 10);
   const certificates = await absenceRepo.listBetween(parts.start, monthEnd);
@@ -173,6 +174,7 @@ async function monthContext(monthValue) {
     commissions,
     unpaidCommissions,
     paidCommissionRows,
+    dueCommissions,
     paidLeave,
     adjustments,
     slips,
@@ -277,8 +279,29 @@ function employeeDto(row, context) {
         originalFilename: document.original_filename,
         createdAt: document.created_at
       })),
-    payment: mapPayment((context.monthPayments || []).find((item) => item.user_id === row.id))
+    payment: mapPayment((context.monthPayments || []).find((item) => item.user_id === row.id)),
+    // Bloc de paiement : séparé de la fiche, qui reste celle envoyée au comptable.
+    salaryBase: row.base_salary === null || row.base_salary === undefined ? 0 : num(row.base_salary),
+    paymentDeductions: paymentDeductions(stored ? { ...live, ...stored } : live),
+    dueCommissions: (context.dueCommissions || [])
+      .filter((item) => item.user_id === row.id)
+      .map((item) => ({ id: item.id, student: `${item.student_prenom} ${item.student_nom}`.trim(), stage: item.stage, amount: num(item.amount_dinar) }))
   };
+}
+
+// Retenues du mois que l'admin peut choisir d'appliquer au paiement.
+function paymentDeductions(lines) {
+  const items = lines.presenceAdjustment !== null && lines.presenceAdjustment !== undefined
+    ? [{ key: "presence", label: "Retenue de présence", amount: lines.presenceAdjustment }]
+    : [
+      { key: "absence", label: "Retenue d'absence", amount: lines.absenceDeduction },
+      { key: "lateness", label: "Retenue de retard", amount: lines.latenessDeduction }
+    ];
+  items.push(
+    { key: "holiday", label: "Jours fériés impayés", amount: lines.unpaidHolidayDeduction },
+    { key: "advance", label: "Avance déjà versée", amount: lines.advance }
+  );
+  return items.map((item) => ({ ...item, amount: num(item.amount) })).filter((item) => item.amount > 0);
 }
 
 function mapPayment(row) {
@@ -359,20 +382,34 @@ async function notifySalaryDue(monthKey, count) {
   }
 }
 
-async function paySalary(body) {
+async function paySalary(auth, body) {
   const context = await monthContext(body.month);
   const staff = context.staff.find((row) => row.id === body.userId);
   if (!staff) throw fail("Employé introuvable.", 404);
   const employee = employeeDto(staff, context);
   if (employee.payment) throw fail("Ce salaire est déjà payé pour ce mois.");
-  const amount = payableOf(employee);
+  // Le paiement part du salaire de base, moins les retenues cochées. Les commissions cochées
+  // restent des versements Finance : elles ne sont pas dans ce montant, pour ne compter qu'une fois.
+  const picked = Array.isArray(body.deductions) ? body.deductions.map(String) : [];
+  const withheld = employee.paymentDeductions.filter((item) => picked.includes(item.key)).reduce((sum, item) => sum + item.amount, 0);
+  const amount = Math.round((employee.salaryBase - withheld) * 1000) / 1000;
   if (amount <= 0) throw fail("Ce salaire est à zéro, il n'y a rien à payer.");
+  const commissionIds = Array.isArray(body.commissionIds) ? body.commissionIds.map(String) : [];
   const paidOn = paymentDate(body.paidOn) || tunisToday();
+  let payment;
   try {
-    await payrollRepo.insertSalaryPayment({ userId: body.userId, month: context.parts.start, amount, paidOn });
+    payment = await payrollRepo.insertSalaryPayment({ userId: body.userId, month: context.parts.start, amount, paidOn });
   } catch (error) {
     if (error.code === "23505") throw fail("Ce salaire est déjà payé pour ce mois.");
     throw error;
+  }
+  if (commissionIds.length) {
+    try {
+      await require("./commissionPayoutService").payUser(auth, body.userId, commissionIds);
+    } catch (error) {
+      await payrollRepo.deleteSalaryPayment(payment.id);
+      throw error;
+    }
   }
   return overview({ month: context.parts.key });
 }

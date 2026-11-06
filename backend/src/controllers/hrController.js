@@ -248,7 +248,7 @@ async function payrollMonth(req, res) {
 
 async function paySalary(req, res) {
   try {
-    res.status(201).json(await payroll.paySalary(req.body || {}));
+    res.status(201).json(await payroll.paySalary(req.auth, req.body || {}));
   } catch (error) {
     handle(res, error);
   }

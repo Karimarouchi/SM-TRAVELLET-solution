@@ -287,6 +287,9 @@ export type HrPayrollEmployee = {
   latenessMinutes: number;
   lines: HrPayslipLines;
   paidCommissions: { id: string; student: string; stage: string; amount: number; paidAt: string; paidThisMonth: boolean; included: boolean; includedMonth: string | null }[];
+  salaryBase: number;
+  paymentDeductions: { key: string; label: string; amount: number }[];
+  dueCommissions: { id: string; student: string; stage: string; amount: number }[];
   entries: HrPayrollEntry[];
   note: string;
   issued: boolean;
@@ -367,7 +370,7 @@ export type HrMyPayslip = {
 
 export const fetchHrPayroll = (month: string) => request<HrPayrollMonth>(`/api/admin/hr/payroll?month=${month}`);
 
-export const payHrSalary = (body: { userId: string; month: string; paidOn: string }) =>
+export const payHrSalary = (body: { userId: string; month: string; paidOn: string; deductions: string[]; commissionIds: string[] }) =>
   request<HrPayrollMonth>("/api/admin/hr/payroll/payments", { method: "POST", body: JSON.stringify(body) });
 
 export const cancelHrSalaryPayment = (id: string) =>

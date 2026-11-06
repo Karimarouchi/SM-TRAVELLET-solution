@@ -473,6 +473,18 @@ async function deleteOfficial(userId, month) {
   return result.rows[0] || null;
 }
 
+// Commissions encore à verser dans Finance, proposées au moment de payer le salaire.
+async function dueCommissions() {
+  const result = await query(
+    `SELECT ce.id, ce.user_id, ce.stage, ce.amount_dinar, s.prenom AS student_prenom, s.nom AS student_nom
+     FROM commission_earnings ce
+     JOIN users s ON s.id = ce.student_id
+     WHERE ce.payout_id IS NULL
+     ORDER BY ce.earned_at ASC`
+  );
+  return result.rows;
+}
+
 async function listSalaryPaymentsForMonth(month) {
   const result = await query(
     `SELECT p.id, p.user_id, p.month::text AS month, p.amount, p.paid_on::text AS paid_on, u.prenom, u.nom
@@ -516,6 +528,7 @@ async function deleteSalaryPayment(id) {
 }
 
 module.exports = {
+  dueCommissions,
   commissionsByUser,
   unpaidCommissionsByUser,
   reportUnpaidCommissions,

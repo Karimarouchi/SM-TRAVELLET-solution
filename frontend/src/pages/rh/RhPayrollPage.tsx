@@ -236,11 +236,11 @@ export default function RhPayrollPage() {
             onRemoveOfficial={() => void run(() => removeHrOfficialPayslip(selected.id, month))}
             paidOn={paidOn}
             onPaidOn={setPaidOn}
-            onPay={() => {
-              const net = selected.official ? selected.official.netToPay : selected.lines.net;
+            onPay={({ salary, commissions, deductions, commissionIds }) => {
               void (async () => {
-                if (!(await confirmDialog(`Payer ${money(net)} à ${selected.prenom} ${selected.nom} pour ${frMonth(month)} ? Le montant et la date entrent dans les charges.`, { confirmLabel: "Payer" }))) return;
-                await run(() => payHrSalary({ userId: selected.id, month, paidOn }));
+                const detail = commissions > 0 ? ` (salaire ${money(salary)}, commissions ${money(commissions)})` : "";
+                if (!(await confirmDialog(`Payer ${money(salary + commissions)}${detail} à ${selected.prenom} ${selected.nom} pour ${frMonth(month)} ? Le montant et la date entrent dans les charges.`, { confirmLabel: "Payer" }))) return;
+                await run(() => payHrSalary({ userId: selected.id, month, paidOn, deductions, commissionIds }));
               })();
             }}
             onCancelPay={(id) => {
@@ -373,7 +373,7 @@ function Detail({
   onRemoveOfficial: () => void;
   paidOn: string;
   onPaidOn: (value: string) => void;
-  onPay: () => void;
+  onPay: (payment: PaymentChoice) => void;
   onCancelPay: (id: string) => void;
 }) {
   const lines = row.lines;
@@ -530,7 +530,7 @@ function Detail({
         </div>
         </>
         )}
-        <PayBar row={row} month={month} onMonth={onOpenMonth} busy={busy} paidOn={paidOn} onPaidOn={onPaidOn} onPay={onPay} onCancelPay={onCancelPay} />
+        <PayBar key={`${row.id}-${month}`} row={row} month={month} onMonth={onOpenMonth} busy={busy} paidOn={paidOn} onPaidOn={onPaidOn} onPay={onPay} onCancelPay={onCancelPay} />
       </section>
       {!row.official && <section className="rounded-[24px] border border-line bg-white p-5">
         <h3 className="font-display font-bold text-dark">Primes et avances</h3>
@@ -585,6 +585,8 @@ function Detail({
   );
 }
 
+type PaymentChoice = { salary: number; commissions: number; deductions: string[]; commissionIds: string[] };
+
 function PayBar({ row, month, onMonth, busy, paidOn, onPaidOn, onPay, onCancelPay }: {
   row: HrPayrollEmployee;
   month: string;
@@ -592,10 +594,16 @@ function PayBar({ row, month, onMonth, busy, paidOn, onPaidOn, onPay, onCancelPa
   busy: boolean;
   paidOn: string;
   onPaidOn: (value: string) => void;
-  onPay: () => void;
+  onPay: (payment: PaymentChoice) => void;
   onCancelPay: (id: string) => void;
 }) {
-  const net = row.official ? row.official.netToPay : row.lines.net;
+  const [deductions, setDeductions] = useState<string[]>([]);
+  const [commissionIds, setCommissionIds] = useState<string[]>([]);
+  const toggle = (list: string[], value: string) => (list.includes(value) ? list.filter((item) => item !== value) : [...list, value]);
+  const withheld = row.paymentDeductions.filter((item) => deductions.includes(item.key)).reduce((sum, item) => sum + item.amount, 0);
+  const salary = Math.round((row.salaryBase - withheld) * 1000) / 1000;
+  const commissions = row.dueCommissions.filter((item) => commissionIds.includes(item.id)).reduce((sum, item) => sum + item.amount, 0);
+  const alreadyPaid = row.paidCommissions.filter((item) => !item.included);
   if (row.payment) {
     return (
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
@@ -610,6 +618,48 @@ function PayBar({ row, month, onMonth, busy, paidOn, onPaidOn, onPay, onCancelPa
   return (
     <div className="mt-4 rounded-2xl border border-line bg-slate-50 px-4 py-3">
       <p className="text-sm font-bold text-dark">Salaire à verser : {frMonth(month)}</p>
+      <dl className="mt-2 text-sm">
+        <Row label="Salaire de base" value={money(row.salaryBase)} />
+      </dl>
+      {row.paymentDeductions.length > 0 && (
+        <fieldset className="mt-2">
+          <legend className="text-[11px] font-bold uppercase tracking-wide text-muted">Retenues à appliquer</legend>
+          {row.paymentDeductions.map((item) => (
+            <label key={item.key} className="flex items-center justify-between gap-3 py-1 text-sm">
+              <span className="flex items-center gap-2 text-dark">
+                <input type="checkbox" checked={deductions.includes(item.key)} disabled={busy} onChange={() => setDeductions((list) => toggle(list, item.key))} />
+                {item.label}
+              </span>
+              <span className="font-semibold text-dark">{money(-item.amount)}</span>
+            </label>
+          ))}
+        </fieldset>
+      )}
+      {row.dueCommissions.length > 0 && (
+        <fieldset className="mt-2">
+          <legend className="text-[11px] font-bold uppercase tracking-wide text-muted">Commissions à payer</legend>
+          {row.dueCommissions.map((item) => (
+            <label key={item.id} className="flex items-center justify-between gap-3 py-1 text-sm">
+              <span className="flex min-w-0 items-center gap-2 text-dark">
+                <input type="checkbox" checked={commissionIds.includes(item.id)} disabled={busy} onChange={() => setCommissionIds((list) => toggle(list, item.id))} />
+                <span className="min-w-0 truncate">{item.student} · {STAGE_LABEL[item.stage] || item.stage}</span>
+              </span>
+              <span className="shrink-0 font-semibold text-dark">{money(item.amount)}</span>
+            </label>
+          ))}
+        </fieldset>
+      )}
+      {alreadyPaid.length > 0 && (
+        <div className="mt-2">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Commissions déjà versées</p>
+          {alreadyPaid.map((item) => (
+            <p key={item.id} className="flex items-center justify-between gap-3 py-1 text-sm text-muted">
+              <span className="min-w-0 truncate">{item.student} · {STAGE_LABEL[item.stage] || item.stage}</span>
+              <span className="shrink-0">{money(item.amount)}</span>
+            </p>
+          ))}
+        </div>
+      )}
       <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap gap-3">
           <label className="text-xs font-bold text-mid">Salaire du mois
@@ -619,7 +669,7 @@ function PayBar({ row, month, onMonth, busy, paidOn, onPaidOn, onPay, onCancelPa
             <input type="date" value={paidOn} onChange={(event) => onPaidOn(event.target.value)} className="mt-1 block rounded-xl border border-line bg-white px-3 py-2 text-sm" />
           </label>
         </div>
-        <button type="button" disabled={busy || net <= 0} onClick={onPay} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Payer {money(net)}</button>
+        <button type="button" disabled={busy || salary <= 0} onClick={() => onPay({ salary, commissions, deductions, commissionIds })} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Payer {money(salary + commissions)}</button>
       </div>
     </div>
   );
