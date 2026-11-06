@@ -25,7 +25,12 @@ export type MailStatus = {
   hasSentFolder?: boolean;
   unread?: number;
   error?: string;
+  /** Employé dont la boîte personnelle n'est pas encore connectée. */
+  needsConnection?: boolean;
 };
+
+/** Boîte d'un employé, listée pour l'admin. */
+export type StaffMailbox = { userId: string; name: string; email: string };
 
 export type MailListItem = {
   uid: number;
@@ -66,6 +71,7 @@ export type SendMailPayload = {
   attachments?: OutgoingAttachment[];
   inReplyTo?: string;
   references?: string[];
+  mailbox?: string;
 };
 
 export const fetchMailRecipients = (q: string) => request<MailRecipient[]>(`/api/mail/recipients?q=${encodeURIComponent(q.trim())}`);
@@ -73,23 +79,29 @@ export const fetchMyMails = () => request<StudentMail[]>("/api/students/me/mails
 export const fetchMyMailsUnread = () => request<{ unread: number }>("/api/students/me/mails/unread-count");
 export const markMyMailRead = (id: string) => request<{ id: string }>(`/api/students/me/mails/${id}/read`, { method: "PATCH" });
 export const fetchStudentMails = (studentId: string) => request<StudentMail[]>(`/api/students/${studentId}/mails`);
-export const fetchMailStatus = () => request<MailStatus>("/api/mail/status");
+const mailboxQuery = (mailbox?: string, prefix = "?") => (mailbox ? `${prefix}mailbox=${encodeURIComponent(mailbox)}` : "");
+
+export const fetchMailStatus = (mailbox?: string) => request<MailStatus>(`/api/mail/status${mailboxQuery(mailbox)}`);
+export const fetchStaffMailboxes = () => request<StaffMailbox[]>("/api/mail/mailboxes");
+export const connectMyMailbox = (email: string, password: string) => request<{ email: string }>("/api/mail/mailbox", { method: "PUT", body: JSON.stringify({ email, password }) });
+export const disconnectMyMailbox = () => request<{ ok: boolean }>("/api/mail/mailbox", { method: "DELETE" });
 export const fetchMailUnread = () => request<{ unread: number }>("/api/mail/unread-count");
 
-export function fetchMailList(folder: MailFolder, page: number, q: string) {
+export function fetchMailList(folder: MailFolder, page: number, q: string, mailbox?: string) {
   const params = new URLSearchParams({ folder, page: String(page) });
   if (q.trim()) params.set("q", q.trim());
+  if (mailbox) params.set("mailbox", mailbox);
   return request<MailList>(`/api/mail/messages?${params.toString()}`);
 }
 
-export const fetchMailMessage = (folder: MailFolder, uid: number) => request<MailMessage>(`/api/mail/messages/${folder}/${uid}`);
+export const fetchMailMessage = (folder: MailFolder, uid: number, mailbox?: string) => request<MailMessage>(`/api/mail/messages/${folder}/${uid}${mailboxQuery(mailbox)}`);
 
 export const sendMail = (payload: SendMailPayload) => request<{ ok: boolean }>("/api/mail/send", { method: "POST", body: JSON.stringify(payload) });
 
 // Pièce jointe reçue : téléchargée avec la session (jamais en lien public).
-export async function downloadMailAttachment(folder: MailFolder, uid: number, attachment: MailAttachment) {
+export async function downloadMailAttachment(folder: MailFolder, uid: number, attachment: MailAttachment, mailbox?: string) {
   const session = getSession();
-  const response = await fetch(`${API_URL}/api/mail/messages/${folder}/${uid}/attachments/${attachment.index}`, {
+  const response = await fetch(`${API_URL}/api/mail/messages/${folder}/${uid}/attachments/${attachment.index}${mailboxQuery(mailbox)}`, {
     headers: session?.token ? { Authorization: `Bearer ${session.token}` } : {}
   });
   if (!response.ok) {

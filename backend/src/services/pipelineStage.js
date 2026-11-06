@@ -18,6 +18,12 @@ const PIPELINE_STAGES = [
   { key: "no_application", label: "Onboarding terminé, sans candidature" }
 ];
 
+// Candidature qui donne l'étape de l'étudiant : la plus récente qui n'est pas refusée.
+// « Candidature refusée » n'apparaît que si toutes ses candidatures le sont.
+function currentApplication(applications) {
+  return applications.find((app) => app.status !== "REJECTED") || applications[0] || null;
+}
+
 function computeStage(student, latestApp) {
   if (!student.onboardingCompleted) return "onboarding";
   if (!latestApp) return "no_application";
@@ -37,4 +43,4 @@ function computeStage(student, latestApp) {
   return "ready_to_apply";
 }
 
-module.exports = { PIPELINE_STAGES, computeStage };
+module.exports = { PIPELINE_STAGES, computeStage, currentApplication };

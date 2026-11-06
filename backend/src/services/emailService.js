@@ -198,10 +198,12 @@ function visaMeetingEmailHtml(prenom, { headerLabel, introText, dateLabel, type,
 async function sendVisaPrepMeetingEmail(to, prenom, { dateLabel, type, location, instructions }) {
   const isOnline = type === "ONLINE";
   const sender = await resolveSender();
-  await sender.transporter.sendMail({
+  const subject = "Réunion de préparation à votre entretien visa";
+  const text = `Bonjour ${prenom}, une réunion de préparation à votre entretien visa a été planifiée : ${dateLabel} (${isOnline ? "en ligne" : "en présentiel"}). ${location ? `${isOnline ? "Lien" : "Adresse"} : ${location}.` : ""}`;
+  const info = await sender.transporter.sendMail({
     from: sender.from(),
     to,
-    subject: "Réunion de préparation à votre entretien visa",
+    subject,
     html: visaMeetingEmailHtml(prenom, {
       headerLabel: "Préparation à l'entretien visa",
       introText: "Votre responsable dossier visa a planifié une réunion pour vous préparer à votre entretien visa. Merci de bien noter la date ci-dessous.",
@@ -211,23 +213,27 @@ async function sendVisaPrepMeetingEmail(to, prenom, { dateLabel, type, location,
       location: !isOnline ? location : null,
       instructions
     }),
-    text: `Bonjour ${prenom}, une réunion de préparation à votre entretien visa a été planifiée : ${dateLabel} (${isOnline ? "en ligne" : "en présentiel"}). ${location ? `${isOnline ? "Lien" : "Adresse"} : ${location}.` : ""}`
+    text
   });
+  return { subject, text, messageId: info?.messageId || null };
 }
 
 async function sendVisaEmbassyAppointmentEmail(to, prenom, { dateLabel }) {
   const sender = await resolveSender();
-  await sender.transporter.sendMail({
+  const subject = "Votre rendez-vous à l'ambassade pour l'entretien visa";
+  const text = `Bonjour ${prenom}, votre rendez-vous à l'ambassade pour l'entretien visa est fixé le : ${dateLabel}.`;
+  const info = await sender.transporter.sendMail({
     from: sender.from(),
     to,
-    subject: "Votre rendez-vous à l'ambassade pour l'entretien visa",
+    subject,
     html: visaMeetingEmailHtml(prenom, {
       headerLabel: "Rendez-vous ambassade",
       introText: "Le rendez-vous pour votre entretien visa auprès de l'ambassade/du consulat a été enregistré. Merci de bien noter la date ci-dessous.",
       dateLabel
     }),
-    text: `Bonjour ${prenom}, votre rendez-vous à l'ambassade pour l'entretien visa est fixé le : ${dateLabel}.`
+    text
   });
+  return { subject, text, messageId: info?.messageId || null };
 }
 
 // Alerte destinée à l'équipe (dossier bloqué, sauvegarde en échec…).
@@ -297,13 +303,16 @@ async function sendApplicationDecisionEmail(to, prenom, details) {
   const { accepted, universityName, fieldOfStudy, countryName, reason } = details;
   const target = fieldOfStudy ? `${universityName} (${fieldOfStudy})` : universityName;
   const sender = await resolveSender();
-  await sender.transporter.sendMail({
+  const subject = accepted ? `Félicitations — candidature acceptée : ${target}` : `Candidature refusée : ${target}`;
+  const text = `Bonjour ${prenom}, votre candidature à ${target}${countryName ? ` (${countryName})` : ""} a été ${accepted ? "acceptée" : "refusée"}.${!accepted && reason ? ` Motif : ${reason}.` : ""}`;
+  const info = await sender.transporter.sendMail({
     from: sender.from(),
     to,
-    subject: accepted ? `Félicitations — candidature acceptée : ${target}` : `Candidature refusée : ${target}`,
+    subject,
     html: applicationDecisionEmailHtml(prenom, details),
-    text: `Bonjour ${prenom}, votre candidature à ${target}${countryName ? ` (${countryName})` : ""} a été ${accepted ? "acceptée" : "refusée"}.${!accepted && reason ? ` Motif : ${reason}.` : ""}`
+    text
   });
+  return { subject, text, messageId: info?.messageId || null };
 }
 
 // Étapes du dossier envoyées par le système : candidature déposée, visa accepté, visa refusé.
@@ -317,6 +326,16 @@ const STEP_EMAILS = {
     decision: "Déposée",
     accent: "#4f46e5",
     cta: { label: "Suivre ma candidature", tone: "info" }
+  },
+  VISA_SUBMITTED: {
+    badge: { label: "Prise de rendez-vous visa", tone: "info" },
+    subject: (target) => `Prise de rendez-vous visa : ${target}`,
+    title: (prenom) => `Bonjour ${prenom}`,
+    intro: (university) => `Votre dossier visa pour vos études à <strong>${esc(university)}</strong> a été <strong>déposé</strong> par votre Responsable Dossier. Nous attendons maintenant la décision : vous serez prévenu(e) dès qu'elle arrive.`,
+    text: (prenom, target) => `Bonjour ${prenom}, votre dossier visa pour ${target} a été déposé. Nous attendons la décision et vous préviendrons dès qu'elle arrive.`,
+    decision: "Prise de rendez-vous visa",
+    accent: "#4f46e5",
+    cta: { label: "Suivre mon dossier", tone: "info" }
   },
   VISA_ACCEPTED: {
     badge: { label: "Visa accepté", tone: "success" },

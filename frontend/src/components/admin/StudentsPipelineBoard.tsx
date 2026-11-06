@@ -1,7 +1,7 @@
 import { type PipelineStageKey, type StudentOverview } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import { ArrowRight, Ban, CheckCircle2, ExternalLink, Lock, Unlock, UserRound } from "lucide-react";
+import { ArrowRight, Ban, CheckCircle2, ExternalLink, FolderCheck, Lock, Unlock, UserRound } from "lucide-react";
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
@@ -106,6 +106,9 @@ function StudentPopoverCard({
   if (!popover) return null;
   const { student, coords } = popover;
   const busy = busyId === student.id;
+  const openApplications = student.applications.filter((app) => app.status !== "REJECTED");
+  const orderedApplications = [...openApplications, ...student.applications.filter((app) => app.status === "REJECTED")];
+  const rdvNames = [...new Set(openApplications.map((app) => app.rdvName).filter(Boolean))];
 
   return createPortal(
     <div
@@ -136,10 +139,22 @@ function StudentPopoverCard({
       </p>
 
       {student.applications.length > 0 && (
+        <p className="mt-1 flex items-center gap-1.5 text-xs text-mid">
+          <FolderCheck className="h-3.5 w-3.5 shrink-0 text-brand" />
+          {rdvNames.length ? (
+            <span><span className="font-semibold">{rdvNames.join(", ")}</span> · Gestionnaire de dossiers</span>
+          ) : (
+            <span className="font-semibold text-amber-600">Aucun gestionnaire de dossiers</span>
+          )}
+        </p>
+      )}
+
+      {student.applications.length > 0 && (
         <div className="mt-2 space-y-1 border-t border-line pt-2">
-          {student.applications.slice(0, 3).map((app) => (
+          {orderedApplications.slice(0, 3).map((app) => (
             <p key={app.id} className="text-[11px] text-muted">
               {app.countryName} · {app.universityName}
+              {app.status === "REJECTED" && <span className="font-bold text-red-600"> · Refusée</span>}
               {app.visaStatus ? ` · Visa: ${app.visaStatus}` : ""}
             </p>
           ))}

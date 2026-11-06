@@ -104,7 +104,8 @@ const ALERT_STYLES: Record<Alert["tone"], string> = {
 // Étape du pipeline d'un étudiant (même règle que la liste du conseiller(ère) commercial(e)).
 function stageOf(onboardingCompleted: boolean, applications: UniversityApplication[]): PipelineStageKey {
   if (!onboardingCompleted) return "onboarding";
-  const latest = applications.find((a) => a.status !== "CLOSED");
+  const open = applications.filter((a) => a.status !== "CLOSED");
+  const latest = open.find((a) => a.status !== "REJECTED") || open[0];
   if (!latest) return "no_application";
   if (latest.status === "POSTPONED") return latest.postponedKind === "VISA" ? "visa_postponed" : "postponed";
   if (latest.status === "REJECTED") return "rejected";

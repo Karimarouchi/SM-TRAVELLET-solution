@@ -718,17 +718,23 @@ async function announceDecision(application, { accepted, reason }) {
 
   try {
     if (student?.email) {
-      await emailService.sendApplicationDecisionEmail(student.email, student.prenom, {
+      const sent = await emailService.sendApplicationDecisionEmail(student.email, student.prenom, {
         accepted,
         universityName,
         fieldOfStudy,
         countryName: country?.name || "",
         reason
       });
+      await keepMailCopy(student.id, sent);
     }
   } catch (err) {
     logger.error("Échec de l'envoi de l'email de décision", { message: err.message, stack: err.stack });
   }
+}
+
+// Copie dans l'espace « Mes e-mails » de l'étudiant.
+async function keepMailCopy(studentId, sent) {
+  await require("./studentMailService").record({ studentId, sentBy: null, subject: sent.subject, body: sent.text, attachments: [], messageId: sent.messageId });
 }
 
 // E-mail système à l'étudiant pour une étape clé (candidature déposée, visa accepté ou refusé),
@@ -748,7 +754,7 @@ async function emailApplicationStep(application, step, reason = null) {
       countryName: country?.name || "",
       reason
     });
-    await require("./studentMailService").record({ studentId: student.id, sentBy: null, subject: sent.subject, body: sent.text, attachments: [], messageId: sent.messageId });
+    await keepMailCopy(student.id, sent);
   } catch (err) {
     logger.error("Échec de l'e-mail d'étape du dossier", { step, applicationId: application.id, message: err.message });
   }
@@ -1193,6 +1199,7 @@ async function markVisaSubmitted(auth, applicationId) {
   const updated = await appRepo.update(applicationId, { visa_status: "SUBMITTED", visa_submitted_at: new Date() });
   await recordHistory(applicationId, application.student_id, "VISA_PREPARATION", "VISA_SUBMITTED", auth.sub, "Dossier visa déposé.");
   await notifyStudent(updated, "Votre dossier visa a été déposé. En attente de la décision.", auth.sub);
+  await emailApplicationStep(updated, "VISA_SUBMITTED");
 
   return dto({ ...updated, country_name: (await countryRepo.findById(updated.country_id))?.name, university_name: (await universityRepo.findById(updated.university_id))?.name });
 }
@@ -1330,12 +1337,13 @@ async function scheduleVisaPrepMeeting(auth, applicationId, payload) {
   try {
     const student = await userRepo.findById(application.student_id);
     if (student?.email) {
-      await emailService.sendVisaPrepMeetingEmail(student.email, student.prenom, {
+      const sent = await emailService.sendVisaPrepMeetingEmail(student.email, student.prenom, {
         dateLabel: date.toLocaleString("fr-FR", { weekday: "long", day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }),
         type,
         location,
         instructions
       });
+      await keepMailCopy(student.id, sent);
     }
   } catch (err) {
     logger.error("Échec de l'envoi de l'email de réunion de préparation visa", { message: err.message, stack: err.stack });
@@ -1439,9 +1447,10 @@ async function scheduleVisaEmbassyAppointment(auth, applicationId, payload) {
   try {
     const student = await userRepo.findById(application.student_id);
     if (student?.email) {
-      await emailService.sendVisaEmbassyAppointmentEmail(student.email, student.prenom, {
+      const sent = await emailService.sendVisaEmbassyAppointmentEmail(student.email, student.prenom, {
         dateLabel: date.toLocaleString("fr-FR", { weekday: "long", day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })
       });
+      await keepMailCopy(student.id, sent);
     }
   } catch (err) {
     logger.error("Échec de l'envoi de l'email de rendez-vous ambassade", { message: err.message, stack: err.stack });

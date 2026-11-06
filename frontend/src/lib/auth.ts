@@ -245,6 +245,7 @@ export type StudentApplicationSummary = {
   universityName: string;
   status: string;
   visaStatus: string | null;
+  rdvName: string | null;
   updatedAt: string | null;
 };
 

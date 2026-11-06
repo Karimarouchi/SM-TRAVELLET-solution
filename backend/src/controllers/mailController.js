@@ -6,7 +6,7 @@ function handle(res, error) {
 
 async function status(req, res) {
   try {
-    res.json(await mailService.status());
+    res.json(await mailService.status(req.auth, req.query.mailbox));
   } catch (error) {
     handle(res, error);
   }
@@ -14,7 +14,7 @@ async function status(req, res) {
 
 async function unreadCount(req, res) {
   try {
-    res.json(await mailService.unreadCount());
+    res.json(await mailService.unreadCount(req.auth, req.query.mailbox));
   } catch (error) {
     handle(res, error);
   }
@@ -22,7 +22,7 @@ async function unreadCount(req, res) {
 
 async function list(req, res) {
   try {
-    res.json(await mailService.listMessages({ folder: req.query.folder, page: req.query.page, q: req.query.q }));
+    res.json(await mailService.listMessages(req.auth, { folder: req.query.folder, page: req.query.page, q: req.query.q, mailbox: req.query.mailbox }));
   } catch (error) {
     handle(res, error);
   }
@@ -30,7 +30,7 @@ async function list(req, res) {
 
 async function read(req, res) {
   try {
-    res.json(await mailService.getMessage({ folder: req.params.folder, uid: req.params.uid }));
+    res.json(await mailService.getMessage(req.auth, { folder: req.params.folder, uid: req.params.uid, mailbox: req.query.mailbox }));
   } catch (error) {
     handle(res, error);
   }
@@ -38,7 +38,7 @@ async function read(req, res) {
 
 async function attachment(req, res) {
   try {
-    const file = await mailService.getAttachment({ folder: req.params.folder, uid: req.params.uid, index: req.params.index });
+    const file = await mailService.getAttachment(req.auth, { folder: req.params.folder, uid: req.params.uid, index: req.params.index, mailbox: req.query.mailbox });
     // Toujours en téléchargement : jamais affiché dans le navigateur (HTML, SVG…).
     res.setHeader("Content-Type", file.contentType);
     res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(file.filename)}`);
@@ -65,4 +65,28 @@ async function send(req, res) {
   }
 }
 
-module.exports = { status, unreadCount, list, read, attachment, send, recipients };
+async function connectMailbox(req, res) {
+  try {
+    res.json(await mailService.connectMailbox(req.auth, req.body || {}));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
+async function disconnectMailbox(req, res) {
+  try {
+    res.json(await mailService.disconnectMailbox(req.auth));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
+async function mailboxes(req, res) {
+  try {
+    res.json(await mailService.listMailboxes());
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
+module.exports = { status, unreadCount, list, read, attachment, send, recipients, connectMailbox, disconnectMailbox, mailboxes };

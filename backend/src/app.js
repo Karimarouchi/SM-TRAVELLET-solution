@@ -140,6 +140,9 @@ app.get("/api/mail/messages", requireAuth, requireRoles("ADMIN", "SALES", "RDV")
 app.get("/api/mail/messages/:folder/:uid", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), mailController.read);
 app.get("/api/mail/messages/:folder/:uid/attachments/:index", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), mailController.attachment);
 app.post("/api/mail/send", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), mailSendLimiter, mailController.send);
+app.put("/api/mail/mailbox", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), mailSendLimiter, mailController.connectMailbox);
+app.delete("/api/mail/mailbox", requireAuth, requireRoles("ADMIN", "SALES", "RDV"), mailController.disconnectMailbox);
+app.get("/api/mail/mailboxes", requireAuth, requireRoles("ADMIN"), mailController.mailboxes);
 app.get("/api/whatsapp/diagnostic", requireAuth, requireRoles("ADMIN"), whatsappController.diagnostic);
 app.post("/api/whatsapp/diagnostic/reset", requireAuth, requireRoles("ADMIN"), whatsappController.resetDiagnostic);
 app.get("/api/whatsapp/unread-count", requireAuth, requireRoles("SALES", "ADMIN"), whatsappController.unreadCount);

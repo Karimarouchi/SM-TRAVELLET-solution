@@ -1,8 +1,11 @@
 import {
+  connectMyMailbox,
+  disconnectMyMailbox,
   downloadMailAttachment,
   fetchMailList,
   fetchMailMessage,
   fetchMailStatus,
+  fetchStaffMailboxes,
   formatBytes,
   sendMail,
   type MailAddress,
@@ -11,9 +14,11 @@ import {
   type MailListItem,
   type MailMessage,
   type MailStatus,
-  type OutgoingAttachment
+  type OutgoingAttachment,
+  type StaffMailbox
 } from "@/lib/mail";
 import { SkeletonLines, SkeletonRows } from "@/components/ui/skeleton";
+import { confirmDialog } from "@/components/ui/dialog-host";
 import { getSession } from "@/lib/auth";
 import RecipientInput from "@/components/RecipientInput";
 import { useLanguage } from "@/lib/i18n";
@@ -72,7 +77,49 @@ function MessageBody({ message, showImages }: { message: MailMessage; showImages
   return <pre className="whitespace-pre-wrap break-words rounded-xl border border-line bg-white p-4 font-sans text-sm leading-relaxed text-dark">{message.text || "(message vide)"}</pre>;
 }
 
-function ComposeModal({ initial, onClose, onSent }: { initial: Draft; onClose: () => void; onSent: () => void }) {
+// Connexion de la boîte Hostinger de l'employé : le mot de passe est testé puis enregistré chiffré.
+function ConnectMailbox({ onConnected }: { onConnected: () => void }) {
+  const { t } = useLanguage();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      await connectMyMailbox(email, password);
+      setPassword("");
+      onConnected();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("Connexion impossible.", "Connection failed."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="mt-5 max-w-lg rounded-[24px] border border-line bg-white p-6 shadow-sm">
+      <h2 className="font-display text-lg font-bold text-dark">{t("Connecter ma boîte mail", "Connect my mailbox")}</h2>
+      <p className="mt-1 text-xs text-muted">{t("Saisissez l'adresse et le mot de passe de votre boîte créée chez Hostinger. Le mot de passe est vérifié, puis enregistré chiffré.", "Enter the address and password of your Hostinger mailbox. The password is checked, then stored encrypted.")}</p>
+      <label className="mt-4 block text-xs font-bold text-mid">{t("Adresse e-mail", "Email address")}
+        <input type="email" required autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="prenom@smtravel.fr" className="mt-1 w-full rounded-xl border border-line px-3 py-2.5 text-sm font-normal text-dark" />
+      </label>
+      <label className="mt-3 block text-xs font-bold text-mid">{t("Mot de passe de la boîte mail", "Mailbox password")}
+        <input type="password" required autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 w-full rounded-xl border border-line px-3 py-2.5 text-sm font-normal text-dark" />
+      </label>
+      <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900">{t("Cette boîte est professionnelle : l'administrateur peut consulter vos mails et répondre depuis cette adresse.", "This is a work mailbox: the administrator can read your mails and reply from this address.")}</p>
+      {error && <p role="alert" className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">{error}</p>}
+      <button type="submit" disabled={busy} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white disabled:opacity-60">
+        {busy && <Loader2 className="h-4 w-4 animate-spin" />} {busy ? t("Vérification...", "Checking...") : t("Connecter", "Connect")}
+      </button>
+    </form>
+  );
+}
+
+function ComposeModal({ initial, mailbox, onClose, onSent }: { initial: Draft; mailbox?: string; onClose: () => void; onSent: () => void }) {
   const { t } = useLanguage();
   const [draft, setDraft] = useState<Draft>(initial);
   const isAdmin = getSession()?.user.role === "ADMIN";
@@ -115,6 +162,7 @@ function ComposeModal({ initial, onClose, onSent }: { initial: Draft; onClose: (
     setError("");
     try {
       await sendMail({
+        mailbox,
         to: draft.to,
         cc: draft.cc || undefined,
         subject: draft.subject,
@@ -211,22 +259,56 @@ export default function MailPage() {
   const [messageLoading, setMessageLoading] = useState(false);
   const [showImages, setShowImages] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
+  const isAdmin = getSession()?.user.role === "ADMIN";
+  const myId = getSession()?.user.id;
+  // Admin : boîte commune par défaut, puis celle de son choix. Employé : toujours la sienne.
+  const [mailbox, setMailbox] = useState<string | undefined>(undefined);
+  const [mailboxes, setMailboxes] = useState<StaffMailbox[]>([]);
+  const ownMailbox = !isAdmin || mailbox === myId;
+  const viewingOther = isAdmin && Boolean(mailbox) && mailbox !== "shared" && mailbox !== myId;
   const [notice, setNotice] = useState("");
 
   const loadList = useCallback(
     (silent = false) => {
       if (!silent) setLoading(true);
-      fetchMailList(folder, page, search)
+      fetchMailList(folder, page, search, mailbox)
         .then((data) => { setList(data); setError(""); })
         .catch((err) => setError(err instanceof Error ? err.message : t("Impossible de charger les mails.", "Unable to load mails.")))
         .finally(() => setLoading(false));
     },
-    [folder, page, search, t]
+    [folder, page, search, t, mailbox]
   );
 
+  const loadStatus = useCallback(() => {
+    setStatus(null);
+    fetchMailStatus(mailbox).then(setStatus).catch(() => undefined);
+  }, [mailbox]);
+
   useEffect(() => {
-    fetchMailStatus().then(setStatus).catch(() => undefined);
-  }, []);
+    loadStatus();
+  }, [loadStatus]);
+
+  useEffect(() => {
+    if (isAdmin) fetchStaffMailboxes().then(setMailboxes).catch(() => setMailboxes([]));
+  }, [isAdmin, status?.address]);
+
+  const switchMailbox = (next: string) => {
+    setMailbox(next === "shared" ? undefined : next);
+    setList(null);
+    setPage(1);
+    setFolder("inbox");
+    setSelected(null);
+    setMessage(null);
+    setError("");
+  };
+
+  const disconnect = async () => {
+    if (!(await confirmDialog(t("Déconnecter votre boîte mail de l'application ? Vos mails restent chez Hostinger.", "Disconnect your mailbox from the app? Your mails stay at Hostinger."), { confirmLabel: t("Déconnecter", "Disconnect") }))) return;
+    await disconnectMyMailbox().catch(() => undefined);
+    loadStatus();
+    setList(null);
+    if (isAdmin) fetchStaffMailboxes().then(setMailboxes).catch(() => undefined);
+  };
 
   // La liste se charge sans attendre le test de connexion ; une erreur de connexion s'affiche dans le bandeau.
   useEffect(() => {
@@ -254,7 +336,7 @@ export default function MailPage() {
     setMessage(null);
     setShowImages(false);
     setMessageLoading(true);
-    fetchMailMessage(folder, item.uid)
+    fetchMailMessage(folder, item.uid, mailbox)
       .then((data) => {
         setMessage(data);
         if (!item.seen) setList((prev) => (prev ? { ...prev, items: prev.items.map((m) => (m.uid === item.uid ? { ...m, seen: true } : m)) } : prev));
@@ -294,9 +376,19 @@ export default function MailPage() {
       <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-6 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)] sm:p-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-sm text-white/80">{t("Boîte mail de l'agence", "Agency mailbox")}</p>
+            <p className="text-sm text-white/80">{isAdmin && !mailbox ? t("Boîte mail de l'agence", "Agency mailbox") : viewingOther ? t("Boîte d'un employé", "Employee mailbox") : t("Ma boîte mail", "My mailbox")}</p>
             <h1 className="mt-1 flex items-center gap-2 font-display text-2xl font-extrabold sm:text-3xl"><Mail className="h-7 w-7" aria-hidden /> Mail</h1>
             {status?.address && <p className="mt-1 text-xs text-white/80">{status.address}</p>}
+            {isAdmin && (
+              <select aria-label={t("Boîte affichée", "Displayed mailbox")} value={mailbox || "shared"} onChange={(e) => switchMailbox(e.target.value)} className="mt-3 max-w-full rounded-xl border-0 bg-white/15 px-3 py-2 text-xs font-bold text-white outline-none [&>option]:text-dark">
+                <option value="shared">{t("Boîte de l'agence", "Agency mailbox")}</option>
+                {myId && !mailboxes.some((box) => box.userId === myId) && <option value={myId}>{t("Ma boîte (à connecter)", "My mailbox (to connect)")}</option>}
+                {mailboxes.map((box) => <option key={box.userId} value={box.userId}>{box.name} · {box.email}</option>)}
+              </select>
+            )}
+            {ownMailbox && status?.configured && (
+              <button type="button" onClick={() => void disconnect()} className="mt-2 block text-[11px] font-semibold text-white/80 underline">{t("Déconnecter ma boîte", "Disconnect my mailbox")}</button>
+            )}
           </div>
           <button type="button" onClick={() => setDraft({ to: "", cc: "", subject: "", text: signature() })} disabled={Boolean(status && !status.ok)} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-brand transition hover:bg-violet-50 disabled:opacity-50">
             <PenSquare className="h-4 w-4" aria-hidden /> {t("Nouveau mail", "New mail")}
@@ -306,11 +398,17 @@ export default function MailPage() {
 
       {notice && <p role="status" className="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{notice}</p>}
 
-      {status && !status.ok && (
+      {viewingOther && status?.ok && (
+        <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">{t("Vous consultez la boîte d'un employé. Les mails ouverts restent non lus pour lui. Une réponse partira depuis son adresse.", "You are viewing an employee's mailbox. Opened mails stay unread for them. A reply is sent from their address.")}</p>
+      )}
+
+      {status?.needsConnection && <ConnectMailbox onConnected={() => { loadStatus(); loadList(); if (isAdmin) fetchStaffMailboxes().then(setMailboxes).catch(() => undefined); }} />}
+
+      {status && !status.ok && !status.needsConnection && (
         <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
           <p className="font-bold">{t("La boîte mail n'est pas accessible", "The mailbox is not reachable")}</p>
           <p className="mt-1">{status.error}</p>
-          {getSession()?.user.role === "ADMIN" && <Link to="/admin/settings" className="mt-3 inline-flex rounded-lg bg-amber-900 px-3.5 py-2 text-xs font-bold text-white">{t("Ouvrir les paramètres e-mail", "Open email settings")}</Link>}
+          {isAdmin && !mailbox && <Link to="/admin/settings" className="mt-3 inline-flex rounded-lg bg-amber-900 px-3.5 py-2 text-xs font-bold text-white">{t("Ouvrir les paramètres e-mail", "Open email settings")}</Link>}
         </div>
       )}
 
@@ -404,7 +502,7 @@ export default function MailPage() {
                       <li key={a.index}>
                         <button
                           type="button"
-                          onClick={() => downloadMailAttachment(message.folder, message.uid, a).catch((err) => setError(err instanceof Error ? err.message : "Téléchargement impossible."))}
+                          onClick={() => downloadMailAttachment(message.folder, message.uid, a, mailbox).catch((err) => setError(err instanceof Error ? err.message : "Téléchargement impossible."))}
                           className="inline-flex items-center gap-2 rounded-xl border border-line bg-slate-50 px-3 py-2 text-xs font-semibold text-dark transition hover:border-brand hover:text-brand"
                         >
                           <Download className="h-3.5 w-3.5 text-brand" aria-hidden /> {a.filename} <span className="text-muted">{formatBytes(a.size)}</span>
@@ -429,6 +527,7 @@ export default function MailPage() {
 
       {draft && (
         <ComposeModal
+          mailbox={mailbox}
           initial={draft}
           onClose={() => setDraft(null)}
           onSent={() => {

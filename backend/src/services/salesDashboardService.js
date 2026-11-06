@@ -2,7 +2,7 @@ const repo = require("../repositories/salesDashboardRepository");
 const settings = require("../repositories/settingsRepository");
 const passport = require("./passport");
 const paymentService = require("./paymentService");
-const { PIPELINE_STAGES, computeStage } = require("./pipelineStage");
+const { PIPELINE_STAGES, computeStage, currentApplication } = require("./pipelineStage");
 const applicationBlockers = require("./applicationBlockersService");
 
 const DAY_MS = 24 * 3600 * 1000;
@@ -79,7 +79,7 @@ async function getOverview(auth) {
 
   const students = rows.map((row) => {
     const apps = appsBy.get(row.id) || [];
-    const latest = apps[0] || null; // trié par mise à jour décroissante
+    const latest = currentApplication(apps); // trié par mise à jour décroissante
     const student = {
       id: row.id,
       onboardingCompleted: Boolean(row.onboarding_completed),

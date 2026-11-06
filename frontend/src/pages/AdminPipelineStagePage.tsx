@@ -5,7 +5,7 @@ import ApplicationBlockers from "@/components/ApplicationBlockers";
 import { STAGE_META } from "@/components/admin/StudentsPipelineBoard";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, Ban, GraduationCap, Mail, Phone, Search, UserRound } from "lucide-react";
+import { ArrowLeft, Ban, FolderCheck, GraduationCap, Mail, Phone, Search, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 
@@ -129,7 +129,9 @@ export default function AdminPipelineStagePage() {
 
 function StudentCard({ student }: { student: StudentOverview }) {
   const name = `${student.prenom} ${student.nom}`.trim();
-  const apps = student.applications || [];
+  const all = student.applications || [];
+  const apps = [...all.filter((app) => app.status !== "REJECTED"), ...all.filter((app) => app.status === "REJECTED")];
+  const rdvNames = [...new Set(apps.filter((app) => app.status !== "REJECTED").map((app) => app.rdvName).filter(Boolean))];
   return (
     <Link
       to={`/conseiller/etudiants/${student.id}`}
@@ -172,6 +174,21 @@ function StudentCard({ student }: { student: StudentOverview }) {
             )}
           </dd>
         </div>
+        {apps.length > 0 && (
+          <div className="flex items-center gap-2">
+            <FolderCheck className="h-3.5 w-3.5 shrink-0 text-brand" />
+            <dt className="sr-only">Gestionnaire de dossiers</dt>
+            <dd className="min-w-0 truncate text-mid">
+              {rdvNames.length ? (
+                <>
+                  <span className="font-semibold">{rdvNames.join(", ")}</span> · gestionnaire de dossiers
+                </>
+              ) : (
+                <span className="font-semibold text-amber-600">Aucun gestionnaire de dossiers</span>
+              )}
+            </dd>
+          </div>
+        )}
         {(student.targetField || student.preferredCountries.length > 0) && (
           <div className="flex items-start gap-2">
             <GraduationCap className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" />
@@ -186,12 +203,13 @@ function StudentCard({ student }: { student: StudentOverview }) {
 
       {apps.length > 0 && (
         <ul className="mt-3 space-y-1">
-          {apps.slice(0, 2).map((app) => (
-            <li key={app.id} className="truncate rounded-lg bg-slate-50 px-2.5 py-1.5 text-[11px] text-mid">
-              {app.universityName || "Université"} · {app.countryName}
+          {apps.slice(0, 3).map((app) => (
+            <li key={app.id} className="flex items-center gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-[11px] text-mid">
+              <span className="min-w-0 flex-1 truncate">{app.universityName || "Université"} · {app.countryName}</span>
+              {app.status === "REJECTED" && <span className="shrink-0 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700">Refusée</span>}
             </li>
           ))}
-          {apps.length > 2 && <li className="px-1 text-[11px] font-semibold text-muted">+ {apps.length - 2} autre{apps.length - 2 > 1 ? "s" : ""}</li>}
+          {apps.length > 3 && <li className="px-1 text-[11px] font-semibold text-muted">+ {apps.length - 3} autre{apps.length - 3 > 1 ? "s" : ""}</li>}
         </ul>
       )}
 

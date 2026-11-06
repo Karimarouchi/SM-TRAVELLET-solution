@@ -60,7 +60,7 @@ function mapStudent(row) {
 // Étapes détaillées du pipeline, de la moins à la plus avancée. Un étudiant
 // peut avoir plusieurs candidatures (une par pays) : on retient celle mise à
 // jour le plus récemment pour représenter son avancement global.
-const { PIPELINE_STAGES, computeStage } = require("./pipelineStage");
+const { PIPELINE_STAGES, computeStage, currentApplication } = require("./pipelineStage");
 const applicationBlockers = require("./applicationBlockersService");
 
 const MONTHS_FR = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
@@ -399,7 +399,7 @@ async function getStudentsOverview() {
 
   const overview = rows.map((row) => {
     const apps = appsByStudent.get(row.id) || [];
-    const latestApp = apps[0] || null; // listAllActive est déjà trié par updated_at DESC
+    const latestApp = currentApplication(apps); // listAllActive est déjà trié par updated_at DESC
     const student = mapStudent(row);
     return {
       ...student,
@@ -413,6 +413,7 @@ async function getStudentsOverview() {
         universityName: app.university_name,
         status: app.status,
         visaStatus: app.visa_status,
+        rdvName: app.rdv_name || null,
         updatedAt: app.updated_at ? new Date(app.updated_at).toISOString() : null
       }))
     };

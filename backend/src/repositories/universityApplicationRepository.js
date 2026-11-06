@@ -246,10 +246,12 @@ async function findRecentSuccesses(days = 7) {
 async function listAllActive() {
   const result = await query(
     `SELECT ua.id, ua.student_id, ua.status, ua.visa_status, ua.updated_at, ua.decision_at, ua.assigned_rdv_id,
-            ua.translation_done_at, c.name AS country_name, cu.name AS university_name
+            ua.translation_done_at, c.name AS country_name, cu.name AS university_name,
+            NULLIF(TRIM(CONCAT(r.prenom, ' ', r.nom)), '') AS rdv_name
      FROM university_applications ua
      JOIN countries c ON c.id = ua.country_id
      JOIN country_universities cu ON cu.id = ua.university_id
+     LEFT JOIN users r ON r.id = ua.assigned_rdv_id
      WHERE ua.status != 'CLOSED'
      ORDER BY ua.updated_at DESC`
   );

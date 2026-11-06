@@ -1,6 +1,7 @@
 const { ImapFlow } = require("imapflow");
 const { simpleParser } = require("mailparser");
 const sanitizeHtml = require("sanitize-html");
+const nodemailer = require("nodemailer");
 const MailComposer = require("nodemailer/lib/mail-composer");
 const { query } = require("../../db");
 const { authRoles } = require("../security/rbac");
@@ -9,14 +10,19 @@ const studentMailService = require("./studentMailService");
 const userRepo = require("../repositories/userRepository");
 const logger = require("../logger");
 const leaveCover = require("./leaveCover");
+const secretBox = require("../security/secretBox");
+const staffMailboxRepo = require("../repositories/staffMailboxRepository");
 
-// Boîte mail commune de l'agence, dans l'application : elle suit toujours l'adresse et le mot de passe
-// saisis dans Paramètres (Hostinger, Gmail…). Réception par IMAP, envoi par le même serveur SMTP que les
-// e-mails automatiques. Rien n'est copié en base : les mails restent sur le serveur de messagerie.
+// Boîtes mail dans l'application. La boîte commune de l'agence (admin) suit l'adresse et le mot de passe
+// saisis dans Paramètres : c'est aussi elle qui envoie les e-mails automatiques. Chaque employé connecte
+// sa propre boîte Hostinger ; l'admin peut les consulter toutes et y répondre.
+// Réception par IMAP, envoi par SMTP. Rien n'est copié en base : les mails restent sur le serveur de messagerie.
 
 const PAGE_SIZE = 25;
 const MAX_ATTACHMENTS_BYTES = 10 * 1024 * 1024;
 const MAX_ATTACHMENT_COUNT = 8;
+const STAFF_SMTP = { host: "smtp.hostinger.com", port: 465 };
+const STAFF_IMAP = { host: "imap.hostinger.com", port: 993 };
 
 function fail(message, status) {
   const error = new Error(message);
@@ -37,8 +43,35 @@ async function mailboxConfig() {
   const cfg = await emailService.resolveMailboxConfig();
   const host = process.env.IMAP_HOST || deriveImapHost(cfg.smtpHost);
   const port = parseInt(process.env.IMAP_PORT, 10) || 993;
-  return { ...cfg, imapHost: host, imapPort: port };
+  return { ...cfg, imapHost: host, imapPort: port, shared: true };
 }
+
+const NOT_CONNECTED = "Connectez votre boîte mail pour lire et envoyer vos mails.";
+
+// Boîte ouverte : sans précision, la boîte commune pour l'admin et sa propre boîte pour un employé.
+// Un employé n'ouvre jamais que la sienne ; l'admin ouvre celle de son choix.
+async function resolveMailbox(auth, requested) {
+  const isAdmin = authRoles(auth).includes("ADMIN");
+  const wanted = String(requested || "").trim();
+  if (wanted === "shared" || (!wanted && isAdmin)) {
+    if (!isAdmin) throw fail("Cette boîte est réservée à l'administrateur.", 403);
+    return mailboxConfig();
+  }
+  const ownerId = wanted || auth.sub;
+  if (!/^[0-9a-f-]{36}$/i.test(ownerId)) throw fail("Boîte mail introuvable.", 404);
+  if (ownerId !== auth.sub && !isAdmin) throw fail("Vous ne pouvez ouvrir que votre propre boîte mail.", 403);
+  const row = await staffMailboxRepo.find(ownerId);
+  const pass = row ? secretBox.decrypt(row.password_enc) : "";
+  if (!row || !pass) {
+    const error = fail(NOT_CONNECTED, 409);
+    error.needsConnection = true;
+    throw error;
+  }
+  return { user: row.email, pass, smtpHost: STAFF_SMTP.host, smtpPort: STAFF_SMTP.port, imapHost: STAFF_IMAP.host, imapPort: STAFF_IMAP.port, ownerId };
+}
+
+// L'admin qui lit la boîte d'un employé ne change pas ses mails non lus.
+const readerOwnsMailbox = (auth, mailbox) => mailbox.shared || mailbox.ownerId === auth.sub;
 
 function explainError(error, host) {
   const detail = String(error.response || error.responseText || error.message || "");
@@ -52,8 +85,7 @@ function explainError(error, host) {
   return `Connexion à la boîte mail impossible : ${detail.slice(0, 160)}`;
 }
 
-async function withClient(task) {
-  const cfg = await mailboxConfig();
+async function withClient(cfg, task) {
   if (!cfg.user || !cfg.pass) throw fail("Boîte mail non configurée : renseignez l'adresse et le mot de passe dans Paramètres.", 503);
   if (!cfg.imapHost) throw fail("Serveur de réception inconnu : renseignez le serveur d'envoi dans Paramètres.", 503);
   const client = new ImapFlow({
@@ -226,13 +258,19 @@ async function searchStudentEmails(text) {
 }
 
 // ── Statut (test de connexion) ─────────────────────────────────────────────
-async function status() {
-  const cfg = await mailboxConfig();
+async function status(auth, requested) {
+  let cfg;
+  try {
+    cfg = await resolveMailbox(auth, requested);
+  } catch (error) {
+    if (error.needsConnection) return { configured: false, ok: false, address: "", needsConnection: true, error: error.message };
+    throw error;
+  }
   if (!cfg.user || !cfg.pass) {
     return { configured: false, ok: false, address: cfg.user || "", error: "Boîte mail non configurée : renseignez l'adresse et le mot de passe dans Paramètres." };
   }
   try {
-    return await withClient(async (client) => {
+    return await withClient(cfg, async (client) => {
       const paths = await folderPaths(client);
       return { configured: true, ok: true, address: cfg.user, host: cfg.imapHost, hasSentFolder: Boolean(paths.sent), unread: await countUnseen(client) };
     });
@@ -241,15 +279,67 @@ async function status() {
   }
 }
 
-async function unreadCount() {
-  return withClient(async (client) => ({ unread: await countUnseen(client) }));
+async function unreadCount(auth, requested) {
+  let cfg;
+  try {
+    cfg = await resolveMailbox(auth, requested);
+  } catch (error) {
+    if (error.needsConnection) return { unread: 0 };
+    throw error;
+  }
+  return withClient(cfg, async (client) => ({ unread: await countUnseen(client) }));
+}
+
+// ── Boîte personnelle ──────────────────────────────────────────────────────
+const SETTINGS_HINT = " Vérifiez-les dans Paramètres (Gmail : mot de passe d'application ; Hostinger : mot de passe de la boîte mail).";
+const MAILBOX_HINT = " Vérifiez l'adresse et le mot de passe de votre boîte mail.";
+
+// Adresse et mot de passe vérifiés sur Hostinger (réception et envoi) avant d'être enregistrés.
+async function connectMailbox(auth, payload) {
+  const email = String(payload?.email || "").trim().toLowerCase();
+  const pass = String(payload?.password || "");
+  if (!EMAIL.test(email)) throw fail("Indiquez une adresse e-mail valide.", 400);
+  if (!pass) throw fail("Indiquez le mot de passe de votre boîte mail.", 400);
+  const cfg = { user: email, pass, imapHost: STAFF_IMAP.host, imapPort: STAFF_IMAP.port };
+  try {
+    await withClient(cfg, async () => undefined);
+  } catch (error) {
+    throw fail(error.message.replace(SETTINGS_HINT, MAILBOX_HINT), 400);
+  }
+  const transporter = staffTransport(cfg);
+  try {
+    await transporter.verify();
+  } catch (error) {
+    throw fail(explainError(error, STAFF_SMTP.host).replace(SETTINGS_HINT, MAILBOX_HINT), 400);
+  } finally {
+    transporter.close();
+  }
+  await staffMailboxRepo.save(auth.sub, email, secretBox.encrypt(pass));
+  logger.info("Boîte mail personnelle connectée", { by: auth.sub });
+  return { email };
+}
+
+async function disconnectMailbox(auth) {
+  await staffMailboxRepo.remove(auth.sub);
+  return { ok: true };
+}
+
+function staffTransport(cfg) {
+  return nodemailer.createTransport({ host: STAFF_SMTP.host, port: STAFF_SMTP.port, secure: true, auth: { user: cfg.user, pass: cfg.pass } });
+}
+
+// Liste des boîtes pour l'admin. Jamais de mot de passe.
+async function listMailboxes() {
+  const rows = await staffMailboxRepo.listAll();
+  return rows.map((row) => ({ userId: row.user_id, name: `${row.prenom || ""} ${row.nom || ""}`.trim(), email: row.email }));
 }
 
 // ── Liste ──────────────────────────────────────────────────────────────────
-async function listMessages({ folder = "inbox", page = 1, q = "" }) {
+async function listMessages(auth, { folder = "inbox", page = 1, q = "", mailbox }) {
+  const cfg = await resolveMailbox(auth, mailbox);
   const currentPage = Math.max(1, parseInt(page, 10) || 1);
   const query = String(q || "").trim().slice(0, 100);
-  return withClient(async (client) => {
+  return withClient(cfg, async (client) => {
     const path = await resolvePath(client, folder === "sent" ? "sent" : "inbox");
     if (!path) return { items: [], total: 0, page: currentPage, pageSize: PAGE_SIZE, folderMissing: true };
     const lock = await client.getMailboxLock(path, { readOnly: true });
@@ -331,13 +421,14 @@ async function fetchParsed(client, path, uid, { markSeen = false } = {}) {
   }
 }
 
-async function getMessage({ folder = "inbox", uid }) {
+async function getMessage(auth, { folder = "inbox", uid, mailbox }) {
   const id = parseInt(uid, 10);
   if (!Number.isInteger(id) || id <= 0) throw fail("Mail introuvable.", 404);
-  return withClient(async (client) => {
+  const cfg = await resolveMailbox(auth, mailbox);
+  return withClient(cfg, async (client) => {
     const path = await resolvePath(client, folder === "sent" ? "sent" : "inbox");
     if (!path) throw fail("Dossier introuvable.", 404);
-    const parsed = await fetchParsed(client, path, id, { markSeen: folder !== "sent" });
+    const parsed = await fetchParsed(client, path, id, { markSeen: folder !== "sent" && readerOwnsMailbox(auth, cfg) });
 
     // Images incorporées (cid:) → données directes, pour qu'elles s'affichent dans le message.
     let html = parsed.html || "";
@@ -372,11 +463,12 @@ async function getMessage({ folder = "inbox", uid }) {
   });
 }
 
-async function getAttachment({ folder = "inbox", uid, index }) {
+async function getAttachment(auth, { folder = "inbox", uid, index, mailbox }) {
   const id = parseInt(uid, 10);
   const position = parseInt(index, 10);
   if (!Number.isInteger(id) || !Number.isInteger(position) || position < 0) throw fail("Pièce jointe introuvable.", 404);
-  return withClient(async (client) => {
+  const cfg = await resolveMailbox(auth, mailbox);
+  return withClient(cfg, async (client) => {
     const path = await resolvePath(client, folder === "sent" ? "sent" : "inbox");
     if (!path) throw fail("Dossier introuvable.", 404);
     const parsed = await fetchParsed(client, path, id);
@@ -411,8 +503,10 @@ async function send(auth, payload) {
   const cc = parseRecipients(payload.cc, "copie");
   if (!to.length) throw fail("Indiquez au moins un destinataire.", 400);
   if (to.length + cc.length > 20) throw fail("Trop de destinataires (20 maximum).", 400);
-  // Le conseiller n'écrit qu'à ses étudiants, le Responsable Dossier qu'aux étudiants de ses candidatures ; l'admin à tous.
-  await assertCanWriteTo(auth, [...to, ...cc]);
+  const cfg = await resolveMailbox(auth, payload.mailbox);
+  // Boîte commune : le conseiller n'écrit qu'à ses étudiants, le Responsable Dossier qu'aux étudiants de ses
+  // candidatures ; l'admin à tous. Dans sa propre boîte, chacun écrit librement.
+  if (cfg.shared) await assertCanWriteTo(auth, [...to, ...cc]);
   const subject = String(payload.subject || "").trim().slice(0, 300);
   if (!subject) throw fail("Indiquez l'objet du mail.", 400);
   const text = String(payload.text || "");
@@ -432,12 +526,22 @@ async function send(auth, payload) {
     attachments.push({ filename: cleanFilename(item.filename), content: buffer, contentType: String(item.contentType || "application/octet-stream").slice(0, 100) });
   }
 
-  const [sender, cfg, user] = await Promise.all([emailService.resolveSender(), mailboxConfig(), userRepo.findById(auth.sub)]);
   if (!cfg.user || !cfg.pass) throw fail("Boîte mail non configurée : renseignez l'adresse et le mot de passe dans Paramètres.", 503);
-  const staffName = (await coverSenderName(auth, [...to, ...cc])) || (user ? `${user.prenom || ""} ${user.nom || ""}`.trim() : "");
+  const user = await userRepo.findById(cfg.ownerId || auth.sub);
+  const userName = user ? `${user.prenom || ""} ${user.nom || ""}`.trim() : "";
+  let sender;
+  let from;
+  if (cfg.shared) {
+    sender = await emailService.resolveSender();
+    const staffName = (await coverSenderName(auth, [...to, ...cc])) || userName;
+    from = sender.from(staffName ? ` — ${staffName}` : "");
+  } else {
+    sender = { transporter: staffTransport(cfg) };
+    from = `"${userName.replace(/"/g, "")}" <${cfg.user}>`;
+  }
 
   const mail = {
-    from: sender.from(staffName ? ` — ${staffName}` : ""),
+    from,
     to,
     cc: cc.length ? cc : undefined,
     subject,
@@ -459,7 +563,7 @@ async function send(auth, payload) {
   } finally {
     sender.transporter.close?.();
   }
-  logger.info("Boîte mail : mail envoyé", { by: auth.sub, to: to.length, attachments: attachments.length });
+  logger.info("Boîte mail : mail envoyé", { by: auth.sub, mailbox: cfg.ownerId || "shared", to: to.length, attachments: attachments.length });
 
   // Une copie du mail est conservée dans l'espace de chaque étudiant concerné (preuve d'envoi et de réception).
   try {
@@ -483,7 +587,7 @@ async function send(auth, payload) {
   const keepsSentCopy = /gmail|googlemail|office365|outlook/i.test(cfg.imapHost || "");
   try {
     if (keepsSentCopy) return { ok: true };
-    await withClient(async (client) => {
+    await withClient(cfg, async (client) => {
       const paths = await folderPaths(client);
       if (paths.sent) await client.append(paths.sent, raw, ["\\Seen"]);
     });
@@ -493,4 +597,4 @@ async function send(auth, payload) {
   return { ok: true };
 }
 
-module.exports = { status, unreadCount, listMessages, getMessage, getAttachment, send, searchRecipients, deriveImapHost };
+module.exports = { status, unreadCount, listMessages, getMessage, getAttachment, send, searchRecipients, deriveImapHost, connectMailbox, disconnectMailbox, listMailboxes, resolveMailbox };
