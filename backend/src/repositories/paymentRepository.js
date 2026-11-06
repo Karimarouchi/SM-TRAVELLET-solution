@@ -65,7 +65,8 @@ const PLAN_SELECT = `
   SELECT pp.*, u.prenom AS student_prenom, u.nom AS student_nom, c.name AS country_name,
          sp.assigned_sales_id, sp.dossier_stage, su.prenom AS sales_prenom, su.nom AS sales_nom,
          COALESCE((SELECT SUM(p.amount) FROM student_payments p WHERE p.plan_id = pp.id AND p.tranche = 1 AND p.status = 'ACTIVE'), 0) AS paid1,
-         COALESCE((SELECT SUM(p.amount) FROM student_payments p WHERE p.plan_id = pp.id AND p.tranche = 2 AND p.status = 'ACTIVE'), 0) AS paid2
+         COALESCE((SELECT SUM(p.amount) FROM student_payments p WHERE p.plan_id = pp.id AND p.tranche = 2 AND p.status = 'ACTIVE'), 0) AS paid2,
+         EXISTS (SELECT 1 FROM university_applications ua WHERE ua.student_id = pp.student_id AND ua.country_id = pp.country_id AND ua.status = 'ACCEPTED') AS university_accepted
   FROM payment_plans pp
   JOIN users u ON u.id = pp.student_id
   JOIN countries c ON c.id = pp.country_id

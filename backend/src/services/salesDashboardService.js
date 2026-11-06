@@ -96,7 +96,7 @@ async function getOverview(auth) {
       ? {
           late: studentPlans.some((p) => p.late),
           status: studentPlans.every((p) => p.status === "PAID") ? "PAID" : studentPlans.some((p) => p.paidTotal > 0) ? "PARTIAL" : "UNPAID",
-          remaining: studentPlans.filter((p) => p.remainingTotal > 0).map((p) => ({ currency: p.currency, amount: p.remainingTotal }))
+          remaining: studentPlans.filter((p) => p.dueNow > 0).map((p) => ({ currency: p.currency, amount: p.dueNow }))
         }
       : null;
     const attention = attentionFor({

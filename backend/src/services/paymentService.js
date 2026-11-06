@@ -235,6 +235,8 @@ function planDto(row) {
   // Tant que la date limite promise n'est pas dépassée, le reste à payer n'est pas « en retard ».
   const waiting1 = Boolean(deadline1) && deadline1 >= today;
   const waiting2 = Boolean(deadline2) && deadline2 >= today;
+  // La tranche 2 n'est due qu'après l'acceptation par une université de ce pays.
+  const tranche2Due = row.university_accepted === true;
   return {
     id: row.id,
     studentId: row.student_id,
@@ -250,9 +252,10 @@ function planDto(row) {
     total: money(row.tranche1_due) + money(row.tranche2_due),
     paidTotal: t1.paid + t2.paid,
     remainingTotal: t1.remaining + t2.remaining,
+    tranche2Due,
+    dueNow: t1.remaining + (tranche2Due ? t2.remaining : 0),
     status: t1.complete && t2.complete ? "PAID" : t1.paid + t2.paid > 0 ? "PARTIAL" : "UNPAID",
-    // Retard : la tranche 2 est exigible dès que le dossier est en phase visa.
-    late: (!t1.complete && !waiting1) || (row.dossier_stage === "VISA" && !t2.complete && !waiting2),
+    late: (!t1.complete && !waiting1) || (tranche2Due && !t2.complete && !waiting2),
     levelId: row.level_id || null,
     levelName: row.level_name || null,
     createdAt: row.created_at
@@ -376,7 +379,8 @@ function redactPlan(plan) {
     tranche2: hide(plan.tranche2),
     total: 0,
     paidTotal: 0,
-    remainingTotal: 0
+    remainingTotal: 0,
+    dueNow: 0
   };
 }
 

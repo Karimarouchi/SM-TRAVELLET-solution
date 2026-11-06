@@ -186,7 +186,7 @@ export default function EspacePage() {
             : t(`${plan.countryName} · à régler auprès de votre conseiller(ère) commercial(e).`, `${plan.countryName} · to be paid to your advisor.`),
           cta: ""
         });
-      } else if (!plan.tranche2.complete && (dossierStage === "VISA" || selected?.visaStatus)) {
+      } else if (!plan.tranche2.complete && plan.tranche2Due) {
         list.push({ key: `pay2-${plan.id}`, tone: "warning", icon: Banknote, title: t(`Tranche visa à régler : ${formatMoney(plan.tranche2.remaining, plan.currency)}`, `Visa instalment due: ${formatMoney(plan.tranche2.remaining, plan.currency)}`), text: t(`${plan.countryName} · à régler avant le dépôt de votre visa.`, `${plan.countryName} · due before your visa is filed.`), cta: "" });
       }
     }
@@ -384,6 +384,8 @@ export default function EspacePage() {
                           <span className="font-semibold text-mid">{t("Tranche", "Instalment")} {n} · {label}</span>
                           {tranche.complete ? (
                             <span className="inline-flex items-center gap-1 font-bold text-emerald-600"><CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> {formatMoney(tranche.due, plan.currency)}</span>
+                          ) : n === "2" && !plan.tranche2Due ? (
+                            <span className="font-semibold text-muted">{t("Après l'acceptation", "After acceptance")}</span>
                           ) : (
                             <span className="font-bold text-amber-700">{t("Reste", "Left")} {formatMoney(tranche.remaining, plan.currency)}</span>
                           )}

@@ -2061,6 +2061,10 @@ export type PaymentPlan = {
   total: number;
   paidTotal: number;
   remainingTotal: number;
+  /** Tranche 2 exigible : une université de ce pays a accepté l'étudiant. */
+  tranche2Due: boolean;
+  /** Montant à payer maintenant (sans la tranche 2 tant qu'elle n'est pas due). */
+  dueNow: number;
   status: "PAID" | "PARTIAL" | "UNPAID";
   late: boolean;
   levelId?: string | null;

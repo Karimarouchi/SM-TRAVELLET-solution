@@ -1,9 +1,7 @@
 import { EMPTY_EXTRA_TESTS, EXTRA_LANGUAGES, OPTIONAL_LANG_LEVELS, TEST_LANG_CHOICES, extraTestsError, isExtraTestLang, type ExtraTest, type ExtraTestLang, type TestLang } from "@/lib/student-profile-form";
 import ExtraTestFields from "@/components/ExtraTestFields";
 import { FancySelect } from "@/components/ui/fancy-select";
-import UniversityPicker from "@/components/UniversityPicker";
-import { addMyUniversityChoice, fetchCountryPricing, fetchPublicCountries, fetchPublicProgrammes, fetchPublicUniversities, formatMoney, getSession, saveOnboarding, type Country, type CountryPricing, type Programme, type PublicUniversity } from "@/lib/auth";
-import ExtraWishesField, { extraWishProblem, type ExtraWish } from "@/components/ExtraWishesField";
+import { fetchCountryPricing, fetchPublicCountries, fetchPublicProgrammes, formatMoney, getSession, saveOnboarding, type Country, type CountryPricing, type Programme } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "motion/react";
 import { ReactNode, useEffect, useState } from "react";
@@ -251,7 +249,7 @@ function validateField(key: FieldKey, form: FormState): string {
 const STEP_FIELDS: FieldKey[][] = [
   ["nationality", "residenceCountry", "city"],
   ["currentStudyLevel", "lastDiploma", "studyField", "currentInstitution", "diplomaYear"],
-  ["preferredCountries", "preferredCity", "targetLevel", "targetField", "targetIntake", "targetUniversity"],
+  ["preferredCountries", "preferredCity", "targetLevel", "targetField", "targetIntake"],
   ["annualBudget", "fundingMode", "languageLevelFrench", "languageLevelEnglish", "languageLevelGerman", "languageLevelItalian", "languageLevelSpanish", "hasLanguageTest", "languageTestLangs", "languageTestFrench", "languageTestEnglish", "languageTestFrenchOther", "languageTestEnglishOther", "languageTestsExtra", "hasPassport", "passportNumber", "passportExpiresOn", "visaAlreadyRequested", "availableDocuments"]
 ];
 
@@ -338,9 +336,6 @@ export default function OnboardingPage() {
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [quote, setQuote] = useState<CountryPricing | null>(null);
   const [levelId, setLevelId] = useState(session?.profile?.targetLevelId || "");
-  const [universities, setUniversities] = useState<PublicUniversity[]>([]);
-  // Vœux supplémentaires (autres facultés / filières), ajoutés après l'enregistrement du dossier.
-  const [extraWishes, setExtraWishes] = useState<ExtraWish[]>([]);
   const lockedFields = new Set(session?.profile?.lockedFields || []);
   const destinations = countries.map((c) => c.name);
 
@@ -348,19 +343,6 @@ export default function OnboardingPage() {
     fetchPublicCountries().then(setCountries).catch(() => setCountries([]));
     fetchPublicProgrammes().then(setProgrammes).catch(() => setProgrammes([]));
   }, []);
-
-  // Universités disponibles = union des universités des pays préférés
-  // actuellement sélectionnés (source de vérité = table country_universities,
-  // administrée depuis /admin/programmes).
-  useEffect(() => {
-    const ids = countries.filter((c) => form.preferredCountries.includes(c.name)).map((c) => c.id);
-    if (!ids.length) {
-      setUniversities([]);
-      return;
-    }
-    fetchPublicUniversities(ids).then(setUniversities).catch(() => setUniversities([]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.preferredCountries, countries]);
 
   // Pré-remplit les champs déjà renseignés par un code Sales (verrouillés),
   // pour qu'ils ne s'affichent jamais vides à l'ouverture de l'onboarding.
@@ -406,7 +388,6 @@ export default function OnboardingPage() {
       set("targetLevel", "");
       setLevelId("");
     }
-    setExtraWishes((wishes) => wishes.map((wish) => ({ ...wish, country: name, university: "" })));
     setErrors((current) => ({ ...current, preferredCountries: undefined, targetLevel: undefined }));
     setFormError("");
   }
@@ -441,21 +422,11 @@ export default function OnboardingPage() {
     setFormError("");
   }
 
-  function extraWishesError() {
-    return extraWishes.map(extraWishProblem).find(Boolean) || "";
-  }
-
   function goNext() {
     const nextErrors = validateStep(step, form);
     if (step === 2 && lockedFields.has("preferredCountries") && form.preferredCountries.length) delete nextErrors.preferredCountries;
     if (step === 2 && programmeLevels.length === 0) delete nextErrors.targetLevel;
     if (step === 2 && programmeLevels.length > 0 && !lockedFields.has("targetLevel") && !levelId) nextErrors.targetLevel = "Choisissez un niveau de ce pays.";
-    const wishError = step === 2 ? extraWishesError() : "";
-    if (wishError) {
-      setErrors(nextErrors);
-      setFormError(wishError);
-      return;
-    }
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors);
       setFormError("Corrigez les champs indiqués avant de continuer.");
@@ -508,28 +479,6 @@ export default function OnboardingPage() {
         passportExpiresOn: form.hasPassport === "yes" ? form.passportExpiresOn : "",
         visaAlreadyRequested: form.visaAlreadyRequested === "yes"
       });
-      // Autres facultés : une candidature par vœu complet (le vœu principal est
-      // déjà créé par l'enregistrement). Un échec ici ne bloque pas l'onboarding :
-      // l'étudiant retrouve sa liste dans « Mes candidatures ».
-      for (const wish of extraWishes) {
-        if (extraWishProblem(wish) || !wish.university.trim()) continue;
-        const sameAsPrimary =
-          wish.university.trim().toLowerCase() === form.targetUniversity.trim().toLowerCase() &&
-          wish.field.trim().toLowerCase() === form.targetField.trim().toLowerCase();
-        if (sameAsPrimary) continue;
-        const country = countries.find((c) => c.name === wish.country);
-        if (!country) continue;
-        const listed = universities.find((u) => u.countryName === wish.country && u.name.toLowerCase() === wish.university.trim().toLowerCase());
-        try {
-          await addMyUniversityChoice({
-            countryId: country.id,
-            fieldOfStudy: wish.field.trim(),
-            ...(listed ? { universityId: listed.id } : { universityName: wish.university.trim() })
-          });
-        } catch {
-          /* ignoré : visible ensuite dans « Mes candidatures » */
-        }
-      }
       navigate("/espace");
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Impossible d’enregistrer le dossier.");
@@ -733,19 +682,6 @@ export default function OnboardingPage() {
                     <Field label="Rentrée souhaitée" required error={errors.targetIntake}>
                       <FancySelect invalid={Boolean(errors.targetIntake)} value={form.targetIntake} onChange={(value) => set("targetIntake", value)} options={INTAKES} placeholder="Choisir une rentrée" />
                     </Field>
-                    <Field label="Université précise" error={errors.targetUniversity}>
-                      <UniversityPicker
-                        invalid={Boolean(errors.targetUniversity)}
-                        value={form.targetUniversity}
-                        onChange={(value) => set("targetUniversity", value)}
-                        options={universities.map((u) => ({ value: u.name, label: `${u.name} (${u.countryName})` }))}
-                        placeholder={
-                          !form.preferredCountries.length
-                            ? "Choisissez d'abord un pays préféré"
-                            : "Liste proposée, ou tapez un autre nom"
-                        }
-                      />
-                    </Field>
                   </div>
                   {countryName && (
                     <div className="rounded-2xl border border-violet-100 bg-violet-50/70 p-4">
@@ -761,16 +697,6 @@ export default function OnboardingPage() {
                       )}
                     </div>
                   )}
-                  <ExtraWishesField
-                    wishes={extraWishes}
-                    onChange={(next) => {
-                      setExtraWishes(next);
-                      setFormError("");
-                    }}
-                    countries={form.preferredCountries}
-                    universities={universities}
-                    hasPrimary={Boolean(form.targetUniversity.trim())}
-                  />
                 </div>
               )}
 

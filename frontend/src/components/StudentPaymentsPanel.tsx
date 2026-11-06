@@ -22,14 +22,14 @@ import { useEffect, useState } from "react";
 
 const METHODS = (Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((value) => ({ value, label: PAYMENT_METHOD_LABELS[value] }));
 
-function TrancheBox({ title, hint, state, currency }: { title: string; hint: string; state: TrancheState; currency: string }) {
+function TrancheBox({ title, hint, state, currency, later }: { title: string; hint: string; state: TrancheState; currency: string; later?: boolean }) {
   const percent = state.due > 0 ? Math.min(100, Math.round((state.paid / state.due) * 100)) : 100;
   return (
-    <div className={cn("rounded-xl border p-3", state.complete ? "border-emerald-200 bg-emerald-50/50" : "border-amber-200 bg-amber-50/40")}>
+    <div className={cn("rounded-xl border p-3", state.complete ? "border-emerald-200 bg-emerald-50/50" : later ? "border-line bg-slate-50" : "border-amber-200 bg-amber-50/40")}>
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-bold text-dark">{title}</p>
-        <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold", state.complete ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800")}>
-          {state.complete ? "Payée" : "À payer"}
+        <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold", state.complete ? "bg-emerald-100 text-emerald-700" : later ? "bg-slate-200 text-mid" : "bg-amber-100 text-amber-800")}>
+          {state.complete ? "Payée" : later ? "Pas encore due" : "À payer"}
         </span>
       </div>
       <p className="mt-0.5 text-[11px] text-muted">{hint}</p>
@@ -279,15 +279,19 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
                   </span>
                 ) : p.late ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-600">
-                    <AlertTriangle className="h-3 w-3" /> En retard · reste <Amount>{formatMoney(p.remainingTotal, p.currency)}</Amount>
+                    <AlertTriangle className="h-3 w-3" /> En retard · reste <Amount>{formatMoney(p.dueNow, p.currency)}</Amount>
                   </span>
+                ) : p.dueNow > 0 ? (
+                  <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800">Reste <Amount>{formatMoney(p.dueNow, p.currency)}</Amount></span>
                 ) : (
-                  <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800">Reste <Amount>{formatMoney(p.remainingTotal, p.currency)}</Amount></span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
+                    <BadgeCheck className="h-3 w-3" /> À jour
+                  </span>
                 )}
               </div>
               <div className={cn("mt-3 grid gap-3", !compact && "sm:grid-cols-2")}>
                 <TrancheBox title="Tranche 1 · inscription" hint="Payée à la création du code" state={p.tranche1} currency={p.currency} />
-                <TrancheBox title="Tranche 2 · visa" hint="À régler avant le dépôt du visa" state={p.tranche2} currency={p.currency} />
+                <TrancheBox title="Tranche 2 · visa" hint={p.tranche2Due ? "À régler avant le dépôt du visa" : "Due après l'acceptation par une université"} state={p.tranche2} currency={p.currency} later={!p.tranche2Due} />
               </div>
             </div>
           ))
