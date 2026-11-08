@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 // Boîtes de dialogue du site, à la place de celles du navigateur
-// (« www.smtravel.fr indique… »). Utilisables de partout, sans contexte :
+// (« www.smedutravel.com indique… »). Utilisables de partout, sans contexte :
 //
 //   if (!(await confirmDialog("Supprimer « X » ?", { tone: "danger", confirmLabel: "Supprimer" }))) return;
 //   await alertDialog("Le nom est obligatoire.", { tone: "warning" });

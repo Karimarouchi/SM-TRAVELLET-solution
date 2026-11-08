@@ -18,7 +18,7 @@ const AGENCY = {
   address: "4 Bis Rue du Mali, 4e étage, bureau n°4, Jeanne d’Arc, Tunis 1002, Tunisie",
   phone: "+216 56 819 899",
   email: "services@smtravel.fr",
-  website: "www.smtravel.fr"
+  website: "www.smedutravel.com"
 };
 
 function fail(message, status) {

@@ -7,4 +7,4 @@ Allow: /mentions-legales/
 Allow: /politique-confidentialite/
 Allow: /politique-cookies/
 
-Sitemap: https://www.smtravel.fr/sitemap.xml
+Sitemap: https://www.smedutravel.com/sitemap.xml

@@ -1,6 +1,6 @@
 # Mise en production — VPS vierge
 
-> **Kit actuel : `deploy/new-vps/`** (nginx + Docker, domaine `www.smtravel.fr`). Voir `deploy/new-vps/MIGRATION.md`.
+> **Kit actuel : `deploy/new-vps/`** (nginx + Docker, domaine `www.smedutravel.com`). Voir `deploy/new-vps/MIGRATION.md`.
 > Les fichiers ci-dessous (Caddy, `install-vps.sh`) décrivent une ancienne approche, non utilisée.
 
 Cette stack installe **tout** : Docker, PostgreSQL 16, l’API Node, la vitrine, l’application (`/app/`), et le HTTPS (Let’s Encrypt via Caddy).
@@ -8,7 +8,7 @@ Cette stack installe **tout** : Docker, PostgreSQL 16, l’API Node, la vitrine,
 ## Avant de commencer
 
 1. Un VPS Ubuntu 22.04 / 24.04 ou Debian 12, **root** ou sudo.
-2. Un nom de domaine dont l’enregistrement **A** pointe vers l’IP du VPS (ex. `smtravel.fr`).
+2. Un nom de domaine dont l’enregistrement **A** pointe vers l’IP du VPS (ex. `smedutravel.com`).
    - Sans domaine : mettez `SITE_ADDRESS=:80` et `APP_PUBLIC_URL=http://VOTRE_IP` (pas de HTTPS automatique).
 3. Ports **22, 80, 443** ouverts chez l’hébergeur.
 4. Le code du projet sur le serveur (git clone ou envoi des fichiers).

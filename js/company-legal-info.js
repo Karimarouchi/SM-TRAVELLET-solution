@@ -15,8 +15,8 @@
     address:
       '4 Bis Rue du Mali, 4e étage, bureau n°4, Jeanne d’Arc, Tunis 1002, Tunisie',
     country: 'Tunisie',
-    siteUrl: 'https://www.smtravel.fr',
-    siteDisplay: 'www.smtravel.fr',
+    siteUrl: 'https://www.smedutravel.com',
+    siteDisplay: 'www.smedutravel.com',
     publicationResponsible: 'Direction de SM services & consulting',
     hosting: {
       name: 'Hostinger International Limited',

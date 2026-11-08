@@ -9,7 +9,7 @@ WORKDIR /app
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ ./
-# URL de l'API backend à utiliser une fois le site compilé (ex: https://www.smtravel.fr)
+# URL de l'API backend à utiliser une fois le site compilé (ex: https://www.smedutravel.com)
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build

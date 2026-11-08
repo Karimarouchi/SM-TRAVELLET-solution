@@ -1,4 +1,4 @@
-# Nouveau serveur — www.smtravel.fr
+# Nouveau serveur — www.smedutravel.com
 
 Même méthode que d'habitude : **Docker** pour tout le site (API, vitrine + application React, PostgreSQL) et **un fichier nginx** dans `/etc/nginx` qui route les conteneurs.
 
@@ -36,14 +36,14 @@ Si vous les créez à la main :
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=<mot de passe long>
 POSTGRES_DB=sm_travel
-VITE_API_URL=https://www.smtravel.fr
+VITE_API_URL=https://www.smedutravel.com
 
 # backend/.env
 PORT=3001
 NODE_ENV=production
 JWT_SECRET=<64 caractères aléatoires>
-APP_PUBLIC_URL=https://www.smtravel.fr
-CORS_ORIGIN=https://www.smtravel.fr
+APP_PUBLIC_URL=https://www.smedutravel.com
+CORS_ORIGIN=https://www.smedutravel.com
 ADMIN_BOOTSTRAP_EMAIL=votre@email.com
 ADMIN_BOOTSTRAP_PASSWORD=<mot de passe>
 ```
@@ -70,9 +70,9 @@ nginx -t && systemctl reload nginx
 Test (avant de changer le DNS) :
 
 ```bash
-curl -sI -H "Host: www.smtravel.fr" http://127.0.0.1/ | head -1          # 200 : vitrine
-curl -sI -H "Host: www.smtravel.fr" http://127.0.0.1/app/ | head -1      # 200 : application
-curl -s  -H "Host: www.smtravel.fr" http://127.0.0.1/api/health           # {"ok":true,...}
+curl -sI -H "Host: www.smedutravel.com" http://127.0.0.1/ | head -1          # 200 : vitrine
+curl -sI -H "Host: www.smedutravel.com" http://127.0.0.1/app/ | head -1      # 200 : application
+curl -s  -H "Host: www.smedutravel.com" http://127.0.0.1/api/health           # {"ok":true,...}
 ```
 
 ## 5. DNS (Hostinger)
@@ -80,7 +80,7 @@ curl -s  -H "Host: www.smtravel.fr" http://127.0.0.1/api/health           # {"ok
 Modifier uniquement les deux enregistrements **A** : `@` et `www` → `191.215.44.82` (TTL 300). Ne pas toucher aux `MX`, `TXT`, `CNAME` (e-mails `@smtravel.fr`). Supprimer un éventuel `AAAA`.
 
 ```bash
-dig +short www.smtravel.fr @1.1.1.1     # doit afficher 191.215.44.82
+dig +short www.smedutravel.com @1.1.1.1     # doit afficher 191.215.44.82
 ```
 
 ## 6. HTTPS
@@ -88,7 +88,7 @@ dig +short www.smtravel.fr @1.1.1.1     # doit afficher 191.215.44.82
 Dès que le DNS pointe vers le serveur :
 
 ```bash
-certbot --nginx -d www.smtravel.fr -d smtravel.fr --redirect -m votre@email.com --agree-tos
+certbot --nginx -d www.smedutravel.com -d smedutravel.com --redirect -m votre@email.com --agree-tos
 ```
 
 certbot ajoute le HTTPS au fichier nginx et le renouvellement automatique.
@@ -115,8 +115,8 @@ L'image `frontend` contient la vitrine : un changement du site vitrine (`index.h
 
 ## Après la première connexion
 
-- `https://www.smtravel.fr/app/#/login`
+- `https://www.smedutravel.com/app/#/login`
 - Paramètres → envoi d'e-mails : `services@smtravel.fr` et le serveur Hostinger.
 - WhatsApp / Google (facultatif) : ajouter les clés dans `backend/.env`, puis `docker compose up -d --force-recreate backend`. Adresses à déclarer :
-  - WhatsApp (Meta) : `https://www.smtravel.fr/api/whatsapp/webhook`
-  - Google (redirection autorisée) : `https://www.smtravel.fr/api/google/callback`
+  - WhatsApp (Meta) : `https://www.smedutravel.com/api/whatsapp/webhook`
+  - Google (redirection autorisée) : `https://www.smedutravel.com/api/google/callback`
