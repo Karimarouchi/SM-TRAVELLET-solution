@@ -6,7 +6,18 @@ import { useNavigate } from "react-router-dom";
 const HOME: Record<string, string> = { ADMIN: "/admin", SALES: "/conseiller", RDV: "/rdv" };
 
 // « Mon compte » de l'équipe : e-mail et mot de passe de connexion, confirmés par le mot de passe actuel.
+// Page à part pour les conseillers et gestionnaires ; l'admin retrouve les mêmes formulaires dans Paramètres.
 export default function AccountPage() {
+  return (
+    <main className="mx-auto max-w-2xl px-4 pb-16 sm:px-6">
+      <h1 className="font-display text-2xl font-extrabold text-dark">Mon compte</h1>
+      <p className="mt-1 text-sm text-muted">L'adresse e-mail et le mot de passe que vous utilisez pour vous connecter à l'application.</p>
+      <AccountForms />
+    </main>
+  );
+}
+
+export function AccountForms({ sideBySide = false }: { sideBySide?: boolean }) {
   const navigate = useNavigate();
   const session = getSession();
   const forced = Boolean(session?.user.mustChangePassword);
@@ -60,11 +71,9 @@ export default function AccountPage() {
   };
 
   const input = "mt-1 w-full rounded-xl border border-line bg-slate-50 px-3 py-2.5 text-sm text-dark";
+  const card = sideBySide ? "rounded-2xl border border-line bg-slate-50/60 p-5" : "rounded-[24px] border border-line bg-white p-6";
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-16 sm:px-6">
-      <h1 className="font-display text-2xl font-extrabold text-dark">Mon compte</h1>
-      <p className="mt-1 text-sm text-muted">L'adresse e-mail et le mot de passe que vous utilisez pour vous connecter à l'application.</p>
-
+    <>
       {forced && (
         <p className="mt-4 flex items-start gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> Votre mot de passe a été choisi par l'administrateur. Choisissez-en un nouveau pour continuer.
@@ -73,7 +82,8 @@ export default function AccountPage() {
       {notice && <p role="status" className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700"><CheckCircle2 className="h-4 w-4" aria-hidden /> {notice}</p>}
       {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{error}</p>}
 
-      <form onSubmit={savePassword} className="mt-5 rounded-[24px] border border-line bg-white p-6">
+      <div className={sideBySide ? "mt-4 grid gap-4 lg:grid-cols-2" : "mt-5 space-y-4"}>
+      <form onSubmit={savePassword} className={card}>
         <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark"><KeyRound className="h-5 w-5 text-brand" aria-hidden /> Mot de passe</h2>
         <label className="mt-4 block text-xs font-bold text-mid">Mot de passe actuel
           <input type="password" required autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} className={input} />
@@ -93,7 +103,7 @@ export default function AccountPage() {
       </form>
 
       {!forced && (
-        <form onSubmit={saveEmail} className="mt-4 rounded-[24px] border border-line bg-white p-6">
+        <form onSubmit={saveEmail} className={card}>
           <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark"><Mail className="h-5 w-5 text-brand" aria-hidden /> Adresse e-mail de connexion</h2>
           <label className="mt-4 block text-xs font-bold text-mid">Adresse e-mail
             <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={input} />
@@ -106,6 +116,7 @@ export default function AccountPage() {
           </button>
         </form>
       )}
-    </main>
+      </div>
+    </>
   );
 }

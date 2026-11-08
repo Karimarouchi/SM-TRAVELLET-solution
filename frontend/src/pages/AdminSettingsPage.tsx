@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import BackupPanel from "@/components/admin/BackupPanel";
 import GoogleCalendarCard from "@/components/admin/GoogleCalendarCard";
 import AutoAssignSharesCard from "@/components/admin/AutoAssignSharesCard";
+import { AccountForms } from "@/pages/AccountPage";
 
 
 const FREQUENCIES: { id: StalledAlertFrequency; label: string; hint: string }[] = [
@@ -261,6 +262,15 @@ export default function AdminSettingsPage() {
       </section>
 
       {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
+
+      {/* ── Compte de connexion de l'admin ───────────────────────────── */}
+      <section className="mt-4 rounded-[24px] border border-line bg-white p-6">
+        <h2 className="flex items-center gap-2 font-display text-xl font-bold text-dark">
+          <KeyRound className="h-5 w-5 text-brand" /> Mon compte
+        </h2>
+        <p className="mt-1 text-xs text-muted">L'adresse e-mail et le mot de passe que vous utilisez pour vous connecter. Vos données restent les mêmes : seule l'adresse de connexion change.</p>
+        <AccountForms sideBySide />
+      </section>
 
       {loading ? (
         <SkeletonForm fields={6} className="mt-6" />

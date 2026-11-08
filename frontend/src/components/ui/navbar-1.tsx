@@ -111,8 +111,7 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
         ]
       },
       { label: t("Archive", "Archive"), href: "/archive" },
-      whatsapp,
-      { label: t("Mon compte", "My account"), href: "/compte" }
+      whatsapp
     ];
   }
   if (role === "SALES") {
@@ -122,8 +121,7 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
       { label: t("Archive", "Archive"), href: "/archive" },
       ...(hasVisaDocsPermission ? [visaDocs] : []),
       whatsapp,
-      { label: t("Mon espace RH", "My HR space"), href: "/rh" },
-      { label: t("Mon compte", "My account"), href: "/compte" }
+      { label: t("Mon espace RH", "My HR space"), href: "/rh" }
     ];
   }
   if (role === "RDV") {
@@ -137,8 +135,7 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
       { label: t("Mes dossiers visa", "My visa files"), href: "/rdv/visas" },
       { label: t("Archive", "Archive"), href: "/archive" },
       visaDocs,
-      { label: t("Mon espace RH", "My HR space"), href: "/rh" },
-      { label: t("Mon compte", "My account"), href: "/compte" }
+      { label: t("Mon espace RH", "My HR space"), href: "/rh" }
     ];
   }
   return [
@@ -158,6 +155,10 @@ const Navbar1 = () => {
   const permissions = getSession()?.user.permissions || [];
   const { lang, setLang, t } = useLanguage();
   const rhMode = role === "ADMIN" && location.pathname.startsWith("/admin/rh");
+  // Engrenage : paramètres de la plateforme pour l'admin (son compte y est aussi),
+  // compte de connexion (e-mail, mot de passe) pour les conseillers et gestionnaires.
+  const settingsHref = role === "ADMIN" ? (rhMode ? "/admin/rh/parametres" : "/admin/settings") : role === "SALES" || role === "RDV" ? "/compte" : null;
+  const settingsLabel = role === "ADMIN" ? (rhMode ? t("Paramètres RH", "HR settings") : t("Paramètres", "Settings")) : t("Mon compte", "My account");
   const links = rhMode
     ? [
         { label: t("Tableau de bord", "Dashboard"), href: "/admin/rh" },
@@ -358,13 +359,14 @@ const Navbar1 = () => {
         {isStaffRole(role) && <SoundToggle />}
         <NotificationBell />
         <div className="hidden items-center gap-3 lg:flex">
-          {role === "ADMIN" && (
+          {settingsHref && (
             <Link
-              to={rhMode ? "/admin/rh/parametres" : "/admin/settings"}
-              title={rhMode ? t("Paramètres RH", "HR settings") : t("Paramètres", "Settings")}
+              to={settingsHref}
+              title={settingsLabel}
+              aria-label={settingsLabel}
               className={cn(
                 "inline-flex h-9 w-9 items-center justify-center rounded-full border border-line bg-white transition hover:border-brand hover:text-brand",
-                location.pathname === (rhMode ? "/admin/rh/parametres" : "/admin/settings") ? "border-brand text-brand" : "text-gray-900"
+                location.pathname === settingsHref ? "border-brand text-brand" : "text-gray-900"
               )}
             >
               <Settings className="h-4 w-4" />
@@ -430,9 +432,9 @@ const Navbar1 = () => {
                   <AreaButton label="RH" active={rhMode} alert={!rhMode && rhAttention > 0} tone="orange" pillId="admin-area-pill-mobile" onClick={() => { switchAdminArea(navigate, "/admin/rh"); toggleMenu(); }} />
                 </div>
               )}
-              {role === "ADMIN" && (
-                <Link to={rhMode ? "/admin/rh/parametres" : "/admin/settings"} className={mobileLinkClass(rhMode ? "/admin/rh/parametres" : "/admin/settings")} onClick={toggleMenu}>
-                  <Settings className="h-4 w-4" /> {rhMode ? t("Paramètres RH", "HR settings") : t("Paramètres", "Settings")}
+              {settingsHref && (
+                <Link to={settingsHref} className={mobileLinkClass(settingsHref)} onClick={toggleMenu}>
+                  <Settings className="h-4 w-4" /> {settingsLabel}
                 </Link>
               )}
               {links.map((item, i) => (
