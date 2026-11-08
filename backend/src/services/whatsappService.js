@@ -222,10 +222,11 @@ async function handleIncomingMessage(message, profileNames, metadata = {}) {
 
   await repo.touchInbound(contact.id, createdAt);
   await ensureOwner(contact.id, { isNew });
-  // Tout premier message d'un nouveau client : message de bienvenue (la conversation reste non lue).
-  if (isNew) await maybeWelcome(contact.id);
   // Jour non travaillé : réponse automatique (sans jamais bloquer la réception du message).
-  await maybeAutoReply(contact.id);
+  const closedReply = await maybeAutoReply(contact.id);
+  // Tout premier message d'un nouveau client : bienvenue, sauf un jour fermé où le message de repos
+  // suffit (la bienvenue promet une réponse rapide). La conversation reste non lue.
+  if (isNew && !closedReply) await maybeWelcome(contact.id);
 }
 
 async function handleStatus(status) {
@@ -767,16 +768,17 @@ function buildAutoReplyText(template, hours, nextWeekday) {
 
 // Jour non travaillé ou férié payé : un message demande d'écrire à la reprise. Une seule fois par fermeture
 // (une fois par jour férié) et par contact. Ce message ne compte jamais comme une réponse d'un conseiller.
+// Renvoie true quand le client a son message de repos (envoyé maintenant ou plus tôt dans cette fermeture).
 async function maybeAutoReply(contactId) {
   try {
     const config = await settings.getWhatsAppAutoReply();
-    if (!config.enabled) return;
+    if (!config.enabled) return false;
     const hours = parseWorkHours(await settings.getWorkHoursConfig());
     hours.closedDates = await paidHolidayDates();
     const parts = zonedParts(new Date(), hours.timezone);
     const todayKey = isoDate(parts.year, parts.month, parts.day);
     const paidHoliday = hours.closedDates.has(todayKey);
-    if (hours.days.includes(parts.isoWeekday) && !paidHoliday) return;
+    if (hours.days.includes(parts.isoWeekday) && !paidHoliday) return false;
 
     const period = closurePeriod(hours, parts);
     const closureStart = paidHoliday
@@ -784,18 +786,20 @@ async function maybeAutoReply(contactId) {
       : period.closureStart;
     const nextWeekday = period.nextWeekday;
     const last = await repo.getLastAutoReplyAt(contactId);
-    if (last && new Date(last).getTime() >= closureStart.getTime()) return;
+    if (last && new Date(last).getTime() >= closureStart.getTime()) return true;
 
     const conversation = await repo.findConversation(contactId);
-    if (!conversation || conversation.blocked_at) return;
+    if (!conversation || conversation.blocked_at) return false;
     const template = paidHoliday ? HOLIDAY_AUTO_REPLY : config.text;
     const body = buildAutoReplyText(template, hours, nextWeekday);
     const waMessageId = await postToMeta(conversation, contactId, { type: "text", text: { preview_url: false, body } });
     await repo.insertMessage({ contactId, waMessageId, direction: "out", type: "text", body, status: "sent", sentBy: null, isAuto: true });
     await repo.setLastAutoReplyAt(contactId);
     logger.info(paidHoliday ? "WhatsApp : réponse automatique envoyée (jour férié)" : "WhatsApp : réponse automatique envoyée (jour non travaillé)", { contactId, to: maskPhone(conversation.phone) });
+    return true;
   } catch (error) {
     logger.warn("WhatsApp : réponse automatique impossible", { contactId, message: error.message });
+    return false;
   }
 }
 
