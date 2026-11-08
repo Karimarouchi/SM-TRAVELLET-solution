@@ -834,7 +834,43 @@ async function getUserAccess(userId) {
   if (!user) throw fail("Utilisateur introuvable.", 404);
   const roles = await userRoles.getEffectiveRoles(user);
   const permissions = await userPermissions.listForUser(userId);
-  return { id: user.id, baseRole: user.role, roles, permissions };
+  return { id: user.id, baseRole: user.role, roles, permissions, email: user.email, accountEditable: STAFF_ACCOUNT_ROLES.includes(user.role) };
+}
+
+// L'admin gère le compte de connexion des conseillers et des gestionnaires de dossiers.
+// Un compte admin se modifie seulement par son titulaire, depuis « Mon compte ».
+const STAFF_ACCOUNT_ROLES = ["SALES", "RDV"];
+
+async function staffAccount(userId) {
+  const user = await users.findById(userId);
+  if (!user) throw fail("Utilisateur introuvable.", 404);
+  if (!STAFF_ACCOUNT_ROLES.includes(user.role)) throw fail("Seuls les comptes des conseillers et des gestionnaires de dossiers se modifient ici.", 403);
+  return user;
+}
+
+async function updateStaffAccount(auth, userId, body) {
+  const user = await staffAccount(userId);
+  const authService = require("./authService");
+  if (body.email !== undefined) {
+    const email = await authService.assertFreeEmail(user.id, body.email);
+    await users.updateEmail(user.id, email);
+  }
+  if (body.password !== undefined) {
+    const password = String(body.password || "");
+    if (password.length < 8) throw fail("Le mot de passe doit contenir au moins 8 caractères.", 400);
+    const { salt, hash } = require("../security/password").hashPassword(password);
+    await users.updatePassword(user.id, salt, hash);
+    await users.setMustChangePassword(user.id, true);
+  }
+  require("../logger").info("Compte de connexion modifié par l'admin", { by: auth.sub, userId: user.id, email: body.email !== undefined, password: body.password !== undefined });
+  return getUserAccess(user.id);
+}
+
+// Même e-mail que « Mot de passe oublié » : l'employé choisit lui-même son nouveau mot de passe.
+async function sendStaffPasswordReset(userId) {
+  const user = await staffAccount(userId);
+  await require("./authService").forgotPassword(user.email);
+  return { ok: true, email: user.email };
 }
 
 async function setUserRoles(userId, roles) {
@@ -913,4 +949,4 @@ async function setRdvCountries(rdvUserId, countryIds) {
   return { rdvUserId, countryIds: ids };
 }
 
-module.exports = { getBoard, getDashboard, getStudentsOverview, setStudentActive, getSettings, updateSettings, createSales, setSalesActive, transferAndBlockSales, deleteSales, getStudentDeletionPreview, deleteStudent, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };
+module.exports = { updateStaffAccount, sendStaffPasswordReset, getBoard, getDashboard, getStudentsOverview, setStudentActive, getSettings, updateSettings, createSales, setSalesActive, transferAndBlockSales, deleteSales, getStudentDeletionPreview, deleteStudent, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };

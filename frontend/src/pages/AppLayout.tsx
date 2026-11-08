@@ -20,6 +20,10 @@ export default function AppLayout() {
       navigate("/verify-email", { replace: true });
       return;
     }
+    if (role !== "STUDENT" && session.user.mustChangePassword && path !== "/compte") {
+      navigate("/compte", { replace: true });
+      return;
+    }
     if (role === "STUDENT" && !session.user.onboardingCompleted) {
       navigate("/onboarding", { replace: true });
       return;
@@ -30,7 +34,7 @@ export default function AppLayout() {
     // sans permission supplémentaire à accorder.
     const hasVisaDocsAccess = Boolean(session.user.permissions?.includes("MANAGE_VISA_DOCUMENTS")) || role === "RDV";
     const onVisaDocsPage = path.startsWith("/admin/visa-documents");
-    const shared = path === "/notifications" || path === "/archive" || path === "/mail" || path === "/rh";
+    const shared = path === "/notifications" || path === "/archive" || path === "/mail" || path === "/rh" || (role !== "STUDENT" && path === "/compte");
     if (role === "ADMIN" && !path.startsWith("/admin") && !shared && !path.startsWith("/whatsapp") && !path.startsWith("/conseiller/etudiants")) {
       navigate("/admin", { replace: true });
       return;

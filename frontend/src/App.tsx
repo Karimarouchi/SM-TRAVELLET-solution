@@ -28,6 +28,7 @@ import RhAttendancePage from "@/pages/rh/RhAttendancePage";
 import RhPayrollPage from "@/pages/rh/RhPayrollPage";
 import RhAbsencesPage from "@/pages/rh/RhAbsencesPage";
 import MyRhPage from "@/pages/rh/MyRhPage";
+import AccountPage from "@/pages/AccountPage";
 import SalesEspacePage from "@/pages/SalesEspacePage";
 import SalesCodesPage from "@/pages/SalesCodesPage";
 import StudentDetailPage from "@/pages/StudentDetailPage";
@@ -74,6 +75,7 @@ export default function App() {
           <Route path="/admin/rh/parametres" element={<RhSettingsPage />} />
           <Route path="/admin/rh/notifications" element={<NotificationsPage />} />
           <Route path="/rh" element={<MyRhPage />} />
+          <Route path="/compte" element={<AccountPage />} />
           <Route path="/conseiller" element={<SalesEspacePage />} />
           <Route path="/conseiller/codes" element={<SalesCodesPage />} />
           <Route path="/conseiller/etudiants/:id" element={<StudentDetailPage />} />

@@ -42,8 +42,17 @@ async function touchLogin(id) {
   await query("UPDATE users SET last_login_at = NOW() WHERE id = $1", [id]);
 }
 
+// Tout nouveau mot de passe choisi par l'utilisateur lève l'obligation de le changer.
 async function updatePassword(id, salt, hash) {
-  await query("UPDATE users SET password_salt = $2, password_hash = $3 WHERE id = $1", [id, salt, hash]);
+  await query("UPDATE users SET password_salt = $2, password_hash = $3, must_change_password = FALSE WHERE id = $1", [id, salt, hash]);
+}
+
+async function setMustChangePassword(id, value) {
+  await query("UPDATE users SET must_change_password = $2 WHERE id = $1", [id, Boolean(value)]);
+}
+
+async function updateEmail(id, email) {
+  await query("UPDATE users SET email = $2 WHERE id = $1", [id, email]);
 }
 
 async function setResetToken(id, token, expires) {
@@ -207,6 +216,8 @@ async function deleteById(id) {
 }
 
 module.exports = {
+  setMustChangePassword,
+  updateEmail,
   findByEmail,
   findById,
   createUser,

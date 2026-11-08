@@ -220,5 +220,23 @@ async function userPerformance(req, res) {
   }
 }
 
+async function updateStaffAccount(req, res) {
+  try {
+    res.json(await adminService.updateStaffAccount(req.auth, req.params.id, req.body || {}));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
+async function sendStaffPasswordReset(req, res) {
+  try {
+    res.json(await adminService.sendStaffPasswordReset(req.params.id));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 module.exports = {
+  updateStaffAccount,
+  sendStaffPasswordReset,
   insights, universitySuccess, dashboard, board, studentsOverview, setStudentActive, getSettings, updateSettings, teamPerformance, userPerformance, autoAssignShares, saveAutoAssignShares, studentDeletionPreview, deleteStudent, createSales, setSalesActive, transferSales, deleteSales, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };

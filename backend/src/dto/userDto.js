@@ -21,6 +21,7 @@ function userDto(user, extras = {}) {
     isActive: user.is_active !== false,
     emailVerified: user.email_verified !== false,
     avatarUrl: user.avatar_url || "",
+    mustChangePassword: user.must_change_password === true,
     ...extras
   };
 }

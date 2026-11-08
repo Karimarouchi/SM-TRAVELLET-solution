@@ -10,6 +10,8 @@ import {
   fetchUserAccess,
   setRdvCountries,
   setUserPermissions,
+  sendStaffPasswordReset,
+  updateStaffAccount,
   setUserRoles,
   type AssignmentBoard,
   type BoardSales,
@@ -59,6 +61,7 @@ function AccessModal({ userId, name, onClose, onSaved }: { userId: string; name:
   const [baseRole, setBaseRole] = useState("");
   const [roles, setRoles] = useState<string[]>([]);
   const [permissions, setPermissions] = useState<string[]>([]);
+  const [account, setAccount] = useState<{ email: string; editable: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -69,6 +72,7 @@ function AccessModal({ userId, name, onClose, onSaved }: { userId: string; name:
         setBaseRole(access.baseRole);
         setRoles(access.roles.filter((r) => r !== access.baseRole));
         setPermissions(access.permissions);
+        setAccount({ email: access.email || "", editable: Boolean(access.accountEditable) });
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Erreur."))
       .finally(() => setLoading(false));
@@ -127,6 +131,7 @@ function AccessModal({ userId, name, onClose, onSaved }: { userId: string; name:
                 </label>
               ))}
             </div>
+            {account?.editable && <StaffAccountSection userId={userId} email={account.email} />}
           </>
         )}
 
@@ -136,6 +141,52 @@ function AccessModal({ userId, name, onClose, onSaved }: { userId: string; name:
           <button type="button" disabled={saving || loading} onClick={save} className="rounded-lg bg-brand px-4 py-2 text-xs font-bold text-white disabled:opacity-60">Enregistrer</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Compte de connexion d'un conseiller ou d'un gestionnaire de dossiers : e-mail et mot de passe.
+function StaffAccountSection({ userId, email: initialEmail }: { userId: string; email: string }) {
+  const [email, setEmail] = useState(initialEmail);
+  const [savedEmail, setSavedEmail] = useState(initialEmail);
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState("");
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+
+  const run = async (kind: string, action: () => Promise<string>) => {
+    setBusy(kind);
+    setError("");
+    setNotice("");
+    try {
+      setNotice(await action());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur.");
+    } finally {
+      setBusy("");
+    }
+  };
+
+  return (
+    <div className="mt-5 border-t border-line pt-4">
+      <p className="text-[11px] font-bold uppercase tracking-wider text-muted">Compte de connexion</p>
+      <label className="mt-2 block text-xs font-semibold text-mid">E-mail
+        <div className="mt-1 flex gap-2">
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="min-w-0 flex-1 rounded-lg border border-line px-3 py-2 text-sm text-dark" />
+          <button type="button" disabled={Boolean(busy) || !email.trim() || email.trim().toLowerCase() === savedEmail.toLowerCase()} onClick={() => void run("email", async () => { const access = await updateStaffAccount(userId, { email }); setSavedEmail(access.email || email); setEmail(access.email || email); return "E-mail modifié : il sert maintenant à se connecter."; })} className="shrink-0 rounded-lg bg-brand px-3 py-2 text-xs font-bold text-white disabled:opacity-50">Enregistrer</button>
+        </div>
+      </label>
+      <label className="mt-3 block text-xs font-semibold text-mid">Nouveau mot de passe provisoire
+        <div className="mt-1 flex gap-2">
+          <input type="text" autoComplete="off" value={password} minLength={8} onChange={(e) => setPassword(e.target.value)} placeholder="8 caractères minimum" className="min-w-0 flex-1 rounded-lg border border-line px-3 py-2 text-sm text-dark" />
+          <button type="button" disabled={Boolean(busy) || password.length < 8} onClick={() => void run("password", async () => { await updateStaffAccount(userId, { password }); setPassword(""); return "Mot de passe défini. Transmettez-le : il devra le changer à sa prochaine connexion."; })} className="shrink-0 rounded-lg bg-brand px-3 py-2 text-xs font-bold text-white disabled:opacity-50">Définir</button>
+        </div>
+      </label>
+      <button type="button" disabled={Boolean(busy)} onClick={() => void run("reset", async () => { const sent = await sendStaffPasswordReset(userId); return `E-mail de réinitialisation envoyé à ${sent.email}.`; })} className="mt-3 text-xs font-bold text-brand hover:underline disabled:opacity-50">
+        Ou envoyer un e-mail pour qu'il choisisse lui-même son mot de passe
+      </button>
+      {notice && <p role="status" className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">{notice}</p>}
+      {error && <p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">{error}</p>}
     </div>
   );
 }

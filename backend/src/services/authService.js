@@ -214,7 +214,31 @@ async function changePassword(userId, currentPassword, nextPassword) {
   }
   const { salt, hash } = hashPassword(nextPassword);
   await users.updatePassword(userId, salt, hash);
-  return { ok: true };
+  return buildSession(await users.findById(userId));
+}
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Nouvelle adresse de connexion : valide, pas déjà prise par un autre compte.
+async function assertFreeEmail(userId, raw) {
+  const email = String(raw || "").trim().toLowerCase();
+  if (!EMAIL_PATTERN.test(email) || email.length > 255) throw fail("Adresse e-mail invalide.", 400);
+  const owner = await users.findByEmail(email);
+  if (owner && owner.id !== userId) throw fail("Cette adresse e-mail est déjà utilisée par un autre compte.", 409);
+  return email;
+}
+
+// L'employé change son e-mail de connexion en confirmant avec son mot de passe actuel.
+async function changeEmail(userId, currentPassword, nextEmail) {
+  const user = await users.findById(userId);
+  if (!user || !verifyPassword(String(currentPassword || ""), user.password_salt, user.password_hash)) {
+    throw fail("Mot de passe actuel incorrect.", 400);
+  }
+  const email = await assertFreeEmail(userId, nextEmail);
+  if (email === String(user.email).toLowerCase()) throw fail("C'est déjà votre adresse e-mail.", 400);
+  await users.updateEmail(userId, email);
+  logger.info("E-mail de connexion modifié par l'utilisateur", { userId });
+  return buildSession(await users.findById(userId));
 }
 
 const RESET_CODE_TTL_MS = 1000 * 60 * 15;
@@ -324,4 +348,4 @@ async function resetPassword(token, password) {
   return { ok: true };
 }
 
-module.exports = { register, login, me, changePassword, forgotPassword, verifyResetCode, resetPassword, verifyEmail, resendVerificationCode };
+module.exports = { register, login, me, changePassword, changeEmail, assertFreeEmail, forgotPassword, verifyResetCode, resetPassword, verifyEmail, resendVerificationCode };

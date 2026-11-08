@@ -88,4 +88,12 @@ async function resendVerification(req, res) {
   }
 }
 
-module.exports = { register, login, me, logout, changePassword, forgotPassword, verifyResetCode, resetPassword, verifyEmail, resendVerification };
+async function changeEmail(req, res) {
+  try {
+    res.json(await authService.changeEmail(req.auth.sub, req.body.currentPassword, req.body.email));
+  } catch (error) {
+    res.status(error.status || 400).json({ error: error.message || "Requête invalide." });
+  }
+}
+
+module.exports = { register, login, me, logout, changePassword, changeEmail, forgotPassword, verifyResetCode, resetPassword, verifyEmail, resendVerification };

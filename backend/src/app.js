@@ -179,7 +179,8 @@ app.post("/api/auth/forgot-password", authBruteForceLimiter, authController.forg
 app.post("/api/auth/verify-reset-code", authBruteForceLimiter, authController.verifyResetCode);
 app.post("/api/auth/reset-password", authBruteForceLimiter, authController.resetPassword);
 app.get("/api/auth/me", requireAuth, authController.me);
-app.post("/api/auth/change-password", requireAuth, authController.changePassword);
+app.post("/api/auth/change-password", authBruteForceLimiter, requireAuth, authController.changePassword);
+app.post("/api/auth/change-email", authBruteForceLimiter, requireAuth, requireRoles("ADMIN", "SALES", "RDV"), authController.changeEmail);
 app.post("/api/auth/verify-email", requireAuth, authController.verifyEmail);
 app.post("/api/auth/resend-verification", requireAuth, authBruteForceLimiter, authController.resendVerification);
 
@@ -398,6 +399,8 @@ app.delete("/api/admin/sales/:id", requireAuth, requireRoles("ADMIN"), adminCont
 app.get("/api/admin/users/:id/access", requireAuth, requireRoles("ADMIN"), adminController.getUserAccess);
 app.patch("/api/admin/users/:id/roles", requireAuth, requireRoles("ADMIN"), adminController.setUserRoles);
 app.patch("/api/admin/users/:id/permissions", requireAuth, requireRoles("ADMIN"), adminController.setUserPermissions);
+app.patch("/api/admin/users/:id/account", requireAuth, requireRoles("ADMIN"), adminController.updateStaffAccount);
+app.post("/api/admin/users/:id/password-reset", requireAuth, requireRoles("ADMIN"), adminController.sendStaffPasswordReset);
 app.post("/api/admin/rdv", requireAuth, requireRoles("ADMIN"), adminController.createRdv);
 // Lecture ouverte au Sales aussi : nécessaire pour choisir manuellement un
 // RDV lors du transfert d'un dossier accepté.

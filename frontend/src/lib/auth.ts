@@ -23,6 +23,8 @@ export type AuthUser = {
   isActive?: boolean;
   emailVerified?: boolean;
   avatarUrl?: string;
+  /** Mot de passe provisoire donné par l'admin : à changer avant d'utiliser l'application. */
+  mustChangePassword?: boolean;
 };
 
 export type AuthSession = {
@@ -1759,7 +1761,19 @@ export async function fetchMyRdvApplications(): Promise<RdvMyApplication[]> {
 export type RdvUser = { id: string; prenom: string; nom: string; email: string; isActive: boolean };
 export type RdvAssignment = { rdvUserId: string; countryId: string; rdvName: string; countryName: string };
 
-export type UserAccess = { id: string; baseRole: string; roles: string[]; permissions: string[] };
+export type UserAccess = { id: string; baseRole: string; roles: string[]; permissions: string[]; email?: string; accountEditable?: boolean };
+
+export const changeMyPassword = (currentPassword: string, newPassword: string) =>
+  request<AuthSession>("/api/auth/change-password", { method: "POST", body: JSON.stringify({ currentPassword, newPassword }) });
+
+export const changeMyEmail = (currentPassword: string, email: string) =>
+  request<AuthSession>("/api/auth/change-email", { method: "POST", body: JSON.stringify({ currentPassword, email }) });
+
+export const updateStaffAccount = (userId: string, body: { email?: string; password?: string }) =>
+  request<UserAccess>(`/api/admin/users/${userId}/account`, { method: "PATCH", body: JSON.stringify(body) });
+
+export const sendStaffPasswordReset = (userId: string) =>
+  request<{ ok: boolean; email: string }>(`/api/admin/users/${userId}/password-reset`, { method: "POST" });
 
 export async function fetchUserAccess(userId: string): Promise<UserAccess> {
   return request<UserAccess>(`/api/admin/users/${userId}/access`);

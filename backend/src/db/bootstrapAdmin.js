@@ -1,6 +1,7 @@
 const env = require("../config/env");
 const users = require("../repositories/userRepository");
 const { hashPassword } = require("../security/password");
+const { query } = require("../../db");
 
 // Crée le compte administrateur de démarrage à partir des variables
 // d'environnement ADMIN_BOOTSTRAP_EMAIL / ADMIN_BOOTSTRAP_PASSWORD, une seule
@@ -16,6 +17,12 @@ async function bootstrapAdmin() {
   const normalizedEmail = email.trim().toLowerCase();
   const existing = await users.findByEmail(normalizedEmail);
   if (existing) return;
+  // Un admin qui a changé son adresse de connexion ne doit pas faire renaître un second admin
+  // avec l'ancienne adresse et le mot de passe de démarrage : on ne crée que s'il n'y a aucun admin.
+  const { rows } = await query(
+    "SELECT 1 FROM users u WHERE u.role = 'ADMIN' OR EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'ADMIN') LIMIT 1"
+  );
+  if (rows.length) return;
 
   const { salt, hash } = hashPassword(password);
   await users.createUser({

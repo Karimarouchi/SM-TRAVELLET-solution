@@ -111,7 +111,8 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
         ]
       },
       { label: t("Archive", "Archive"), href: "/archive" },
-      whatsapp
+      whatsapp,
+      { label: t("Mon compte", "My account"), href: "/compte" }
     ];
   }
   if (role === "SALES") {
@@ -121,7 +122,8 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
       { label: t("Archive", "Archive"), href: "/archive" },
       ...(hasVisaDocsPermission ? [visaDocs] : []),
       whatsapp,
-      { label: t("Mon espace RH", "My HR space"), href: "/rh" }
+      { label: t("Mon espace RH", "My HR space"), href: "/rh" },
+      { label: t("Mon compte", "My account"), href: "/compte" }
     ];
   }
   if (role === "RDV") {
@@ -135,7 +137,8 @@ function linksForRole(role: string | undefined, permissions: string[], t: (fr: s
       { label: t("Mes dossiers visa", "My visa files"), href: "/rdv/visas" },
       { label: t("Archive", "Archive"), href: "/archive" },
       visaDocs,
-      { label: t("Mon espace RH", "My HR space"), href: "/rh" }
+      { label: t("Mon espace RH", "My HR space"), href: "/rh" },
+      { label: t("Mon compte", "My account"), href: "/compte" }
     ];
   }
   return [
