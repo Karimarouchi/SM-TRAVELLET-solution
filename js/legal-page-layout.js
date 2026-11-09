@@ -25,7 +25,7 @@
       home +
       '" class="legal-site-header__brand" aria-label="Retour à l’accueil SM Edu Travel">' +
       '<img src="' +
-      asset('IMAGE/Logo blanc.png') +
+      asset('IMAGE/Logo blanc.png?v=2') +
       '" alt="' +
       escapeHtml(c.brandName) +
       '" class="legal-site-header__logo" width="140" height="32" />' +

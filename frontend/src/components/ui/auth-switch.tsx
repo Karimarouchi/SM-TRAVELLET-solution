@@ -90,7 +90,7 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
       <a className={cn("as-back", isSignUp && "as-back-dark")} href={VITRINE_URL}>
         <ArrowLeft size={16} />
         <img
-          src={`${import.meta.env.BASE_URL}images/${isSignUp ? "logo-color.png" : "logo-blanc.png"}`}
+          src={`${import.meta.env.BASE_URL}images/${isSignUp ? "logo-color.png" : "logo-blanc.png"}?v=2`}
           alt="SM Edu Travel"
         />
       </a>
