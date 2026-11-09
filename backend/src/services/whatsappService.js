@@ -738,7 +738,7 @@ const HOLIDAY_AUTO_REPLY = [
   "",
   "Écrivez-nous {reprise}.",
   "",
-  "L'équipe SM Travel"
+  "L'équipe SM Edu Travel"
 ].join("\n");
 
 // Dernier jour ouvré avant `parts`, puis début de la période de fermeture (minuit qui suit ce jour).

@@ -1114,7 +1114,7 @@ async function scheduleStaffMeet(auth, applicationId, payload) {
 // invitation envoyée à l'étudiant) pour une action qui serait refusée ensuite.
 const MEET_KINDS = {
   interview: { title: "Entretien universitaire", guard: assertUniversityActor },
-  staff: { title: "Rendez-vous SM Travel", guard: assertUniversityActor },
+  staff: { title: "Rendez-vous SM Edu Travel", guard: assertUniversityActor },
   visaPrep: { title: "Préparation à l'entretien visa", guard: assertRdvOrAdmin }
 };
 const recentMeetRequests = new Map();
@@ -1155,7 +1155,7 @@ async function createMeetLink(auth, applicationId, payload) {
   try {
     const meet = await googleCalendar.createMeetEvent({
       title,
-      description: `Rendez-vous organisé via SM Travel pour ${studentName}.`,
+      description: `Rendez-vous organisé via SM Edu Travel pour ${studentName}.`,
       startAt: date,
       durationMinutes: payload.durationMinutes,
       attendees: [student?.email, actor?.email]
@@ -1662,7 +1662,7 @@ async function sendVisaDocumentReminders() {
       await whatsappService.sendReminderToStudent(
         row.student_id,
         row.student_phone,
-        `${body} Déposez-les dans votre espace SM Travel.`
+        `${body} Déposez-les dans votre espace SM Edu Travel.`
       );
     } catch (error) {
       logger.error("Échec du WhatsApp de rappel documents visa", { message: error.message, applicationId: row.id });

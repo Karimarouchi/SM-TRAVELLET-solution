@@ -31,7 +31,7 @@ module.exports = {
     port: Number(process.env.SMTP_PORT) || 465,
     user: process.env.SMTP_USER || "",
     pass: process.env.SMTP_PASS || "",
-    fromName: process.env.SMTP_FROM_NAME || "SM Travel"
+    fromName: process.env.SMTP_FROM_NAME || "SM Edu Travel"
   },
   adminBootstrap: {
     email: process.env.ADMIN_BOOTSTRAP_EMAIL || "",

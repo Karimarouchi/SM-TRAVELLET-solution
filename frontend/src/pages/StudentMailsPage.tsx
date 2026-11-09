@@ -38,7 +38,7 @@ export default function StudentMailsPage() {
     <main className="mx-auto max-w-3xl px-4 pb-16 sm:px-6">
       <section className="rounded-[28px] bg-gradient-to-br from-brand-dark via-brand to-violet-500 p-6 text-white shadow-[0_16px_40px_rgba(109,40,217,.22)] sm:p-8">
         <h1 className="flex items-center gap-2 font-display text-2xl font-extrabold sm:text-3xl"><Mail className="h-7 w-7" aria-hidden /> {t("Mes e-mails", "My emails")}</h1>
-        <p className="mt-2 text-sm text-white/85">{t("Tous les e-mails que l'équipe SM Travel vous a envoyés, avec leur date. Retrouvez ici chaque message, même si vous ne l'avez pas vu dans votre boîte mail.", "All the emails the SM Travel team sent you, with their date. Find every message here, even if you did not see it in your inbox.")}</p>
+        <p className="mt-2 text-sm text-white/85">{t("Tous les e-mails que l'équipe SM Edu Travel vous a envoyés, avec leur date. Retrouvez ici chaque message, même si vous ne l'avez pas vu dans votre boîte mail.", "All the emails the SM Edu Travel team sent you, with their date. Find every message here, even if you did not see it in your inbox.")}</p>
       </section>
 
       {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
@@ -59,7 +59,7 @@ export default function StudentMailsPage() {
                     <span className={cn("text-sm", mail.read ? "font-semibold text-dark" : "font-extrabold text-dark")}>{mail.subject}</span>
                   </span>
                   <span className="mt-1 block text-xs text-muted">
-                    {when(mail.sentAt)} · SM Travel{mail.senderName ? ` (${mail.senderName})` : ""}
+                    {when(mail.sentAt)} · SM Edu Travel{mail.senderName ? ` (${mail.senderName})` : ""}
                     {mail.attachments.length > 0 && <span className="ml-2 inline-flex items-center gap-1"><Paperclip className="h-3 w-3" aria-hidden /> {mail.attachments.length}</span>}
                   </span>
                 </span>

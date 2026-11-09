@@ -1,4 +1,5 @@
 const nodemailer = require("nodemailer");
+const path = require("path");
 const env = require("../config/env");
 const settingsRepository = require("../repositories/settingsRepository");
 const { renderEmail, highlightBlock, rowsBlock, calloutBlock, esc, escLines, appUrl } = require("./emailTemplates");
@@ -78,11 +79,23 @@ async function resolveSender() {
     secure: port === 465,
     auth: { user, pass }
   });
+  transporter.use("compile", embedLogo);
 
   return {
     transporter,
     from: (nameSuffix = "") => `"${fromName}${nameSuffix}" <${user}>`
   };
+}
+
+// Les gabarits référencent le logo par « cid:smtravel-logo » : on joint le fichier au message.
+const EMAIL_LOGO_PATH = path.join(__dirname, "..", "..", "assets", "logo-sm-travel-blanc.png");
+function embedLogo(mail, done) {
+  const html = mail.data.html;
+  const attachments = mail.data.attachments || [];
+  if (typeof html === "string" && html.includes("cid:smtravel-logo") && !attachments.some((a) => a.cid === "smtravel-logo")) {
+    mail.data.attachments = [...attachments, { filename: "logo.png", path: EMAIL_LOGO_PATH, cid: "smtravel-logo", contentDisposition: "inline" }];
+  }
+  done();
 }
 
 // ── Gabarits des e-mails (mise en page commune : emailTemplates.js) ──
@@ -91,11 +104,11 @@ const SIGNATURE_NOTE = "Si vous n'êtes pas à l'origine de cette demande, ignor
 
 function verificationEmailHtml(prenom, code) {
   return renderEmail({
-    preheader: `Votre code de vérification SM Travel : ${code}`,
+    preheader: `Votre code de vérification SM Edu Travel : ${code}`,
     headerLabel: "Espace client",
     badge: { label: "Vérification", tone: "info" },
     title: `Bienvenue ${prenom} !`,
-    introHtml: "Merci de vous être inscrit·e sur SM Travel. Pour activer votre compte, saisissez le code ci-dessous dans l'application.",
+    introHtml: "Merci de vous être inscrit·e sur SM Edu Travel. Pour activer votre compte, saisissez le code ci-dessous dans l'application.",
     blocks: [highlightBlock({ label: "Votre code", value: code, spaced: true })],
     noteHtml: `Ce code est valable <strong>15 minutes</strong>. ${esc(SIGNATURE_NOTE)}`
   });
@@ -106,9 +119,9 @@ async function sendVerificationEmail(to, prenom, code) {
   await sender.transporter.sendMail({
     from: sender.from(),
     to,
-    subject: "Votre code de vérification SM Travel",
+    subject: "Votre code de vérification SM Edu Travel",
     html: verificationEmailHtml(prenom, code),
-    text: `Bonjour ${prenom}, votre code de vérification SM Travel est : ${code} (valable 15 minutes).`
+    text: `Bonjour ${prenom}, votre code de vérification SM Edu Travel est : ${code} (valable 15 minutes).`
   });
 }
 
@@ -124,7 +137,7 @@ function passwordResetEmailHtml(prenom, code) {
       calloutBlock({
         tone: "warning",
         title: "Ne partagez jamais ce code",
-        html: "SM Travel ne vous le demandera jamais, ni par téléphone ni par message."
+        html: "SM Edu Travel ne vous le demandera jamais, ni par téléphone ni par message."
       })
     ],
     noteHtml: `Ce code est valable <strong>15 minutes</strong>. Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail : votre mot de passe actuel reste valable.`
@@ -136,9 +149,9 @@ async function sendPasswordResetEmail(to, prenom, code) {
   await sender.transporter.sendMail({
     from: sender.from(),
     to,
-    subject: "Votre code de réinitialisation SM Travel",
+    subject: "Votre code de réinitialisation SM Edu Travel",
     html: passwordResetEmailHtml(prenom, code),
-    text: `Bonjour ${prenom}, votre code pour réinitialiser votre mot de passe SM Travel est : ${code} (valable 15 minutes). Ne le communiquez à personne. Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.`
+    text: `Bonjour ${prenom}, votre code pour réinitialiser votre mot de passe SM Edu Travel est : ${code} (valable 15 minutes). Ne le communiquez à personne. Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.`
   });
 }
 
@@ -191,7 +204,7 @@ function visaMeetingEmailHtml(prenom, { headerLabel, introText, dateLabel, type,
       instructions ? calloutBlock({ tone: "info", title: "Consignes", html: escLines(instructions) }) : ""
     ],
     cta: link ? { label: "Rejoindre la réunion", url: link } : undefined,
-    noteHtml: "Retrouvez le détail de votre dossier visa directement depuis votre espace SM Travel."
+    noteHtml: "Retrouvez le détail de votre dossier visa directement depuis votre espace SM Edu Travel."
   });
 }
 
@@ -259,7 +272,7 @@ function alertEmailHtml(subject, message, options = {}) {
           })
         : ""
     ],
-    cta: options.link ? { label: options.linkLabel || "Ouvrir dans SM Travel", url: appUrl(options.link), tone } : undefined
+    cta: options.link ? { label: options.linkLabel || "Ouvrir dans SM Edu Travel", url: appUrl(options.link), tone } : undefined
   });
 }
 
@@ -426,7 +439,7 @@ async function sendPaymentReceiptEmail(to, prenom, details) {
   await sender.transporter.sendMail({
     from: sender.from(),
     to,
-    subject: `Reçu de paiement n° ${details.receiptNumber} — SM Travel`,
+    subject: `Reçu de paiement n° ${details.receiptNumber} — SM Edu Travel`,
     html: paymentReceiptEmailHtml(prenom, details),
     text: `Bonjour ${prenom}, nous avons bien enregistré votre paiement de ${details.amountLabel} (${details.trancheLabel}, ${details.countryName}) le ${details.dateLabel}. Reçu n° ${details.receiptNumber}. Mode : ${details.methodLabel}${details.reference ? ` (${details.referenceLabel || "réf."} ${details.reference})` : ""}. Reste à payer : ${details.remainingLabel}.`
   });

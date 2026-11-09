@@ -29,7 +29,7 @@ export default function AcceleratorPage() {
       done: hasDestinations
     },
     { title: t("Dossier académique", "Academic file"), text: t("Préparez vos relevés, passeport et lettres.", "Prepare your transcripts, passport and letters."), done: false },
-    { title: t("Accompagnement visa", "Visa support"), text: t("SM Travel vous guide jusqu’à l’entretien.", "SM Travel guides you all the way to the interview."), done: false }
+    { title: t("Accompagnement visa", "Visa support"), text: t("SM Edu Travel vous guide jusqu’à l’entretien.", "SM Edu Travel guides you all the way to the interview."), done: false }
   ];
 
   return (

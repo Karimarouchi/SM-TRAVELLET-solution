@@ -434,7 +434,7 @@ function Detail({
         )}
         {row.official ? (
           <>
-            <p className="mt-3 text-xs text-muted">Ce mois vient du bulletin déposé. La fiche SM Travel reprend ses lignes et ses montants : présence, congés, transport, primes, brut, CNSS, IRPP, solidarité et net. Elle ne reprend pas les absences, les retards ni l’avance calculés ici.</p>
+            <p className="mt-3 text-xs text-muted">Ce mois vient du bulletin déposé. La fiche SM Edu Travel reprend ses lignes et ses montants : présence, congés, transport, primes, brut, CNSS, IRPP, solidarité et net. Elle ne reprend pas les absences, les retards ni l’avance calculés ici.</p>
             <dl className="mt-4 text-sm">
               <Row label="Salaire de base" value={money(row.official.baseSalary)} />
               <Row label={`Jours de présence · ${row.official.presenceDays} j`} value={money(row.official.presenceAmount)} />

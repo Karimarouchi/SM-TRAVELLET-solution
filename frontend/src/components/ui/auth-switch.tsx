@@ -91,7 +91,7 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
         <ArrowLeft size={16} />
         <img
           src={`${import.meta.env.BASE_URL}images/${isSignUp ? "logo-color.png" : "logo-blanc.png"}`}
-          alt="SM Travel"
+          alt="SM Edu Travel"
         />
       </a>
 
@@ -212,7 +212,7 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
           <div className="as-panel as-left-panel">
             <div className="as-content">
               <h3>{t("Nouveau ici ?", "New here?")}</h3>
-              <p>{t("Rejoignez SM Travel et démarrez votre projet d’études à l’étranger en quelques secondes.", "Join SM Travel and start your study-abroad project in a few seconds.")}</p>
+              <p>{t("Rejoignez SM Edu Travel et démarrez votre projet d’études à l’étranger en quelques secondes.", "Join SM Edu Travel and start your study-abroad project in a few seconds.")}</p>
               <button type="button" className="as-btn as-transparent" onClick={() => { setError(""); setIsSignUp(true); }}>
                 {t("S'inscrire", "Sign up")}
               </button>
@@ -221,7 +221,7 @@ export function AuthSwitch({ defaultMode = "login" }: AuthSwitchProps) {
           <div className="as-panel as-right-panel">
             <div className="as-content">
               <h3>{t("Déjà membre ?", "Already a member?")}</h3>
-              <p>{t("Bon retour. Connectez-vous pour reprendre votre accompagnement SM Travel.", "Welcome back. Log in to continue your SM Travel support.")}</p>
+              <p>{t("Bon retour. Connectez-vous pour reprendre votre accompagnement SM Edu Travel.", "Welcome back. Log in to continue your SM Edu Travel support.")}</p>
               <button type="button" className="as-btn as-transparent" onClick={() => { setError(""); setIsSignUp(false); }}>
                 {t("Connexion", "Log in")}
               </button>

@@ -68,7 +68,7 @@ function codeMessage(code, contactName) {
   return [
     `Bonjour${name ? ` ${name}` : ""} 👋`,
     "",
-    "Voici votre code d'inscription SM Travel :",
+    "Voici votre code d'inscription SM Edu Travel :",
     "",
     `🔑 *${code}*`,
     "",

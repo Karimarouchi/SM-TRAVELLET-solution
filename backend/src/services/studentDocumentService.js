@@ -568,7 +568,7 @@ async function uploadVisaDocumentForStudent(auth, applicationId, requirementId, 
   await notificationService.notify(application.student_id, {
     type: "VISA_DOCUMENT_VALIDATED",
     title: `Document visa ajouté et validé : ${requirement.name}`,
-    body: "Votre dossier visa a été complété par l'équipe SM Travel.",
+    body: "Votre dossier visa a été complété par l'équipe SM Edu Travel.",
     link: "/documents?tab=visa"
   });
   await universityApplicationService.maybeAdvanceVisaAfterDocs(application.id);

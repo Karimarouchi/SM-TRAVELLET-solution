@@ -185,14 +185,14 @@ async function setWhatsAppQuickReplies(rows) {
 const DEFAULT_AUTO_REPLY = [
   "Bonjour 👋",
   "",
-  "Merci de nous avoir écrit et de votre confiance en SM Travel ! 🌍",
+  "Merci de nous avoir écrit et de votre confiance en SM Edu Travel ! 🌍",
   "",
   "Notre équipe est actuellement en repos. Nous reprenons le travail {reprise}.",
   "",
   "Pour que nous puissions vous répondre avec toute l'attention que mérite votre projet d'études, merci de nous écrire de nouveau à partir de ce moment-là : un conseiller sera heureux de vous accompagner. 🎓✈️",
   "",
   "À très bientôt,",
-  "L'équipe SM Travel"
+  "L'équipe SM Edu Travel"
 ].join("\n");
 
 async function getWhatsAppAutoReply() {
@@ -208,13 +208,13 @@ async function setWhatsAppAutoReply({ enabled, text }) {
 
 // Bienvenue : premier message d'un nouveau client sur WhatsApp (une seule fois).
 const DEFAULT_WELCOME = [
-  "Bonjour et bienvenue chez SM Travel ! 👋",
+  "Bonjour et bienvenue chez SM Edu Travel ! 👋",
   "",
   "Merci pour votre message. Un conseiller va vous répondre très rapidement.",
   "",
   "Pour bien préparer votre projet d'études, pouvez-vous nous envoyer votre numéro de téléphone (avec l'indicatif du pays) ? 📱",
   "",
-  "L'équipe SM Travel"
+  "L'équipe SM Edu Travel"
 ].join("\n");
 
 async function getWhatsAppWelcome() {

@@ -38,7 +38,7 @@ async function start() {
   }
 
   app.listen(env.port, () => {
-    console.log(`SM Travel backend prêt sur http://localhost:${env.port}`);
+    console.log(`SM Edu Travel backend prêt sur http://localhost:${env.port}`);
     console.log("PostgreSQL : sm_travel · JWT · Phase 1");
     if (!isProduction) {
       console.log("STUDENT : demo@smtravel.fr / Demo2024!");

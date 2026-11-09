@@ -1,10 +1,10 @@
 /**
- * Informations légales centralisées — SM Travel
+ * Informations légales centralisées — SM Edu Travel
  * Compatible file:// et serveur (pas de modules ES).
  */
 (function (global) {
   var companyLegalInfo = {
-    brandName: 'SM Travel',
+    brandName: 'SM Edu Travel',
     legalName: 'SM services & consulting',
     legalForm: 'SARL',
     taxId: '1915331L',

@@ -100,7 +100,7 @@ async function register(body) {
   // Personne ne s'inscrit sans le code envoyé par son conseiller : c'est lui
   // qui rattache l'étudiant à son conseiller et à son pays.
   if (!String(body.salesCode || "").trim()) {
-    const error = new Error("Un code d'inscription est obligatoire. Demandez-le à votre conseiller SM Travel.");
+    const error = new Error("Un code d'inscription est obligatoire. Demandez-le à votre conseiller SM Edu Travel.");
     error.status = 400;
     throw error;
   }

@@ -1,6 +1,6 @@
 const env = require("../config/env");
 
-// Gabarit commun de tous les e-mails SM Travel : en-tête violet, pastille de
+// Gabarit commun de tous les e-mails SM Edu Travel : en-tête violet, pastille de
 // statut, titre, contenu structuré (code, lignes d'information, encadré),
 // bouton d'action et pied de page. Construit en tableaux avec styles en ligne
 // (le seul HTML/CSS que Gmail, Outlook et Apple Mail rendent partout).
@@ -104,11 +104,13 @@ function buttonBlock({ label, url, tone = "info" }) {
 // blocks (HTML déjà construit avec les helpers ci-dessus), cta {label, url,
 // tone}, noteHtml, audience ("student" | "staff").
 function renderEmail({ preheader = "", headerLabel = "", badge: badgeOptions, title, introHtml = "", blocks = [], cta, noteHtml = "", audience = "student" }) {
-  const logo = `${env.appPublicUrl}/app/images/logo-blanc.png`;
+  // Logo incorporé au message (pièce jointe en ligne, ajoutée par emailService) : il s'affiche sans
+  // clic même quand le client mail bloque les images distantes, ce que fait Outlook par défaut.
+  const logo = "cid:smtravel-logo";
   const footerLine =
     audience === "staff"
-      ? "Notification automatique de la plateforme SM Travel."
-      : "Une question ? Écrivez à votre conseiller depuis votre espace SM Travel.";
+      ? "Notification automatique de la plateforme SM Edu Travel."
+      : "Une question ? Écrivez à votre conseiller depuis votre espace SM Edu Travel.";
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -133,7 +135,7 @@ function renderEmail({ preheader = "", headerLabel = "", badge: badgeOptions, ti
             <td align="center" bgcolor="#5b21b6" style="background:#5b21b6;background-image:linear-gradient(135deg,#3b0f8c 0%,#6d28d9 55%,#8b5cf6 100%);padding:34px 28px 30px;">
               <table role="presentation" cellpadding="0" cellspacing="0"><tr>
                 <td>
-                  <img src="${esc(logo)}" alt="SM Travel" height="36" style="display:block;height:36px;width:auto;border:0;font:800 22px/36px ${FONT};color:#ffffff;"/>
+                  <img src="${esc(logo)}" alt="SM Edu Travel" height="36" style="display:block;height:36px;width:auto;border:0;font:800 22px/36px ${FONT};color:#ffffff;"/>
                 </td>
               </tr></table>
               ${headerLabel ? `<div style="margin-top:16px;font:600 13px/1 ${FONT};letter-spacing:.5px;color:rgba(255,255,255,.88);">${esc(headerLabel)}</div>` : ""}
@@ -151,7 +153,7 @@ function renderEmail({ preheader = "", headerLabel = "", badge: badgeOptions, ti
           </tr>
           <tr>
             <td class="sm-pad" style="padding:22px 38px 26px;background:#f8f9fd;border-top:1px solid #eceef6;" align="center">
-              <p style="margin:0 0 8px;font:700 13px/1.4 ${FONT};color:#4c1d95;">SM Travel</p>
+              <p style="margin:0 0 8px;font:700 13px/1.4 ${FONT};color:#4c1d95;">SM Edu Travel</p>
               <p style="margin:0 0 10px;font:400 12px/1.5 ${FONT};color:#94a3b8;">Accompagnement études &amp; visas à l'étranger</p>
               <p style="margin:0 0 12px;font:400 12px/1.5 ${FONT};color:#94a3b8;">${footerLine}</p>
               <p style="margin:0;font:400 12px/1.5 ${FONT};">

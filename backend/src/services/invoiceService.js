@@ -12,7 +12,7 @@ const LOGO_PATH = path.join(__dirname, "..", "..", "assets", "logo-sm-travel.png
 // Coordonnées de l'agence (identiques aux mentions légales du site).
 const AGENCY = {
   company: "SM services & consulting",
-  brand: "SM Travel",
+  brand: "SM Edu Travel",
   legalForm: "SARL",
   taxId: "1915331L",
   address: "4 Bis Rue du Mali, 4e étage, bureau n°4, Jeanne d’Arc, Tunis 1002, Tunisie",

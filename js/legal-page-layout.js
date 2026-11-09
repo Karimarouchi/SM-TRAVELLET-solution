@@ -1,5 +1,5 @@
 /**
- * LegalPageLayout — mise en page des pages légales SM Travel
+ * LegalPageLayout — mise en page des pages légales SM Edu Travel
  * Compatible file:// (scripts classiques, sans import/export).
  */
 (function (global) {
@@ -23,7 +23,7 @@
       '<div class="legal-site-header__inner">' +
       '<a href="' +
       home +
-      '" class="legal-site-header__brand" aria-label="Retour à l’accueil SM Travel">' +
+      '" class="legal-site-header__brand" aria-label="Retour à l’accueil SM Edu Travel">' +
       '<img src="' +
       asset('IMAGE/Logo blanc.png') +
       '" alt="' +

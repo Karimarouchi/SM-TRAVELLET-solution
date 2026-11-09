@@ -294,7 +294,7 @@ export default function AdminSettingsPage() {
                 <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Nom affiché</label>
                 <input
                   type="text"
-                  placeholder="SM Travel"
+                  placeholder="SM Edu Travel"
                   value={senderForm.emailFromName}
                   onChange={(e) => setSenderForm({ ...senderForm, emailFromName: e.target.value })}
                   className="w-full rounded-xl border border-line bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-brand"

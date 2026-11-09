@@ -62,7 +62,7 @@ function PersonLine({ a }: { a: MailAddress }) {
 function signature() {
   const user = getSession()?.user;
   const name = user ? `${user.prenom} ${user.nom}`.trim() : "";
-  return `\n\nCordialement,\n${name}\nSM Travel`;
+  return `\n\nCordialement,\n${name}\nSM Edu Travel`;
 }
 
 // Contenu d'un mail HTML dans un cadre isolé : aucun script, aucun accès à l'application, images distantes masquées par défaut.
