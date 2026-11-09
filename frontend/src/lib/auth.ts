@@ -25,6 +25,8 @@ export type AuthUser = {
   avatarUrl?: string;
   /** Mot de passe provisoire donné par l'admin : à changer avant d'utiliser l'application. */
   mustChangePassword?: boolean;
+  // Présent quand l'admin a ouvert ce compte via « Se connecter en tant que ».
+  impersonatedBy?: string;
 };
 
 export type AuthSession = {
@@ -107,10 +109,37 @@ export function getSession(): AuthSession | null {
 
 export function setSession(session: AuthSession) {
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  if (!session.user.impersonatedBy) localStorage.removeItem(ADMIN_RETURN_KEY);
 }
 
 export function clearSession() {
   localStorage.removeItem(SESSION_KEY);
+}
+
+// « Se connecter en tant que » : la session admin est mise de côté pour y revenir ensuite.
+const ADMIN_RETURN_KEY = "smtravel_admin_return";
+type AdminReturn = { session: AuthSession; path: string };
+
+export async function impersonateStaff(userId: string, returnPath: string) {
+  const admin = getSession();
+  const next = await request<AuthSession>(`/api/admin/users/${userId}/impersonate`, { method: "POST" });
+  if (admin) localStorage.setItem(ADMIN_RETURN_KEY, JSON.stringify({ session: admin, path: returnPath }));
+  setSession(next);
+  return next;
+}
+
+// Rétablit la session admin ; renvoie la page d'où l'admin était parti, ou null s'il n'y en a pas.
+export function endImpersonation(): string | null {
+  let saved: AdminReturn | null = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(ADMIN_RETURN_KEY) || "null");
+  } catch {
+    saved = null;
+  }
+  localStorage.removeItem(ADMIN_RETURN_KEY);
+  if (!saved?.session) return null;
+  setSession(saved.session);
+  return saved.path || "/admin";
 }
 
 export function postLoginPath(session: AuthSession) {

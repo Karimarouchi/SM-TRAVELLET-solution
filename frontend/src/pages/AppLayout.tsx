@@ -1,3 +1,4 @@
+import ImpersonationBanner from "@/components/ImpersonationBanner";
 import LeaveCoverBanner from "@/components/LeaveCoverBanner";
 import { Navbar1 } from "@/components/ui/navbar-1";
 import { getSession } from "@/lib/auth";
@@ -94,6 +95,7 @@ export default function AppLayout() {
       <Navbar1 />
 
       <div className="relative z-10 min-h-screen pt-24 text-dark">
+        <ImpersonationBanner />
         <LeaveCoverBanner />
         {adminArea ? <AdminAreaTransition /> : <Outlet key={location.pathname} />}
       </div>

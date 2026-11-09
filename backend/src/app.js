@@ -401,6 +401,7 @@ app.patch("/api/admin/users/:id/roles", requireAuth, requireRoles("ADMIN"), admi
 app.patch("/api/admin/users/:id/permissions", requireAuth, requireRoles("ADMIN"), adminController.setUserPermissions);
 app.patch("/api/admin/users/:id/account", requireAuth, requireRoles("ADMIN"), adminController.updateStaffAccount);
 app.post("/api/admin/users/:id/password-reset", requireAuth, requireRoles("ADMIN"), adminController.sendStaffPasswordReset);
+app.post("/api/admin/users/:id/impersonate", requireAuth, requireRoles("ADMIN"), adminController.impersonateStaff);
 app.post("/api/admin/rdv", requireAuth, requireRoles("ADMIN"), adminController.createRdv);
 // Lecture ouverte au Sales aussi : nécessaire pour choisir manuellement un
 // RDV lors du transfert d'un dossier accepté.

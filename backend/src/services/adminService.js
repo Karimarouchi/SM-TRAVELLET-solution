@@ -873,6 +873,14 @@ async function sendStaffPasswordReset(userId) {
   return { ok: true, email: user.email };
 }
 
+// « Se connecter en tant que » : l'admin ouvre le compte d'un conseiller ou d'un gestionnaire sans
+// connaître son mot de passe (stocké haché, donc jamais lisible). Session de 2 h, tracée dans les logs.
+async function impersonateStaff(auth, userId) {
+  const user = await staffAccount(userId);
+  logger.warn("Admin connecté en tant qu'employé", { adminId: auth.sub, userId: user.id });
+  return require("./authService").buildSession(user, { impersonatedBy: auth.sub });
+}
+
 async function setUserRoles(userId, roles) {
   const user = await users.findById(userId);
   if (!user) throw fail("Utilisateur introuvable.", 404);
@@ -949,4 +957,4 @@ async function setRdvCountries(rdvUserId, countryIds) {
   return { rdvUserId, countryIds: ids };
 }
 
-module.exports = { updateStaffAccount, sendStaffPasswordReset, getBoard, getDashboard, getStudentsOverview, setStudentActive, getSettings, updateSettings, createSales, setSalesActive, transferAndBlockSales, deleteSales, getStudentDeletionPreview, deleteStudent, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };
+module.exports = { updateStaffAccount, impersonateStaff, sendStaffPasswordReset, getBoard, getDashboard, getStudentsOverview, setStudentActive, getSettings, updateSettings, createSales, setSalesActive, transferAndBlockSales, deleteSales, getStudentDeletionPreview, deleteStudent, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };

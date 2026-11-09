@@ -1,11 +1,11 @@
-import { fetchUserPerformance, type StaffDetail, type PerfContactItem, type PerfDossierItem, type PerformancePeriod, type StaffPerformance, type PerfWorkHours } from "@/lib/auth";
+import { fetchUserPerformance, impersonateStaff, postLoginPath, type StaffDetail, type PerfContactItem, type PerfDossierItem, type PerformancePeriod, type StaffPerformance, type PerfWorkHours } from "@/lib/auth";
 import { Skeleton, SkeletonGroup, SkeletonPage } from "@/components/ui/skeleton";
 import { formatWhatsAppPhone } from "@/lib/whatsapp";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import StaffCommissionsBlock from "@/components/admin/StaffCommissionsBlock";
 import StaffTimeDetail from "@/components/admin/StaffTimeDetail";
 import { PERIOD_OPTIONS, PeriodSelector, StatTile, WhatsAppFunnelBars, WorkHoursNote, convertedHint, durationHint, percent, plural } from "@/components/admin/performance-ui";
-import { AlertTriangle, ArrowLeft, FileCheck2, KeyRound, Mail, MessageCircle, Phone, Plane } from "lucide-react";
+import { AlertTriangle, ArrowLeft, FileCheck2, KeyRound, LogIn, Mail, MessageCircle, Phone, Plane } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
@@ -176,6 +176,8 @@ export default function AdminStaffStatsPage() {
   const [workHours, setWorkHours] = useState<PerfWorkHours | null>(null);
   const [detail, setDetail] = useState<StaffDetail>({});
   const [error, setError] = useState("");
+  const [entering, setEntering] = useState(false);
+  const [enterError, setEnterError] = useState("");
 
   useEffect(() => {
     setError("");
@@ -187,6 +189,20 @@ export default function AdminStaffStatsPage() {
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Impossible de charger les statistiques."));
   }, [id, period]);
+
+  // Ouvre le compte de l'employé sans son mot de passe ; le bandeau permet ensuite de revenir ici.
+  async function enterAccount() {
+    setEntering(true);
+    setEnterError("");
+    try {
+      const session = await impersonateStaff(id, `/admin/equipe/${id}`);
+      window.location.hash = `#${postLoginPath(session)}`;
+      window.location.reload();
+    } catch (err) {
+      setEnterError(err instanceof Error ? err.message : "Connexion impossible.");
+      setEntering(false);
+    }
+  }
 
   function changePeriod(next: PerformancePeriod) {
     setPeriod(next);
@@ -206,7 +222,7 @@ export default function AdminStaffStatsPage() {
         {user ? (
           <div className="mt-2 flex flex-wrap items-center gap-4">
             <UserAvatar name={`${user.prenom} ${user.nom}`} size="lg" className="h-14 w-14 text-base ring-2 ring-white/40" />
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <h1 className="font-display text-2xl font-extrabold sm:text-3xl">{user.prenom} {user.nom}</h1>
               <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/85">
                 <span>{roleLabels.join(" · ")}</span>
@@ -215,6 +231,20 @@ export default function AdminStaffStatsPage() {
                 {!user.isActive && <span className="rounded-full bg-white/20 px-2 py-0.5 font-bold">Compte bloqué</span>}
               </p>
             </div>
+            {roleLabels.length > 0 && (
+              <div className="flex flex-col items-start gap-1 sm:items-end">
+                <button
+                  type="button"
+                  onClick={enterAccount}
+                  disabled={entering}
+                  title="Ouvrir son espace sans son mot de passe"
+                  className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-brand shadow-sm transition hover:bg-violet-50 disabled:opacity-70"
+                >
+                  <LogIn className="h-4 w-4" aria-hidden /> {entering ? "Ouverture..." : `Se connecter en tant que ${user.prenom}`}
+                </button>
+                {enterError && <span className="rounded-lg bg-white/90 px-2 py-1 text-xs font-semibold text-red-600">{enterError}</span>}
+              </div>
+            )}
           </div>
         ) : (
           error ? (

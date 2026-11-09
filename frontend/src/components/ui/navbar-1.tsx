@@ -6,7 +6,7 @@ import { flushSync } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Mail, Menu, Settings, X } from "lucide-react";
-import { clearSession, getSession, logout } from "@/lib/auth";
+import { clearSession, endImpersonation, getSession, logout } from "@/lib/auth";
 import { fetchWhatsAppUnread } from "@/lib/whatsapp";
 import { fetchHrInbox, rhAttentionCount } from "@/lib/hr";
 import { fetchMailUnread, fetchMyMailsUnread } from "@/lib/mail";
@@ -248,8 +248,16 @@ const Navbar1 = () => {
     cn("inline-flex items-center gap-2 text-base font-medium", currentPath === href || location.pathname === href || (href === WHATSAPP_HREF && location.pathname.startsWith(WHATSAPP_HREF)) ? "text-brand" : "text-gray-900");
 
   async function handleLogout() {
+    const impersonating = Boolean(getSession()?.user.impersonatedBy);
     await logout();
     clearSession();
+    // Déconnexion pendant « Se connecter en tant que » : on revient au compte admin.
+    const back = impersonating ? endImpersonation() : null;
+    if (back) {
+      window.location.hash = `#${back}`;
+      window.location.reload();
+      return;
+    }
     navigate("/login");
   }
 

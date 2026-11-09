@@ -1,17 +1,19 @@
 const jwt = require("jsonwebtoken");
 const env = require("../config/env");
 
-function signToken(user, roles, permissions) {
+// impersonatedBy : id de l'admin quand il ouvre le compte d'un employé (« Se connecter en tant que »).
+function signToken(user, roles, permissions, { impersonatedBy, expiresIn } = {}) {
   return jwt.sign(
     {
       sub: user.id,
       role: user.role,
       roles: roles && roles.length ? roles : [user.role],
       permissions: permissions || [],
-      email: user.email
+      email: user.email,
+      ...(impersonatedBy ? { impersonatedBy } : {})
     },
     env.jwtSecret,
-    { expiresIn: env.jwtExpiresIn, algorithm: "HS256" }
+    { expiresIn: expiresIn || env.jwtExpiresIn, algorithm: "HS256" }
   );
 }
 

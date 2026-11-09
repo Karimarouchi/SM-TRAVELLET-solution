@@ -236,7 +236,16 @@ async function sendStaffPasswordReset(req, res) {
   }
 }
 
+async function impersonateStaff(req, res) {
+  try {
+    res.json(await adminService.impersonateStaff(req.auth, req.params.id));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 module.exports = {
   updateStaffAccount,
   sendStaffPasswordReset,
+  impersonateStaff,
   insights, universitySuccess, dashboard, board, studentsOverview, setStudentActive, getSettings, updateSettings, teamPerformance, userPerformance, autoAssignShares, saveAutoAssignShares, studentDeletionPreview, deleteStudent, createSales, setSalesActive, transferSales, deleteSales, getUserAccess, setUserRoles, setUserPermissions, createRdv, listRdv, listRdvAssignments, listRdvStudents, setRdvCountries, listUnassignedVisaApplications };

@@ -31,7 +31,8 @@ async function me(req, res) {
 
 async function logout(req, res) {
   try {
-    if (req.auth?.sub && req.auth.role !== "STUDENT") {
+    // Fin d'une connexion « en tant que » : ce n'est pas l'employé qui se déconnecte, pas de pointage.
+    if (req.auth?.sub && req.auth.role !== "STUDENT" && !req.auth.impersonatedBy) {
       await require("../repositories/hrAttendanceRepository").record(req.auth.sub, "LOGOUT");
     }
   } catch (error) {
@@ -41,6 +42,9 @@ async function logout(req, res) {
 }
 
 async function changePassword(req, res) {
+  if (req.auth.impersonatedBy) {
+    return res.status(403).json({ error: "Connecté en tant que cet employé : son mot de passe et son e-mail se changent depuis la fiche Accès de l'administrateur." });
+  }
   try {
     res.json(await authService.changePassword(req.auth.sub, req.body.currentPassword, req.body.newPassword));
   } catch (error) {
@@ -89,6 +93,9 @@ async function resendVerification(req, res) {
 }
 
 async function changeEmail(req, res) {
+  if (req.auth.impersonatedBy) {
+    return res.status(403).json({ error: "Connecté en tant que cet employé : son mot de passe et son e-mail se changent depuis la fiche Accès de l'administrateur." });
+  }
   try {
     res.json(await authService.changeEmail(req.auth.sub, req.body.currentPassword, req.body.email));
   } catch (error) {

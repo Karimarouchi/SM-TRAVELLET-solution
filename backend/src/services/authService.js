@@ -63,7 +63,7 @@ function validateRegister(body) {
   return { nom, prenom, email, dateNaissance, password, phone };
 }
 
-async function buildSession(user) {
+async function buildSession(user, { impersonatedBy } = {}) {
   let onboardingCompleted = true;
   let profile = null;
 
@@ -83,8 +83,9 @@ async function buildSession(user) {
   const permissions = roles.includes("ADMIN") ? [] : await userPermissions.listForUser(user.id);
 
   return {
-    token: signToken(user, roles, permissions),
-    user: userDto(user, { onboardingCompleted, roles, permissions }),
+    // Session ouverte par l'admin : courte, et sans le changement de mot de passe forcé (réservé à l'employé).
+    token: signToken(user, roles, permissions, impersonatedBy ? { impersonatedBy, expiresIn: "2h" } : {}),
+    user: { ...userDto(user, { onboardingCompleted, roles, permissions }), ...(impersonatedBy ? { mustChangePassword: false, impersonatedBy } : {}) },
     profile
   };
 }
@@ -348,4 +349,4 @@ async function resetPassword(token, password) {
   return { ok: true };
 }
 
-module.exports = { register, login, me, changePassword, changeEmail, assertFreeEmail, forgotPassword, verifyResetCode, resetPassword, verifyEmail, resendVerificationCode };
+module.exports = { buildSession, register, login, me, changePassword, changeEmail, assertFreeEmail, forgotPassword, verifyResetCode, resetPassword, verifyEmail, resendVerificationCode };
