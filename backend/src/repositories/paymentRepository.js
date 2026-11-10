@@ -1,4 +1,4 @@
-const { query } = require("../../db");
+const { query, transaction } = require("../../db");
 
 // ── Tarifs par pays ──
 async function listPricing() {
@@ -93,13 +93,16 @@ async function findPlanById(id) {
   return result.rows[0] || null;
 }
 
-async function createPlan({ studentId, countryId, currency, tranche1Due, tranche2Due, tranche1Deadline = null, levelId = null, levelName = null }) {
+// tranche1Due / tranche2Due : montants À PAYER (nets de remise) ; tranche1Discount : remise déjà
+// accordée sur la tranche 1 (création du code), le prix catalogue = montant dû + remise.
+async function createPlan({ studentId, countryId, currency, tranche1Due, tranche2Due, tranche1Deadline = null, levelId = null, levelName = null, tranche1Discount = 0 }) {
   const result = await query(
-    `INSERT INTO payment_plans (student_id, country_id, currency, tranche1_due, tranche2_due, tranche1_deadline, level_id, level_name)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `INSERT INTO payment_plans (student_id, country_id, currency, tranche1_due, tranche2_due, tranche1_deadline, level_id, level_name,
+                                tranche1_base, tranche2_base, tranche1_discount)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $4::numeric + $9::numeric, $5::numeric, $9::numeric)
      ON CONFLICT (student_id, country_id) DO UPDATE SET student_id = EXCLUDED.student_id
      RETURNING *`,
-    [studentId, countryId, currency, tranche1Due, tranche2Due, tranche1Deadline, levelId, levelName]
+    [studentId, countryId, currency, tranche1Due, tranche2Due, tranche1Deadline, levelId, levelName, tranche1Discount || 0]
   );
   return result.rows[0];
 }
@@ -109,7 +112,9 @@ async function createPlan({ studentId, countryId, currency, tranche1Due, tranche
 async function retargetPlan(planId, { countryId, currency, tranche1Due, tranche2Due, levelId, levelName }) {
   const result = await query(
     `UPDATE payment_plans
-     SET country_id = $2, currency = $3, tranche1_due = $4, tranche2_due = $5, level_id = $6, level_name = $7
+     SET country_id = $2, currency = $3, level_id = $6, level_name = $7,
+         tranche1_base = $4::numeric, tranche2_base = $5::numeric,
+         tranche1_due = GREATEST($4::numeric - tranche1_discount, 0), tranche2_due = GREATEST($5::numeric - tranche2_discount, 0)
      WHERE id = $1
      RETURNING *`,
     [planId, countryId, currency, tranche1Due, tranche2Due, levelId, levelName]
@@ -266,7 +271,101 @@ async function statsByMonth() {
   return { months: months.rows, countries: countries.rows, sales: sales.rows, billed: billed.rows };
 }
 
+// ── Remises ──
+const DISCOUNT_SELECT = `
+  SELECT d.*, u.prenom AS by_prenom, u.nom AS by_nom, cu.prenom AS cancelled_prenom, cu.nom AS cancelled_nom
+  FROM payment_discounts d
+  LEFT JOIN users u ON u.id = d.created_by
+  LEFT JOIN users cu ON cu.id = d.cancelled_by`;
+
+async function listDiscountsForStudent(studentId) {
+  const result = await query(
+    `${DISCOUNT_SELECT}
+     JOIN payment_plans pp ON pp.id = d.plan_id
+     WHERE pp.student_id = $1
+     ORDER BY d.created_at DESC`,
+    [studentId]
+  );
+  return result.rows;
+}
+
+async function listActiveDiscounts(planId) {
+  const result = await query("SELECT * FROM payment_discounts WHERE plan_id = $1 AND status = 'ACTIVE'", [planId]);
+  return result.rows;
+}
+
+async function findDiscount(id) {
+  const result = await query("SELECT * FROM payment_discounts WHERE id = $1", [id]);
+  return result.rows[0] || null;
+}
+
+// Fixe la remise de la tranche et le montant à payer qui en découle (prix catalogue − remise).
+// Colonnes issues d'une liste fermée : jamais de texte libre dans la requête.
+async function writeTrancheDiscount(client, planId, tranche, amount) {
+  const n = Number(tranche) === 1 ? 1 : 2;
+  await client.query(
+    `UPDATE payment_plans SET tranche${n}_discount = $2::numeric, tranche${n}_due = GREATEST(tranche${n}_base - $2::numeric, 0) WHERE id = $1`,
+    [planId, amount]
+  );
+}
+
+// Nouvelle remise : l'éventuelle remise active de la tranche est annulée (elle reste dans l'historique).
+async function replaceDiscount({ planId, tranche, kind, value, amount, reason, createdBy, createdByRole }) {
+  return transaction(async (client) => {
+    await client.query(
+      `UPDATE payment_discounts SET status = 'CANCELLED', cancelled_at = NOW(), cancelled_by = $3, cancel_reason = 'Remplacée par une nouvelle remise'
+       WHERE plan_id = $1 AND tranche = $2 AND status = 'ACTIVE'`,
+      [planId, tranche, createdBy || null]
+    );
+    const inserted = await client.query(
+      `INSERT INTO payment_discounts (plan_id, tranche, kind, value, amount, reason, created_by, created_by_role)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [planId, tranche, kind, value, amount, reason || null, createdBy || null, createdByRole]
+    );
+    await writeTrancheDiscount(client, planId, tranche, amount);
+    return inserted.rows[0];
+  });
+}
+
+async function cancelDiscount(id, { cancelledBy, reason }) {
+  return transaction(async (client) => {
+    const result = await client.query(
+      `UPDATE payment_discounts SET status = 'CANCELLED', cancelled_at = NOW(), cancelled_by = $2, cancel_reason = $3
+       WHERE id = $1 AND status = 'ACTIVE' RETURNING *`,
+      [id, cancelledBy || null, reason]
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+    await writeTrancheDiscount(client, row.plan_id, row.tranche, 0);
+    return row;
+  });
+}
+
+// Le prix catalogue a changé (pays ou niveau modifié) : une remise en pourcentage suit le nouveau prix.
+async function updateDiscountAmount(discount, amount) {
+  return transaction(async (client) => {
+    await client.query("UPDATE payment_discounts SET amount = $2 WHERE id = $1", [discount.id, amount]);
+    await writeTrancheDiscount(client, discount.plan_id, discount.tranche, amount);
+  });
+}
+
+async function insertDiscountRecord({ planId, tranche, kind, value, amount, reason, createdBy, createdByRole }) {
+  const result = await query(
+    `INSERT INTO payment_discounts (plan_id, tranche, kind, value, amount, reason, created_by, created_by_role)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+    [planId, tranche, kind, value, amount, reason || null, createdBy || null, createdByRole]
+  );
+  return result.rows[0];
+}
+
 module.exports = {
+  listDiscountsForStudent,
+  listActiveDiscounts,
+  findDiscount,
+  replaceDiscount,
+  cancelDiscount,
+  updateDiscountAmount,
+  insertDiscountRecord,
   statsByMonth,
   listPricing,
   findPricing,

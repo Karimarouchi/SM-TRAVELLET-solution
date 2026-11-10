@@ -37,6 +37,30 @@ function normalizeAmount(raw, label) {
   return money(value);
 }
 
+// ── Remises ──
+const DISCOUNT_KINDS = ["PERCENT", "AMOUNT"];
+
+// Remise en pourcentage (0–100) ou en montant fixe, dans la monnaie du plan (DT ou €).
+function normalizeDiscount(raw) {
+  const kind = String(raw?.kind || "").toUpperCase();
+  if (!DISCOUNT_KINDS.includes(kind)) throw fail("Choisissez le type de remise : pourcentage ou montant.", 400);
+  const value = Number(String(raw?.value ?? "").replace(",", "."));
+  if (!Number.isFinite(value) || value <= 0) throw fail("Indiquez une remise supérieure à zéro.", 400);
+  if (kind === "PERCENT" && value > 100) throw fail("Une remise en pourcentage ne peut pas dépasser 100 %.", 400);
+  if (value > 10_000_000) throw fail("Remise invalide.", 400);
+  return { kind, value: money(value), reason: String(raw?.reason || "").trim().slice(0, 300) || null };
+}
+
+// Montant de la remise sur le prix catalogue de la tranche (arrondi au centime).
+function discountAmount(base, kind, value) {
+  const amountCents = kind === "PERCENT" ? Math.round((cents(base) * Number(value)) / 100) : cents(value);
+  return amountCents / 100;
+}
+
+function discountLabel(kind, value, currency) {
+  return kind === "PERCENT" ? `${Number(value).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} %` : formatAmount(value, currency);
+}
+
 function normalizeMethod(raw) {
   const method = String(raw || "").toUpperCase();
   if (!METHODS.includes(method)) throw fail("Choisissez le mode de paiement (espèces, virement, carte ou chèque).", 400);
@@ -229,8 +253,9 @@ function normalizeDeadline(raw) {
 function planDto(row) {
   const deadline1 = dateOnly(row.tranche1_deadline);
   const deadline2 = dateOnly(row.tranche2_deadline);
-  const t1 = { ...trancheState(row.tranche1_due, row.paid1), deadline: deadline1 };
-  const t2 = { ...trancheState(row.tranche2_due, row.paid2), deadline: deadline2 };
+  // due = montant à payer (net de remise) ; base = prix catalogue ; discount = remise accordée.
+  const t1 = { ...trancheState(row.tranche1_due, row.paid1), base: money(row.tranche1_base), discount: money(row.tranche1_discount), deadline: deadline1 };
+  const t2 = { ...trancheState(row.tranche2_due, row.paid2), base: money(row.tranche2_base), discount: money(row.tranche2_discount), deadline: deadline2 };
   const today = todayYmd();
   // Tant que la date limite promise n'est pas dépassée, le reste à payer n'est pas « en retard ».
   const waiting1 = Boolean(deadline1) && deadline1 >= today;
@@ -259,6 +284,25 @@ function planDto(row) {
     levelId: row.level_id || null,
     levelName: row.level_name || null,
     createdAt: row.created_at
+  };
+}
+
+function discountDto(row) {
+  return {
+    id: row.id,
+    planId: row.plan_id,
+    tranche: row.tranche,
+    kind: row.kind,
+    value: Number(row.value),
+    amount: money(row.amount),
+    reason: row.reason || null,
+    status: row.status,
+    createdByName: row.by_prenom ? `${row.by_prenom} ${row.by_nom || ""}`.trim() : null,
+    createdByRole: row.created_by_role,
+    createdAt: row.created_at,
+    cancelledAt: row.cancelled_at || null,
+    cancelledByName: row.cancelled_prenom ? `${row.cancelled_prenom} ${row.cancelled_nom || ""}`.trim() : null,
+    cancelReason: row.cancel_reason || null
   };
 }
 
@@ -349,6 +393,7 @@ async function retargetStudentPlan(studentId, countryId, levelId) {
   if (paid > 0 && target.currency !== tariff.currency) {
     throw fail("La monnaie du nouveau tarif est différente des paiements déjà encaissés.", 400);
   }
+  let retargeted = target.id;
   try {
     await paymentRepo.retargetPlan(target.id, fields);
   } catch (error) {
@@ -356,7 +401,9 @@ async function retargetStudentPlan(studentId, countryId, levelId) {
     const destination = await paymentRepo.findPlan(studentId, countryId);
     if (!destination) throw error;
     await paymentRepo.retargetPlan(destination.id, fields);
+    retargeted = destination.id;
   }
+  await refreshDiscounts(retargeted);
   return paymentRepo.findPlan(studentId, countryId);
 }
 
@@ -392,9 +439,18 @@ async function summaryForStudent(auth, studentId) {
   }
   const isAdmin = authRoles(auth).includes("ADMIN");
   const plans = (await paymentRepo.listPlansForStudent(studentId)).map(planDto);
-  if (!fullAccess) return { plans: plans.map(redactPlan), payments: [], canCancel: false };
+  if (!fullAccess) return { plans: plans.map(redactPlan), payments: [], discounts: [], canCancel: false, canDiscount: false };
   const payments = (await paymentRepo.listPaymentsForStudent(studentId)).map(paymentDto);
-  return { plans, payments: isAdmin ? payments : payments.filter((p) => p.status === "ACTIVE"), canCancel: isAdmin };
+  // Remises : réservées à l'équipe (l'étudiant ne voit que le montant net et la remise de chaque tranche).
+  const canDiscount = isAdmin || authRoles(auth).includes("SALES");
+  const discounts = canDiscount ? (await paymentRepo.listDiscountsForStudent(studentId)).map(discountDto) : [];
+  return {
+    plans,
+    payments: isAdmin ? payments : payments.filter((p) => p.status === "ACTIVE"),
+    discounts: isAdmin ? discounts : discounts.filter((d) => d.status === "ACTIVE"),
+    canCancel: isAdmin,
+    canDiscount
+  };
 }
 
 // Enregistre un paiement (admin, ou conseiller de l'étudiant).
@@ -473,6 +529,99 @@ async function sendReceiptEmail(studentId, payment) {
   }
 }
 
+// Accorde une remise sur une tranche (conseiller de l'étudiant ou admin). Le conseiller prévient
+// l'admin par notification ; une nouvelle remise remplace la précédente de la même tranche.
+async function applyDiscount(auth, studentId, payload) {
+  const roles = authRoles(auth);
+  const isAdmin = roles.includes("ADMIN");
+  if (!isAdmin && !roles.includes("SALES")) throw fail("Action réservée à l'administrateur ou au conseiller.", 403);
+  await assertStudentAccess(auth, studentId);
+
+  const tranche = Number(payload.tranche);
+  if (![1, 2].includes(tranche)) throw fail("Choisissez la tranche (1 ou 2).", 400);
+  if (!payload.countryId) throw fail("Choisissez le pays concerné.", 400);
+  const input = normalizeDiscount(payload);
+  const plan = await ensurePlan(studentId, payload.countryId);
+
+  const base = money(tranche === 1 ? plan.tranche1_base : plan.tranche2_base);
+  const paid = money(tranche === 1 ? plan.paid1 : plan.paid2);
+  const amount = discountAmount(base, input.kind, input.value);
+  if (amount <= 0) throw fail("Cette remise est nulle : indiquez un pourcentage ou un montant plus élevé.", 400);
+  // Jamais en dessous de ce qui est déjà encaissé : une remise ne rembourse personne.
+  const maxDiscount = Math.max(0, cents(base) - cents(paid)) / 100;
+  if (maxDiscount <= 0) throw fail(`La tranche ${tranche} est déjà entièrement payée : aucune remise possible.`, 409);
+  if (cents(amount) > cents(maxDiscount)) {
+    throw fail(`La remise (${formatAmount(amount, plan.currency)}) dépasse ce qui reste à payer sur la tranche ${tranche} : ${formatAmount(maxDiscount, plan.currency)} au maximum.`, 400);
+  }
+
+  const created = await paymentRepo.replaceDiscount({
+    planId: plan.id,
+    tranche,
+    kind: input.kind,
+    value: input.value,
+    amount,
+    reason: input.reason,
+    createdBy: auth.sub,
+    createdByRole: isAdmin ? "ADMIN" : "SALES"
+  });
+  // Tranche désormais soldée : plus de date limite à tenir.
+  const after = cents(base) - cents(amount) - cents(paid);
+  if (after <= 0) await paymentRepo.setPlanDeadline(plan.id, tranche, null);
+  logger.info("Paiement : remise accordée", { discountId: created.id, plan: plan.id, tranche, kind: input.kind, value: input.value, amount, by: auth.sub });
+
+  if (!isAdmin) {
+    const student = await userRepo.findById(studentId);
+    const seller = await userRepo.findById(auth.sub);
+    const who = student ? `${student.prenom} ${student.nom}`.trim() : "l'étudiant";
+    const sellerName = seller ? `${seller.prenom} ${seller.nom}`.trim() : "Un conseiller";
+    await notificationService.notifyAdmins({
+      type: "PAYMENT_DISCOUNT",
+      title: `Remise accordée : ${who}`,
+      body: `${sellerName} a accordé une remise de ${discountLabel(input.kind, input.value, plan.currency)} (−${formatAmount(amount, plan.currency)}) sur la tranche ${tranche} de ${who} (${plan.country_name}). À payer : ${formatAmount(base - amount, plan.currency)} au lieu de ${formatAmount(base, plan.currency)}.${input.reason ? ` Motif : ${input.reason}` : ""}`,
+      link: `/admin/finance?student=${studentId}`
+    });
+  }
+  return summaryForStudent(auth, studentId);
+}
+
+// Annulation d'une remise (admin) : le prix de la tranche redevient le prix catalogue.
+async function cancelDiscount(auth, discountId, reason) {
+  if (!authRoles(auth).includes("ADMIN")) throw fail("Seul l'administrateur peut annuler une remise.", 403);
+  const trimmed = String(reason || "").trim().slice(0, 300);
+  if (!trimmed) throw fail("Indiquez le motif de l'annulation.", 400);
+  const discount = await paymentRepo.findDiscount(discountId);
+  if (!discount) throw fail("Remise introuvable.", 404);
+  if (discount.status !== "ACTIVE") throw fail("Cette remise est déjà annulée.", 409);
+  const plan = await paymentRepo.findPlanById(discount.plan_id);
+  await paymentRepo.cancelDiscount(discountId, { cancelledBy: auth.sub, reason: trimmed });
+  logger.info("Paiement : remise annulée par l'admin", { discountId, plan: discount.plan_id, by: auth.sub });
+  if (discount.created_by && discount.created_by_role === "SALES" && plan) {
+    await notificationService.notify(discount.created_by, {
+      type: "PAYMENT_DISCOUNT",
+      title: `Remise annulée : ${plan.student_prenom || ""} ${plan.student_nom || ""}`.trim(),
+      body: `L'administrateur a annulé votre remise sur la tranche ${discount.tranche} (${plan.country_name}). Motif : ${trimmed}`,
+      link: `/conseiller/etudiants/${plan.student_id}`
+    });
+  }
+  return summaryForStudent(auth, plan.student_id);
+}
+
+// Le prix catalogue du plan a changé (pays ou niveau modifié) : les remises en pourcentage suivent
+// le nouveau prix ; une remise qui n'a plus de sens (prix à zéro) est annulée.
+async function refreshDiscounts(planId) {
+  const plan = await paymentRepo.findPlanById(planId);
+  if (!plan) return;
+  for (const discount of await paymentRepo.listActiveDiscounts(planId)) {
+    const base = money(discount.tranche === 1 ? plan.tranche1_base : plan.tranche2_base);
+    const amount = Math.min(discountAmount(base, discount.kind, discount.value), base);
+    if (amount <= 0) {
+      await paymentRepo.cancelDiscount(discount.id, { cancelledBy: null, reason: "Prix de la tranche modifié" });
+    } else if (cents(amount) !== cents(discount.amount)) {
+      await paymentRepo.updateDiscountAmount(discount, amount);
+    }
+  }
+}
+
 // Annulation (admin) : le paiement reste visible dans l'historique.
 async function cancelPayment(auth, paymentId, reason) {
   if (!authRoles(auth).includes("ADMIN")) throw fail("Seul l'administrateur peut annuler un paiement.", 403);
@@ -507,12 +656,26 @@ async function prepareCodePayment(countryId, payment, levelId) {
   const tariff = await resolveTariff(countryId, levelId || null);
   if (!tariff) return null;
   const pricing = { currency: tariff.currency, tranche1_amount: tariff.tranche1, tranche2_amount: tariff.tranche2, levelId: tariff.levelId, levelName: tariff.levelName };
-  if (cents(pricing.tranche1_amount) > 0) {
+
+  // Remise facultative sur la tranche 1 : le client ne règle (et le conseiller n'encaisse) que le montant net.
+  let discount = null;
+  if (payment?.discount && String(payment.discount.value ?? "").trim() !== "") {
+    const input = normalizeDiscount(payment.discount);
+    const amount = discountAmount(pricing.tranche1_amount, input.kind, input.value);
+    if (amount <= 0) throw fail("Cette remise est nulle : indiquez un pourcentage ou un montant plus élevé.", 400);
+    if (cents(amount) > cents(pricing.tranche1_amount)) {
+      throw fail(`La remise dépasse la tranche 1 (${formatAmount(pricing.tranche1_amount, pricing.currency)}).`, 400);
+    }
+    discount = { ...input, amount };
+  }
+  const net1 = (cents(pricing.tranche1_amount) - cents(discount?.amount || 0)) / 100;
+
+  if (cents(net1) > 0) {
     if (!payment || payment.confirmed !== true) {
-      throw fail(`Confirmez l'encaissement de la tranche 1 (${formatAmount(pricing.tranche1_amount, pricing.currency)}) pour générer le code.`, 400);
+      throw fail(`Confirmez l'encaissement de la tranche 1 (${formatAmount(net1, pricing.currency)}) pour générer le code.`, 400);
     }
   }
-  const paying = cents(pricing.tranche1_amount) > 0;
+  const paying = cents(net1) > 0;
   const method = paying ? normalizeMethod(payment.method) : null;
   const reference = paying ? await normalizeMethodReference(method, payment.reference) : null;
 
@@ -520,7 +683,7 @@ async function prepareCodePayment(countryId, payment, levelId) {
   let paidAmount = null;
   let deadline = null;
   if (paying) {
-    const full = money(pricing.tranche1_amount);
+    const full = money(net1);
     paidAmount = payment.amount === undefined || payment.amount === null || payment.amount === "" ? full : normalizeAmount(payment.amount, "Le montant encaissé");
     if (cents(paidAmount) > cents(full)) {
       throw fail(`Le montant encaissé dépasse la tranche 1 (${formatAmount(full, pricing.currency)}).`, 400);
@@ -536,6 +699,7 @@ async function prepareCodePayment(countryId, payment, levelId) {
     currency: pricing.currency,
     tranche1: money(pricing.tranche1_amount),
     tranche2: money(pricing.tranche2_amount),
+    discount,
     levelId: pricing.levelId,
     levelName: pricing.levelName,
     method,
@@ -547,26 +711,62 @@ async function prepareCodePayment(countryId, payment, levelId) {
   };
 }
 
+// Remise accordée à la création d'un code : l'admin est prévenu (l'étudiant n'a pas encore de compte).
+async function notifyCodeDiscount(auth, { code, countryName, phone }, prepared) {
+  if (!prepared?.discount) return;
+  const roles = authRoles(auth);
+  if (roles.includes("ADMIN") && !roles.includes("SALES")) return;
+  const seller = await userRepo.findById(auth.sub);
+  const sellerName = seller ? `${seller.prenom} ${seller.nom}`.trim() : "Un conseiller";
+  const { discount, currency } = prepared;
+  await notificationService.notifyAdmins({
+    type: "PAYMENT_DISCOUNT",
+    title: `Remise accordée sur le code ${code}`,
+    body: `${sellerName} a accordé une remise de ${discountLabel(discount.kind, discount.value, currency)} (−${formatAmount(discount.amount, currency)}) sur la tranche 1 du code ${code} (${countryName || "pays non précisé"}${phone ? `, ${phone}` : ""}). Le client paiera ${formatAmount(prepared.tranche1 - discount.amount, currency)} au lieu de ${formatAmount(prepared.tranche1, currency)}.${discount.reason ? ` Motif : ${discount.reason}` : ""}`,
+    link: "/admin/finance"
+  });
+}
+
 // Appelé quand l'étudiant s'inscrit avec le code : crée son plan et enregistre
 // la tranche 1 déjà encaissée.
 async function applyCodePayment(studentId, claimed) {
   if (!claimed.country_id || claimed.payment_tranche1 === null || claimed.payment_tranche1 === undefined) return;
+  // payment_tranche1 = prix catalogue ; la remise accordée à la création du code en est déduite.
+  const codeDiscount = claimed.payment_discount_amount ? money(claimed.payment_discount_amount) : 0;
+  const net1 = (cents(claimed.payment_tranche1) - cents(codeDiscount)) / 100;
   const plan = await paymentRepo.createPlan({
     studentId,
     countryId: claimed.country_id,
     currency: claimed.payment_currency,
-    tranche1Due: claimed.payment_tranche1,
+    tranche1Due: net1,
     tranche2Due: claimed.payment_tranche2,
     tranche1Deadline: dateOnly(claimed.payment_deadline),
     levelId: claimed.prefill_level_id || null,
-    levelName: claimed.prefill_target_level || null
+    levelName: claimed.prefill_target_level || null,
+    tranche1Discount: codeDiscount
   });
-  if (cents(claimed.payment_tranche1) > 0) {
+  if (codeDiscount > 0) {
+    try {
+      await paymentRepo.insertDiscountRecord({
+        planId: plan.id,
+        tranche: 1,
+        kind: claimed.payment_discount_kind,
+        value: claimed.payment_discount_value,
+        amount: codeDiscount,
+        reason: claimed.payment_discount_reason,
+        createdBy: claimed.sales_id,
+        createdByRole: "SALES"
+      });
+    } catch (error) {
+      logger.error("Remise du code : historique non enregistré", { message: error.message, plan: plan.id });
+    }
+  }
+  if (cents(net1) > 0) {
     const created = await paymentRepo.createPayment({
       planId: plan.id,
       studentId,
       tranche: 1,
-      amount: claimed.payment_paid_amount !== null && claimed.payment_paid_amount !== undefined ? claimed.payment_paid_amount : claimed.payment_tranche1,
+      amount: claimed.payment_paid_amount !== null && claimed.payment_paid_amount !== undefined ? claimed.payment_paid_amount : net1,
       currency: claimed.payment_currency,
       method: claimed.payment_method,
       paidAt: dateOnly(claimed.payment_paid_at) || dateOnly(claimed.created_at),
@@ -751,6 +951,9 @@ module.exports = {
   removePricing,
   summaryForStudent,
   recordPayment,
+  applyDiscount,
+  cancelDiscount,
+  notifyCodeDiscount,
   cancelPayment,
   updatePaymentDate,
   prepareCodePayment,

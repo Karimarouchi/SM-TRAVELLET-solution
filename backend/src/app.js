@@ -295,6 +295,8 @@ app.get("/api/finance/pricing/:countryId", requireAuth, requireRoles("STUDENT", 
 app.get("/api/students/me/payments", requireAuth, requireRoles("STUDENT"), paymentController.mySummary);
 app.get("/api/students/:id/payments", requireAuth, requireRoles("SALES", "ADMIN", "RDV"), paymentController.studentSummary);
 app.post("/api/students/:id/payments", requireAuth, requireRoles("SALES", "ADMIN"), paymentController.record);
+app.post("/api/students/:id/discounts", requireAuth, requireRoles("SALES", "ADMIN"), paymentController.discount);
+app.patch("/api/discounts/:id/cancel", requireAuth, requireRoles("ADMIN"), paymentController.cancelDiscount);
 app.patch("/api/payments/:id/date", requireAuth, requireRoles("ADMIN"), paymentController.updateDate);
 app.patch("/api/payments/:id/cancel", requireAuth, requireRoles("ADMIN"), paymentController.cancel);
 app.get("/api/admin/commission-rules", requireAuth, requireRoles("ADMIN"), commissionController.listRules);

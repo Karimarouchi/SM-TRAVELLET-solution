@@ -1,3 +1,4 @@
+import DiscountFields, { discountAmountOf, parseDiscountValue } from "@/components/DiscountFields";
 import { FancySelect } from "@/components/ui/fancy-select";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import {
@@ -11,6 +12,7 @@ import {
   getSession,
   type Country,
   type CountryPricing,
+  type DiscountKind,
   type PaymentMethod,
   type SalesCode
 } from "@/lib/auth";
@@ -18,7 +20,7 @@ import { useLanguage } from "@/lib/i18n";
 import { cn, todayLocal } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { fetchWhatsAppConversations, formatWhatsAppPhone, type WhatsAppConversation } from "@/lib/whatsapp";
-import { AlertTriangle, Banknote, CheckCircle2, ClipboardCopy, Globe2, MessageCircle, Plus, Search, Sparkles, X } from "lucide-react";
+import { AlertTriangle, Banknote, CheckCircle2, ClipboardCopy, Globe2, MessageCircle, Percent, Plus, Search, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 type FormData = {
@@ -159,6 +161,11 @@ export default function SalesCodesPage() {
   const [payDate, setPayDate] = useState(todayLocal());
   const [payAmount, setPayAmount] = useState("");
   const [payDeadline, setPayDeadline] = useState("");
+  // Remise facultative sur la tranche 1 : le client ne règle que le montant net, l'admin est prévenu.
+  const [discountOn, setDiscountOn] = useState(false);
+  const [discKind, setDiscKind] = useState<DiscountKind>("PERCENT");
+  const [discValue, setDiscValue] = useState("");
+  const [discReason, setDiscReason] = useState("");
 
   const load = () => {
     setLoading(true);
@@ -180,6 +187,9 @@ export default function SalesCodesPage() {
     setPayDate(todayLocal());
     setPayAmount("");
     setPayDeadline("");
+    setDiscountOn(false);
+    setDiscValue("");
+    setDiscReason("");
     setPricing(null);
     if (form.countryId) fetchCountryPricing(form.countryId).then(setPricing).catch(() => setPricing(null));
   }, [form.countryId]);
@@ -189,9 +199,15 @@ export default function SalesCodesPage() {
   const levels = pricing?.levels || [];
   const chosenLevel = levels.find((level) => level.levelId === form.levelId) || null;
   const quote = levels.length ? (chosenLevel?.configured ? chosenLevel : null) : pricing?.configured ? pricing : null;
-  const needsPayment = Boolean(quote && (quote.tranche1 || 0) > 0);
-  // Montant encaissé : toute la tranche 1 par défaut ; moins = paiement partiel (date limite pour le reste).
-  const fullAmount = quote?.tranche1 || 0;
+  const basePrice = quote?.tranche1 || 0;
+  const hasPrice = Boolean(quote && basePrice > 0);
+  const discountNumber = discountOn ? parseDiscountValue(discValue) : 0;
+  const discountSum = hasPrice ? discountAmountOf(basePrice, discKind, discountNumber) : 0;
+  const discountInvalid = discountOn && (!(discountNumber > 0) || discountSum > basePrice + 0.001 || (discKind === "PERCENT" && discountNumber > 100));
+  // Montant encaissé : toute la tranche 1 (nette de remise) par défaut ; moins = paiement partiel (date limite pour le reste).
+  const fullAmount = Math.max(0, Math.round((basePrice - discountSum) * 100) / 100);
+  // Une remise de 100 % : rien à encaisser.
+  const needsPayment = hasPrice && fullAmount > 0;
   const paidNumber = payAmount.trim() ? Number(payAmount.replace(",", ".")) : fullAmount;
   const isPartial = needsPayment && Number.isFinite(paidNumber) && paidNumber > 0 && paidNumber < fullAmount;
 
@@ -199,6 +215,10 @@ export default function SalesCodesPage() {
     e.preventDefault();
     if (levels.length && !form.levelId) {
       /* Le niveau reste vide : l'étudiant le choisira, et le tarif suivra. */
+    }
+    if (discountInvalid) {
+      setError(t("Remise invalide : indiquez une valeur supérieure à 0 qui ne dépasse pas la tranche 1.", "Invalid discount: enter a value above 0 that does not exceed instalment 1."));
+      return;
     }
     if (needsPayment && (!paid || !payMethod)) {
       setError(t("Confirmez l'encaissement de la tranche 1 et choisissez le mode de paiement.", "Confirm the first instalment was collected and choose the payment method."));
@@ -221,7 +241,11 @@ export default function SalesCodesPage() {
     setWarning("");
     try {
       const created = await createSalesCode({
-        payment: needsPayment ? { confirmed: true, method: payMethod as PaymentMethod, reference: payReference.trim() || undefined, paidAt: payDate || undefined, amount: isPartial ? paidNumber : undefined, deadline: isPartial ? payDeadline : undefined } : undefined,
+        payment: needsPayment
+          ? { confirmed: true, method: payMethod as PaymentMethod, reference: payReference.trim() || undefined, paidAt: payDate || undefined, amount: isPartial ? paidNumber : undefined, deadline: isPartial ? payDeadline : undefined, discount: discountOn ? { kind: discKind, value: discountNumber, reason: discReason.trim() || undefined } : undefined }
+          : discountOn && hasPrice
+            ? { confirmed: false, discount: { kind: discKind, value: discountNumber, reason: discReason.trim() || undefined } }
+            : undefined,
         countryId: form.countryId || undefined,
         levelId: form.levelId || undefined,
         prefillCurrentStudyLevel: form.prefillCurrentStudyLevel || undefined,
@@ -335,15 +359,37 @@ export default function SalesCodesPage() {
               {!form.levelId && <p className="mt-1 text-[11px] text-muted">{t("Sans niveau, le tarif sera celui que l'étudiant choisira dans son dossier.", "Without a level, the price will be the one the student chooses in their file.")}</p>}
             </div>
           )}
-          {needsPayment && quote && (
+          {hasPrice && quote && (
             <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 sm:col-span-2">
-              <p className="flex items-center gap-2 text-sm font-bold text-amber-900">
+              <p className="flex flex-wrap items-center gap-x-2 text-sm font-bold text-amber-900">
                 <Banknote className="h-4 w-4" aria-hidden />
-                {t("Paiement de l'inscription (tranche 1)", "Registration payment (instalment 1)")} : {formatMoney(quote.tranche1 || 0, quote.currency)}
+                {t("Paiement de l'inscription (tranche 1)", "Registration payment (instalment 1)")} : {formatMoney(fullAmount, quote.currency)}
+                {discountSum > 0 && !discountInvalid && <span className="text-xs font-semibold text-amber-700 line-through">{formatMoney(basePrice, quote.currency)}</span>}
               </p>
               <p className="mt-0.5 text-[11px] text-amber-800">
                 {t(`Prix total ${chosenLevel ? chosenLevel.levelName : pricing?.countryName} : ${formatMoney((quote.tranche1 || 0) + (quote.tranche2 || 0), quote.currency)} · la tranche 2 (${formatMoney(quote.tranche2 || 0, quote.currency)}) sera à régler avant le dépôt du visa.`, `Total price: ${formatMoney((quote.tranche1 || 0) + (quote.tranche2 || 0), quote.currency)} · instalment 2 (${formatMoney(quote.tranche2 || 0, quote.currency)}) is due before the visa filing.`)}
               </p>
+              <div className="mt-3 rounded-xl border border-emerald-200 bg-white/70 p-3">
+                <label className="flex items-start gap-2 text-sm font-semibold text-dark">
+                  <input type="checkbox" checked={discountOn} onChange={(e) => setDiscountOn(e.target.checked)} className="mt-0.5 h-4 w-4 accent-emerald-600" />
+                  <span className="inline-flex items-center gap-1.5">
+                    <Percent className="h-3.5 w-3.5 text-emerald-700" aria-hidden />
+                    {t("Accorder une remise sur la tranche 1", "Grant a discount on instalment 1")}
+                  </span>
+                </label>
+                {discountOn && (
+                  <div className="mt-3">
+                    <DiscountFields kind={discKind} value={discValue} reason={discReason} onKind={setDiscKind} onValue={setDiscValue} onReason={setDiscReason} currency={quote.currency} base={basePrice} t={t} />
+                    <p className="mt-2 text-[11px] text-muted">{t("L'administrateur est prévenu par notification dès que le code est généré.", "The administrator is notified as soon as the code is generated.")}</p>
+                  </div>
+                )}
+              </div>
+              {!needsPayment && (
+                <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
+                  {t("Tranche 1 offerte : aucun encaissement à confirmer.", "Instalment 1 is free: no payment to confirm.")}
+                </p>
+              )}
+              {needsPayment && (<>
               <label className="mt-3 flex items-start gap-2 text-sm font-semibold text-dark">
                 <input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} className="mt-0.5 h-4 w-4 accent-violet-600" />
                 {t("J'ai encaissé la tranche 1 (ou une partie) auprès du client", "I have collected instalment 1 (or part of it) from the client")}
@@ -410,6 +456,7 @@ export default function SalesCodesPage() {
                   "An automatic receipt number (e.g. 001-2026) is assigned to every payment, whatever the method, and the receipt is emailed to the student when they register."
                 )}
               </p>
+              </>)}
             </div>
           )}
           <div>

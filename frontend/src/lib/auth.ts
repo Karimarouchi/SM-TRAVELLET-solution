@@ -720,7 +720,16 @@ export type SalesCodePayload = {
   expiresAt?: string;
   whatsappContactId?: string;
   /** Tranche 1 (inscription) encaissée : obligatoire quand le pays a un tarif. */
-  payment?: { confirmed: boolean; method: PaymentMethod; reference?: string; paidAt?: string; amount?: number; deadline?: string };
+  payment?: {
+    confirmed: boolean;
+    method?: PaymentMethod;
+    reference?: string;
+    paidAt?: string;
+    amount?: number;
+    deadline?: string;
+    /** Remise accordée sur la tranche 1 : le client ne règle que le montant net (l'admin est prévenu). */
+    discount?: { kind: DiscountKind; value: number; reason?: string };
+  };
 };
 
 export async function fetchMySalesCodes(): Promise<SalesCode[]> {
@@ -2087,7 +2096,19 @@ export type CountryPricing = {
   levels?: LevelPricing[];
 };
 
-export type TrancheState = { due: number; paid: number; remaining: number; complete: boolean; /** Date limite promise pour payer le reste (AAAA-MM-JJ). */ deadline?: string | null };
+export type TrancheState = {
+  /** Montant à payer, remise déduite. */
+  due: number;
+  paid: number;
+  remaining: number;
+  complete: boolean;
+  /** Prix catalogue de la tranche (avant remise). */
+  base?: number;
+  /** Remise accordée sur la tranche (0 si aucune). */
+  discount?: number;
+  /** Date limite promise pour payer le reste (AAAA-MM-JJ). */
+  deadline?: string | null;
+};
 
 export type PaymentPlan = {
   id: string;
@@ -2143,7 +2164,37 @@ export const PAYMENT_REFERENCE_LABELS: Partial<Record<PaymentMethod, string>> = 
   CHEQUE: "Numéro du chèque"
 };
 
-export type StudentPaymentsSummary = { plans: PaymentPlan[]; payments: StudentPayment[]; canCancel: boolean };
+export type DiscountKind = "PERCENT" | "AMOUNT";
+
+export type PaymentDiscount = {
+  id: string;
+  planId: string;
+  tranche: 1 | 2;
+  kind: DiscountKind;
+  /** Pourcentage (kind PERCENT) ou montant dans la monnaie du plan (kind AMOUNT). */
+  value: number;
+  /** Montant de la remise dans la monnaie du plan. */
+  amount: number;
+  reason: string | null;
+  status: "ACTIVE" | "CANCELLED";
+  createdByName: string | null;
+  createdByRole: "ADMIN" | "SALES";
+  createdAt: string;
+  cancelledAt: string | null;
+  cancelledByName: string | null;
+  cancelReason: string | null;
+};
+
+export type StudentPaymentsSummary = {
+  plans: PaymentPlan[];
+  payments: StudentPayment[];
+  discounts?: PaymentDiscount[];
+  canCancel: boolean;
+  /** Le conseiller de l'étudiant et l'admin peuvent accorder une remise. */
+  canDiscount?: boolean;
+};
+
+export type DiscountPayload = { countryId: string; tranche: 1 | 2; kind: DiscountKind; value: number; reason?: string };
 
 export type RecordPaymentPayload = {
   countryId: string;
@@ -2328,6 +2379,15 @@ export async function fetchMyPayments(): Promise<StudentPaymentsSummary> {
 
 export async function recordStudentPayment(studentId: string, payload: RecordPaymentPayload): Promise<StudentPaymentsSummary> {
   return request<StudentPaymentsSummary>(`/api/students/${studentId}/payments`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+// Remise sur une tranche : le conseiller de l'étudiant (l'admin est prévenu) ou l'admin.
+export async function applyStudentDiscount(studentId: string, payload: DiscountPayload): Promise<StudentPaymentsSummary> {
+  return request<StudentPaymentsSummary>(`/api/students/${studentId}/discounts`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function cancelStudentDiscount(discountId: string, reason: string): Promise<StudentPaymentsSummary> {
+  return request<StudentPaymentsSummary>(`/api/discounts/${discountId}/cancel`, { method: "PATCH", body: JSON.stringify({ reason }) });
 }
 
 export async function fetchPaymentJournal(filters: { q?: string; method?: string; status?: string } = {}): Promise<StudentPayment[]> {

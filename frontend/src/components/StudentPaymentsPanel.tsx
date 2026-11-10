@@ -1,15 +1,19 @@
 import { FancySelect } from "@/components/ui/fancy-select";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { Amount } from "@/components/ui/hidden-amounts";
+import DiscountFields, { discountAmountOf, parseDiscountValue } from "@/components/DiscountFields";
 import {
   PAYMENT_METHOD_LABELS,
   PAYMENT_REFERENCE_LABELS,
+  applyStudentDiscount,
+  cancelStudentDiscount,
   cancelStudentPayment,
   fetchPublicCountries,
   fetchStudentPayments,
   formatMoney,
   recordStudentPayment,
   type Country,
+  type DiscountKind,
   type PaymentMethod,
   type PaymentPlan,
   type StudentPaymentsSummary,
@@ -17,7 +21,7 @@ import {
 } from "@/lib/auth";
 import PaymentDateEdit from "@/components/admin/PaymentDateEdit";
 import { cn, todayLocal } from "@/lib/utils";
-import { AlertTriangle, BadgeCheck, Banknote, Plus, X } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Banknote, Percent, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const METHODS = (Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((value) => ({ value, label: PAYMENT_METHOD_LABELS[value] }));
@@ -33,6 +37,11 @@ function TrancheBox({ title, hint, state, currency, later }: { title: string; hi
         </span>
       </div>
       <p className="mt-0.5 text-[11px] text-muted">{hint}</p>
+      {(state.discount || 0) > 0 && (
+        <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+          <Percent className="h-3 w-3" aria-hidden /> Remise −<Amount>{formatMoney(state.discount || 0, currency)}</Amount> · prix <Amount>{formatMoney(state.base || state.due + (state.discount || 0), currency)}</Amount>
+        </p>
+      )}
       <p className="mt-2 text-sm font-extrabold text-dark">
         <Amount>{formatMoney(state.paid, currency)}</Amount> <Amount className="font-semibold text-muted">/ {formatMoney(state.due, currency)}</Amount>
       </p>
@@ -71,6 +80,14 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
   const [deadline, setDeadline] = useState("");
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  // Remise : formulaire, et annulation (admin) d'une remise.
+  const [discounting, setDiscounting] = useState(false);
+  const [dTranche, setDTranche] = useState<"1" | "2">("1");
+  const [dKind, setDKind] = useState<DiscountKind>("PERCENT");
+  const [dValue, setDValue] = useState("");
+  const [dReason, setDReason] = useState("");
+  const [cancellingDiscount, setCancellingDiscount] = useState<string | null>(null);
+  const [discountCancelReason, setDiscountCancelReason] = useState("");
 
   const load = () =>
     fetchStudentPayments(studentId)
@@ -145,6 +162,53 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
     }
   };
 
+  const discountState = plan ? (dTranche === "1" ? plan.tranche1 : plan.tranche2) : null;
+  const discountBase = discountState ? discountState.base ?? discountState.due + (discountState.discount || 0) : 0;
+
+  const resetDiscount = () => {
+    setDiscounting(false);
+    setDValue("");
+    setDReason("");
+    setError("");
+  };
+
+  const submitDiscount = async () => {
+    setError("");
+    if (!countryId || !plan) return setError("Choisissez le pays concerné.");
+    const value = parseDiscountValue(dValue);
+    if (!(value > 0)) return setError("Indiquez une remise supérieure à zéro.");
+    if (dKind === "PERCENT" && value > 100) return setError("Une remise en pourcentage ne peut pas dépasser 100 %.");
+    if (discountAmountOf(discountBase, dKind, value) > Math.max(0, discountBase - (discountState?.paid || 0)) + 0.001) {
+      return setError("La remise dépasse ce qui reste à payer sur cette tranche.");
+    }
+    setBusy(true);
+    try {
+      setSummary(await applyStudentDiscount(studentId, { countryId, tranche: Number(dTranche) as 1 | 2, kind: dKind, value, reason: dReason.trim() || undefined }));
+      resetDiscount();
+      onChanged?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Remise impossible.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmCancelDiscount = async (discountId: string) => {
+    if (!discountCancelReason.trim()) return setError("Indiquez le motif de l'annulation.");
+    setBusy(true);
+    setError("");
+    try {
+      setSummary(await cancelStudentDiscount(discountId, discountCancelReason.trim()));
+      setCancellingDiscount(null);
+      setDiscountCancelReason("");
+      onChanged?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Annulation impossible.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const countryOptions = [
     ...(summary?.plans.map((p) => ({ value: p.countryId, label: p.countryName })) || []),
     ...countries.filter((c) => c.active && !summary?.plans.some((p) => p.countryId === c.id)).map((c) => ({ value: c.id, label: c.name }))
@@ -161,14 +225,55 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
             Deux tranches : la 1ʳᵉ à l'inscription (code), la 2ᵉ avant le dépôt du visa. Le Gestionnaire de dossiers ne peut pas déposer le visa tant que la tranche 2 n'est pas réglée.
           </p>
         </div>
-        {!adding && (
-          <button type="button" onClick={() => setAdding(true)} className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-xs font-bold text-white transition hover:opacity-90">
-            <Plus className="h-3.5 w-3.5" /> Enregistrer un paiement
-          </button>
+        {!adding && !discounting && (
+          <div className="flex flex-wrap gap-2">
+            {summary?.canDiscount && summary.plans.length > 0 && (
+              <button type="button" onClick={() => { setDiscounting(true); setError(""); }} className="inline-flex items-center gap-1.5 rounded-xl border border-brand/30 bg-white px-4 py-2 text-xs font-bold text-brand transition hover:bg-brand/5">
+                <Percent className="h-3.5 w-3.5" /> Accorder une remise
+              </button>
+            )}
+            <button type="button" onClick={() => setAdding(true)} className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-xs font-bold text-white transition hover:opacity-90">
+              <Plus className="h-3.5 w-3.5" /> Enregistrer un paiement
+            </button>
+          </div>
         )}
       </div>
 
-      {error && !adding && <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
+      {error && !adding && !discounting && <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
+
+      {discounting && plan && (
+        <div className="mt-4 space-y-3 rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50/50 p-4">
+          <p className="text-xs font-bold text-emerald-900">Accorder une remise sur une tranche</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-[11px] font-bold text-mid">Pays</label>
+              <FancySelect value={countryId} onChange={setCountryId} options={summary?.plans.map((p) => ({ value: p.countryId, label: p.countryName })) || []} placeholder="Choisir un pays" />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-bold text-mid">Tranche</label>
+              <FancySelect
+                value={dTranche}
+                onChange={(v) => setDTranche(v as "1" | "2")}
+                options={[
+                  { value: "1", label: "Tranche 1 · inscription" },
+                  { value: "2", label: "Tranche 2 · visa" }
+                ]}
+              />
+            </div>
+          </div>
+          <DiscountFields kind={dKind} value={dValue} reason={dReason} onKind={setDKind} onValue={setDValue} onReason={setDReason} currency={plan.currency} base={discountBase} paid={discountState?.paid || 0} />
+          <p className="text-[11px] text-muted">
+            Le montant à payer de la tranche est recalculé tout de suite. Une nouvelle remise remplace la précédente de la même tranche, et l'administrateur est prévenu par notification.
+          </p>
+          {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={resetDiscount} className="rounded-xl border border-line bg-white px-4 py-2 text-xs font-bold text-muted hover:bg-slate-50">Annuler</button>
+            <button type="button" disabled={busy} onClick={submitDiscount} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:opacity-90 disabled:opacity-60">
+              {busy ? "Enregistrement…" : "Accorder la remise"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {adding && (
         <div className="mt-4 space-y-3 rounded-2xl border-2 border-dashed border-brand/30 bg-brand/5 p-4">
@@ -295,6 +400,63 @@ export default function StudentPaymentsPanel({ studentId, onChanged, compact = f
               </div>
             </div>
           ))
+        )}
+
+        {summary && (summary.discounts || []).length > 0 && (
+          <div>
+            <p className="mb-2 text-xs font-extrabold uppercase tracking-wide text-muted">Remises</p>
+            <div className="space-y-2">
+              {(summary.discounts || []).map((discount) => {
+                const discountPlan = summary.plans.find((p) => p.id === discount.planId);
+                const currency = discountPlan?.currency || "TND";
+                return (
+                  <div key={discount.id} className={cn("rounded-xl border px-3 py-2.5 text-xs", discount.status === "CANCELLED" ? "border-line bg-slate-50 text-muted" : "border-emerald-200 bg-emerald-50/40")}>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className={cn("font-bold", discount.status === "CANCELLED" ? "line-through" : "text-dark")}>
+                        −<Amount>{formatMoney(discount.amount, currency)}</Amount>
+                        {discount.kind === "PERCENT" ? ` (${discount.value.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} %)` : ""} · tranche {discount.tranche}
+                        {discountPlan ? ` · ${discountPlan.countryName}` : ""}
+                      </p>
+                      <p>{new Date(discount.createdAt).toLocaleDateString("fr-FR")}</p>
+                    </div>
+                    <p className="mt-0.5">
+                      Accordée par {discount.createdByName || (discount.createdByRole === "SALES" ? "le conseiller(ère) commercial(e)" : "l'administrateur")}
+                      {discount.reason ? ` · ${discount.reason}` : ""}
+                    </p>
+                    {discount.status === "CANCELLED" && (
+                      <p className="mt-0.5 font-semibold text-red-600">
+                        Annulée{discount.cancelledByName ? ` par ${discount.cancelledByName}` : ""} : {discount.cancelReason}
+                      </p>
+                    )}
+                    {discount.status === "ACTIVE" && summary.canCancel && (
+                      <div className="mt-2">
+                        {cancellingDiscount === discount.id ? (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <input
+                              value={discountCancelReason}
+                              onChange={(e) => setDiscountCancelReason(e.target.value)}
+                              placeholder="Motif de l'annulation"
+                              className="min-w-[180px] flex-1 rounded-lg border border-line bg-white px-3 py-1.5 text-xs outline-none focus:border-brand"
+                            />
+                            <button type="button" disabled={busy} onClick={() => confirmCancelDiscount(discount.id)} className="rounded-lg bg-red-600 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-red-700 disabled:opacity-60">
+                              Confirmer l'annulation
+                            </button>
+                            <button type="button" onClick={() => { setCancellingDiscount(null); setDiscountCancelReason(""); }} aria-label="Fermer" className="rounded-lg border border-line p-1.5 text-muted hover:bg-slate-50">
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button type="button" onClick={() => setCancellingDiscount(discount.id)} className="rounded-lg bg-red-50 px-3 py-1 text-[11px] font-bold text-red-600 hover:bg-red-100">
+                            Annuler cette remise
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         )}
 
         {summary && summary.payments.length > 0 && (

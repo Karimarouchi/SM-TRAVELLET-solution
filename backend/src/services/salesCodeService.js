@@ -128,6 +128,7 @@ async function createCode(auth, payload) {
       whatsappContactId: contact?.id,
       payment
     });
+    await paymentService.notifyCodeDiscount(auth, { code: row.code, countryName: country?.name, phone: row.prefill_phone }, payment);
     const dto = codeDto({
       ...row,
       country_name: country ? country.name : null,

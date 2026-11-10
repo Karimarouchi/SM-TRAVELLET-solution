@@ -92,6 +92,22 @@ async function record(req, res) {
   }
 }
 
+async function discount(req, res) {
+  try {
+    res.status(201).json(await paymentService.applyDiscount(req.auth, req.params.id, req.body || {}));
+  } catch (error) {
+    handle(res, error, 400);
+  }
+}
+
+async function cancelDiscount(req, res) {
+  try {
+    res.json(await paymentService.cancelDiscount(req.auth, req.params.id, req.body?.reason));
+  } catch (error) {
+    handle(res, error, 400);
+  }
+}
+
 async function updateDate(req, res) {
   try {
     res.json(await paymentService.updatePaymentDate(req.auth, req.params.id, req.body?.paidAt));
@@ -108,4 +124,4 @@ async function cancel(req, res) {
   }
 }
 
-module.exports = { stats, overview, listPlans, listJournal, listPricing, getPricing, setPricing, removePricing, studentSummary, mySummary, record, cancel, updateDate };
+module.exports = { stats, overview, listPlans, listJournal, listPricing, getPricing, setPricing, removePricing, studentSummary, mySummary, record, discount, cancelDiscount, cancel, updateDate };
