@@ -60,7 +60,6 @@ export default function RhLeavePage() {
   // Modifier le type / le motif d'un congé déjà enregistré.
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editType, setEditType] = useState<HrLeaveType>("ANNUAL");
-  const [editReason, setEditReason] = useState("");
   const [params] = useSearchParams();
 
   const load = () => fetchHrLeave().then(setRows).catch((err) => setError(err instanceof Error ? err.message : "Chargement impossible."));
@@ -305,17 +304,24 @@ export default function RhLeavePage() {
                           <span className="font-bold text-dark">{fr(request.startOn)} – {fr(request.endOn)}</span>
                           <span className="ml-2 text-muted">{request.days} j{request.coversAbsence ? " · absence couverte" : ""}{request.reason ? ` · ${request.reason}` : ""}</span>
                           {editingId === request.id ? (
-                            <span className="mt-2 flex flex-wrap items-end gap-2">
+                            // Un seul clic : la liste des types s'ouvre, le choix est enregistré tout de suite.
+                            <span className="mt-2 flex flex-wrap items-center gap-3">
                               <span className="w-full sm:w-72">
-                                <FancySelect value={editType} onChange={(value) => setEditType(value as HrLeaveType)} options={HR_LEAVE_TYPES.map((item) => ({ value: item.value, label: item.label }))} />
+                                <FancySelect
+                                  defaultOpen
+                                  value={editType}
+                                  onChange={(value) => {
+                                    if (value === request.type) { setEditingId(null); return; }
+                                    void run(async () => { await updateHrLeave(request.id, { type: value as HrLeaveType }); setEditingId(null); });
+                                  }}
+                                  options={HR_LEAVE_TYPES.map((item) => ({ value: item.value, label: item.label }))}
+                                />
                               </span>
-                              <input value={editReason} onChange={(e) => setEditReason(e.target.value)} placeholder="Motif" className="min-w-[160px] flex-1 rounded-xl border border-line px-3 py-2 text-sm" />
-                              <button type="button" disabled={busy} onClick={() => void run(async () => { await updateHrLeave(request.id, { type: editType, reason: editReason }); setEditingId(null); })} className="rounded-lg bg-orange-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60">Enregistrer</button>
-                              <button type="button" onClick={() => setEditingId(null)} className="rounded-lg border border-line px-3 py-2 text-xs font-bold text-muted">Annuler</button>
+                              <button type="button" onClick={() => setEditingId(null)} className="text-xs font-bold text-muted hover:underline">Annuler</button>
                             </span>
                           ) : (
                             <span className="mt-0.5 flex gap-3 text-xs">
-                              <button type="button" disabled={busy} onClick={() => { setEditingId(request.id); setEditType(request.type); setEditReason(request.reason || ""); }} className="font-bold text-orange-700 hover:underline">Modifier</button>
+                              <button type="button" disabled={busy} onClick={() => { setEditingId(request.id); setEditType(request.type); }} className="font-bold text-orange-700 hover:underline">Changer le type</button>
                               <button
                                 type="button"
                                 disabled={busy}

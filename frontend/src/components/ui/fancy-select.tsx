@@ -13,6 +13,8 @@ type FancySelectProps = {
   placeholder?: string;
   className?: string;
   invalid?: boolean;
+  /** Liste déjà ouverte à l'affichage (choix en un clic, sans devoir cliquer sur le champ). */
+  defaultOpen?: boolean;
 };
 
 function normalize(options: Array<string | FancyOption>): FancyOption[] {
@@ -32,12 +34,13 @@ export function FancySelect({
   options,
   placeholder = "Choisir",
   className,
-  invalid
+  invalid,
+  defaultOpen = false
 }: FancySelectProps) {
   const id = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [box, setBox] = useState<MenuBox | null>(null);
   const items = normalize(options);
   const selected = items.find((item) => item.value === value);
