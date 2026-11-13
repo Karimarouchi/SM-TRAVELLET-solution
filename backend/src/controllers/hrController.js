@@ -94,6 +94,22 @@ async function createLeave(req, res) {
   }
 }
 
+async function updateLeave(req, res) {
+  try {
+    res.json(await leave.updateRequest(req.auth, req.params.id, req.body || {}));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
+async function removeLeave(req, res) {
+  try {
+    res.json(await leave.removeRequest(req.auth, req.params.id));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function previewLeave(req, res) {
   try {
     res.json(await leave.previewRequest(req.auth, req.body || {}, { forUser: true }));
@@ -678,6 +694,8 @@ module.exports = {
   leaveOverview,
   createLeave,
   previewLeave,
+  updateLeave,
+  removeLeave,
   decideLeave,
   leaveCoverOptions,
   updateLeaveCover,

@@ -139,6 +139,15 @@ async function insertLeaveRequest(fields) {
   return result.rows[0].id;
 }
 
+async function updateLeaveRequest(id, { type, reason }) {
+  await query("UPDATE hr_leave_requests SET type = $2, reason = $3 WHERE id = $1", [id, type, reason]);
+}
+
+// Les remplacements liés partent avec le congé (ON DELETE CASCADE) : les dossiers reviennent à l'employé.
+async function deleteLeaveRequest(id) {
+  await query("DELETE FROM hr_leave_requests WHERE id = $1", [id]);
+}
+
 async function setLeaveStatus(id, status, decidedBy) {
   await query(
     "UPDATE hr_leave_requests SET status = $2, decided_by = $3, decided_at = NOW() WHERE id = $1",
@@ -221,6 +230,8 @@ module.exports = {
   listLeaveRequestsFor,
   findLeaveRequest,
   insertLeaveRequest,
+  updateLeaveRequest,
+  deleteLeaveRequest,
   setLeaveStatus,
   hasApprovedOverlap,
   listSettlements,

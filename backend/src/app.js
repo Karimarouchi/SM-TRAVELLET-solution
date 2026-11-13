@@ -324,6 +324,8 @@ app.post("/api/admin/hr/leave", requireAuth, requireRoles("ADMIN"), hrController
 app.post("/api/admin/hr/leave/preview", requireAuth, requireRoles("ADMIN"), hrController.previewLeave);
 app.get("/api/admin/hr/leave/cover-options", requireAuth, requireRoles("ADMIN"), hrController.leaveCoverOptions);
 app.patch("/api/admin/hr/leave/:id", requireAuth, requireRoles("ADMIN"), hrController.decideLeave);
+app.put("/api/admin/hr/leave/:id", requireAuth, requireRoles("ADMIN"), hrController.updateLeave);
+app.delete("/api/admin/hr/leave/:id", requireAuth, requireRoles("ADMIN"), hrController.removeLeave);
 app.put("/api/admin/hr/leave/:id/cover", requireAuth, requireRoles("ADMIN"), hrController.updateLeaveCover);
 app.post("/api/admin/hr/leave/settle", requireAuth, requireRoles("ADMIN"), hrController.settleLeave);
 app.post("/api/admin/hr/leave/balance", requireAuth, requireRoles("ADMIN"), hrController.setLeaveBalance);

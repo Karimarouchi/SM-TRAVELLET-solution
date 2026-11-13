@@ -3,7 +3,7 @@ import { confirmDialog } from "@/components/ui/dialog-host";
 import { FancySelect } from "@/components/ui/fancy-select";
 import { SkeletonPage } from "@/components/ui/skeleton";
 import LeaveCoverDialog from "@/components/rh/LeaveCoverDialog";
-import { HR_LEAVE_TYPES, coverHrAbsences, createHrLeave, decideHrLeave, fetchHrLeave, fetchLeaveAbsences, previewHrLeave, setHrLeaveBalance, settleHrLeave, updateLeaveCover, type HrAbsenceToCover, type HrCoverPlan, type HrLeaveEmployee, type HrLeavePreview, type HrLeaveType } from "@/lib/hr";
+import { HR_LEAVE_TYPES, coverHrAbsences, createHrLeave, decideHrLeave, deleteHrLeave, updateHrLeave, fetchHrLeave, fetchLeaveAbsences, previewHrLeave, setHrLeaveBalance, settleHrLeave, updateLeaveCover, type HrAbsenceToCover, type HrCoverPlan, type HrLeaveEmployee, type HrLeavePreview, type HrLeaveType } from "@/lib/hr";
 import { cn } from "@/lib/utils";
 import { AlertTriangle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -57,6 +57,10 @@ export default function RhLeavePage() {
   const [preview, setPreview] = useState<HrLeavePreview | null>(null);
   const [previewError, setPreviewError] = useState("");
   const [ackNegative, setAckNegative] = useState(false);
+  // Modifier le type / le motif d'un congé déjà enregistré.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editType, setEditType] = useState<HrLeaveType>("ANNUAL");
+  const [editReason, setEditReason] = useState("");
   const [params] = useSearchParams();
 
   const load = () => fetchHrLeave().then(setRows).catch((err) => setError(err instanceof Error ? err.message : "Chargement impossible."));
@@ -300,6 +304,34 @@ export default function RhLeavePage() {
                           <span className="mr-2 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-800">{request.typeLabel}</span>
                           <span className="font-bold text-dark">{fr(request.startOn)} – {fr(request.endOn)}</span>
                           <span className="ml-2 text-muted">{request.days} j{request.coversAbsence ? " · absence couverte" : ""}{request.reason ? ` · ${request.reason}` : ""}</span>
+                          {editingId === request.id ? (
+                            <span className="mt-2 flex flex-wrap items-end gap-2">
+                              <span className="w-full sm:w-72">
+                                <FancySelect value={editType} onChange={(value) => setEditType(value as HrLeaveType)} options={HR_LEAVE_TYPES.map((item) => ({ value: item.value, label: item.label }))} />
+                              </span>
+                              <input value={editReason} onChange={(e) => setEditReason(e.target.value)} placeholder="Motif" className="min-w-[160px] flex-1 rounded-xl border border-line px-3 py-2 text-sm" />
+                              <button type="button" disabled={busy} onClick={() => void run(async () => { await updateHrLeave(request.id, { type: editType, reason: editReason }); setEditingId(null); })} className="rounded-lg bg-orange-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60">Enregistrer</button>
+                              <button type="button" onClick={() => setEditingId(null)} className="rounded-lg border border-line px-3 py-2 text-xs font-bold text-muted">Annuler</button>
+                            </span>
+                          ) : (
+                            <span className="mt-0.5 flex gap-3 text-xs">
+                              <button type="button" disabled={busy} onClick={() => { setEditingId(request.id); setEditType(request.type); setEditReason(request.reason || ""); }} className="font-bold text-orange-700 hover:underline">Modifier</button>
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={async () => {
+                                  const ok = await confirmDialog(
+                                    `Supprimer le congé du ${fr(request.startOn)} au ${fr(request.endOn)} (${request.days} j) ? ${request.status === "APPROVED" ? "Ses jours reviennent au solde et le remplacement s'arrête. " : ""}L'employé en est informé.`,
+                                    { title: "Supprimer ce congé", tone: "danger", confirmLabel: "Supprimer" }
+                                  );
+                                  if (ok) void run(() => deleteHrLeave(request.id));
+                                }}
+                                className="font-bold text-red-600 hover:underline"
+                              >
+                                Supprimer
+                              </button>
+                            </span>
+                          )}
                           {request.status === "PENDING" && selected.balance && selected.balance.remaining < request.days && (
                             <span className="mt-0.5 flex items-start gap-1 text-xs font-semibold text-red-700">
                               <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />

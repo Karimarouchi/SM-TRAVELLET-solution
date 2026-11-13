@@ -170,6 +170,11 @@ export const createHrLeave = (body: Record<string, unknown>) =>
 export const decideHrLeave = (id: string, status: "APPROVED" | "REJECTED", cover?: HrCoverPlan, allowNegative?: boolean) =>
   request<HrLeaveRequest>(`/api/admin/hr/leave/${id}`, { method: "PATCH", body: JSON.stringify({ status, cover, allowNegative }) });
 
+export const updateHrLeave = (id: string, body: { type?: HrLeaveType; reason?: string }) =>
+  request<HrLeaveRequest>(`/api/admin/hr/leave/${id}`, { method: "PUT", body: JSON.stringify(body) });
+
+export const deleteHrLeave = (id: string) => request<{ ok: boolean }>(`/api/admin/hr/leave/${id}`, { method: "DELETE" });
+
 export const settleHrLeave = (body: Record<string, unknown>) =>
   request<{ year: number; action: string; days: number; amount: number | null }>("/api/admin/hr/leave/settle", { method: "POST", body: JSON.stringify(body) });
 

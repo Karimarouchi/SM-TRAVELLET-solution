@@ -398,6 +398,43 @@ async function decide(auth, id, body) {
   return requestDto(await hrRepo.findLeaveRequest(id));
 }
 
+// Corrige un congé déjà demandé ou accepté : son type (ex. congé payé → congé maladie) et son motif.
+// Les dates ne changent pas ici (jours, solde et remplaçants en dépendent) : supprimer puis redonner le congé.
+async function updateRequest(auth, id, body) {
+  const request = await hrRepo.findLeaveRequest(id);
+  if (!request) throw fail("Demande introuvable.", 404);
+  const type = cleanType(body.type === undefined ? request.type : body.type);
+  const reason = body.reason === undefined ? request.reason || null : String(body.reason || "").trim().slice(0, 500) || null;
+  await hrRepo.updateLeaveRequest(id, { type, reason });
+  if (type !== (request.type || "ANNUAL") && request.status !== "REJECTED") {
+    await notificationService.notify(request.user_id, {
+      type: "HR_LEAVE_UPDATED",
+      title: "Congé modifié",
+      body: `Votre congé du ${frDay(request.start_on)} au ${frDay(request.end_on)} est maintenant un ${leaveTypeLabel(type).toLowerCase()}.`,
+      link: "/rh"
+    });
+  }
+  logger.info("Congé modifié par l'admin", { leaveId: id, by: auth.sub, type });
+  return requestDto(await hrRepo.findLeaveRequest(id));
+}
+
+// Supprime un congé (accepté ou non) : ses jours reviennent au solde et ses remplacements s'arrêtent.
+async function removeRequest(auth, id) {
+  const request = await hrRepo.findLeaveRequest(id);
+  if (!request) throw fail("Demande introuvable.", 404);
+  await hrRepo.deleteLeaveRequest(id);
+  if (request.status !== "REJECTED") {
+    await notificationService.notify(request.user_id, {
+      type: "HR_LEAVE_UPDATED",
+      title: "Congé supprimé",
+      body: `Votre congé du ${frDay(request.start_on)} au ${frDay(request.end_on)} a été supprimé par l'administrateur.`,
+      link: "/rh"
+    });
+  }
+  logger.info("Congé supprimé par l'admin", { leaveId: id, by: auth.sub, status: request.status });
+  return { ok: true };
+}
+
 async function settle(auth, body) {
   const action = body.action === "CARRY" ? "CARRY" : body.action === "PAY" ? "PAY" : "";
   if (!action) throw fail("Choisissez le report ou le paiement.");
@@ -501,4 +538,4 @@ async function coverAbsences(auth, body) {
   return created;
 }
 
-module.exports = { LEAVE_TYPES, leaveTypeLabel, overview, mine, createRequest, previewRequest, decide, settle, setBalance, coverAbsences, leaveNoticeBlock };
+module.exports = { LEAVE_TYPES, leaveTypeLabel, overview, mine, createRequest, previewRequest, decide, updateRequest, removeRequest, settle, setBalance, coverAbsences, leaveNoticeBlock };
