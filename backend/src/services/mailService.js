@@ -279,6 +279,12 @@ async function status(auth, requested) {
   }
 }
 
+// Compteur de non lus de la barre de navigation : chaque appel ouvrait une connexion IMAP complète
+// (TLS + identification), pour chaque utilisateur, chaque minute. Un résultat de moins de 30 s est
+// réutilisé ; lire un message (ou en envoyer un) remet le compteur à jour tout de suite.
+const UNREAD_TTL_MS = 30 * 1000;
+const unreadCache = new Map();
+
 async function unreadCount(auth, requested) {
   let cfg;
   try {
@@ -287,7 +293,21 @@ async function unreadCount(auth, requested) {
     if (error.needsConnection) return { unread: 0 };
     throw error;
   }
-  return withClient(cfg, async (client) => ({ unread: await countUnseen(client) }));
+  const hit = unreadCache.get(cfg.user);
+  if (hit && Date.now() - hit.at < UNREAD_TTL_MS) return hit.value;
+  // Appels simultanés vers la même boîte : une seule connexion IMAP, tous reçoivent le résultat.
+  if (hit?.pending) return hit.pending;
+  const pending = withClient(cfg, async (client) => ({ unread: await countUnseen(client) }))
+    .then((value) => {
+      unreadCache.set(cfg.user, { value, at: Date.now() });
+      return value;
+    })
+    .catch((error) => {
+      unreadCache.delete(cfg.user);
+      throw error;
+    });
+  unreadCache.set(cfg.user, { value: hit?.value, at: 0, pending });
+  return pending;
 }
 
 // ── Boîte personnelle ──────────────────────────────────────────────────────
@@ -422,6 +442,7 @@ async function fetchParsed(client, path, uid, { markSeen = false } = {}) {
 }
 
 async function getMessage(auth, { folder = "inbox", uid, mailbox }) {
+  unreadCache.clear();
   const id = parseInt(uid, 10);
   if (!Number.isInteger(id) || id <= 0) throw fail("Mail introuvable.", 404);
   const cfg = await resolveMailbox(auth, mailbox);

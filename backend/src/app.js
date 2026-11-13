@@ -1,6 +1,7 @@
 const path = require("path");
 const express = require("express");
 const cors = require("cors");
+const compression = require("compression");
 const rateLimit = require("express-rate-limit");
 const env = require("./config/env");
 const logger = require("./logger");
@@ -45,6 +46,9 @@ const app = express();
 // dans X-Forwarded-For. Sans cela, tous les visiteurs partageraient l'adresse du
 // relais pour la limitation de débit (connexion, codes…).
 app.set("trust proxy", 1);
+// Réponses compressées (gzip) : le JSON se réduit de 80 à 90 %. nginx ne compresse pas l'API
+// (son gzip par défaut ignore le JSON) : la liste des étudiants passait en 2 Mo non compressés.
+app.use(compression());
 app.use(cors({ origin: env.corsOrigin }));
 // Identifiants du compte créé sur la plateforme de l'université : réservés à l'équipe SM
 // (admin, conseiller, responsable dossier). Jamais renvoyés à un étudiant, quelle que soit la route.

@@ -11,18 +11,30 @@ function parseHm(value, fallback) {
   return { h, m };
 }
 
+// Créer un Intl.DateTimeFormat coûte cher (des dizaines de microsecondes) et ce calcul tourne
+// des milliers de fois par rapport de performance : un seul formateur par fuseau horaire.
+const formatters = new Map();
+function formatterFor(timeZone) {
+  let formatter = formatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-GB", {
+      timeZone,
+      weekday: "short",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23"
+    });
+    formatters.set(timeZone, formatter);
+  }
+  return formatter;
+}
+
 function zonedParts(date, timeZone) {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone,
-    weekday: "short",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23"
-  }).formatToParts(date);
+  const parts = formatterFor(timeZone).formatToParts(date);
   const get = (type) => parts.find((p) => p.type === type)?.value;
   const weekdayMap = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
   return {
@@ -100,8 +112,8 @@ function nextOpenDay(config, parts) {
 
 function minutesOnDay(config, year, month, day, fromDate, toDate) {
   if (config.closedDates && config.closedDates.has(isoDate(year, month, day))) return 0;
-  const weekday = zonedParts(zonedLocalToUtc(year, month, day, 12, 0, 0, config.timezone), config.timezone).isoWeekday;
-  if (!config.days.includes(weekday)) return 0;
+  // Le jour de la semaine d'une date civile ne dépend pas du fuseau : pas besoin de passer par Intl.
+  if (!config.days.includes(weekdayOf(year, month, day))) return 0;
   const dayStart = zonedLocalToUtc(year, month, day, config.start.h, config.start.m, 0, config.timezone);
   const dayEnd = zonedLocalToUtc(year, month, day, Math.floor(config.endMin / 60), config.endMin % 60, 0, config.timezone);
   const start = Math.max(fromDate.getTime(), dayStart.getTime());

@@ -98,7 +98,22 @@ function whatsappFunnel(conversations) {
   };
 }
 
-async function computeReport(period) {
+// Le rapport parcourt tous les messages WhatsApp de la période : on le garde 60 s (par période) et les
+// ouvertures simultanées partagent le même calcul. Les attentes affichées ont donc au plus une minute de retard.
+const REPORT_TTL_MS = 60 * 1000;
+const reportCache = new Map();
+
+function computeReport(period) {
+  const key = String(period || "");
+  const hit = reportCache.get(key);
+  if (hit && Date.now() - hit.at < REPORT_TTL_MS) return hit.promise;
+  const promise = computeReportUncached(period);
+  reportCache.set(key, { at: Date.now(), promise });
+  promise.catch(() => reportCache.delete(key));
+  return promise;
+}
+
+async function computeReportUncached(period) {
   const [rawHours, holidayRows, pauses] = await Promise.all([
     settings.getWorkHoursConfig(),
     hrRepo.listHolidays(),
