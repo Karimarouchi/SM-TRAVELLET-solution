@@ -94,6 +94,14 @@ async function createLeave(req, res) {
   }
 }
 
+async function previewLeave(req, res) {
+  try {
+    res.json(await leave.previewRequest(req.auth, req.body || {}, { forUser: true }));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
 async function decideLeave(req, res) {
   try {
     res.json(await leave.decide(req.auth, req.params.id, req.body || {}));
@@ -669,6 +677,7 @@ module.exports = {
   setHolidayPaid,
   leaveOverview,
   createLeave,
+  previewLeave,
   decideLeave,
   leaveCoverOptions,
   updateLeaveCover,

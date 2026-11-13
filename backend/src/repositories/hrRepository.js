@@ -105,7 +105,7 @@ async function setHolidayPaid(id, paid) {
 
 async function listLeaveRequests() {
   const result = await query(
-    `SELECT id, user_id, start_on::text AS start_on, end_on::text AS end_on, days, covers_absence, reason, status, created_at
+    `SELECT id, user_id, start_on::text AS start_on, end_on::text AS end_on, days, covers_absence, reason, status, type, created_at
      FROM hr_leave_requests ORDER BY created_at DESC`
   );
   return result.rows;
@@ -113,7 +113,7 @@ async function listLeaveRequests() {
 
 async function listLeaveRequestsFor(userId) {
   const result = await query(
-    `SELECT id, user_id, start_on::text AS start_on, end_on::text AS end_on, days, covers_absence, reason, status, created_at
+    `SELECT id, user_id, start_on::text AS start_on, end_on::text AS end_on, days, covers_absence, reason, status, type, created_at
      FROM hr_leave_requests WHERE user_id = $1 ORDER BY start_on DESC`,
     [userId]
   );
@@ -122,7 +122,7 @@ async function listLeaveRequestsFor(userId) {
 
 async function findLeaveRequest(id) {
   const result = await query(
-    `SELECT id, user_id, start_on::text AS start_on, end_on::text AS end_on, days, covers_absence, reason, status
+    `SELECT id, user_id, start_on::text AS start_on, end_on::text AS end_on, days, covers_absence, reason, status, type
      FROM hr_leave_requests WHERE id = $1`,
     [id]
   );
@@ -131,10 +131,10 @@ async function findLeaveRequest(id) {
 
 async function insertLeaveRequest(fields) {
   const result = await query(
-    `INSERT INTO hr_leave_requests (user_id, start_on, end_on, days, covers_absence, reason, status, decided_by, decided_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `INSERT INTO hr_leave_requests (user_id, start_on, end_on, days, covers_absence, reason, status, decided_by, decided_at, type)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      RETURNING id`,
-    [fields.userId, fields.startOn, fields.endOn, fields.days, fields.coversAbsence, fields.reason, fields.status, fields.decidedBy, fields.decidedAt]
+    [fields.userId, fields.startOn, fields.endOn, fields.days, fields.coversAbsence, fields.reason, fields.status, fields.decidedBy, fields.decidedAt, fields.type || "ANNUAL"]
   );
   return result.rows[0].id;
 }

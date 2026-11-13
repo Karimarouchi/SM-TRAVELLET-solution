@@ -321,6 +321,7 @@ app.patch("/api/admin/hr/holidays/:id", requireAuth, requireRoles("ADMIN"), hrCo
 app.delete("/api/admin/hr/holidays/:id", requireAuth, requireRoles("ADMIN"), hrController.removeHoliday);
 app.get("/api/admin/hr/leave", requireAuth, requireRoles("ADMIN"), hrController.leaveOverview);
 app.post("/api/admin/hr/leave", requireAuth, requireRoles("ADMIN"), hrController.createLeave);
+app.post("/api/admin/hr/leave/preview", requireAuth, requireRoles("ADMIN"), hrController.previewLeave);
 app.get("/api/admin/hr/leave/cover-options", requireAuth, requireRoles("ADMIN"), hrController.leaveCoverOptions);
 app.patch("/api/admin/hr/leave/:id", requireAuth, requireRoles("ADMIN"), hrController.decideLeave);
 app.put("/api/admin/hr/leave/:id/cover", requireAuth, requireRoles("ADMIN"), hrController.updateLeaveCover);

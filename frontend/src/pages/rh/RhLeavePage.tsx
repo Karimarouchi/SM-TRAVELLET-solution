@@ -1,8 +1,11 @@
 import EmployeePicker from "@/components/rh/EmployeePicker";
+import { confirmDialog } from "@/components/ui/dialog-host";
+import { FancySelect } from "@/components/ui/fancy-select";
 import { SkeletonPage } from "@/components/ui/skeleton";
 import LeaveCoverDialog from "@/components/rh/LeaveCoverDialog";
-import { coverHrAbsences, createHrLeave, decideHrLeave, fetchHrLeave, fetchLeaveAbsences, setHrLeaveBalance, settleHrLeave, updateLeaveCover, type HrAbsenceToCover, type HrCoverPlan, type HrLeaveEmployee } from "@/lib/hr";
+import { HR_LEAVE_TYPES, coverHrAbsences, createHrLeave, decideHrLeave, fetchHrLeave, fetchLeaveAbsences, previewHrLeave, setHrLeaveBalance, settleHrLeave, updateLeaveCover, type HrAbsenceToCover, type HrCoverPlan, type HrLeaveEmployee, type HrLeavePreview, type HrLeaveType } from "@/lib/hr";
 import { cn } from "@/lib/utils";
+import { AlertTriangle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -48,6 +51,12 @@ export default function RhLeavePage() {
   const [absences, setAbsences] = useState<HrAbsenceToCover[]>([]);
   const [picked, setPicked] = useState<string[]>([]);
   const [coverTarget, setCoverTarget] = useState<CoverTarget | null>(null);
+  // Donner un congé : type, motif, simulation du solde et confirmation si le solde devient négatif.
+  const [giveType, setGiveType] = useState<HrLeaveType>("SICK");
+  const [giveReason, setGiveReason] = useState("");
+  const [preview, setPreview] = useState<HrLeavePreview | null>(null);
+  const [previewError, setPreviewError] = useState("");
+  const [ackNegative, setAckNegative] = useState(false);
   const [params] = useSearchParams();
 
   const load = () => fetchHrLeave().then(setRows).catch((err) => setError(err instanceof Error ? err.message : "Chargement impossible."));
@@ -74,6 +83,47 @@ export default function RhLeavePage() {
       .catch(() => { if (!cancelled) setAbsences([]); });
     return () => { cancelled = true; };
   }, [selected?.id]);
+
+  useEffect(() => {
+    setPreview(null);
+    setPreviewError("");
+    setAckNegative(false);
+    if (!selected?.id || !selected.contractType || !startOn || !endOn || endOn < startOn) return;
+    let cancelled = false;
+    previewHrLeave(selected.id, startOn, endOn)
+      .then((data) => { if (!cancelled) setPreview(data); })
+      .catch((err) => { if (!cancelled) setPreviewError(err instanceof Error ? err.message : ""); });
+    return () => { cancelled = true; };
+  }, [selected?.id, selected?.contractType, startOn, endOn, rows]);
+
+  const giveDirect = HR_LEAVE_TYPES.find((item) => item.value === giveType)?.direct === true;
+  const giveBlocked = !preview || preview.overlap === true || (preview.negative === true && !ackNegative);
+
+  // Maladie : acceptée tout de suite, après le choix des remplaçants. Autres types : enregistrés comme demande.
+  const submitGive = () => {
+    if (!selected) return;
+    setError("");
+    if (endOn < startOn) { setError("La fin est avant le début."); return; }
+    const allowNegative = preview?.negative === true;
+    const done = () => { setGiveReason(""); setAckNegative(false); };
+    if (giveDirect) {
+      setCoverTarget({
+        mode: "approve",
+        leaveId: null,
+        startOn,
+        endOn,
+        confirm: async (plan) => {
+          await createHrLeave({ userId: selected.id, startOn, endOn, reason: giveReason, type: giveType, approveNow: true, allowNegative, cover: plan });
+          done();
+        }
+      });
+      return;
+    }
+    void run(async () => {
+      await createHrLeave({ userId: selected.id, startOn, endOn, reason: giveReason, type: giveType, allowNegative });
+      done();
+    });
+  };
 
   const run = async (action: () => Promise<unknown>) => {
     setBusy(true);
@@ -118,6 +168,14 @@ export default function RhLeavePage() {
                     <Balance label="Pris" value={days2(selected.balance.used)} />
                     <Balance label="Reste" value={days2(selected.balance.remaining)} />
                   </div>
+                  {selected.balance.remaining <= 0 && (
+                    <p className="mt-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-800">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                      {selected.balance.remaining < 0
+                        ? `Solde négatif (${days2(selected.balance.remaining)} jour) : les jours acquis chaque mois le feront remonter.`
+                        : "Solde épuisé : tout congé donné maintenant rendra le solde négatif, après votre confirmation."}
+                    </p>
+                  )}
                   <form className="mt-4 flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); void run(() => setHrLeaveBalance(selected.id, given)); }}>
                     <label className="text-xs font-bold text-mid">
                       Solde à donner
@@ -187,25 +245,49 @@ export default function RhLeavePage() {
                     className="mt-5 border-t border-line pt-4"
                     onSubmit={(e) => {
                       e.preventDefault();
-                      setError("");
-                      if (endOn < startOn) { setError("La fin est avant le début."); return; }
-                      setCoverTarget({
-                        mode: "approve",
-                        leaveId: null,
-                        startOn,
-                        endOn,
-                        confirm: async (plan) => {
-                          await createHrLeave({ userId: selected.id, startOn, endOn, reason, coversAbsence: false, approveNow: true, cover: plan });
-                          setReason("");
-                        }
-                      });
+                      submitGive();
                     }}
                   >
-                    <h4 className="text-sm font-bold text-dark">Ou poser un congé sur d'autres dates</h4>
+                    <h4 className="text-sm font-bold text-dark">Donner un congé</h4>
+                    <p className="mt-1 text-xs text-muted">
+                      {giveDirect
+                        ? "Le congé maladie est accepté tout de suite : vous choisissez ensuite qui prend en charge son travail."
+                        : "Ce type s'enregistre comme demande : vous l'acceptez ensuite dans la liste « Demandes » ci-dessous, en choisissant qui prend en charge son travail."}
+                    </p>
                     <div className="mt-3 flex flex-wrap items-end gap-2">
+                      <div className="w-full sm:w-72">
+                        <span className="mb-1 block text-xs font-bold text-mid">Type de congé</span>
+                        <FancySelect value={giveType} onChange={(value) => setGiveType(value as HrLeaveType)} options={HR_LEAVE_TYPES.map((item) => ({ value: item.value, label: item.label }))} />
+                      </div>
                       <label className="text-xs font-bold text-mid">Du<input type="date" required value={startOn} onChange={(e) => setStartOn(e.target.value)} className="mt-1 block rounded-xl border border-line px-3 py-2 text-sm" /></label>
                       <label className="text-xs font-bold text-mid">Au<input type="date" required value={endOn} onChange={(e) => setEndOn(e.target.value)} className="mt-1 block rounded-xl border border-line px-3 py-2 text-sm" /></label>
-                      <button type="submit" disabled={busy} className="rounded-xl border border-line px-4 py-2 text-sm font-bold text-dark disabled:opacity-60">Enregistrer et accepter</button>
+                      <label className="min-w-[160px] flex-1 text-xs font-bold text-mid">Motif<input value={giveReason} onChange={(e) => setGiveReason(e.target.value)} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm" /></label>
+                    </div>
+                    {previewError && <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">{previewError}</p>}
+                    {preview && (
+                      <div className={cn("mt-3 rounded-xl border px-3 py-2.5 text-xs", preview.overlap || preview.negative ? "border-red-200 bg-red-50 text-red-800" : "border-emerald-200 bg-emerald-50 text-emerald-800")}>
+                        <p className="font-bold">
+                          {preview.total} jour{preview.total > 1 ? "s" : ""} ouvré{preview.total > 1 ? "s" : ""} retiré{preview.total > 1 ? "s" : ""} · solde {days2(preview.remaining)} → {days2(preview.after ?? preview.remaining - preview.total)}
+                        </p>
+                        {preview.overlap && <p className="mt-1">Un congé est déjà accepté sur ces dates.</p>}
+                        {preview.negative && !preview.overlap && (
+                          <>
+                            <p className="mt-1 flex items-start gap-1.5 font-semibold">
+                              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                              {preview.remaining <= 0 ? "Alerte : le solde de cet employé est épuisé." : "Alerte : le solde de cet employé est insuffisant."} Ce congé le rendra négatif ({days2(preview.after ?? 0)} jour).
+                            </p>
+                            <label className="mt-2 flex items-start gap-2 font-semibold">
+                              <input type="checkbox" checked={ackNegative} onChange={(e) => setAckNegative(e.target.checked)} className="mt-0.5 h-4 w-4 accent-red-600" />
+                              Je confirme : le solde passera à {days2(preview.after ?? 0)} jour.
+                            </label>
+                          </>
+                        )}
+                      </div>
+                    )}
+                    <div className="mt-3">
+                      <button type="submit" disabled={busy || giveBlocked} className="rounded-xl bg-orange-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
+                        {giveDirect ? "Enregistrer et accepter" : "Enregistrer la demande"}
+                      </button>
                     </div>
                   </form>
                 </section>
@@ -215,8 +297,15 @@ export default function RhLeavePage() {
                     {selected.requests.map((request) => (
                       <li key={request.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
                         <span>
+                          <span className="mr-2 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-800">{request.typeLabel}</span>
                           <span className="font-bold text-dark">{fr(request.startOn)} – {fr(request.endOn)}</span>
                           <span className="ml-2 text-muted">{request.days} j{request.coversAbsence ? " · absence couverte" : ""}{request.reason ? ` · ${request.reason}` : ""}</span>
+                          {request.status === "PENDING" && selected.balance && selected.balance.remaining < request.days && (
+                            <span className="mt-0.5 flex items-start gap-1 text-xs font-semibold text-red-700">
+                              <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+                              Solde {days2(selected.balance.remaining)} jour : l'accepter le passera à {days2(selected.balance.remaining - request.days)}.
+                            </span>
+                          )}
                           {request.status === "APPROVED" && request.cover && request.cover.length > 0 && (
                             <span className="mt-0.5 block text-xs text-mid">
                               Remplacé par {request.cover.map((sub) => `${sub.name} (${sub.percent} %${request.cover!.some((other) => other.scope !== sub.scope) ? `, ${sub.scope === "RDV" ? "dossiers" : "conseiller(ère) commercial(e)"}` : ""})`).join(", ")}
@@ -244,13 +333,23 @@ export default function RhLeavePage() {
                             <button
                               type="button"
                               disabled={busy}
-                              onClick={() => setCoverTarget({
-                                mode: "approve",
-                                leaveId: request.id,
-                                startOn: request.startOn,
-                                endOn: request.endOn,
-                                confirm: (plan) => decideHrLeave(request.id, "APPROVED", plan)
-                              })}
+                              onClick={async () => {
+                                const short = Boolean(selected.balance && selected.balance.remaining < request.days);
+                                if (short) {
+                                  const ok = await confirmDialog(
+                                    `Le solde de ${selected.prenom} ${selected.nom} est de ${days2(selected.balance?.remaining ?? 0)} jour. Accepter ce congé le passera à ${days2((selected.balance?.remaining ?? 0) - request.days)} jour. Continuer ?`,
+                                    { title: "Solde insuffisant", tone: "warning", confirmLabel: "Accepter quand même" }
+                                  );
+                                  if (!ok) return;
+                                }
+                                setCoverTarget({
+                                  mode: "approve",
+                                  leaveId: request.id,
+                                  startOn: request.startOn,
+                                  endOn: request.endOn,
+                                  confirm: (plan) => decideHrLeave(request.id, "APPROVED", plan, short ? true : undefined)
+                                });
+                              }}
                               className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white"
                             >
                               Accepter

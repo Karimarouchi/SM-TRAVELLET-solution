@@ -325,7 +325,7 @@ export default function MyRhPage() {
             {data.requests.map((request) => (
               <li key={request.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                 <span>
-                  <span className="font-semibold text-dark">{fr(request.startOn)} – {fr(request.endOn)} · {request.days} j{request.reason ? ` · ${request.reason}` : ""}</span>
+                  <span className="font-semibold text-dark">{request.type !== "ANNUAL" ? `${request.typeLabel} · ` : ""}{fr(request.startOn)} – {fr(request.endOn)} · {request.days} j{request.reason ? ` · ${request.reason}` : ""}</span>
                   {request.status === "APPROVED" && request.cover && request.cover.length > 0 && (
                     <span className="block text-xs text-mid">Remplacé par {request.cover.map((sub) => `${sub.name} (${sub.percent} %)`).join(", ")}</span>
                   )}

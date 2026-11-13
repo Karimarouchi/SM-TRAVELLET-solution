@@ -103,8 +103,20 @@ export type HrLeaveRequest = {
   coversAbsence: boolean;
   reason: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
+  type: HrLeaveType;
+  typeLabel: string;
   cover?: HrLeaveCoverSubstitute[];
 };
+
+// Types de congé. Seul le congé maladie est accepté directement quand l'admin le pose.
+export type HrLeaveType = "ANNUAL" | "SICK" | "MATERNITY" | "SPECIAL" | "OTHER";
+export const HR_LEAVE_TYPES: { value: HrLeaveType; label: string; direct: boolean }[] = [
+  { value: "SICK", label: "Congé maladie", direct: true },
+  { value: "ANNUAL", label: "Congé payé", direct: false },
+  { value: "MATERNITY", label: "Congé maternité / paternité", direct: false },
+  { value: "SPECIAL", label: "Congé exceptionnel (mariage, décès, naissance…)", direct: false },
+  { value: "OTHER", label: "Autre congé", direct: false }
+];
 
 // ── Remplacement pendant un congé (conseiller(ère) commercial(e) / Gestionnaire de dossiers) ──
 export type HrCoverScope = "SALES" | "RDV";
@@ -154,8 +166,9 @@ export const fetchHrLeave = () => request<HrLeaveEmployee[]>("/api/admin/hr/leav
 export const createHrLeave = (body: Record<string, unknown>) =>
   request<HrLeaveRequest>("/api/admin/hr/leave", { method: "POST", body: JSON.stringify(body) });
 
-export const decideHrLeave = (id: string, status: "APPROVED" | "REJECTED", cover?: HrCoverPlan) =>
-  request<HrLeaveRequest>(`/api/admin/hr/leave/${id}`, { method: "PATCH", body: JSON.stringify({ status, cover }) });
+// allowNegative : l'admin confirme que le solde passe sous zéro.
+export const decideHrLeave = (id: string, status: "APPROVED" | "REJECTED", cover?: HrCoverPlan, allowNegative?: boolean) =>
+  request<HrLeaveRequest>(`/api/admin/hr/leave/${id}`, { method: "PATCH", body: JSON.stringify({ status, cover, allowNegative }) });
 
 export const settleHrLeave = (body: Record<string, unknown>) =>
   request<{ year: number; action: string; days: number; amount: number | null }>("/api/admin/hr/leave/settle", { method: "POST", body: JSON.stringify(body) });
@@ -187,7 +200,16 @@ export type HrLeavePreview = {
   noticeOk: boolean;
   remaining: number;
   enough: boolean;
+  /** Solde après ce congé (peut être négatif). */
+  after?: number;
+  negative?: boolean;
+  /** Un congé est déjà accepté sur ces dates. */
+  overlap?: boolean;
 };
+
+// Simulation côté admin : jours retirés et solde qui en résulte, avant de donner le congé.
+export const previewHrLeave = (userId: string, startOn: string, endOn: string) =>
+  request<HrLeavePreview>("/api/admin/hr/leave/preview", { method: "POST", body: JSON.stringify({ userId, startOn, endOn }) });
 
 export const previewMyLeave = (startOn: string, endOn: string) =>
   request<HrLeavePreview>("/api/hr/me/leave/preview", { method: "POST", body: JSON.stringify({ startOn, endOn }) });

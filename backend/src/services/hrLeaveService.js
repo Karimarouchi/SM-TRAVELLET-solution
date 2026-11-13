@@ -12,6 +12,24 @@ function fail(message, status = 400) {
   return error;
 }
 
+// Types de congé : l'étiquette seule change. Tout congé accepté retire ses jours ouvrés du solde.
+const LEAVE_TYPES = {
+  ANNUAL: "Congé payé",
+  SICK: "Congé maladie",
+  MATERNITY: "Congé maternité / paternité",
+  SPECIAL: "Congé exceptionnel",
+  OTHER: "Autre congé"
+};
+// Seul le congé maladie est accepté directement quand l'admin le pose : les autres types passent par une demande.
+const DIRECT_TYPES = ["SICK"];
+const leaveTypeLabel = (type) => LEAVE_TYPES[type] || LEAVE_TYPES.ANNUAL;
+
+function cleanType(value) {
+  const type = String(value || "ANNUAL").toUpperCase();
+  if (!LEAVE_TYPES[type]) throw fail("Type de congé invalide.");
+  return type;
+}
+
 const round2 = (value) => Math.round(value * 100) / 100;
 const round3 = (value) => Math.round(value * 1000) / 1000;
 
@@ -119,6 +137,8 @@ function requestDto(row, covers) {
     coversAbsence: row.covers_absence === true,
     reason: row.reason || "",
     status: row.status,
+    type: row.type || "ANNUAL",
+    typeLabel: leaveTypeLabel(row.type),
     createdAt: row.created_at
   };
 }
@@ -198,9 +218,10 @@ async function mine(userId) {
   return employeeLeave(employee, data);
 }
 
-async function previewRequest(auth, body) {
+// forUser : l'admin simule le congé d'un employé (avant de le poser) ; sinon l'employé simule le sien.
+async function previewRequest(auth, body, { forUser = false } = {}) {
   const data = await context();
-  const employee = data.staff.find((row) => row.id === auth.sub);
+  const employee = data.staff.find((row) => row.id === (forUser ? body.userId : auth.sub));
   if (!employee) throw fail("Employé introuvable.", 404);
   if (!employee.contract_type || !employee.hired_on) throw fail("Renseignez d'abord le contrat et la date d'embauche.");
   const startOn = cleanDate(body.startOn);
@@ -212,6 +233,9 @@ async function previewRequest(auth, body) {
   const noticeDays = explained.total * factor;
   const earliestStart = factor > 0 ? addDays(data.today, noticeDays) : null;
   return {
+    after: round2(balance.remaining - explained.total),
+    negative: balance.remaining - explained.total < 0,
+    overlap: await hrRepo.hasApprovedOverlap(employee.id, startOn, explained.coveredEnd, null),
     working: explained.working,
     extra: explained.extra,
     total: explained.total,
@@ -241,15 +265,18 @@ async function createRequest(auth, body, { forSelf }) {
   const endOn = cleanDate(body.endOn);
   const explained = explainLeave(startOn, endOn, await workDaySet(data.work), data.holidays);
   const days = explained.total;
+  const type = forSelf ? "ANNUAL" : cleanType(body.type);
   if (await hrRepo.hasApprovedOverlap(userId, startOn, explained.coveredEnd, null)) throw fail("Un congé est déjà accepté sur ces dates.");
 
   const year = Number(startOn.slice(0, 4));
   const balance = yearBalance(employee, year, data, data.today);
+  const after = round2(balance.remaining - days);
   if (balance.remaining < days) {
-    const text = forSelf
-      ? `Solde insuffisant : ${wholeJours(balance.remaining)} disponible${Math.floor(balance.remaining) > 1 ? "s" : ""}, ${wholeJours(days)} demandé${days > 1 ? "s" : ""}.`
-      : `Solde insuffisant : ${round2(balance.remaining).toFixed(2)} jour(s) disponible(s), ${days} demandé(s).`;
-    throw fail(text);
+    if (forSelf) {
+      throw fail(`Solde insuffisant : ${wholeJours(balance.remaining)} disponible${Math.floor(balance.remaining) > 1 ? "s" : ""}, ${wholeJours(days)} demandé${days > 1 ? "s" : ""}.`);
+    }
+    // L'admin peut donner un congé au-delà du solde, à condition de le confirmer : le solde devient négatif.
+    if (body.allowNegative !== true) throw negativeBalance(employee, balance.remaining, days, after);
   }
 
   if (forSelf) {
@@ -258,6 +285,9 @@ async function createRequest(auth, body, { forSelf }) {
   }
 
   const approveNow = !forSelf && body.approveNow === true;
+  if (approveNow && !DIRECT_TYPES.includes(type)) {
+    throw fail(`Seul le ${LEAVE_TYPES.SICK.toLowerCase()} est accepté directement : un ${LEAVE_TYPES[type].toLowerCase()} s'enregistre comme demande, à accepter ensuite.`);
+  }
   // Accepté tout de suite par l'admin : remplaçants vérifiés avant d'enregistrer quoi que ce soit.
   let plan = null;
   if (approveNow) {
@@ -273,7 +303,8 @@ async function createRequest(auth, body, { forSelf }) {
     reason: String(body.reason || "").trim().slice(0, 500) || null,
     status: approveNow ? "APPROVED" : "PENDING",
     decidedBy: approveNow ? auth.sub : null,
-    decidedAt: approveNow ? new Date() : null
+    decidedAt: approveNow ? new Date() : null,
+    type
   });
   if (plan) await leaveCovers.saveForApprovedLeave({ leaveId: id, userId, startOn, endOn: explained.coveredEnd, plan, by: auth.sub });
   const created = await hrRepo.findLeaveRequest(id);
@@ -289,12 +320,29 @@ async function createRequest(auth, body, { forSelf }) {
   } else if (approveNow) {
     await notificationService.notify(userId, {
       type: "HR_LEAVE_APPROVED",
-      title: "Congé enregistré",
-      body: `Un congé ${period} a été enregistré pour vous.`,
+      title: `${leaveTypeLabel(type)} enregistré`,
+      body: `Un ${leaveTypeLabel(type).toLowerCase()} ${period} a été enregistré pour vous.`,
       link: "/rh"
     });
+    if (after < 0) await warnNegativeBalance(auth, employee, after, leaveTypeLabel(type), period);
   }
   return requestDto(created);
+}
+
+function negativeBalance(employee, remaining, days, after) {
+  const name = `${employee.prenom || ""} ${employee.nom || ""}`.trim() || "Cet employé";
+  return fail(`Solde insuffisant : ${name} a ${round2(remaining).toFixed(2)} jour(s), ${days} demandé(s). Le solde passerait à ${after.toFixed(2)} jour(s). Confirmez pour continuer.`, 409);
+}
+
+// Alerte aux autres admins : un congé vient de rendre le solde d'un employé négatif.
+async function warnNegativeBalance(auth, employee, after, label, period) {
+  const name = `${employee.prenom || ""} ${employee.nom || ""}`.trim() || "Un employé";
+  await notifyOtherAdmins(auth.sub, {
+    type: "HR_LEAVE_NEGATIVE",
+    title: `Solde de congé négatif : ${name}`,
+    body: `${label} ${period} : le solde de ${name} passe à ${after.toFixed(2)} jour(s). Les jours acquis chaque mois le feront remonter.`,
+    link: `/admin/rh/conges?user=${employee.id}`
+  });
 }
 
 function frDay(iso) {
@@ -319,6 +367,8 @@ async function decide(auth, id, body) {
   if (request.status !== "PENDING") throw fail("Cette demande est déjà tranchée.");
 
   let plan = null;
+  let negativeAfter = 0;
+  let decidedEmployee = null;
   if (status === "APPROVED") {
     const data = await context();
     const employee = data.staff.find((row) => row.id === request.user_id);
@@ -328,9 +378,10 @@ async function decide(auth, id, body) {
     }
     const year = Number(request.start_on.slice(0, 4));
     const balance = yearBalance(employee, year, data, data.today);
-    if (balance.remaining < Number(request.days)) {
-      throw fail(`Solde insuffisant : ${round2(balance.remaining).toFixed(2)} jour(s) disponible(s).`);
-    }
+    negativeAfter = round2(balance.remaining - Number(request.days));
+    // Accepter au-delà du solde est permis à l'admin, mais il doit le confirmer : le solde devient négatif.
+    if (negativeAfter < 0 && body.allowNegative !== true) throw negativeBalance(employee, balance.remaining, Number(request.days), negativeAfter);
+    decidedEmployee = employee;
     // Conseiller / Responsable Dossier : ses dossiers et conversations sont confiés aux remplaçants choisis.
     await leaveCovers.assertNotCovering(request.user_id, request.start_on, request.end_on);
     plan = await leaveCovers.preparePlan({ userId: request.user_id, startOn: request.start_on, endOn: request.end_on, leaveId: request.id, cover: body.cover });
@@ -341,6 +392,9 @@ async function decide(auth, id, body) {
   await notificationService.notify(request.user_id, status === "APPROVED"
     ? { type: "HR_LEAVE_APPROVED", title: "Congé accepté", body: `Votre demande de congé ${period} est acceptée.`, link: "/rh" }
     : { type: "HR_LEAVE_REJECTED", title: "Congé refusé", body: `Votre demande de congé ${period} est refusée.`, link: "/rh" });
+  if (status === "APPROVED" && negativeAfter < 0 && decidedEmployee) {
+    await warnNegativeBalance(auth, decidedEmployee, negativeAfter, leaveTypeLabel(request.type), period);
+  }
   return requestDto(await hrRepo.findLeaveRequest(id));
 }
 
@@ -447,4 +501,4 @@ async function coverAbsences(auth, body) {
   return created;
 }
 
-module.exports = { overview, mine, createRequest, previewRequest, decide, settle, setBalance, coverAbsences, leaveNoticeBlock };
+module.exports = { LEAVE_TYPES, leaveTypeLabel, overview, mine, createRequest, previewRequest, decide, settle, setBalance, coverAbsences, leaveNoticeBlock };
