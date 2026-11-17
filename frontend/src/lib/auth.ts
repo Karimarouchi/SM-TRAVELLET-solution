@@ -524,6 +524,8 @@ export type AdminSettings = {
   /** Numérotation des factures de l'année en cours. */
   invoiceYear: number;
   invoiceLastNumber: number;
+  /** Taux de TVA (%) appliqué aux nouvelles factures : le montant payé est un montant TTC. */
+  invoiceVatRate: number;
 };
 
 export type QuickReply = { shortcut: string; text: string };

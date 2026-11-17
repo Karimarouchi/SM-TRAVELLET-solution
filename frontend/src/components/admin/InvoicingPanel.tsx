@@ -121,8 +121,8 @@ export default function InvoicingPanel() {
       <div className="rounded-[22px] border border-line bg-white p-5 shadow-sm">
         <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dark"><FileText className="h-5 w-5 text-brand" /> Facturation</h2>
         <p className="mt-1 text-xs text-muted">
-          Générez la facture des étudiants qui ont payé par <strong>chèque</strong> ou par <strong>virement</strong>. La facture reprend le logo, les coordonnées de l'agence et le
-          <strong> numéro de reçu</strong> de chaque paiement, puis se télécharge en PDF. Un paiement ne peut être facturé qu'une seule fois.
+          Générez la facture des étudiants qui ont payé par <strong>chèque</strong> ou par <strong>virement</strong>. La facture détaille le <strong>hors taxe, la TVA et le total TTC</strong> (le montant payé est le TTC), le
+          <strong> numéro de reçu</strong> de chaque paiement et le montant en toutes lettres, puis se télécharge en PDF. Le taux de TVA se règle dans Paramètres. Un paiement ne peut être facturé qu'une seule fois.
         </p>
       </div>
 

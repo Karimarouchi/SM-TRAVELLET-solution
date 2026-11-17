@@ -1,6 +1,8 @@
 const PDFDocument = require("pdfkit");
 const path = require("path");
 const db = require("../../db");
+const settingsRepo = require("../repositories/settingsRepository");
+const { amountInWords } = require("./amountInWords");
 
 // Facturation (admin) : factures des étudiants qui ont payé par chèque ou par virement.
 
@@ -29,6 +31,10 @@ function fail(message, status) {
 
 const money = (value) => Math.round(Number(value) * 100) / 100;
 
+// Le dinar tunisien se divise en 1000 millimes : une facture en DT affiche 3 décimales ; l'euro en a 2.
+const decimalsOf = (currency) => (currency === "EUR" ? 2 : 3);
+const roundTo = (value, decimals) => Math.round(Number(value) * 10 ** decimals) / 10 ** decimals;
+
 function dateOnly(value) {
   if (!value) return null;
   if (typeof value === "string") return value.slice(0, 10);
@@ -43,8 +49,38 @@ const frDate = (value) => {
 
 // 1 500,00 DT — espaces ordinaires (les polices PDF standard n'affichent pas l'espace fine).
 function formatAmount(amount, currency) {
-  const [int, dec] = money(amount).toFixed(2).split(".");
+  const decimals = decimalsOf(currency);
+  const [int, dec] = roundTo(amount, decimals).toFixed(decimals).split(".");
   return `${int.replace(/\B(?=(\d{3})+(?!\d))/g, " ")},${dec} ${currency === "EUR" ? "€" : "DT"}`;
+}
+
+// ── TVA ──
+// Le montant payé est un montant TTC : la facture en déduit le hors taxe et la TVA, jamais l'inverse.
+const DEFAULT_VAT_RATE = 19;
+
+async function getVatRate() {
+  const raw = await settingsRepo.get("invoice_vat_rate");
+  const rate = Number(raw);
+  return raw !== null && Number.isFinite(rate) && rate >= 0 && rate <= 100 ? rate : DEFAULT_VAT_RATE;
+}
+
+async function setVatRate(value) {
+  const rate = Number(String(value ?? "").replace(",", "."));
+  if (!Number.isFinite(rate) || rate < 0 || rate > 100) throw fail("Le taux de TVA doit être compris entre 0 et 100 %.", 400);
+  await settingsRepo.set("invoice_vat_rate", String(Math.round(rate * 100) / 100));
+}
+
+// Hors taxe de chaque ligne et totaux. Le total TTC est exactement la somme payée ; l'arrondi du HT
+// (au millime, ou au centime en euro) est reporté sur la dernière ligne pour que les colonnes s'additionnent.
+function computeTotals(amounts, rate, currency) {
+  const decimals = decimalsOf(currency);
+  const factor = 1 + Number(rate) / 100;
+  const ttc = roundTo(amounts.reduce((sum, value) => sum + Number(value), 0), decimals);
+  const ht = roundTo(ttc / factor, decimals);
+  const lineHt = amounts.map((value) => roundTo(Number(value) / factor, decimals));
+  const drift = roundTo(ht - lineHt.reduce((sum, value) => sum + value, 0), decimals);
+  if (lineHt.length) lineHt[lineHt.length - 1] = roundTo(lineHt[lineHt.length - 1] + drift, decimals);
+  return { lineHt, ht, vat: roundTo(ttc - ht, decimals), ttc };
 }
 
 // ── Liste : étudiants, paiements facturables, factures ──
@@ -156,10 +192,11 @@ async function createInvoice(auth, { studentId, paymentIds }) {
     );
     const number = invoiceNumber(year, counter.rows[0].last_number);
     const total = money(rows.reduce((sum, r) => sum + Number(r.amount), 0));
+    const vatRate = await getVatRate();
     const invoice = await client.query(
-      `INSERT INTO invoices (invoice_number, student_id, currency, total, issued_by)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id, invoice_number, issued_at`,
-      [number, studentId, rows[0].currency, total, auth.sub]
+      `INSERT INTO invoices (invoice_number, student_id, currency, total, issued_by, vat_rate)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, invoice_number, issued_at`,
+      [number, studentId, rows[0].currency, total, auth.sub, vatRate]
     );
     for (const row of rows) {
       await client.query("INSERT INTO invoice_lines (invoice_id, payment_id) VALUES ($1, $2)", [invoice.rows[0].id, row.id]);
@@ -228,10 +265,15 @@ const SOFT = "#f3effc";
 const GREY = "#64748b";
 const DARK = "#0f172a";
 
+const percent = (rate) => `${Number(rate).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} %`;
+
 function drawInvoice(doc, { invoice, lines }) {
   const left = 48;
   const right = doc.page.width - 48;
   const width = right - left;
+  const currency = invoice.currency;
+  const rate = invoice.vat_rate === null || invoice.vat_rate === undefined ? DEFAULT_VAT_RATE : Number(invoice.vat_rate);
+  const totals = computeTotals(lines.map((line) => line.amount), rate, currency);
 
   // En-tête : logo à gauche, numéro et date à droite
   try {
@@ -259,7 +301,8 @@ function drawInvoice(doc, { invoice, lines }) {
   };
   box(left, "ÉMETTEUR", [
     `${AGENCY.company} (${AGENCY.legalForm})`,
-    `Marque : ${AGENCY.brand} · MF ${AGENCY.taxId}`,
+    `Marque : ${AGENCY.brand}`,
+    `Matricule fiscal : ${AGENCY.taxId}`,
     AGENCY.address,
     `${AGENCY.phone} · ${AGENCY.email}`
   ]);
@@ -271,51 +314,98 @@ function drawInvoice(doc, { invoice, lines }) {
     place
   ].filter(Boolean));
 
-  // Tableau des paiements
-  let y = boxTop + 150;
+  // Prestations : prix unitaire hors taxe, TVA, total HT et TTC
+  let y = boxTop + 140;
   const cols = [
-    { label: "Désignation", x: left + 10, w: 160 },
-    { label: "Reçu n°", x: left + 176, w: 58 },
-    { label: "Mode de paiement", x: left + 240, w: 108 },
-    { label: "Date", x: left + 354, w: 52 },
-    { label: "Montant", x: left + 410, w: width - 420 }
+    { label: "Désignation", x: left + 10, w: 152, align: "left" },
+    { label: "Qté", x: left + 166, w: 24, align: "center" },
+    { label: "P.U. HT", x: left + 194, w: 70, align: "right" },
+    { label: "TVA", x: left + 268, w: 34, align: "center" },
+    { label: "Total HT", x: left + 306, w: 72, align: "right" },
+    { label: "Total TTC", x: left + 382, w: width - 392, align: "right" }
   ];
   doc.roundedRect(left, y, width, 26, 6).fillColor(PURPLE).fill();
   doc.font("Helvetica-Bold").fontSize(8.5).fillColor("#ffffff");
-  cols.forEach((c, i) => doc.text(c.label, c.x, y + 9, { width: c.w, align: i === cols.length - 1 ? "right" : "left" }));
+  cols.forEach((c) => doc.text(c.label, c.x, y + 9, { width: c.w, align: c.align }));
   y += 32;
 
   lines.forEach((line, index) => {
-    const designation = `${Number(line.tranche) === 1 ? "Tranche 1 · inscription" : "Tranche 2 · visa"} — ${line.country_name}`;
-    // Chèque : numéro ; virement : aucun code à saisir (les anciens virements gardent leur code).
-    const mode = line.method === "CHEQUE" || line.reference ? `${METHOD_LABELS[line.method]} ${REFERENCE_LABELS[line.method]} ${line.reference || "—"}` : METHOD_LABELS[line.method];
-    const rowHeight = Math.max(
-      doc.heightOfString(designation, { width: cols[0].w }),
-      doc.heightOfString(mode, { width: cols[2].w })
-    ) + 14;
-    if (y + rowHeight > doc.page.height - 190) {
+    const designation = `${Number(line.tranche) === 1 ? "Frais d'accompagnement · inscription" : "Frais d'accompagnement · visa"} — ${line.country_name}`;
+    const rowHeight = doc.heightOfString(designation, { width: cols[0].w }) + 14;
+    if (y + rowHeight > doc.page.height - 120) {
       doc.addPage();
       y = 60;
     }
     if (index % 2 === 0) doc.rect(left, y - 4, width, rowHeight).fillColor("#faf8ff").fill();
     doc.font("Helvetica").fontSize(9).fillColor(DARK);
     doc.text(designation, cols[0].x, y + 2, { width: cols[0].w });
-    doc.text(line.receipt_number || "—", cols[1].x, y + 2, { width: cols[1].w });
-    doc.text(mode, cols[2].x, y + 2, { width: cols[2].w });
-    doc.text(frDate(line.paid_at), cols[3].x, y + 2, { width: cols[3].w });
-    doc.font("Helvetica-Bold").text(formatAmount(line.amount, line.currency), cols[4].x, y + 2, { width: cols[4].w, align: "right" });
+    doc.text("1", cols[1].x, y + 2, { width: cols[1].w, align: "center" });
+    doc.text(formatAmount(totals.lineHt[index], currency), cols[2].x, y + 2, { width: cols[2].w, align: "right" });
+    doc.text(percent(rate), cols[3].x, y + 2, { width: cols[3].w, align: "center" });
+    doc.text(formatAmount(totals.lineHt[index], currency), cols[4].x, y + 2, { width: cols[4].w, align: "right" });
+    doc.font("Helvetica-Bold").text(formatAmount(line.amount, currency), cols[5].x, y + 2, { width: cols[5].w, align: "right" });
     y += rowHeight;
   });
 
-  // Total + mention « acquittée »
-  y += 12;
-  doc.moveTo(left, y).lineTo(right, y).lineWidth(0.8).strokeColor("#e2e8f0").stroke();
+  // Règlements : reçu, mode et date de chaque paiement (la facture est acquittée)
+  y += 10;
+  if (y + 60 + lines.length * 16 > doc.page.height - 260) {
+    doc.addPage();
+    y = 60;
+  }
+  doc.font("Helvetica-Bold").fontSize(8).fillColor(PURPLE).text("RÈGLEMENT", left + 10, y);
   y += 14;
-  doc.roundedRect(right - 230, y, 230, 46, 8).fillColor(PURPLE).fill();
-  doc.font("Helvetica").fontSize(8.5).fillColor("#e9defa").text("TOTAL PAYÉ", right - 214, y + 9);
-  doc.font("Helvetica-Bold").fontSize(17).fillColor("#ffffff").text(formatAmount(invoice.total, invoice.currency), right - 214, y + 21, { width: 198, align: "right" });
-  doc.font("Helvetica-Bold").fontSize(12).fillColor("#059669").text("FACTURE ACQUITTÉE", left, y + 8);
-  doc.font("Helvetica").fontSize(8.5).fillColor(GREY).text("Les sommes ci-dessus ont été réglées et encaissées par l’agence.", left, y + 26, { width: width - 250 });
+  const pay = [
+    { label: "Reçu n°", x: left + 10, w: 70, align: "left" },
+    { label: "Mode de règlement", x: left + 84, w: 200, align: "left" },
+    { label: "Date", x: left + 290, w: 70, align: "left" },
+    { label: "Montant TTC", x: left + 364, w: width - 374, align: "right" }
+  ];
+  doc.font("Helvetica-Bold").fontSize(7.5).fillColor(GREY);
+  pay.forEach((c) => doc.text(c.label, c.x, y, { width: c.w, align: c.align }));
+  y += 12;
+  doc.moveTo(left, y - 2).lineTo(right, y - 2).lineWidth(0.5).strokeColor("#e2e8f0").stroke();
+  lines.forEach((line) => {
+    // Chèque : numéro ; virement : aucun code à saisir (les anciens virements gardent leur code).
+    const mode = line.method === "CHEQUE" || line.reference ? `${METHOD_LABELS[line.method]} ${REFERENCE_LABELS[line.method]} ${line.reference || "—"}` : METHOD_LABELS[line.method];
+    doc.font("Helvetica").fontSize(8.5).fillColor(DARK);
+    doc.text(line.receipt_number || "—", pay[0].x, y + 2, { width: pay[0].w });
+    doc.text(mode, pay[1].x, y + 2, { width: pay[1].w });
+    doc.text(frDate(line.paid_at), pay[2].x, y + 2, { width: pay[2].w });
+    doc.text(formatAmount(line.amount, currency), pay[3].x, y + 2, { width: pay[3].w, align: "right" });
+    y += 16;
+  });
+
+  // Totaux : hors taxe, TVA, TTC
+  y += 14;
+  if (y + 150 > doc.page.height - 100) {
+    doc.addPage();
+    y = 60;
+  }
+  const totalsLeft = right - 230;
+  const row = (label, value) => {
+    doc.font("Helvetica").fontSize(9.5).fillColor(GREY).text(label, totalsLeft + 6, y, { width: 110 });
+    doc.font("Helvetica-Bold").fontSize(9.5).fillColor(DARK).text(value, totalsLeft + 110, y, { width: 114, align: "right" });
+    y += 18;
+  };
+  row("Total HT", formatAmount(totals.ht, currency));
+  row(`TVA (${percent(rate)})`, formatAmount(totals.vat, currency));
+  doc.moveTo(totalsLeft, y - 2).lineTo(right, y - 2).lineWidth(0.6).strokeColor("#e2e8f0").stroke();
+  y += 4;
+  doc.roundedRect(totalsLeft, y, 230, 46, 8).fillColor(PURPLE).fill();
+  doc.font("Helvetica").fontSize(8.5).fillColor("#e9defa").text("TOTAL TTC", totalsLeft + 14, y + 9);
+  doc.font("Helvetica-Bold").fontSize(17).fillColor("#ffffff").text(formatAmount(totals.ttc, currency), totalsLeft + 14, y + 21, { width: 202, align: "right" });
+
+  // À gauche : mention acquittée et montant en toutes lettres
+  const leftBlock = y - 40;
+  doc.font("Helvetica-Bold").fontSize(12).fillColor("#059669").text("FACTURE ACQUITTÉE", left, leftBlock);
+  doc.font("Helvetica").fontSize(8.5).fillColor(GREY).text("Les sommes ci-dessus ont été réglées et encaissées par l’agence.", left, leftBlock + 17, { width: width - 250 });
+  doc.font("Helvetica").fontSize(8.5).fillColor(DARK).text(
+    `Arrêtée la présente facture à la somme de : ${amountInWords(totals.ttc, currency)} TTC.`,
+    left,
+    leftBlock + 44,
+    { width: width - 250 }
+  );
 
   // Pied de page
   const footerY = doc.page.height - 84;
@@ -337,4 +427,4 @@ async function renderPdf(invoiceId, stream) {
   return data.invoice.invoice_number;
 }
 
-module.exports = { listStudents, createInvoice, renderPdf, loadInvoice, getInvoiceCounter, setInvoiceCounter };
+module.exports = { listStudents, createInvoice, renderPdf, loadInvoice, getInvoiceCounter, setInvoiceCounter, getVatRate, setVatRate, computeTotals };

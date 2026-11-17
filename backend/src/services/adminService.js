@@ -439,7 +439,7 @@ async function setStudentActive(studentId, isActive) {
 }
 
 async function getSettings() {
-  const [autoAssignSales, stalledAlert, emailSender, workHours, whatsappAutoReply, whatsappWelcome, staff, pauses, quickReplies, invoiceCounter] = await Promise.all([
+  const [autoAssignSales, stalledAlert, emailSender, workHours, whatsappAutoReply, whatsappWelcome, staff, pauses, quickReplies, invoiceCounter, invoiceVatRate] = await Promise.all([
     settings.isAutoAssignEnabled(),
     settings.getStalledAlertConfig(),
     settings.getEmailSenderConfig(),
@@ -449,7 +449,8 @@ async function getSettings() {
     require("../repositories/performanceRepository").listStaff(),
     settings.getSalesPauses(),
     settings.getWhatsAppQuickReplies(),
-    require("./invoiceService").getInvoiceCounter()
+    require("./invoiceService").getInvoiceCounter(),
+    require("./invoiceService").getVatRate()
   ]);
   return {
     autoAssignSales,
@@ -472,6 +473,7 @@ async function getSettings() {
     whatsappQuickReplies: quickReplies,
     invoiceYear: invoiceCounter.year,
     invoiceLastNumber: invoiceCounter.lastNumber,
+    invoiceVatRate,
     salesPauses: staff
       .filter((person) => person.is_active && (person.role === "SALES" || (person.extra_roles || []).includes("SALES")))
       .map((person) => ({ userId: person.id, prenom: person.prenom, nom: person.nom, start: pauses[person.id]?.start || "", end: pauses[person.id]?.end || "" }))
@@ -598,6 +600,7 @@ async function updateSettings(body) {
   }
 
   if (body.invoiceLastNumber !== undefined) await require("./invoiceService").setInvoiceCounter(body.invoiceLastNumber);
+  if (body.invoiceVatRate !== undefined) await require("./invoiceService").setVatRate(body.invoiceVatRate);
 
   if (body.whatsappQuickReplies !== undefined) {
     if (!Array.isArray(body.whatsappQuickReplies) || body.whatsappQuickReplies.length > 100) throw fail("Réponses rapides invalides (100 maximum).", 400);
