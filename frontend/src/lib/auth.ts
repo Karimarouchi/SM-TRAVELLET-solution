@@ -931,6 +931,13 @@ export type ProgrammeDetail = {
   scholarship: string;// bourses & avantages
 };
 
+// Traductions saisies par l'admin (le français reste dans les champs principaux).
+export type ProgrammeLevelTranslation = Partial<Record<"name" | "desc" | "lang" | "dates" | "status" | "scholarship", string>>;
+export type ProgrammeTranslation = Partial<Record<"title" | "country" | "degrees" | "description" | "badge" | "statusLabel", string>> & {
+  levels?: Record<string, ProgrammeLevelTranslation>;
+};
+export type ProgrammeTranslations = Partial<Record<"en" | "ar", ProgrammeTranslation>>;
+
 export type Programme = {
   id: string;
   title: string;
@@ -945,6 +952,7 @@ export type Programme = {
   isFeatured: boolean;
   displayOrder: number;
   details: ProgrammeDetail[];
+  translations?: ProgrammeTranslations;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -1994,6 +2002,8 @@ export async function setUniversityPartner(id: string, partner: boolean): Promis
 export type AvisStatus = "pending" | "approved" | "rejected";
 export type AvisSource = "manual" | "student";
 
+export type AvisTranslations = Partial<Record<"en" | "ar", Partial<Record<"content" | "programme" | "author_name", string>>>>;
+
 export type Avis = {
   id: string;
   author_name: string;
@@ -2006,6 +2016,7 @@ export type Avis = {
   student_id?: string;
   status: AvisStatus;
   display_order: number;
+  translations?: AvisTranslations;
   created_at: string;
   updated_at: string;
 };

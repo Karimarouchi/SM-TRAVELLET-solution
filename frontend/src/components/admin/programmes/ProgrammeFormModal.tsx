@@ -1,6 +1,9 @@
+import { LanguageTabs, type EditLang } from "@/components/admin/LanguageTabs";
 import { cn } from "@/lib/utils";
 import { Pencil, Plus, Star, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { ProgrammeTranslationFields } from "./ProgrammeTranslationFields";
 import { CardPreview } from "./CardPreview";
 import { BADGES, GRADIENTS, type FormData } from "./constants";
 import { DetailLevelManager } from "./DetailLevelManager";
@@ -31,7 +34,22 @@ export function ProgrammeFormModal({
   canFeature: boolean;
   featuredCountExcludingCurrent: number;
 }) {
+  // Langue dans laquelle l'admin écrit : français (texte principal), anglais ou arabe (traductions).
+  const [lang, setLang] = useState<EditLang>("fr");
+  useEffect(() => { if (open) setLang("fr"); }, [open, editingId]);
+
   if (!open) return null;
+
+  const translations = formData.translations || {};
+  const hasTranslation = (code: "en" | "ar") => {
+    const entry = translations[code];
+    return Boolean(entry && (entry.title || entry.description || entry.degrees || entry.country || Object.values(entry.levels || {}).some((level) => Object.values(level).some(Boolean))));
+  };
+  const viewed = lang === "fr" ? undefined : translations[lang];
+  // Aperçu : la carte telle que la verra un visiteur dans la langue choisie.
+  const previewData = viewed
+    ? { ...formData, title: viewed.title || formData.title, country: viewed.country || formData.country, degrees: viewed.degrees || formData.degrees, description: viewed.description || formData.description }
+    : formData;
 
   return createPortal(
     <div
@@ -58,12 +76,24 @@ export function ProgrammeFormModal({
 
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto">
-          <form id="prog-form" onSubmit={onSubmit}>
+          <form id="prog-form" onSubmit={onSubmit} onInvalidCapture={() => setLang("fr")}>
             <div className="grid gap-0 lg:grid-cols-12">
 
               {/* ── Left: Form fields ── */}
               <div className="space-y-5 p-6 lg:col-span-7 lg:border-r lg:border-line">
 
+                <LanguageTabs value={lang} onChange={setLang} filled={{ en: hasTranslation("en"), ar: hasTranslation("ar") }} />
+
+                {lang !== "fr" && (
+                  <ProgrammeTranslationFields
+                    lang={lang}
+                    formData={formData}
+                    translations={translations}
+                    onChange={(next) => setFormData((prev) => ({ ...prev, translations: next }))}
+                  />
+                )}
+
+                <div className={cn("space-y-5", lang !== "fr" && "hidden")}>
                 {/* Title + Country */}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
@@ -302,6 +332,7 @@ export function ProgrammeFormModal({
                     </div>
                   );
                 })()}
+                </div>
               </div>
 
               {/* ── Right: Live Preview ── */}
@@ -309,7 +340,9 @@ export function ProgrammeFormModal({
                 <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-brand">
                   ✨ Aperçu en direct
                 </p>
-                <CardPreview formData={formData} />
+                <div dir={lang === "ar" ? "rtl" : "ltr"}>
+                  <CardPreview formData={previewData} />
+                </div>
                 <p className="mt-3 text-[10px] text-muted text-center">Rendu tel qu'il apparaîtra sur le site vitrine</p>
               </div>
             </div>

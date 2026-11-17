@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const programmeRepo = require("../repositories/programmeRepository");
 const countryRepo = require("../repositories/countryRepository");
+const { cleanProgrammeTranslations, keepLevelsOf } = require("./contentTranslations");
 
 const PROGRAMME_IMG_DIR = path.join(__dirname, "../../uploads/programmes");
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB max
@@ -36,7 +37,16 @@ function publicProgramme(programme) {
   if (!programme) return null;
   return {
     ...programme,
-    details: (programme.details || []).map(({ fees, ...rest }) => rest)
+    details: (programme.details || []).map(({ fees, ...rest }) => rest),
+    // Les frais n'apparaissent pas non plus dans les traductions publiques.
+    translations: Object.fromEntries(
+      Object.entries(programme.translations || {}).map(([lang, entry]) => [
+        lang,
+        entry.levels
+          ? { ...entry, levels: Object.fromEntries(Object.entries(entry.levels).map(([id, { fees, ...level }]) => [id, level])) }
+          : entry
+      ])
+    )
   };
 }
 
@@ -56,6 +66,7 @@ function programmeDto(row) {
     isFeatured: row.is_featured,
     displayOrder: row.display_order,
     details: normalizeDetails(row.details),
+    translations: row.translations || {},
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -227,6 +238,7 @@ async function createProgramme(payload) {
   }
 
   const country = await resolveOrCreateCountryByName(payload.country);
+  const details = normalizeDetails(payload.details, { assignIds: true });
 
   const row = await programmeRepo.create({
     title: payload.title.trim(),
@@ -240,7 +252,8 @@ async function createProgramme(payload) {
     gradientStyle: payload.gradientStyle?.trim() || "linear-gradient(135deg,#0f172a 0%,#4c1d95 52%,#1d4ed8 100%)",
     isFeatured: Boolean(payload.isFeatured),
     displayOrder: Number(payload.displayOrder) || 0,
-    details: normalizeDetails(payload.details, { assignIds: true })
+    details,
+    translations: keepLevelsOf(cleanProgrammeTranslations(payload.translations), details.map((level) => level.id))
   });
 
   return programmeDto(row);
@@ -260,6 +273,8 @@ async function updateProgramme(id, payload) {
     countryId = country.id;
   }
 
+  const details = payload.details !== undefined ? normalizeDetails(payload.details, { assignIds: true }) : normalizeDetails(existing.details, { assignIds: true });
+
   const row = await programmeRepo.update(id, {
     title: payload.title !== undefined ? payload.title.trim() : existing.title,
     country: payload.country !== undefined ? payload.country.trim() : existing.country,
@@ -272,7 +287,12 @@ async function updateProgramme(id, payload) {
     gradientStyle: payload.gradientStyle !== undefined ? payload.gradientStyle.trim() : existing.gradient_style,
     isFeatured: payload.isFeatured !== undefined ? Boolean(payload.isFeatured) : existing.is_featured,
     displayOrder: payload.displayOrder !== undefined ? Number(payload.displayOrder) : existing.display_order,
-    details: payload.details !== undefined ? normalizeDetails(payload.details, { assignIds: true }) : normalizeDetails(existing.details, { assignIds: true })
+    details,
+    // Traductions non envoyées (ancienne page ouverte) : celles déjà enregistrées sont conservées.
+    translations: keepLevelsOf(
+      payload.translations !== undefined ? cleanProgrammeTranslations(payload.translations) : existing.translations || {},
+      details.map((level) => level.id)
+    )
   });
 
   const saved = programmeDto(row);

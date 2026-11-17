@@ -117,7 +117,9 @@ export default function AdminProgrammesPage() {
       gradientStyle: p.gradientStyle,
       isFeatured: p.isFeatured,
       displayOrder: p.displayOrder,
-      details: Array.isArray(p.details) ? p.details : []
+      // Chaque niveau a un identifiant : c'est lui qui rattache ses traductions.
+      details: Array.isArray(p.details) ? p.details.map((d) => ({ ...d, id: d.id || crypto.randomUUID() })) : [],
+      translations: p.translations || {}
     });
     setModalOpen(true);
   };

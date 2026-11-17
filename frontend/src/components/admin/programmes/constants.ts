@@ -54,5 +54,6 @@ export const DEFAULT_FORM: FormData = {
   gradientStyle: "linear-gradient(135deg,#0f172a 0%,#4c1d95 52%,#1d4ed8 100%)",
   isFeatured: false,
   displayOrder: 1,
-  details: []
+  details: [],
+  translations: {}
 };

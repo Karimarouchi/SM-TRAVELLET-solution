@@ -22,11 +22,6 @@ COPY IMAGE /usr/share/nginx/html/IMAGE
 COPY js /usr/share/nginx/html/js
 COPY css /usr/share/nginx/html/css
 COPY SONG /usr/share/nginx/html/SONG
-COPY mentions-legales /usr/share/nginx/html/mentions-legales
-COPY politique-confidentialite /usr/share/nginx/html/politique-confidentialite
-COPY politique-cookies /usr/share/nginx/html/politique-cookies
-COPY politique-annulation-remboursement /usr/share/nginx/html/politique-annulation-remboursement
-COPY conditions-generales-de-vente /usr/share/nginx/html/conditions-generales-de-vente
 
 # Application sous /app/ pour correspondre à base: "/app/" dans vite.config.ts.
 COPY --from=build /app/dist /usr/share/nginx/html/app

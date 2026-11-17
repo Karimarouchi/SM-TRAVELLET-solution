@@ -27,8 +27,8 @@
       "addressCountry": "TN"
     },
     "sameAs": [
-      "https://www.facebook.com/Marstrip1/",
-      "https://www.instagram.com/smtravel_agency_/"
+      "https://www.facebook.com/SMEduTravel/",
+      "https://www.instagram.com/sm_edu_travel/"
     ]
   }
   </script>
@@ -38,6 +38,9 @@
   </audio>
 
   <link rel="stylesheet" href="tailwind.css" />
+  <link rel="stylesheet" href="css/vitrine-i18n.css?v=3" />
+  <script src="js/vitrine-i18n.js?v=2"></script>
+  <script>if (!window.vt) { window.vt = function (s) { return s; }; window.vLang = function () { return 'fr'; }; }</script>
   <link rel="preload" as="image" href="IMAGE/hero-smtravel-mobile.webp" media="(max-width: 767px)">
   <link rel="preload" as="image" href="IMAGE/hero-smtravel-desktop.webp" media="(min-width: 768px)">
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -1819,7 +1822,7 @@
       </a>
 
       <!-- Desktop links -->
-      <div class="hidden md:flex items-center gap-5 lg:gap-8">
+      <div id="navLinks" class="hidden md:flex items-center gap-5 lg:gap-8">
         <a href="#accueil" class="nav-link active">Accueil</a>
         <a href="#programmes" class="nav-link">Programmes</a>
         <a href="#services" class="nav-link">Services</a>
@@ -1830,6 +1833,11 @@
 
       <!-- Auth + burger -->
       <div class="flex items-center gap-4">
+        <div class="lang-switch" role="group" aria-label="Langue">
+          <button type="button" data-lang="fr" lang="fr">FR</button>
+          <button type="button" data-lang="en" lang="en">EN</button>
+          <button type="button" data-lang="ar" lang="ar">عربي</button>
+        </div>
         <div id="navAuth" class="hidden md:flex items-center gap-2">
           <a href="/app/#/login"
             class="nav-auth-btn inline-flex items-center gap-2 border-2 border-white/80 text-white hover:bg-white hover:text-brand font-semibold text-sm px-5 py-2.5 rounded-full transition-all">
@@ -1933,7 +1941,7 @@
             Démarrer mon dossier
             <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
           </a>
-          <a href="https://wa.me/21656819899?text=Bonjour%20SM%20Travel%2C%20je%20souhaite%20évaluer%20mon%20dossier%20pour%20étudier%20à%20l'étranger."
+          <a href="https://wa.me/21656819899?text=Bonjour%20SM%20Edu%20Travel%2C%20je%20souhaite%20évaluer%20mon%20dossier%20pour%20étudier%20à%20l'étranger."
             target="_blank" rel="noopener noreferrer"
             class="liquid-glass-btn inline-flex items-center gap-2 font-bold px-8 py-4 rounded-full transition-all"
             style="font-size:.95rem;">
@@ -2047,7 +2055,7 @@
             <p class="text-sm leading-relaxed mb-5" style="color:rgba(196,181,253,.8);">Notre équipe d'experts gère
               l'intégralité de votre dossier visa avec 98% de taux d'acceptation et un traitement express disponible.
             </p>
-            <a href="https://wa.me/21656819899?text=Bonjour%20SM%20Travel%2C%20je%20souhaite%20des%20informations%20pour%20le%20traitement%20de%20mon%20dossier%20de%20Visa."
+            <a href="https://wa.me/21656819899?text=Bonjour%20SM%20Edu%20Travel%2C%20je%20souhaite%20des%20informations%20pour%20le%20traitement%20de%20mon%20dossier%20de%20Visa."
               target="_blank" rel="noopener noreferrer"
               class="liquid-glass-btn inline-flex items-center gap-2 font-bold px-5 py-2.5 rounded-full text-sm">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -2071,7 +2079,7 @@
             <h3 class="font-display font-bold text-xl mb-3" style="color:#fff;">Consultation Stratégique</h3>
             <p class="text-sm leading-relaxed mb-5" style="color:rgba(196,181,253,.8);">Analyse personnalisée de votre
               profil pour identifier les meilleures destinations et programmes. Réseau dans 40+ pays.</p>
-            <a href="https://wa.me/21656819899?text=Bonjour%20SM%20Travel%2C%20je%20souhaite%20prendre%20rendez-vous%20pour%20une%20consultation." target="_blank" rel="noopener noreferrer"
+            <a href="https://wa.me/21656819899?text=Bonjour%20SM%20Edu%20Travel%2C%20je%20souhaite%20prendre%20rendez-vous%20pour%20une%20consultation." target="_blank" rel="noopener noreferrer"
               class="liquid-glass-btn inline-flex items-center gap-2 font-bold px-5 py-2.5 rounded-full text-sm">
               Prendre rendez-vous <span class="material-symbols-outlined text-[16px]">calendar_month</span>
             </a>
@@ -2089,7 +2097,7 @@
             <h3 class="font-display font-bold text-xl mb-3" style="color:#fff;">Accueil à l'Aéroport</h3>
             <p class="text-sm leading-relaxed mb-5" style="color:rgba(196,181,253,.8);">Chauffeurs bilingues, gestion
               des bagages et transfert vers votre logement. Suivi des vols en temps réel, 24h/24.</p>
-            <a href="https://wa.me/21656819899?text=Bonjour%20SM%20Travel%2C%20je%20souhaite%20des%20informations%20pour%20l'accueil%20à%20l'aéroport."
+            <a href="https://wa.me/21656819899?text=Bonjour%20SM%20Edu%20Travel%2C%20je%20souhaite%20des%20informations%20pour%20l'accueil%20à%20l'aéroport."
               target="_blank" rel="noopener noreferrer"
               class="liquid-glass-btn inline-flex items-center gap-2 font-bold px-5 py-2.5 rounded-full text-sm">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -2455,7 +2463,7 @@
           Évaluer mon dossier
           <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
         </a>
-        <a href="https://wa.me/21656819899?text=Bonjour%20SM%20Travel%2C%20je%20voudrais%20évaluer%20mon%20dossier."
+        <a href="https://wa.me/21656819899?text=Bonjour%20SM%20Edu%20Travel%2C%20je%20voudrais%20évaluer%20mon%20dossier."
           target="_blank" rel="noopener noreferrer"
           class="liquid-glass-btn inline-flex items-center justify-center gap-2 font-bold px-9 py-4 rounded-full">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -2472,7 +2480,7 @@
   <!-- ═══════════════════════════════════════════════ FOOTER ════ -->
   <footer class="bg-dark text-white pt-16 pb-24 md:pb-10">
     <div class="max-w-7xl mx-auto px-6 lg:px-12">
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr] gap-x-10 gap-y-12 mb-12">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr] gap-x-10 gap-y-12 mb-12">
 
         <!-- Marque -->
         <div class="sm:col-span-2 lg:col-span-1">
@@ -2481,7 +2489,7 @@
             Votre agence experte en orientation internationale : visa, admission, logement et accueil aéroport, de A à Z.
           </p>
           <div class="flex gap-2 mt-5">
-            <a href="https://www.facebook.com/Marstrip1/" target="_blank" rel="noopener noreferrer"
+            <a href="https://www.facebook.com/SMEduTravel/" target="_blank" rel="noopener noreferrer"
               class="w-9 h-9 rounded-full border border-slate-700 flex items-center justify-center text-slate-400 hover:bg-brand hover:text-white hover:border-brand transition-all"
               aria-label="Facebook">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
@@ -2489,7 +2497,7 @@
                   d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
               </svg>
             </a>
-            <a href="https://www.instagram.com/smtravel_agency_/" target="_blank" rel="noopener noreferrer"
+            <a href="https://www.instagram.com/sm_edu_travel/" target="_blank" rel="noopener noreferrer"
               class="w-9 h-9 rounded-full border border-slate-700 flex items-center justify-center text-slate-400 hover:bg-brand hover:text-white hover:border-brand transition-all"
               aria-label="Instagram">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
@@ -2545,338 +2553,13 @@
           </ul>
         </div>
 
-        <!-- Informations légales -->
-        <div>
-          <h5 class="font-caps text-slate-300 text-xs font-bold uppercase tracking-widest mb-5">Informations légales</h5>
-          <ul class="space-y-3">
-            <li><a href="mentions-legales/index.html" class="text-slate-300 text-sm hover:text-white transition-colors">Mentions légales</a></li>
-            <li><a href="conditions-generales-de-vente/index.html" class="text-slate-300 text-sm hover:text-white transition-colors">Conditions générales de vente</a></li>
-            <li><a href="politique-annulation-remboursement/index.html" class="text-slate-300 text-sm hover:text-white transition-colors">Annulation et remboursement</a></li>
-            <li><a href="politique-confidentialite/index.html" class="text-slate-300 text-sm hover:text-white transition-colors">Politique de confidentialité</a></li>
-            <li><a href="politique-cookies/index.html" class="text-slate-300 text-sm hover:text-white transition-colors">Politique relative aux cookies</a></li>
-          </ul>
-        </div>
-
       </div>
 
       <div class="border-t border-slate-800 pt-6 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <p class="text-slate-500 text-xs">© 2026 SM Edu Travel — SM services &amp; consulting. Tous droits réservés.</p>
-        <p class="text-slate-500 text-xs">Matricule fiscal : 1915331L</p>
       </div>
     </div>
   </footer>
-
-  <!-- ═══════════════════════════════════════════════
-       MODAL : MENTIONS LÉGALES
-  ════════════════════════════════════════════════ -->
-  <div id="modal-mentions" class="lm-overlay" role="dialog" aria-modal="true" aria-labelledby="lm-mentions-title">
-    <div class="lm-card">
-      <header class="lm-header" id="lm-mentions-header">
-        <div class="lm-header-icon lm-icon--purple">
-          <span class="material-symbols-outlined" style="font-size:26px;color:#a78bfa;font-variation-settings:'FILL' 1">gavel</span>
-        </div>
-        <div class="lm-header-text">
-          <h2 id="lm-mentions-title" class="lm-title">Mentions Légales</h2>
-          <p class="lm-subtitle">Informations légales obligatoires</p>
-        </div>
-        <button class="lm-close-btn" onclick="closeModal('modal-mentions')" aria-label="Fermer la modale Mentions Légales">
-          <span class="material-symbols-outlined" style="font-size:18px">close</span>
-        </button>
-      </header>
-      <div class="lm-body">
-        <section class="lm-section">
-          <div class="lm-badge lm-badge--purple">
-            <span class="material-symbols-outlined" style="font-size:13px;font-variation-settings:'FILL' 1">business</span>
-            Éditeur du site
-          </div>
-          <dl class="lm-dl">
-            <div class="lm-dl-row"><dt class="lm-dt">Société</dt><dd class="lm-dd">SM services &amp; consulting</dd></div>
-            <div class="lm-dl-row"><dt class="lm-dt">Marque commerciale</dt><dd class="lm-dd">SM Edu Travel</dd></div>
-            <div class="lm-dl-row"><dt class="lm-dt">Matricule fiscal</dt><dd class="lm-dd lm-mono">1915331L</dd></div>
-            <div class="lm-dl-row"><dt class="lm-dt">Forme juridique</dt><dd class="lm-dd">SARL</dd></div>
-            <div class="lm-dl-row"><dt class="lm-dt">Adresse</dt><dd class="lm-dd">4 Bis Rue du Mali, 4e étage, bureau n°4,<br>Jeanne d’Arc, Tunis 1002, Tunisie</dd></div>
-            <div class="lm-dl-row"><dt class="lm-dt">Téléphone</dt><dd class="lm-dd"><a href="tel:+21654819879" class="lm-link">+216 54 819 879</a></dd></div>
-            <div class="lm-dl-row"><dt class="lm-dt">Email administratif</dt><dd class="lm-dd"><a href="mailto:sahbimars3@gmail.com" class="lm-link">sahbimars3@gmail.com</a></dd></div>
-            <div class="lm-dl-row"><dt class="lm-dt">Email commercial</dt><dd class="lm-dd"><a href="mailto:services@smtravel.fr" class="lm-link">services@smtravel.fr</a></dd></div>
-            <div class="lm-dl-row"><dt class="lm-dt">Responsable de publication</dt><dd class="lm-dd">Direction de SM services &amp; consulting</dd></div>
-          </dl>
-          <p class="lm-text" style="margin-top:1rem;"><a href="mentions-legales/index.html" class="lm-link">Voir la page Mentions légales complète →</a></p>
-        </section>
-        <section class="lm-section">
-          <div class="lm-badge lm-badge--teal">
-            <span class="material-symbols-outlined" style="font-size:13px;font-variation-settings:'FILL' 1">dns</span>
-            Hébergement
-          </div>
-          <p class="lm-text">Le site <strong>smedutravel.com</strong> est hébergé par :</p>
-          <dl class="lm-dl">
-            <div class="lm-dl-row"><dt class="lm-dt">Société</dt><dd class="lm-dd">Hostinger International Limited</dd></div>
-            <div class="lm-dl-row"><dt class="lm-dt">Adresse</dt><dd class="lm-dd">61 Lordou Vironos Street,<br>6023 Larnaca, Chypre</dd></div>
-            <div class="lm-dl-row"><dt class="lm-dt">Site web</dt><dd class="lm-dd"><a href="https://hostinger.com" target="_blank" rel="noopener noreferrer" class="lm-link">hostinger.com</a></dd></div>
-            <div class="lm-dl-row"><dt class="lm-dt">E-mail</dt><dd class="lm-dd"><a href="mailto:compliance@hostinger.com" class="lm-link">compliance@hostinger.com</a></dd></div>
-          </dl>
-        </section>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════
-       MODAL : POLITIQUE DE CONFIDENTIALITÉ
-  ════════════════════════════════════════════════ -->
-  <div id="modal-privacy" class="lm-overlay" role="dialog" aria-modal="true" aria-labelledby="lm-privacy-title">
-    <div class="lm-card lm-card--wide">
-      <header class="lm-header lm-header--teal" id="lm-privacy-header">
-        <div class="lm-header-icon lm-icon--teal">
-          <span class="material-symbols-outlined" style="font-size:26px;color:#5eead4;font-variation-settings:'FILL' 1">lock</span>
-        </div>
-        <div class="lm-header-text">
-          <h2 id="lm-privacy-title" class="lm-title">Politique de Confidentialité</h2>
-          <p class="lm-subtitle">Protection de vos données personnelles</p>
-        </div>
-        <button class="lm-close-btn" onclick="closeModal('modal-privacy')" aria-label="Fermer la modale Politique de confidentialité">
-          <span class="material-symbols-outlined" style="font-size:18px">close</span>
-        </button>
-      </header>
-      <div class="lm-body">
-        <section class="lm-section">
-          <div class="lm-badge lm-badge--purple">1. Responsable du traitement</div>
-          <dl class="lm-dl">
-            <div class="lm-dl-row"><dt class="lm-dt">Société</dt><dd class="lm-dd">SM services &amp; consulting</dd></div>
-            <div class="lm-dl-row"><dt class="lm-dt">Matricule fiscal</dt><dd class="lm-dd lm-mono">1915331L</dd></div>
-            <div class="lm-dl-row"><dt class="lm-dt">Contact</dt><dd class="lm-dd"><a href="mailto:services@smtravel.fr" class="lm-link">services@smtravel.fr</a></dd></div>
-          </dl>
-        </section>
-        <section class="lm-section">
-          <div class="lm-badge lm-badge--blue">2. Données collectées</div>
-          <ul class="lm-list">
-            <li><span class="lm-bullet lm-bullet--purple"></span><span>Identité : nom, prénom, e-mail, numéro de téléphone.</span></li>
-            <li><span class="lm-bullet lm-bullet--purple"></span><span>Documents relatifs au dossier étudiant (diplômes, relevés de notes, passeport, etc.).</span></li>
-          </ul>
-        </section>
-        <section class="lm-section">
-          <div class="lm-badge lm-badge--teal">3. Finalités</div>
-          <ul class="lm-list">
-            <li><span class="lm-bullet lm-bullet--teal"></span><span>Traitement des demandes d'accompagnement pour études en Europe.</span></li>
-            <li><span class="lm-bullet lm-bullet--teal"></span><span>Gestion de la relation client.</span></li>
-            <li><span class="lm-bullet lm-bullet--teal"></span><span>Communication (SMS, WhatsApp, newsletters).</span></li>
-          </ul>
-        </section>
-        <section class="lm-section">
-          <div class="lm-badge lm-badge--purple">4. Base légale</div>
-          <ul class="lm-list">
-            <li><span class="lm-bullet lm-bullet--purple"></span><span>Exécution du contrat de prestation de services.</span></li>
-            <li><span class="lm-bullet lm-bullet--purple"></span><span>Consentement (communications marketing).</span></li>
-          </ul>
-        </section>
-        <section class="lm-section">
-          <div class="lm-badge lm-badge--blue">5. Durée de conservation</div>
-          <ul class="lm-list">
-            <li><span class="lm-bullet lm-bullet--purple"></span><span>Les données sont conservées pendant une durée proportionnée à la finalité du traitement et aux obligations légales.</span></li>
-          </ul>
-        </section>
-        <section class="lm-section">
-          <div class="lm-badge lm-badge--teal">6. Partage des données</div>
-          <ul class="lm-list">
-            <li><span class="lm-bullet lm-bullet--teal"></span><span>Partenaires universités/écoles européennes (dans le cadre de la mise en relation).</span></li>
-            <li><span class="lm-bullet lm-bullet--teal"></span><span>Aucune transmission à des tiers hors obligations légales.</span></li>
-          </ul>
-        </section>
-        <section class="lm-section">
-          <div class="lm-badge lm-badge--purple">7. Vos droits</div>
-          <p class="lm-text">Accès, rectification, effacement des données via <a href="mailto:services@smtravel.fr" class="lm-link">services@smtravel.fr</a>. En Tunisie, l'autorité compétente est l'INPDP (Instance Nationale de Protection des Données Personnelles), à qui une réclamation peut être adressée.</p>
-        </section>
-        <section class="lm-section">
-          <div class="lm-badge lm-badge--blue">8. Cookies</div>
-          <ul class="lm-list">
-            <li><span class="lm-bullet lm-bullet--purple"></span><span>Cookies techniques : indispensables au fonctionnement.</span></li>
-          </ul>
-          <p class="lm-text" style="margin-top:1rem;"><a href="politique-confidentialite/index.html" class="lm-link">Voir la Politique de confidentialité complète →</a></p>
-        </section>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════
-       MODAL : CLAUSES IMPORTANTES
-  ════════════════════════════════════════════════ -->
-  <div id="modal-clauses" class="lm-overlay" role="dialog" aria-modal="true" aria-labelledby="lm-clauses-title">
-    <div class="lm-card lm-card--wide lm-card--amber">
-      <header class="lm-header lm-header--amber" id="lm-clauses-header">
-        <div class="lm-header-icon lm-icon--amber">
-          <span class="material-symbols-outlined" style="font-size:26px;color:#fbbf24;font-variation-settings:'FILL' 1">warning</span>
-        </div>
-        <div class="lm-header-text">
-          <h2 id="lm-clauses-title" class="lm-title">Politique de vente</h2>
-          <p class="lm-subtitle lm-subtitle--amber">Informations essentielles concernant les services</p>
-        </div>
-        <button class="lm-close-btn lm-close-btn--amber" onclick="closeModal('modal-clauses')" aria-label="Fermer la modale">
-          <span class="material-symbols-outlined" style="font-size:18px">close</span>
-        </button>
-      </header>
-      <div class="lm-body">
-        <section class="lm-section lm-section--amber">
-          <ul class="lm-clauses-list">
-            <li>
-              <span class="lm-bullet lm-bullet--amber"></span>
-              <p class="lm-clause-text">Les frais universitaires, de visa, d'assurance, de traduction, de légalisation, de logement et de voyage ne sont pas inclus sauf mention contraire.</p>
-            </li>
-            <li>
-              <span class="lm-bullet lm-bullet--amber"></span>
-              <p class="lm-clause-text">Les délais annoncés sont indicatifs et dépendent des universités et des autorités compétentes.</p>
-            </li>
-            <li>
-              <span class="lm-bullet lm-bullet--amber"></span>
-              <p class="lm-clause-text">Les universités peuvent modifier leurs critères d'admission, leurs frais de scolarité ou leurs dates de rentrée sans que la responsabilité de l'agence soit engagée.</p>
-            </li>
-            <li>
-              <span class="lm-bullet lm-bullet--amber"></span>
-              <p class="lm-clause-text">Le client est seul responsable du respect des exigences d'entrée dans le pays d'accueil.</p>
-            </li>
-            <li>
-              <span class="lm-bullet lm-bullet--amber"></span>
-              <p class="lm-clause-text">Toute communication officielle des universités ou des ambassades prévaut sur les informations communiquées par l'agence.</p>
-            </li>
-          </ul>
-          <p class="lm-text" style="margin-top:1rem;"><a href="conditions-generales-de-vente/index.html" class="lm-link">Voir les Conditions générales de vente →</a></p>
-        </section>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════
-       STYLES — MODALES LÉGALES
-  ════════════════════════════════════════════════ -->
-  <style>
-    /* ── Overlay ── */
-    .lm-overlay {
-      position: fixed; inset: 0; z-index: 9000;
-      background: rgba(2,6,23,.75); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-      display: flex; align-items: center; justify-content: center;
-      padding: 1rem; opacity: 0; pointer-events: none; transition: opacity .3s ease;
-    }
-    .lm-overlay.open { opacity: 1; pointer-events: all; }
-    /* ── Card ── */
-    .lm-card {
-      width: 100%; max-width: 640px; max-height: 88vh; background: #0c1628;
-      border: 1px solid rgba(139,92,246,.2); border-radius: 22px; overflow: hidden;
-      display: flex; flex-direction: column;
-      box-shadow: 0 32px 80px rgba(0,0,0,.7), 0 0 0 1px rgba(139,92,246,.08);
-      transform: translateY(28px) scale(.97); transition: transform .38s cubic-bezier(.34,1.48,.64,1);
-    }
-    .lm-overlay.open .lm-card { transform: translateY(0) scale(1); }
-    .lm-card--wide { max-width: 780px; }
-    .lm-card--amber { border-color: rgba(245,158,11,.22); box-shadow: 0 32px 80px rgba(0,0,0,.7), 0 0 0 1px rgba(245,158,11,.07); }
-    /* ── Header ── */
-    .lm-header {
-      display: flex; align-items: center; gap: .9rem; padding: 1.25rem 1.5rem;
-      background: linear-gradient(135deg, #1a1740 0%, #0c1628 100%);
-      border-bottom: 1px solid rgba(139,92,246,.15); flex-shrink: 0; position: sticky; top: 0; z-index: 10;
-    }
-    .lm-header--teal { border-bottom-color: rgba(20,184,166,.18); background: linear-gradient(135deg, #0e2320 0%, #0c1628 100%); }
-    .lm-header--amber { border-bottom-color: rgba(245,158,11,.18); background: linear-gradient(135deg, #1f1600 0%, #0c1628 100%); }
-    .lm-header-icon {
-      width: 48px; height: 48px; border-radius: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    }
-    .lm-icon--purple { background: rgba(139,92,246,.12); border: 1px solid rgba(139,92,246,.2); }
-    .lm-icon--teal   { background: rgba(20,184,166,.12);  border: 1px solid rgba(20,184,166,.22); }
-    .lm-icon--amber  { background: rgba(245,158,11,.12);  border: 1px solid rgba(245,158,11,.22); }
-    .lm-header-text { flex: 1; min-width: 0; }
-    .lm-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.1rem; font-weight: 800; color: #fff; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .lm-subtitle { font-family: 'Space Grotesk', sans-serif; font-size: .72rem; font-weight: 600; color: rgba(196,181,253,.55); text-transform: uppercase; letter-spacing: .07em; margin: .18rem 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .lm-subtitle--amber { color: rgba(251,191,36,.5); }
-    .lm-close-btn {
-      margin-left: auto; flex-shrink: 0; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
-      border-radius: 9px; color: rgba(255,255,255,.55); width: 34px; height: 34px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .2s ease;
-    }
-    .lm-close-btn:hover { background: rgba(255,255,255,.13); color: #fff; transform: scale(1.08); }
-    .lm-close-btn--amber:hover { background: rgba(245,158,11,.15); border-color: rgba(245,158,11,.3); }
-    /* ── Body ── */
-    .lm-body { overflow-y: auto; flex: 1; padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
-    .lm-body::-webkit-scrollbar { width: 4px; }
-    .lm-body::-webkit-scrollbar-track { background: transparent; }
-    .lm-body::-webkit-scrollbar-thumb { background: rgba(139,92,246,.28); border-radius: 4px; }
-    /* ── Sections ── */
-    .lm-section { background: rgba(255,255,255,.025); border: 1px solid rgba(255,255,255,.07); border-radius: 14px; padding: 1rem 1.15rem; display: flex; flex-direction: column; gap: .75rem; }
-    .lm-section--amber { background: rgba(245,158,11,.04); border-color: rgba(245,158,11,.12); }
-    /* ── Badges ── */
-    .lm-badge { display: inline-flex; align-items: center; gap: .35rem; font-family: 'Space Grotesk', sans-serif; font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; padding: .28rem .65rem; border-radius: 99px; width: fit-content; }
-    .lm-badge--purple { background: rgba(139,92,246,.14); color: #c4b5fd; border: 1px solid rgba(139,92,246,.22); }
-    .lm-badge--teal   { background: rgba(20,184,166,.11);  color: #5eead4; border: 1px solid rgba(20,184,166,.18); }
-    .lm-badge--blue   { background: rgba(59,130,246,.11);  color: #93c5fd; border: 1px solid rgba(59,130,246,.18); }
-    /* ── Definition lists ── */
-    .lm-dl { display: flex; flex-direction: column; gap: .4rem; }
-    .lm-dl-row { display: flex; align-items: flex-start; gap: .75rem; padding: .4rem .55rem; border-radius: 8px; transition: background .18s; }
-    .lm-dl-row:hover { background: rgba(255,255,255,.035); }
-    .lm-dt { font-family: 'Space Grotesk', sans-serif; font-size: .7rem; font-weight: 600; color: rgba(148,163,184,.65); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; min-width: 130px; flex-shrink: 0; padding-top: .06rem; }
-    .lm-dd { font-size: .84rem; color: rgba(226,232,240,.86); line-height: 1.6; margin: 0; text-align: left; word-break: break-word; }
-    .lm-mono { font-family: ui-monospace, monospace; color: #a78bfa; font-size: .81rem; }
-    /* ── Text paragraphs ── */
-    .lm-text { font-size: .84rem; color: rgba(203,213,225,.78); line-height: 1.68; margin: 0; text-align: left; word-break: break-word; white-space: normal; }
-    .lm-text--emphasis { color: rgba(226,232,240,.82); background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07); border-radius: 10px; padding: .6rem .85rem; font-style: italic; }
-    /* ── Lists ── */
-    .lm-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
-    .lm-list li { display: flex; align-items: flex-start; gap: .7rem; }
-    .lm-list li span:last-child { font-size: .84rem; color: rgba(203,213,225,.8); line-height: 1.65; text-align: left; word-break: break-word; white-space: normal; }
-    .lm-bullet { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: .46rem; }
-    .lm-bullet--purple { background: linear-gradient(135deg, #a78bfa, #818cf8); }
-    .lm-bullet--teal   { background: linear-gradient(135deg, #5eead4, #34d399); }
-    .lm-bullet--amber  { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
-    /* ── Links ── */
-    .lm-link { color: #818cf8; text-decoration: none; border-bottom: 1px solid rgba(129,140,248,.25); transition: color .18s, border-color .18s; }
-    .lm-link:hover { color: #c4b5fd; border-color: rgba(196,181,253,.5); }
-    /* ── Clauses list ── */
-    .lm-clauses-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .85rem; }
-    .lm-clauses-list li { display: flex; align-items: flex-start; gap: .9rem; }
-    .lm-clause-text { font-size: .85rem; color: rgba(203,213,225,.82); line-height: 1.68; margin: 0; text-align: left; word-break: break-word; white-space: normal; }
-    /* ── Responsive ── */
-    @media (max-width: 640px) {
-      .lm-overlay { padding: .75rem; }
-      .lm-card, .lm-card--wide { max-height: 92vh; border-radius: 18px; }
-      .lm-header { padding: 1rem 1.1rem; gap: .7rem; }
-      .lm-header-icon { width: 40px; height: 40px; border-radius: 10px; }
-      .lm-title { font-size: .95rem; }
-      .lm-subtitle { font-size: .65rem; }
-      .lm-body { padding: 1rem 1rem; gap: .8rem; }
-      .lm-section { padding: .85rem .95rem; }
-      .lm-dt { min-width: 100px; }
-    }
-  </style>
-
-  <!-- ═══════════════════════════════════════════════
-       SCRIPTS — MODALES LÉGALES
-  ════════════════════════════════════════════════ -->
-  <script>
-    function openModal(id) {
-      const overlay = document.getElementById(id);
-      if (!overlay) return;
-      ['modal-mentions','modal-privacy','modal-clauses'].forEach(function(oid) {
-        if (oid !== id) { const o = document.getElementById(oid); if (o) o.classList.remove('open'); }
-      });
-      overlay.classList.add('open');
-      document.body.style.overflow = 'hidden';
-      const closeBtn = overlay.querySelector('.lm-close-btn');
-      if (closeBtn) setTimeout(function() { closeBtn.focus(); }, 360);
-    }
-    function closeModal(id) {
-      const overlay = document.getElementById(id);
-      if (!overlay) return;
-      overlay.classList.remove('open');
-      var anyOpen = ['modal-mentions','modal-privacy','modal-clauses'].some(function(oid) {
-        var o = document.getElementById(oid); return o && o.classList.contains('open');
-      });
-      if (!anyOpen) document.body.style.overflow = '';
-    }
-    (function() {
-      ['modal-mentions','modal-privacy','modal-clauses'].forEach(function(id) {
-        var overlay = document.getElementById(id);
-        if (!overlay) return;
-        overlay.addEventListener('click', function(e) { if (e.target === overlay) closeModal(id); });
-      });
-      document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') { ['modal-mentions','modal-privacy','modal-clauses'].forEach(function(id) { closeModal(id); }); }
-      });
-    })();
-  </script>
-
 
   <!-- ══════════════════════════════════ FLOATING BUTTONS ════ -->
 
@@ -3092,13 +2775,14 @@
     }
 
     function renderCard(p, isFeaturedCard, index) {
+      const L = localizeProgramme(p);
       // Si Prochainement mais qu'il a une date précise, on ne met pas le gros overlay bloquant
       const hasDate = p.statusLabel && p.statusLabel !== 'Bientôt ouvert' && p.statusLabel !== 'Disponible';
       const isComingSoon = p.badge.includes('Prochainement') && !hasDate;
       const img = resolveImgUrl(p.imageUrl);
       const destCode = (p.country || p.title).toLowerCase().replace(/[^a-z0-9]/g, '');
 
-      let badgeText = p.country;
+      let badgeText = escHtml(L.country);
       if (p.badge.includes('Prochainement') && p.statusLabel && p.statusLabel !== 'Bientôt ouvert' && p.statusLabel !== 'Disponible') {
         const d = p.statusLabel.split('-');
         if (d.length === 3) badgeText += ` • Prévu pour le ${d[2]}/${d[1]}/${d[0]}`;
@@ -3107,7 +2791,7 @@
       let badgeHtml = `<span class="inline-flex items-center w-max rounded-full bg-black/45 text-white text-xs font-semibold px-3 py-1 backdrop-blur-sm">${badgeText}</span>`;
       if (isComingSoon) {
         badgeHtml = `
-          <span class="inline-flex items-center w-max rounded-full bg-black/45 text-white text-xs font-semibold px-3 py-1 backdrop-blur-sm">${p.country}</span>
+          <span class="inline-flex items-center w-max rounded-full bg-black/45 text-white text-xs font-semibold px-3 py-1 backdrop-blur-sm">${escHtml(L.country)}</span>
           <span class="coming-soon-badge self-start mt-2">
             <span class="material-symbols-outlined text-[14px]">schedule</span>
             ${p.badge}
@@ -3147,7 +2831,7 @@
       return `
         <article class="${cardClass} ${revealClass}" data-programme-json='${programmeJson}'>
           <div class="h-56 overflow-hidden relative" style="background:${p.gradientStyle || 'linear-gradient(135deg,#0f172a 0%,#4c1d95 52%,#1d4ed8 100%)'};">
-            <img src="${img}" alt="${p.title}" class="${comingSoonImgClass} absolute inset-0 w-full h-full object-cover" loading="lazy" decoding="async" />
+            <img src="${img}" alt="${escHtml(L.title)}" class="${comingSoonImgClass} absolute inset-0 w-full h-full object-cover" loading="lazy" decoding="async" />
             <div class="absolute inset-0 opacity-25" style="background:radial-gradient(circle at top right,rgba(255,255,255,.28),transparent 42%),radial-gradient(circle at bottom left,rgba(255,255,255,.18),transparent 40%);"></div>
             <div class="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent"></div>
             ${comingSoonOverlay}
@@ -3156,8 +2840,8 @@
             </div>
           </div>
           <div class="p-7">
-            <h3 class="font-display font-bold text-xl text-dark mb-3">${p.title}</h3>
-            <p class="text-muted text-sm leading-relaxed mb-6"><strong>${p.country} • ${p.degrees}</strong><br />${p.description}</p>
+            <h3 class="font-display font-bold text-xl text-dark mb-3">${escHtml(L.title)}</h3>
+            <p class="text-muted text-sm leading-relaxed mb-6"><strong>${escHtml(L.country)} • ${escHtml(L.degrees)}</strong><br />${escHtml(L.description)}</p>
             ${btnOrStatusHtml}
           </div>
         </article>
@@ -3176,6 +2860,31 @@
       { title: 'Programme Malte', country: 'Malta', degrees: 'Licence / Master', description: 'Malte proposera bientôt des programmes universitaires en anglais, dans un cadre européen dynamique, adapté aux étudiants internationaux.', imageUrl: 'IMAGE/bled/Malte.jpg', badge: 'Planifié', statusLabel: 'Bientôt ouvert', gradientStyle: 'linear-gradient(135deg,#0c4a6e 0%,#0369a1 48%,#0ea5e9 100%)', isFeatured: false },
       { title: 'Programme Bulgarie', country: 'Bulgaria', degrees: 'Licence / Master', description: 'La Bulgarie proposera bientôt des programmes en Licence et Master, avec un accompagnement adapté au profil et au projet d’études de chaque étudiant.', imageUrl: 'IMAGE/bled/bulgarie.jpg', badge: 'Prochainement disponible', statusLabel: 'Bientôt ouvert', gradientStyle: 'linear-gradient(135deg,#14532d 0%,#15803d 48%,#84cc16 100%)', isFeatured: false }
     ];
+
+    // Texte saisi dans l'admin affiché tel quel, jamais interprété comme du HTML.
+    function escHtml(value) {
+      return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    // Le programme tel que le voit le visiteur : les traductions de l'admin (anglais, arabe) remplacent le
+    // français champ par champ ; un champ sans traduction reste en français. L'objet d'origine n'est jamais modifié :
+    // les décisions (badge, pays, filtres) se prennent toujours sur le français.
+    function localizeProgramme(p) {
+      const lang = window.vLang ? window.vLang() : 'fr';
+      const t = lang !== 'fr' && p.translations ? p.translations[lang] : null;
+      if (!t) return p;
+      const view = Object.assign({}, p);
+      ['title', 'country', 'degrees', 'description'].forEach(function (key) { if (t[key]) view[key] = t[key]; });
+      view.details = (p.details || []).map(function (level) {
+        const lt = t.levels && level.id ? t.levels[level.id] : null;
+        const out = Object.assign({}, level, { statusOpen: /ouverte/i.test(level.status || '') });
+        if (lt) Object.keys(lt).forEach(function (key) { if (lt[key]) out[key] = lt[key]; });
+        return out;
+      });
+      return view;
+    }
 
     const PROGRAMMES_PAGE_SIZE = 6;
     let programmesAll = PROGRAMMES_FALLBACK;
@@ -3200,7 +2909,9 @@
 
     function getFilteredProgrammes() {
       return programmesAll.filter((p) => {
-        const matchesSearch = !programmesSearch || (p.country || '').toLowerCase().includes(programmesSearch);
+        const shown = localizeProgramme(p);
+        const haystack = [(p.country || ''), (shown.country || ''), (shown.title || ''), window.vt ? window.vt(p.country || '') : ''].join(' ').toLowerCase();
+        const matchesSearch = !programmesSearch || haystack.includes(programmesSearch);
         const matchesLevel = programmesLevel === 'tous' || (p.degrees || '').toLowerCase().includes(programmesLevel);
         return matchesSearch && matchesLevel;
       });
@@ -3354,36 +3065,44 @@
       renderProgrammesPage();
     }
 
+    let avisAll = [];
+
+    // Avis dans la langue choisie : la traduction de l'admin si elle existe, sinon le texte d'origine.
+    function renderAvis() {
+      const track = document.getElementById('testi-track-container');
+      if (!track || avisAll.length === 0) return;
+      const lang = window.vLang ? window.vLang() : 'fr';
+      let cardsHtml = '';
+      avisAll.forEach((avis) => {
+        const t = lang !== 'fr' && avis.translations ? (avis.translations[lang] || {}) : {};
+        const starsHtml = Array(5).fill(0).map((_, i) => i < (avis.rating || 5) ? '★' : '☆').join('');
+        const photo = avis.author_photo ? `<img src="${escHtml(avis.author_photo)}" alt="" style="width:40px; height:40px; border-radius:50%; object-fit:cover;" />` : '';
+        cardsHtml += `
+          <div class="testi-glass-card">
+            <div class="testi-stars">${starsHtml}</div>
+            <p class="testi-quote">"${escHtml(t.content || avis.content)}"</p>
+            <div style="display:flex; align-items:center; gap:12px; margin-top:auto;">
+              ${photo}
+              <div>
+                <p class="testi-name">${escHtml(t.author_name || avis.author_name)}</p>
+                <p class="testi-role">${escHtml(t.programme || avis.programme || 'Étudiant')}</p>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      // Duplicate the html to allow infinite scrolling effect
+      track.innerHTML = cardsHtml + cardsHtml;
+    }
+
     async function loadDynamicAvis() {
       try {
         const res = await fetch(API_ORIGIN + '/api/public/avis');
         if (!res.ok) return;
         const data = await res.json();
         if (!Array.isArray(data) || data.length === 0) return;
-
-        const track = document.getElementById('testi-track-container');
-        if (!track) return;
-
-        let cardsHtml = '';
-        data.forEach((avis) => {
-          const starsHtml = Array(5).fill(0).map((_, i) => i < (avis.rating || 5) ? '★' : '☆').join('');
-          cardsHtml += `
-            <div class="testi-glass-card">
-              <div class="testi-stars">${starsHtml}</div>
-              <p class="testi-quote">"${avis.content}"</p>
-              <div style="display:flex; align-items:center; gap:12px; margin-top:auto;">
-                ${avis.author_photo ? `<img src="${avis.author_photo}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;" />` : ''}
-                <div>
-                  <p class="testi-name">${avis.author_name}</p>
-                  <p class="testi-role">${avis.programme || 'Étudiant'}</p>
-                </div>
-              </div>
-            </div>
-          `;
-        });
-
-        // Duplicate the html to allow infinite scrolling effect
-        track.innerHTML = cardsHtml + cardsHtml;
+        avisAll = data;
+        renderAvis();
       } catch (e) {
         console.warn('Avis dynamiques indisponibles.', e);
       }
@@ -3391,6 +3110,12 @@
 
     loadProgrammes();
     loadDynamicAvis();
+
+    // Changement de langue : programmes et avis (contenus de l'admin) sont réaffichés dans la nouvelle langue.
+    window.addEventListener('vitrine:lang', function () {
+      renderProgrammesPage();
+      renderAvis();
+    });
 
     /* ── Animated counters ── */
     function animateCounter(el) {
@@ -3482,7 +3207,7 @@
     </div>
 
     <!-- Messages -->
-    <div id="chat-messages"></div>
+    <div id="chat-messages" data-no-i18n></div>
 
     <!-- Suggestions rapides -->
     <div id="chat-suggestions"></div>
@@ -4048,8 +3773,8 @@
 
       /* ───── INIT BIENVENUE ───── */
       async function initChat() {
-        await typeBotMsg('👋 Bonjour ! Je suis le <strong>conseiller virtuel de SM Edu Travel</strong>.<br>Je peux répondre à vos questions sur les études à l\'étranger. Comment puis-je vous aider ?');
-        buildSuggestions(SUGGESTIONS);
+        await typeBotMsg(vt('👋 Bonjour ! Je suis le <strong>conseiller virtuel de SM Edu Travel</strong>.<br>Je peux répondre à vos questions sur les études à l\'étranger. Comment puis-je vous aider ?'));
+        buildSuggestions(SUGGESTIONS.map(vt));
       }
 
       /* ───── SUGGESTIONS ───── */
@@ -4109,7 +3834,7 @@
           .replace(/\s+/g, ' ')
           .trim();
         if (/^(bonjour+|salut+|hello+|hi+|hey+|bonsoir+|coucou+|bonsoir a tous)$/.test(n)) {
-          return '👋 Bonjour ! Je suis le <strong>conseiller virtuel de SM Edu Travel</strong>.<br>Nous vous accompagnons pour vos études à l\'étranger.<br>Quel est votre dernier diplôme, et quel pays vous intéresse ?';
+          return vt('👋 Bonjour ! Je suis le <strong>conseiller virtuel de SM Edu Travel</strong>.<br>Nous vous accompagnons pour vos études à l\'étranger.<br>Quel est votre dernier diplôme, et quel pays vous intéresse ?');
         }
         return null;
       }
@@ -4123,6 +3848,7 @@
           try {
             const url = N8N_WEBHOOK_URL
               + '?chatInput=' + encodeURIComponent(question)
+              + '&lang=' + encodeURIComponent(vLang())
               + '&sessionId=' + encodeURIComponent(getChatSessionId())
               + '&t=' + Date.now();
             const res = await fetch(url, {
@@ -4172,7 +3898,7 @@
           setSending(false);
           if (open && input) input.focus();
         }
-        buildSuggestions(['🌍 Meilleurs pays', '💶 Pays moins cher', '🏦 Compte bloqué', '🎯 Mon profil', '📞 Contact']);
+        buildSuggestions(['🌍 Meilleurs pays', '💶 Pays moins cher', '🏦 Compte bloqué', '🎯 Mon profil', '📞 Contact'].map(vt));
       };
 
       /* ───── RECHERCHE RÉPONSE ───── */
@@ -4183,7 +3909,8 @@
           let score = item.tags.reduce((s, t) => s + (norm.includes(t) ? 1 : 0), 0);
           if (score > bestScore) { bestScore = score; best = item; }
         });
-        return bestScore > 0 ? best.a : FALLBACK;
+        // Les mots-clés de la base locale sont français : en anglais ou en arabe, on oriente vers l'équipe.
+        return bestScore > 0 && vLang() === 'fr' ? best.a : vt(FALLBACK);
       }
 
       /* ───── AJOUTER MESSAGES ───── */
@@ -4351,7 +4078,7 @@
         <!-- Grille de caractéristiques premium -->
         <div class="dm-program-details" id="dmProgramDetails"></div>
 
-        <a href="https://wa.me/21656819899?text=Bonjour%20SM%20Travel%2C%20je%20souhaite%20des%20informations%20sur%20un%20programme." target="_blank" rel="noopener noreferrer" class="dm-cta" id="dmCta">
+        <a href="https://wa.me/21656819899?text=Bonjour%20SM%20Edu%20Travel%2C%20je%20souhaite%20des%20informations%20sur%20un%20programme." target="_blank" rel="noopener noreferrer" class="dm-cta" id="dmCta">
           Nous contacter
           <span class="material-symbols-outlined" style="font-size:18px">arrow_forward</span>
         </a>
@@ -4585,7 +4312,7 @@
 
         dmDesc.textContent = p.desc;
 
-        var isStatusOpen = p.details.status && p.details.status.toLowerCase().indexOf('ouverte') !== -1;
+        var isStatusOpen = p.statusOpen !== undefined ? p.statusOpen : (p.details.status && p.details.status.toLowerCase().indexOf('ouverte') !== -1);
         var statusClass = isStatusOpen ? 'status-open' : '';
 
         var html = '';
@@ -4696,7 +4423,7 @@
           var dynamicData = null;
           if (article && article.dataset.programmeJson) {
             try {
-              var p = JSON.parse(article.dataset.programmeJson);
+              var p = localizeProgramme(JSON.parse(article.dataset.programmeJson));
               if (p.details && p.details.length > 0) {
                 dynamicData = {
                   title: p.title,

@@ -8,8 +8,10 @@ import {
   updateAvis,
   type Avis,
   type AvisPayload,
-  type AvisStatus
+  type AvisStatus,
+  type AvisTranslations
 } from "@/lib/auth";
+import { LanguageTabs, TranslationField, type EditLang } from "@/components/admin/LanguageTabs";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -54,6 +56,12 @@ export default function AdminAvisPage() {
   const [programme, setProgramme] = useState("");
   const [rating, setRating] = useState(5);
   const [content, setContent] = useState("");
+  // Langue d'écriture (français = texte principal) et traductions anglaise / arabe.
+  const [lang, setLang] = useState<EditLang>("fr");
+  const [translations, setTranslations] = useState<AvisTranslations>({});
+  const setTranslation = (code: "en" | "ar", key: "content" | "programme" | "author_name", value: string) =>
+    setTranslations((prev) => ({ ...prev, [code]: { ...(prev[code] || {}), [key]: value } }));
+  const hasTranslation = (code: "en" | "ar") => Object.values(translations[code] || {}).some(Boolean);
 
   const loadAvis = async () => {
     try {
@@ -79,6 +87,8 @@ export default function AdminAvisPage() {
     setProgramme("");
     setRating(5);
     setContent("");
+    setLang("fr");
+    setTranslations({});
     setModalOpen(true);
   };
 
@@ -90,6 +100,8 @@ export default function AdminAvisPage() {
     setProgramme(a.programme || "");
     setRating(a.rating || 5);
     setContent(a.content || "");
+    setLang("fr");
+    setTranslations(a.translations || {});
     setModalOpen(true);
   };
 
@@ -110,7 +122,8 @@ export default function AdminAvisPage() {
         author_photo: authorPhoto,
         programme: programme,
         rating,
-        content
+        content,
+        translations
       };
 
       if (editingId) {
@@ -457,7 +470,39 @@ export default function AdminAvisPage() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
-              <form id="avisForm" onSubmit={handleSubmit} className="space-y-5">
+              <form id="avisForm" onSubmit={handleSubmit} onInvalidCapture={() => setLang("fr")} className="space-y-5">
+                <LanguageTabs value={lang} onChange={setLang} filled={{ en: hasTranslation("en"), ar: hasTranslation("ar") }} />
+
+                {lang !== "fr" && (
+                  <div className="space-y-4">
+                    <TranslationField
+                      label="Témoignage"
+                      original={content}
+                      value={translations[lang]?.content || ""}
+                      onChange={(v) => setTranslation(lang, "content", v)}
+                      lang={lang}
+                      multiline
+                      rows={5}
+                    />
+                    <TranslationField
+                      label="Programme / Université"
+                      original={programme}
+                      value={translations[lang]?.programme || ""}
+                      onChange={(v) => setTranslation(lang, "programme", v)}
+                      lang={lang}
+                    />
+                    <TranslationField
+                      label="Nom de l'auteur (facultatif)"
+                      original={authorName}
+                      value={translations[lang]?.author_name || ""}
+                      onChange={(v) => setTranslation(lang, "author_name", v)}
+                      lang={lang}
+                      placeholder={lang === "ar" ? "الاسم بالأحرف العربية" : undefined}
+                    />
+                  </div>
+                )}
+
+                <div className={cn("space-y-5", lang !== "fr" && "hidden")}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold uppercase tracking-wider text-muted">Nom de l'auteur *</label>
@@ -530,6 +575,7 @@ export default function AdminAvisPage() {
                     className="w-full resize-none rounded-xl border border-line bg-white px-4 py-3 text-sm font-semibold text-dark outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10"
                     placeholder="L'expérience était incroyable..."
                   />
+                </div>
                 </div>
               </form>
             </div>

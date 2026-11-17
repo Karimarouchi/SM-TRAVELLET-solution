@@ -1,4 +1,5 @@
 const avisRepository = require('../repositories/avisRepository');
+const { cleanAvisTranslations } = require('./contentTranslations');
 
 class AvisService {
   async getAllAvis(status) {
@@ -16,6 +17,7 @@ class AvisService {
     
     return await avisRepository.create({
       ...data,
+      translations: cleanAvisTranslations(data.translations),
       source: 'manual',
       status: 'approved' // Manuel est approuvé par défaut
     });
@@ -41,7 +43,9 @@ class AvisService {
     const existing = await avisRepository.findById(id);
     if (!existing) throw new Error('Avis non trouvé');
     
-    return await avisRepository.update(id, data);
+    // Traductions absentes de la requête : celles déjà enregistrées sont conservées.
+    const translations = data.translations === undefined ? undefined : cleanAvisTranslations(data.translations);
+    return await avisRepository.update(id, { ...data, translations });
   }
 
   async updateStatus(id, status) {

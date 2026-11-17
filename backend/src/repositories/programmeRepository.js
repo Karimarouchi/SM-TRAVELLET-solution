@@ -2,7 +2,7 @@ const { query } = require("../../db");
 
 async function findAll() {
   const result = await query(
-    `SELECT id, title, country, country_id, degrees, description, image_url, badge, status_label, gradient_style, is_featured, display_order, details, created_at, updated_at
+    `SELECT id, title, country, country_id, degrees, description, image_url, badge, status_label, gradient_style, is_featured, display_order, details, translations, created_at, updated_at
      FROM programmes
      ORDER BY display_order ASC, created_at ASC`
   );
@@ -11,7 +11,7 @@ async function findAll() {
 
 async function findById(id) {
   const result = await query(
-    `SELECT id, title, country, country_id, degrees, description, image_url, badge, status_label, gradient_style, is_featured, display_order, details, created_at, updated_at
+    `SELECT id, title, country, country_id, degrees, description, image_url, badge, status_label, gradient_style, is_featured, display_order, details, translations, created_at, updated_at
      FROM programmes
      WHERE id = $1`,
     [id]
@@ -32,14 +32,15 @@ async function create(data) {
     gradientStyle = "linear-gradient(135deg,#0f172a 0%,#4c1d95 52%,#1d4ed8 100%)",
     isFeatured = false,
     displayOrder = 0,
-    details = []
+    details = [],
+    translations = {}
   } = data;
 
   const result = await query(
-    `INSERT INTO programmes (title, country, country_id, degrees, description, image_url, badge, status_label, gradient_style, is_featured, display_order, details, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
-     RETURNING id, title, country, country_id, degrees, description, image_url, badge, status_label, gradient_style, is_featured, display_order, details, created_at, updated_at`,
-    [title, country, countryId, degrees, description, imageUrl, badge, statusLabel, gradientStyle, isFeatured, displayOrder, JSON.stringify(details)]
+    `INSERT INTO programmes (title, country, country_id, degrees, description, image_url, badge, status_label, gradient_style, is_featured, display_order, details, translations, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
+     RETURNING id, title, country, country_id, degrees, description, image_url, badge, status_label, gradient_style, is_featured, display_order, details, translations, created_at, updated_at`,
+    [title, country, countryId, degrees, description, imageUrl, badge, statusLabel, gradientStyle, isFeatured, displayOrder, JSON.stringify(details), JSON.stringify(translations)]
   );
   return result.rows[0];
 }
@@ -57,7 +58,8 @@ async function update(id, data) {
     gradientStyle,
     isFeatured,
     displayOrder,
-    details
+    details,
+    translations
   } = data;
 
   const result = await query(
@@ -74,10 +76,11 @@ async function update(id, data) {
          is_featured = $10,
          display_order = $11,
          details = $12,
+         translations = $14::jsonb,
          updated_at = NOW()
      WHERE id = $13
-     RETURNING id, title, country, country_id, degrees, description, image_url, badge, status_label, gradient_style, is_featured, display_order, details, created_at, updated_at`,
-    [title, country, countryId, degrees, description, imageUrl, badge, statusLabel, gradientStyle, isFeatured, displayOrder, JSON.stringify(details), id]
+     RETURNING id, title, country, country_id, degrees, description, image_url, badge, status_label, gradient_style, is_featured, display_order, details, translations, created_at, updated_at`,
+    [title, country, countryId, degrees, description, imageUrl, badge, statusLabel, gradientStyle, isFeatured, displayOrder, JSON.stringify(details), id, JSON.stringify(translations || {})]
   );
   return result.rows[0] || null;
 }

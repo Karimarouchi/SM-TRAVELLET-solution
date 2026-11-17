@@ -1,0 +1,170 @@
+/* Vitrine : sélecteur de langue (FR / EN / عربي) et adaptations de l'écriture de droite à gauche. */
+
+/* ── Sélecteur de langue ─────────────────────────────────────────────── */
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1.5px solid rgba(255, 255, 255, .55);
+  border-radius: 999px;
+  transition: border-color .4s ease;
+}
+
+.lang-switch button {
+  min-width: 34px;
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  font: 700 12px/1.2 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: .02em;
+  cursor: pointer;
+  transition: background .2s ease, color .2s ease;
+}
+
+.lang-switch button:hover {
+  background: rgba(255, 255, 255, .22);
+}
+
+.lang-switch button.is-active {
+  background: #fff;
+  color: #6d28d9;
+}
+
+/* Barre de navigation devenue blanche (après défilement). */
+#navbar.scrolled .lang-switch {
+  border-color: #cbd5e1;
+}
+
+#navbar.scrolled .lang-switch button {
+  color: #334155;
+}
+
+#navbar.scrolled .lang-switch button:hover {
+  background: #f1f5f9;
+}
+
+#navbar.scrolled .lang-switch button.is-active {
+  background: #6d28d9;
+  color: #fff;
+}
+
+/* Petits écrans : sélecteur plus compact. */
+@media (max-width: 420px) {
+  .lang-switch button {
+    min-width: 28px;
+    padding: 4px 7px;
+    font-size: 11px;
+  }
+}
+
+/* Barre de navigation : jamais de texte coupé sur deux lignes. */
+#navbar .nav-link,
+#navbar .nav-auth-btn {
+  white-space: nowrap;
+}
+
+/* Entre 768 et 1100 px la barre est serrée : espacements et boutons plus compacts. */
+@media (min-width: 768px) and (max-width: 1100px) {
+  #navbar .max-w-7xl {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  #navLinks {
+    gap: .85rem !important;
+  }
+
+  #navbar .nav-link {
+    font-size: .8rem;
+  }
+
+  #navbar .lang-switch button {
+    min-width: 26px;
+    padding: 4px 6px;
+    font-size: 11px;
+  }
+
+  #navAuth {
+    gap: .4rem !important;
+  }
+
+  #navAuth .nav-auth-btn {
+    padding: .45rem .8rem;
+    font-size: .78rem;
+    border-width: 1.5px;
+  }
+
+  #navAuth .nav-auth-btn .material-symbols-outlined {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 880px) {
+  #navLinks {
+    gap: .6rem !important;
+  }
+
+  #navbar .nav-link {
+    font-size: .74rem;
+  }
+}
+
+/* ── Arabe : police, sens d'écriture, détails ────────────────────────── */
+html[lang="ar"] body,
+html[lang="ar"] body *:not(.material-symbols-outlined):not(svg):not(path) {
+  font-family: 'Cairo', 'Plus Jakarta Sans', sans-serif !important;
+  letter-spacing: 0 !important;
+}
+
+/* Les majuscules espacées n'existent pas en arabe. */
+html[lang="ar"] .uppercase {
+  text-transform: none !important;
+}
+
+/* Numéros, adresses e-mail et marque restent lisibles de gauche à droite. */
+html[dir="rtl"] a[href^="tel:"],
+html[dir="rtl"] a[href^="mailto:"],
+html[dir="rtl"] a[href*="wa.me"] {
+  unicode-bidi: plaintext;
+}
+
+/* Le numéro et l'adresse restent lisibles de gauche à droite ; l'icône reste à droite de la ligne. */
+html[dir="rtl"] a[href^="tel:"],
+html[dir="rtl"] a[href^="mailto:"] {
+  direction: ltr;
+  flex-direction: row-reverse;
+}
+
+/* La frise de la méthode se remplit de droite à gauche. */
+html[dir="rtl"] .methode-connector {
+  transform-origin: right center;
+  background: linear-gradient(270deg, #7c3aed, #06b6d4);
+}
+
+/* Défilement des avis : la bande reste de gauche à droite, le texte des cartes se lit de droite à gauche. */
+html[dir="rtl"] .testi-track {
+  direction: ltr;
+}
+
+html[dir="rtl"] .testi-glass-card {
+  direction: rtl;
+}
+
+html[dir="rtl"] .lang-switch {
+  direction: ltr;
+}
+
+/* Contenus saisis par l'équipe (avis, programmes) : chaque paragraphe prend le sens de sa propre langue,
+   un avis écrit en français reste aligné et ponctué comme du français sur une page en arabe. */
+html[dir="rtl"] .testi-quote,
+html[dir="rtl"] .testi-name,
+html[dir="rtl"] .testi-role,
+html[dir="rtl"] #programmes .card h3,
+html[dir="rtl"] #programmes .card p,
+html[dir="rtl"] .dm-desc,
+html[dir="rtl"] .dm-detail-card .detail-val {
+  unicode-bidi: plaintext;
+}

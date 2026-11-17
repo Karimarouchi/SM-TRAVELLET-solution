@@ -21,8 +21,8 @@ class AvisRepository {
   async create(data) {
     const sql = `
       INSERT INTO avis (
-        author_name, author_country, author_photo, programme, rating, content, source, student_id, status, display_order
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        author_name, author_country, author_photo, programme, rating, content, source, student_id, status, display_order, translations
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)
       RETURNING *
     `;
     const params = [
@@ -35,7 +35,8 @@ class AvisRepository {
       data.source || 'manual',
       data.student_id,
       data.status || 'pending',
-      data.display_order || 0
+      data.display_order || 0,
+      JSON.stringify(data.translations || {})
     ];
     const result = await query(sql, params);
     return result.rows[0];
@@ -52,6 +53,7 @@ class AvisRepository {
         content = COALESCE($6, content),
         status = COALESCE($7, status),
         display_order = COALESCE($8, display_order),
+        translations = COALESCE($10::jsonb, translations),
         updated_at = now()
       WHERE id = $9
       RETURNING *
@@ -65,7 +67,8 @@ class AvisRepository {
       data.content,
       data.status,
       data.display_order,
-      id
+      id,
+      data.translations === undefined ? null : JSON.stringify(data.translations)
     ];
     const result = await query(sql, params);
     return result.rows[0];
