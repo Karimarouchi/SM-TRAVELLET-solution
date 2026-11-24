@@ -526,6 +526,8 @@ export type AdminSettings = {
   invoiceLastNumber: number;
   /** Taux de TVA (%) appliqué aux nouvelles factures : le montant payé est un montant TTC. */
   invoiceVatRate: number;
+  /** Timbre fiscal (DT) porté sur chaque facture en dinars ; inclus dans le total TTC. */
+  invoiceStampDuty: number;
 };
 
 export type QuickReply = { shortcut: string; text: string };

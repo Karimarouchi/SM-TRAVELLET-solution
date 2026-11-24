@@ -19,7 +19,7 @@ const AGENCY = {
   taxId: "1915331L",
   address: "4 Bis Rue du Mali, 4e étage, bureau n°4, Jeanne d’Arc, Tunis 1002, Tunisie",
   phone: "+216 56 819 899",
-  email: "services@smtravel.fr",
+  email: "contact@smedutravel.com",
   website: "www.smedutravel.com"
 };
 
@@ -70,17 +70,41 @@ async function setVatRate(value) {
   await settingsRepo.set("invoice_vat_rate", String(Math.round(rate * 100) / 100));
 }
 
-// Hors taxe de chaque ligne et totaux. Le total TTC est exactement la somme payée ; l'arrondi du HT
-// (au millime, ou au centime en euro) est reporté sur la dernière ligne pour que les colonnes s'additionnent.
-function computeTotals(amounts, rate, currency) {
+// ── Timbre fiscal ──
+// Droit de timbre porté sur la facture (1 DT par défaut, réglable dans Paramètres). Il n'est pas soumis à la TVA.
+const DEFAULT_STAMP_DUTY = 1;
+
+async function getStampDuty() {
+  const raw = await settingsRepo.get("invoice_stamp_duty");
+  const value = Number(raw);
+  return raw !== null && Number.isFinite(value) && value >= 0 && value <= 1000 ? value : DEFAULT_STAMP_DUTY;
+}
+
+async function setStampDuty(value) {
+  const stamp = Number(String(value ?? "").replace(",", "."));
+  if (!Number.isFinite(stamp) || stamp < 0 || stamp > 1000) throw fail("Le timbre fiscal doit être compris entre 0 et 1 000 DT.", 400);
+  await settingsRepo.set("invoice_stamp_duty", String(Math.round(stamp * 1000) / 1000));
+}
+
+// Hors taxe de chaque ligne et totaux. Le total TTC est exactement la somme payée : hors taxe + TVA + timbre fiscal.
+// Le timbre n'est pas soumis à la TVA, la TVA se calcule donc sur le reste. Les arrondis (au millime, ou au centime
+// en euro) sont reportés sur la dernière ligne pour que les colonnes s'additionnent.
+function computeTotals(amounts, rate, currency, stampDuty = 0) {
   const decimals = decimalsOf(currency);
   const factor = 1 + Number(rate) / 100;
-  const ttc = roundTo(amounts.reduce((sum, value) => sum + Number(value), 0), decimals);
-  const ht = roundTo(ttc / factor, decimals);
-  const lineHt = amounts.map((value) => roundTo(Number(value) / factor, decimals));
+  const paid = roundTo(amounts.reduce((sum, value) => sum + Number(value), 0), decimals);
+  // Le timbre ne dépasse jamais la somme payée.
+  const stamp = currency === "EUR" ? 0 : Math.min(roundTo(stampDuty, decimals), paid);
+  const taxable = roundTo(paid - stamp, decimals);
+  const ht = roundTo(taxable / factor, decimals);
+  // Part de chaque ligne dans la base taxable (au prorata de son paiement).
+  const share = amounts.map((value) => (paid > 0 ? roundTo((taxable * Number(value)) / paid, decimals) : 0));
+  const shareDrift = roundTo(taxable - share.reduce((sum, value) => sum + value, 0), decimals);
+  if (share.length) share[share.length - 1] = roundTo(share[share.length - 1] + shareDrift, decimals);
+  const lineHt = share.map((value) => roundTo(value / factor, decimals));
   const drift = roundTo(ht - lineHt.reduce((sum, value) => sum + value, 0), decimals);
   if (lineHt.length) lineHt[lineHt.length - 1] = roundTo(lineHt[lineHt.length - 1] + drift, decimals);
-  return { lineHt, ht, vat: roundTo(ttc - ht, decimals), ttc };
+  return { lineHt, ht, vat: roundTo(taxable - ht, decimals), stamp, ttc: paid };
 }
 
 // ── Liste : étudiants, paiements facturables, factures ──
@@ -193,10 +217,11 @@ async function createInvoice(auth, { studentId, paymentIds }) {
     const number = invoiceNumber(year, counter.rows[0].last_number);
     const total = money(rows.reduce((sum, r) => sum + Number(r.amount), 0));
     const vatRate = await getVatRate();
+    const stampDuty = rows[0].currency === "EUR" ? 0 : await getStampDuty();
     const invoice = await client.query(
-      `INSERT INTO invoices (invoice_number, student_id, currency, total, issued_by, vat_rate)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, invoice_number, issued_at`,
-      [number, studentId, rows[0].currency, total, auth.sub, vatRate]
+      `INSERT INTO invoices (invoice_number, student_id, currency, total, issued_by, vat_rate, stamp_duty)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, invoice_number, issued_at`,
+      [number, studentId, rows[0].currency, total, auth.sub, vatRate, stampDuty]
     );
     for (const row of rows) {
       await client.query("INSERT INTO invoice_lines (invoice_id, payment_id) VALUES ($1, $2)", [invoice.rows[0].id, row.id]);
@@ -273,7 +298,8 @@ function drawInvoice(doc, { invoice, lines }) {
   const width = right - left;
   const currency = invoice.currency;
   const rate = invoice.vat_rate === null || invoice.vat_rate === undefined ? DEFAULT_VAT_RATE : Number(invoice.vat_rate);
-  const totals = computeTotals(lines.map((line) => line.amount), rate, currency);
+  const stampDuty = invoice.stamp_duty === null || invoice.stamp_duty === undefined ? (currency === "EUR" ? 0 : DEFAULT_STAMP_DUTY) : Number(invoice.stamp_duty);
+  const totals = computeTotals(lines.map((line) => line.amount), rate, currency, stampDuty);
 
   // En-tête : logo à gauche, numéro et date à droite
   try {
@@ -317,12 +343,11 @@ function drawInvoice(doc, { invoice, lines }) {
   // Prestations : prix unitaire hors taxe, TVA, total HT et TTC
   let y = boxTop + 140;
   const cols = [
-    { label: "Désignation", x: left + 10, w: 152, align: "left" },
-    { label: "Qté", x: left + 166, w: 24, align: "center" },
-    { label: "P.U. HT", x: left + 194, w: 70, align: "right" },
-    { label: "TVA", x: left + 268, w: 34, align: "center" },
-    { label: "Total HT", x: left + 306, w: 72, align: "right" },
-    { label: "Total TTC", x: left + 382, w: width - 392, align: "right" }
+    { label: "Désignation", x: left + 10, w: 200, align: "left" },
+    { label: "Qté", x: left + 214, w: 30, align: "center" },
+    { label: "P.U. HT", x: left + 250, w: 90, align: "right" },
+    { label: "TVA", x: left + 346, w: 44, align: "center" },
+    { label: "Total HT", x: left + 396, w: width - 406, align: "right" }
   ];
   doc.roundedRect(left, y, width, 26, 6).fillColor(PURPLE).fill();
   doc.font("Helvetica-Bold").fontSize(8.5).fillColor("#ffffff");
@@ -342,8 +367,7 @@ function drawInvoice(doc, { invoice, lines }) {
     doc.text("1", cols[1].x, y + 2, { width: cols[1].w, align: "center" });
     doc.text(formatAmount(totals.lineHt[index], currency), cols[2].x, y + 2, { width: cols[2].w, align: "right" });
     doc.text(percent(rate), cols[3].x, y + 2, { width: cols[3].w, align: "center" });
-    doc.text(formatAmount(totals.lineHt[index], currency), cols[4].x, y + 2, { width: cols[4].w, align: "right" });
-    doc.font("Helvetica-Bold").text(formatAmount(line.amount, currency), cols[5].x, y + 2, { width: cols[5].w, align: "right" });
+    doc.font("Helvetica-Bold").text(formatAmount(totals.lineHt[index], currency), cols[4].x, y + 2, { width: cols[4].w, align: "right" });
     y += rowHeight;
   });
 
@@ -378,7 +402,7 @@ function drawInvoice(doc, { invoice, lines }) {
 
   // Totaux : hors taxe, TVA, TTC
   y += 14;
-  if (y + 150 > doc.page.height - 100) {
+  if (y + 170 > doc.page.height - 100) {
     doc.addPage();
     y = 60;
   }
@@ -390,6 +414,7 @@ function drawInvoice(doc, { invoice, lines }) {
   };
   row("Total HT", formatAmount(totals.ht, currency));
   row(`TVA (${percent(rate)})`, formatAmount(totals.vat, currency));
+  if (totals.stamp > 0) row("Timbre fiscal", formatAmount(totals.stamp, currency));
   doc.moveTo(totalsLeft, y - 2).lineTo(right, y - 2).lineWidth(0.6).strokeColor("#e2e8f0").stroke();
   y += 4;
   doc.roundedRect(totalsLeft, y, 230, 46, 8).fillColor(PURPLE).fill();
@@ -408,10 +433,10 @@ function drawInvoice(doc, { invoice, lines }) {
   );
 
   // Pied de page
-  const footerY = doc.page.height - 84;
+  const footerY = doc.page.height - 92;
   doc.moveTo(left, footerY).lineTo(right, footerY).lineWidth(0.6).strokeColor("#e2e8f0").stroke();
   doc.font("Helvetica").fontSize(7.5).fillColor(GREY).text(
-    `${AGENCY.company} (${AGENCY.legalForm}) · MF ${AGENCY.taxId} · ${AGENCY.address}\n${AGENCY.phone} · ${AGENCY.email} · ${AGENCY.website}`,
+    `${AGENCY.company} (${AGENCY.legalForm}) · Matricule fiscal : ${AGENCY.taxId}\n${AGENCY.address}\nTél. : ${AGENCY.phone} · E-mail : ${AGENCY.email} · ${AGENCY.website}`,
     left,
     footerY + 10,
     { width, align: "center", lineGap: 3 }
@@ -427,4 +452,4 @@ async function renderPdf(invoiceId, stream) {
   return data.invoice.invoice_number;
 }
 
-module.exports = { listStudents, createInvoice, renderPdf, loadInvoice, getInvoiceCounter, setInvoiceCounter, getVatRate, setVatRate, computeTotals };
+module.exports = { listStudents, createInvoice, renderPdf, loadInvoice, getInvoiceCounter, setInvoiceCounter, getVatRate, setVatRate, getStampDuty, setStampDuty, computeTotals };

@@ -51,6 +51,7 @@ export default function AdminSettingsPage() {
   const [vatRate, setVatRate] = useState("19");
   const [vatSaving, setVatSaving] = useState(false);
   const [vatSaved, setVatSaved] = useState(false);
+  const [stampDuty, setStampDuty] = useState("1");
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
   const [quickSaving, setQuickSaving] = useState(false);
   const [quickSaved, setQuickSaved] = useState(false);
@@ -88,6 +89,7 @@ export default function AdminSettingsPage() {
         setQuickReplies(data.whatsappQuickReplies || []);
         setInvoiceNumber(String(data.invoiceLastNumber ?? 0));
         setVatRate(String(data.invoiceVatRate ?? 19));
+        setStampDuty(String(data.invoiceStampDuty ?? 1));
         setAutoReply({ enabled: data.whatsappAutoReplyEnabled !== false, text: data.whatsappAutoReplyText || "" });
         setWelcome({ enabled: data.whatsappWelcomeEnabled !== false, text: data.whatsappWelcomeText || "" });
       })
@@ -200,9 +202,10 @@ export default function AdminSettingsPage() {
     setError("");
     setVatSaved(false);
     try {
-      const updated = await updateAdminSettings({ invoiceVatRate: Number(vatRate.replace(",", ".")) });
+      const updated = await updateAdminSettings({ invoiceVatRate: Number(vatRate.replace(",", ".")), invoiceStampDuty: Number(stampDuty.replace(",", ".")) });
       setSettings(updated);
       setVatRate(String(updated.invoiceVatRate));
+      setStampDuty(String(updated.invoiceStampDuty));
       setVatSaved(true);
       window.setTimeout(() => setVatSaved(false), 2500);
     } catch (err) {
@@ -611,18 +614,21 @@ export default function AdminSettingsPage() {
           {/* ── TVA des factures ──────────────────────────────────────────── */}
           {(() => {
             const rate = Number(vatRate.replace(",", "."));
-            const valid = Number.isFinite(rate) && rate >= 0 && rate <= 100;
+            const stamp = Number(stampDuty.replace(",", "."));
+            const valid = Number.isFinite(rate) && rate >= 0 && rate <= 100 && Number.isFinite(stamp) && stamp >= 0 && stamp <= 1000;
             const sample = 2000;
-            const ht = valid ? Math.round((sample / (1 + rate / 100)) * 1000) / 1000 : 0;
-            const tva = valid ? Math.round((sample - ht) * 1000) / 1000 : 0;
+            // Le timbre n'est pas soumis à la TVA : la TVA se calcule sur le reste.
+            const taxable = valid ? sample - stamp : 0;
+            const ht = valid ? Math.round((taxable / (1 + rate / 100)) * 1000) / 1000 : 0;
+            const tva = valid ? Math.round((taxable - ht) * 1000) / 1000 : 0;
             const fmt = (n: number) => `${n.toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT`;
             return (
               <section className="mt-4 rounded-[24px] border border-line bg-white p-6">
                 <h2 className="flex items-center gap-2 font-display text-xl font-bold text-dark">
-                  <FileText className="h-5 w-5 text-brand" /> TVA des factures
+                  <FileText className="h-5 w-5 text-brand" /> TVA et timbre fiscal des factures
                 </h2>
                 <p className="mt-1 text-xs text-muted">
-                  Le montant encaissé est un montant <strong>TTC</strong> : la facture en déduit le hors taxe et la TVA, sans changer le total payé. Le taux est figé sur chaque facture à son émission : le modifier ne touche que les factures suivantes.
+                  Le montant encaissé est un montant <strong>TTC</strong> : la facture en déduit le hors taxe, la TVA et le timbre fiscal, sans changer le total payé. Le timbre fiscal (en dinars, non soumis à la TVA) s'ajoute sur chaque facture en dinars. Taux et timbre sont figés sur chaque facture à son émission : les modifier ne touche que les factures suivantes.
                 </p>
                 <label className="mt-4 block max-w-xs">
                   <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Taux de TVA</span>
@@ -637,7 +643,20 @@ export default function AdminSettingsPage() {
                     <span className="shrink-0 text-sm font-semibold text-muted">%</span>
                   </span>
                 </label>
-                <div className="mt-2 flex flex-wrap gap-1.5">
+                <label className="mt-4 block max-w-xs">
+                  <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Timbre fiscal</span>
+                  <span className="flex items-center rounded-xl border border-line bg-slate-50 px-3">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={stampDuty}
+                      onChange={(e) => setStampDuty(e.target.value)}
+                      className="w-full border-0 bg-transparent px-1 py-2.5 text-sm font-semibold text-dark outline-none"
+                    />
+                    <span className="shrink-0 text-sm font-semibold text-muted">DT</span>
+                  </span>
+                </label>
+                <div className="mt-3 flex flex-wrap gap-1.5">
                   {["19", "13", "7", "0"].map((preset) => (
                     <button key={preset} type="button" onClick={() => setVatRate(preset)} className={cn("rounded-full border px-3 py-1 text-xs font-bold transition", vatRate === preset ? "border-brand bg-brand text-white" : "border-line bg-white text-mid hover:border-brand hover:text-brand")}>
                       {preset} %
@@ -646,16 +665,16 @@ export default function AdminSettingsPage() {
                 </div>
                 <p className={cn("mt-3 rounded-xl px-3 py-2 text-xs font-semibold", valid ? "bg-violet-50 text-violet-900" : "bg-red-50 text-red-600")}>
                   {valid
-                    ? `Exemple : un paiement de ${fmt(sample)} → hors taxe ${fmt(ht)}, TVA ${fmt(tva)}, total TTC ${fmt(sample)}.`
-                    : "Indiquez un taux entre 0 et 100 %."}
+                    ? `Exemple : un paiement de ${fmt(sample)} → hors taxe ${fmt(ht)}, TVA ${fmt(tva)}, timbre fiscal ${fmt(stamp)}, total TTC ${fmt(sample)}.`
+                    : "Indiquez un taux de TVA entre 0 et 100 % et un timbre entre 0 et 1 000 DT."}
                 </p>
                 <div className="mt-5 flex items-center gap-3">
                   <button type="button" disabled={vatSaving || !valid} onClick={saveVatRate} className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white disabled:opacity-60">
-                    <Save className="h-4 w-4" /> {vatSaving ? "Enregistrement..." : "Enregistrer le taux"}
+                    <Save className="h-4 w-4" /> {vatSaving ? "Enregistrement..." : "Enregistrer TVA et timbre"}
                   </button>
                   {vatSaved && (
                     <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
-                      <CheckCircle2 className="h-4 w-4" /> Taux enregistré
+                      <CheckCircle2 className="h-4 w-4" /> Enregistré
                     </span>
                   )}
                 </div>
