@@ -1,4 +1,4 @@
-import { completeApplicationInterview, type PaymentPlan, type UniversityApplication } from "@/lib/auth";
+import { completeApplicationInterview, type PaymentPlan, type StudentInterview, type UniversityApplication } from "@/lib/auth";
 import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { Check, GraduationCap, Plane, X } from "lucide-react";
@@ -18,6 +18,7 @@ export default function DossierProgress({
   dossierStage,
   applications,
   plans,
+  interview,
   selectedId,
   onSelect,
   onRefresh
@@ -25,6 +26,7 @@ export default function DossierProgress({
   dossierStage: string;
   applications: UniversityApplication[];
   plans?: PaymentPlan[];
+  interview?: StudentInterview | null;
   selectedId: string | null;
   onSelect: (id: string) => void;
   onRefresh: () => void;
@@ -59,7 +61,7 @@ export default function DossierProgress({
     </div>
   ) : null;
 
-  const { steps, headline, tone } = buildSteps({ dossierStage, application, t, interviewAction, plans });
+  const { steps, headline, tone } = buildSteps({ dossierStage, application, t, interviewAction, plans, interview });
   const several = applications.length > 1;
 
   return (

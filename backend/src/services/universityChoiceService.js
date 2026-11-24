@@ -5,6 +5,7 @@ const documentRepo = require("../repositories/documentRequirementRepository");
 const countryRepo = require("../repositories/countryRepository");
 const studentRepo = require("../repositories/studentRepository");
 const appRepo = require("../repositories/universityApplicationRepository");
+const interviewRepo = require("../repositories/studentInterviewRepository");
 const userRepo = require("../repositories/userRepository");
 const countryUniversityService = require("./countryUniversityService");
 const notificationService = require("./notificationService");
@@ -165,6 +166,7 @@ async function addChoice(auth, studentId, payload) {
     }
   });
 
+  await interviewRepo.completeOpenForStudentCountry(studentId, country.id).catch(() => undefined);
   await choiceRepo.addPreferredCountry(studentId, country.name);
   await notifyAdvisorOfNewChoice({ studentId, profile, university, country, fieldOfStudy, createdUniversity, actor: actorRole }).catch((err) => {
     logger.error("Échec de la notification d'un nouveau vœu", { message: err.message });
@@ -183,8 +185,11 @@ async function addChoice(auth, studentId, payload) {
 async function removeChoice(auth, choiceId) {
   const choice = await choiceRepo.findById(choiceId);
   if (!choice) throw fail("Candidature introuvable.", 404);
-  if (authRoles(auth).includes("STUDENT") && auth.sub !== choice.student_id) throw fail("Accès refusé.", 403);
-  await assertStudentAccess(auth, choice.student_id);
+  const roles = authRoles(auth);
+  if (roles.includes("STUDENT") && auth.sub !== choice.student_id) throw fail("Accès refusé.", 403);
+  if (roles.includes("STUDENT") && choice.added_by_role === "RDV") throw fail("Cette université a été choisie avec votre Responsable Dossier : contactez-le pour la modifier.", 403);
+  if (roles.includes("RDV") && !roles.includes("ADMIN")) await assertRdvAccess(auth, choice.student_id);
+  else await assertStudentAccess(auth, choice.student_id);
   if (choice.withdrawn_at) throw fail("Cette candidature est déjà retirée.", 400);
   if (choice.application_status && choice.application_status !== "READY_TO_APPLY") {
     throw fail("Cette candidature a déjà été déposée auprès de l'université : elle ne peut plus être retirée.", 400);

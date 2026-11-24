@@ -1,4 +1,4 @@
-import { formatMoney, type PaymentPlan, type UniversityApplication } from "@/lib/auth";
+import { formatMoney, type PaymentPlan, type StudentInterview, type UniversityApplication } from "@/lib/auth";
 import { AlertTriangle, Calendar, ExternalLink } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -27,7 +27,8 @@ export function buildSteps({
   application,
   t,
   interviewAction,
-  plans = []
+  plans = [],
+  interview = null
 }: {
   dossierStage: string;
   application: UniversityApplication | null;
@@ -35,6 +36,8 @@ export function buildSteps({
   interviewAction?: ReactNode;
   /** Plans de paiement de l'étudiant : la tranche inscription non réglée bloque le dépôt. */
   plans?: PaymentPlan[];
+  /** Entretien d'orientation avec le Responsable Dossier (choix de l'université). */
+  interview?: StudentInterview | null;
 }): StepsResult {
   const documentsDone = dossierStage !== "DOCUMENTS";
   const readyDone = Boolean(application);
@@ -47,7 +50,20 @@ export function buildSteps({
 
   const steps: TimelineStep[] = [
     { key: "documents", label: t("Dépôt des documents", "Document submission"), state: documentsDone ? "done" : "current" },
-    { key: "ready", label: t("Dossier prêt à postuler", "File ready to apply"), state: readyDone ? "done" : documentsDone ? "current" : "upcoming" }
+    {
+      key: "orientation",
+      label: t("Entretien d'orientation · choix de l'université", "Orientation interview · university choice"),
+      state: readyDone ? "done" : documentsDone ? "current" : "upcoming",
+      detail:
+        !readyDone && documentsDone ? (
+          <p className="mt-0.5 text-xs text-mid">
+            {interview?.status === "SCHEDULED" && interview.scheduledAt
+              ? t(`Entretien prévu le ${new Date(interview.scheduledAt).toLocaleString("fr-FR")} avec votre Responsable Dossier.`, `Interview on ${new Date(interview.scheduledAt).toLocaleString("fr-FR")} with your file officer.`)
+              : t("Un Responsable Dossier va vous contacter pour choisir ensemble votre université.", "A file officer will contact you to choose your university together.")}
+          </p>
+        ) : undefined
+    },
+    { key: "ready", label: t("Dossier prêt à postuler", "File ready to apply"), state: readyDone ? "done" : "upcoming" }
   ];
 
   if (application) {

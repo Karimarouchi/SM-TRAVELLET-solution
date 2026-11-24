@@ -208,7 +208,7 @@ app.get("/api/students/me/university-choices", requireAuth, requireRoles("STUDEN
 app.post("/api/students/me/university-choices", requireAuth, requireRoles("STUDENT"), universityChoiceController.addMine);
 app.get("/api/students/:id/university-choices", requireAuth, requireRoles("SALES", "ADMIN", "RDV"), universityChoiceController.listForStudent);
 app.post("/api/students/:id/university-choices", requireAuth, requireRoles("SALES", "ADMIN", "RDV"), universityChoiceController.addForStudent);
-app.delete("/api/university-choices/:id", requireAuth, requireRoles("STUDENT", "SALES", "ADMIN"), universityChoiceController.remove);
+app.delete("/api/university-choices/:id", requireAuth, requireRoles("STUDENT", "SALES", "ADMIN", "RDV"), universityChoiceController.remove);
 app.get("/api/students/me/interviews", requireAuth, requireRoles("STUDENT"), universityChoiceController.listInterviewsMine);
 app.get("/api/rdv/me/interviews", requireAuth, requireRoles("RDV", "ADMIN"), universityChoiceController.listInterviewsForRdv);
 app.patch("/api/interviews/:id/schedule", requireAuth, requireRoles("RDV", "ADMIN"), universityChoiceController.scheduleInterview);

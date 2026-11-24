@@ -54,4 +54,12 @@ async function update(id, fields) {
   return result.rows[0];
 }
 
-module.exports = { createIfMissing, findById, listForStudent, listForRdv, listAllPending, rdvHasStudent, update };
+// Un entretien resté ouvert est clos dès qu'une université a été choisie (par le RDV ou l'admin).
+async function completeOpenForStudentCountry(studentId, countryId) {
+  await query(
+    "UPDATE student_interviews SET status = 'COMPLETED', completed_at = NOW() WHERE student_id = $1 AND country_id = $2 AND status <> 'COMPLETED'",
+    [studentId, countryId]
+  );
+}
+
+module.exports = { completeOpenForStudentCountry, createIfMissing, findById, listForStudent, listForRdv, listAllPending, rdvHasStudent, update };

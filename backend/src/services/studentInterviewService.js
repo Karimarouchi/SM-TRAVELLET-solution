@@ -45,7 +45,40 @@ async function pickRdv(countryId) {
 // Appelé quand les documents d'un pays sont tous validés et que l'étudiant n'a aucun vœu.
 async function requestInterview(studentId, country) {
   const existing = (await interviewRepo.listForStudent(studentId)).find((i) => i.country_id === country.id);
-  if (existing) return existing;
+  if (existing && existing.status !== "COMPLETED") {
+    // Aucun RDV n'était disponible à la création : on réessaie dès qu'il y en a un.
+    if (!existing.rdv_id) {
+      const rdv = await pickRdv(country.id);
+      if (rdv) {
+        await interviewRepo.update(existing.id, { rdv_id: rdv.id });
+        await notificationService.notify(rdv.id, {
+          type: "INTERVIEW_ASSIGNED",
+          title: "Entretien à organiser",
+          body: `${existing.prenom} ${existing.nom} : documents ${country.name} validés. Organisez l'entretien puis choisissez avec lui les universités.`,
+          link: "/rdv",
+          coverItem: studentId,
+          coverScope: "RDV"
+        }).catch(() => {});
+      }
+    }
+    return existing;
+  }
+  // Toutes ses candidatures ont été refusées ou retirées : l'entretien est rouvert pour choisir de nouvelles universités.
+  if (existing) {
+    const rdvId = existing.rdv_id || (await pickRdv(country.id))?.id || null;
+    await interviewRepo.update(existing.id, { status: "PENDING", completed_at: null, scheduled_at: null, meet_link: null, rdv_id: rdvId });
+    if (rdvId) {
+      await notificationService.notify(rdvId, {
+        type: "INTERVIEW_ASSIGNED",
+        title: "Nouvel entretien à organiser",
+        body: `${existing.prenom} ${existing.nom} n'a plus aucune université en cours (${country.name}) : choisissez-en de nouvelles avec lui.`,
+        link: "/rdv",
+        coverItem: studentId,
+        coverScope: "RDV"
+      }).catch(() => {});
+    }
+    return existing;
+  }
   const rdv = await pickRdv(country.id);
   const created = await interviewRepo.createIfMissing({ studentId, countryId: country.id, rdvId: rdv?.id });
   if (!created) return null;
@@ -133,13 +166,23 @@ async function chooseUniversities(auth, id, payload) {
   if (picks.length < 1 || picks.length > MAX_PICKS) throw fail(`Choisissez entre 1 et ${MAX_PICKS} universités.`, 400);
 
   const choiceService = require("./universityChoiceService");
+  const current = await choiceService.listForStudent(auth, interview.student_id);
+  if (current.used + picks.length > choiceService.MAX_ACTIVE_CHOICES) {
+    throw fail(`L'étudiant a déjà ${current.used} candidature(s) en cours : maximum ${choiceService.MAX_ACTIVE_CHOICES} en même temps.`, 409);
+  }
   for (const pick of picks) {
-    await choiceService.addChoice(auth, interview.student_id, {
-      countryId: interview.country_id,
-      universityId: pick.universityId,
-      universityName: pick.universityName,
-      fieldOfStudy: pick.fieldOfStudy
-    });
+    try {
+      await choiceService.addChoice(auth, interview.student_id, {
+        countryId: interview.country_id,
+        universityId: pick.universityId,
+        universityName: pick.universityName,
+        fieldOfStudy: pick.fieldOfStudy
+      });
+    } catch (error) {
+      // Déjà ajoutée lors d'une tentative précédente interrompue : on poursuit.
+      if (error.status === 409 && /font déjà partie/.test(error.message)) continue;
+      throw error;
+    }
   }
   await interviewRepo.update(id, { status: "COMPLETED", completed_at: new Date() });
 

@@ -179,7 +179,13 @@ async function checkAndAdvanceReadyToApply(studentId) {
     }
 
     // Nouveau parcours : aucun vœu pour ce pays → entretien d'orientation avec un RDV, qui choisira l'université.
-    if (!choices.some((c) => c.country_id === country.id) && !(await choiceRepo.hasAnyForStudent(studentId))) {
+    // (aussi quand toutes ses candidatures ont été refusées ou retirées, tant que le dossier n'est pas terminé)
+    if (
+      !choices.some((c) => c.country_id === country.id) &&
+      !(await choiceRepo.hasLegacyChoice(studentId)) &&
+      ["DOCUMENTS", "UNIVERSITY_APPLICATION"].includes(profile.dossier_stage || "DOCUMENTS") &&
+      !(await appRepo.listForStudent(studentId)).some((a) => ["POSTPONED", "ACCEPTED"].includes(a.status))
+    ) {
       await interviewService.requestInterview(studentId, country).catch((err) => {
         logger.error("Échec de la création de l'entretien d'orientation", { message: err.message });
       });

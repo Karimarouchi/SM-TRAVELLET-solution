@@ -52,7 +52,10 @@ async function hasAnyForStudent(studentId) {
 // Étudiant arrivé avant le parcours « entretien RDV » : il a (ou a eu) des vœux ajoutés par lui, son conseiller ou le système.
 async function hasLegacyChoice(studentId) {
   const result = await query(
-    "SELECT 1 FROM student_university_choices WHERE student_id = $1 AND added_by_role IN ('STUDENT', 'SALES', 'SYSTEM') LIMIT 1",
+    `SELECT 1 FROM student_university_choices WHERE student_id = $1 AND added_by_role IN ('STUDENT', 'SALES', 'SYSTEM')
+     UNION ALL
+     SELECT 1 FROM university_applications WHERE student_id = $1 AND choice_id IS NULL
+     LIMIT 1`,
     [studentId]
   );
   return result.rowCount > 0;

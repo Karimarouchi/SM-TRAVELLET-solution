@@ -10,6 +10,8 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   fetchMe,
   fetchMyApplications,
+  fetchMyInterviews,
+  type StudentInterview,
   fetchMyDocuments,
   fetchMyPayments,
   fetchMyUniversityChoices,
@@ -114,6 +116,7 @@ export default function EspacePage() {
   const [visaUploadsOpen, setVisaUploadsOpen] = useState(false);
   const [visaCountryName, setVisaCountryName] = useState("");
   const [payments, setPayments] = useState<StudentPaymentsSummary | null>(null);
+  const [interview, setInterview] = useState<StudentInterview | null>(null);
   const [choiceCount, setChoiceCount] = useState<{ used: number; limit: number } | null>(null);
 
   const load = () => {
@@ -129,6 +132,7 @@ export default function EspacePage() {
         })
         .catch(() => undefined),
       fetchMyPayments().then(setPayments).catch(() => undefined),
+      fetchMyInterviews().then((list) => setInterview(list.find((i) => i.status !== "COMPLETED") || null)).catch(() => undefined),
       fetchMyUniversityChoices().then((data) => setChoiceCount({ used: data.used, limit: data.limit })).catch(() => undefined)
     ]).finally(() => setReady(true));
   };
@@ -141,7 +145,7 @@ export default function EspacePage() {
   const dossierStage = profile?.dossierStage || "DOCUMENTS";
   const salesName = profile?.assignedSalesName || "";
 
-  const journey = useMemo(() => buildSteps({ dossierStage, application: selected, t, plans: payments?.plans }), [dossierStage, selected, payments, t]);
+  const journey = useMemo(() => buildSteps({ dossierStage, application: selected, t, plans: payments?.plans, interview }), [dossierStage, selected, payments, interview, t]);
 
   const docsDone = documents.filter((d) => d.status === "SUBMITTED" || d.status === "VALIDATED").length;
   const docsValidated = documents.filter((d) => d.status === "VALIDATED").length;
@@ -363,7 +367,7 @@ export default function EspacePage() {
           <div id="candidatures" className="scroll-mt-24 [&>section]:mt-0">
             <UniversityChoicesPanel onChanged={load} />
           </div>
-          <DossierProgress dossierStage={dossierStage} applications={shown} plans={payments?.plans} selectedId={selected?.id || null} onSelect={setSelectedId} onRefresh={load} />
+          <DossierProgress dossierStage={dossierStage} applications={shown} plans={payments?.plans} interview={interview} selectedId={selected?.id || null} onSelect={setSelectedId} onRefresh={load} />
         </div>
 
         <aside className="min-w-0 space-y-4">

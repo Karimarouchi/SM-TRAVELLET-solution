@@ -1,15 +1,19 @@
 const studentDocumentService = require("./studentDocumentService");
 const choiceRepo = require("../repositories/universityChoiceRepository");
+const interviewRepo = require("../repositories/studentInterviewRepository");
+const userRepo = require("../repositories/userRepository");
 const logger = require("../logger");
 
 const plural = (n, word) => `${n} ${word}${n > 1 ? "s" : ""}`;
 
 // Pourquoi un étudiant dont l'onboarding est terminé n'a pas encore de candidature ? Une candidature naît
-// quand un vœu d'université existe ET que tous les documents obligatoires (du pays et de l'université) sont validés.
+// quand un vœu d'université existe (choisi par le Responsable Dossier lors de l'entretien) ET que tous les documents obligatoires (du pays et de l'université) sont validés.
 async function reasonsFor(studentId) {
-  const [checklist, choices] = await Promise.all([
+  const [checklist, choices, legacy, interviews] = await Promise.all([
     studentDocumentService.getChecklist(studentId),
-    choiceRepo.listActiveForStudent(studentId)
+    choiceRepo.listActiveForStudent(studentId),
+    choiceRepo.hasLegacyChoice(studentId),
+    interviewRepo.listForStudent(studentId)
   ]);
   const required = checklist.filter((d) => d.required);
   const label = (d) => (d.universityName ? `${d.name} (${d.universityName})` : d.name);
@@ -19,8 +23,26 @@ async function reasonsFor(studentId) {
   const validated = required.filter((d) => d.status === "VALIDATED").length;
 
   const reasons = [];
+  const interview = interviews.find((i) => i.status !== "COMPLETED");
+  const docsPending = missing.length + toReview.length + rejected.length > 0;
   if (!choices.length) {
-    reasons.push({ key: "no-choice", tone: "warning", text: "Aucune université choisie : il faut au moins un vœu (université et filière) pour créer la candidature." });
+    if (legacy) {
+      reasons.push({ key: "no-choice", tone: "warning", text: "Aucune université choisie : il faut au moins un vœu (université et filière) pour créer la candidature." });
+    } else if (interview) {
+      const rdv = interview.rdv_id ? await userRepo.findById(interview.rdv_id) : null;
+      const who = rdv ? `${rdv.prenom} ${rdv.nom}`.trim() : null;
+      reasons.push({
+        key: "interview",
+        tone: "info",
+        text: !who
+          ? "Documents validés, mais aucun Responsable Dossier n'est disponible pour l'entretien d'orientation : assignez-en un."
+          : interview.status === "SCHEDULED" && interview.scheduled_at
+            ? `Entretien d'orientation avec ${who} prévu le ${new Date(interview.scheduled_at).toLocaleString("fr-FR")} : il choisira l'université avec l'étudiant.`
+            : `Documents validés : en attente de l'entretien d'orientation avec ${who}, qui choisira l'université avec l'étudiant.`
+      });
+    } else if (docsPending) {
+      reasons.push({ key: "interview-later", tone: "info", text: "L'université sera choisie par un Responsable Dossier lors d'un entretien, dès que tous les documents du pays seront validés." });
+    }
   }
   if (!required.length) {
     reasons.push({ key: "no-requirements", tone: "info", text: "Aucun document obligatoire n'est configuré pour ses pays : la candidature ne se crée pas automatiquement." });
@@ -39,9 +61,10 @@ async function reasonsFor(studentId) {
       items: rejected.map((d) => (d.rejectionReason ? `${label(d)} — ${d.rejectionReason}` : label(d)))
     });
   }
-  if (!reasons.length) {
+  if (!reasons.length && choices.length) {
     reasons.push({ key: "all-ok", tone: "info", text: "Tous les documents obligatoires sont validés et un vœu existe : la candidature devrait se créer. Vérifiez le vœu de l'étudiant." });
   }
+  if (!reasons.length) reasons.push({ key: "all-ok", tone: "info", text: "Tous les documents obligatoires sont validés : la candidature se crée dès qu'une université est choisie." });
   return { reasons, documents: { required: required.length, validated } };
 }
 
