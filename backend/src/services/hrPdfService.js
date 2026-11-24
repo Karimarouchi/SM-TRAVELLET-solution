@@ -544,4 +544,4 @@ function renderFiches(pages, stream) {
   doc.end();
 }
 
-module.exports = { renderPayslip, renderAccountant, renderBulletin, renderFiches, renderAttestation, TITLES, FILENAMES };
+module.exports = { sealMetrics, drawSeal, renderPayslip, renderAccountant, renderBulletin, renderFiches, renderAttestation, TITLES, FILENAMES };

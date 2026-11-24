@@ -1006,6 +1006,7 @@ async function assertEmployeeDownload(userId, kind, rawMonth) {
 }
 
 module.exports = {
+  brandingFiles,
   overview,
   paySalary,
   cancelSalaryPayment,

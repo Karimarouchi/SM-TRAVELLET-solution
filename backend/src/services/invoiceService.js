@@ -292,7 +292,7 @@ const DARK = "#0f172a";
 
 const percent = (rate) => `${Number(rate).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} %`;
 
-function drawInvoice(doc, { invoice, lines }) {
+function drawInvoice(doc, { invoice, lines, brand }) {
   const left = 48;
   const right = doc.page.width - 48;
   const width = right - left;
@@ -421,6 +421,17 @@ function drawInvoice(doc, { invoice, lines }) {
   doc.font("Helvetica").fontSize(8.5).fillColor("#e9defa").text("TOTAL TTC", totalsLeft + 14, y + 9);
   doc.font("Helvetica-Bold").fontSize(17).fillColor("#ffffff").text(formatAmount(totals.ttc, currency), totalsLeft + 14, y + 21, { width: 202, align: "right" });
 
+  // Cachet et signature de l'agence (ceux des paramètres RH), sous le total
+  if (brand && (brand.signature || brand.stamp)) {
+    const { sealMetrics, drawSeal } = require("./hrPdfService");
+    const metrics = sealMetrics(brand.signature, brand.stamp);
+    if (metrics.blockWidth) {
+      const sealTop = y + 56;
+      doc.font("Helvetica").fontSize(7.5).fillColor(GREY).text("Cachet et signature", totalsLeft, sealTop, { width: 230, align: "right" });
+      drawSeal(doc, right - metrics.blockWidth, sealTop + 11, metrics);
+    }
+  }
+
   // À gauche : mention acquittée et montant en toutes lettres
   const leftBlock = y - 40;
   doc.font("Helvetica-Bold").fontSize(12).fillColor("#059669").text("FACTURE ACQUITTÉE", left, leftBlock);
@@ -447,7 +458,8 @@ async function renderPdf(invoiceId, stream) {
   const data = await loadInvoice(invoiceId);
   const doc = new PDFDocument({ size: "A4", margin: 48, info: { Title: `Facture ${data.invoice.invoice_number}`, Author: AGENCY.company } });
   doc.pipe(stream);
-  drawInvoice(doc, data);
+  const brand = await require("./hrPayrollService").brandingFiles().catch(() => null);
+  drawInvoice(doc, { ...data, brand });
   doc.end();
   return data.invoice.invoice_number;
 }
