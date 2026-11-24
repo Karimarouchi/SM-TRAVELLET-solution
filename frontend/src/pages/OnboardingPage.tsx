@@ -182,9 +182,6 @@ function validateField(key: FieldKey, form: FormState): string {
     case "targetLevel":
       return text ? "" : "Choisissez le niveau recherché.";
     case "targetField":
-      if (!text) return "La formation souhaitée est obligatoire.";
-      if (text.length < 2) return "Indiquez au moins 2 caractères.";
-      if (!TEXT_LIKE.test(text)) return "La formation contient des caractères non autorisés.";
       return "";
     case "targetIntake":
       return text ? "" : "Choisissez la rentrée souhaitée.";
@@ -249,7 +246,7 @@ function validateField(key: FieldKey, form: FormState): string {
 const STEP_FIELDS: FieldKey[][] = [
   ["nationality", "residenceCountry", "city"],
   ["currentStudyLevel", "lastDiploma", "studyField", "currentInstitution", "diplomaYear"],
-  ["preferredCountries", "preferredCity", "targetLevel", "targetField", "targetIntake"],
+  ["preferredCountries", "preferredCity", "targetLevel", "targetIntake"],
   ["annualBudget", "fundingMode", "languageLevelFrench", "languageLevelEnglish", "languageLevelGerman", "languageLevelItalian", "languageLevelSpanish", "hasLanguageTest", "languageTestLangs", "languageTestFrench", "languageTestEnglish", "languageTestFrenchOther", "languageTestEnglishOther", "languageTestsExtra", "hasPassport", "passportNumber", "passportExpiresOn", "visaAlreadyRequested", "availableDocuments"]
 ];
 
@@ -675,9 +672,6 @@ export default function OnboardingPage() {
                           placeholder="Choisir un niveau"
                         />
                       )}
-                    </Field>
-                    <Field label="Domaine / formation souhaitée" required error={errors.targetField}>
-                      <input className={fieldInputClass(Boolean(errors.targetField))} maxLength={80} value={form.targetField} onChange={(e) => set("targetField", e.target.value)} placeholder="Master Data, MBA..." />
                     </Field>
                     <Field label="Rentrée souhaitée" required error={errors.targetIntake}>
                       <FancySelect invalid={Boolean(errors.targetIntake)} value={form.targetIntake} onChange={(value) => set("targetIntake", value)} options={INTAKES} placeholder="Choisir une rentrée" />

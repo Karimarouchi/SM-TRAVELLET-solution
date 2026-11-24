@@ -4,12 +4,15 @@ import { FancySelect } from "@/components/ui/fancy-select";
 import {
   addMyUniversityChoice,
   addStudentUniversityChoice,
+  fetchMyInterviews,
   fetchMyUniversityChoices,
+  getSession,
   fetchPublicCountries,
   fetchStudentUniversityChoices,
   fetchUniversityPicker,
   removeUniversityChoice,
   type Country,
+  type StudentInterview,
   type UniversityChoice,
   type UniversityChoicesSummary,
   type UniversityPickerItem
@@ -55,6 +58,7 @@ export default function UniversityChoicesPanel({ studentId, onChanged, readOnly 
   const [universityId, setUniversityId] = useState("");
   const [customName, setCustomName] = useState("");
   const [field, setField] = useState("");
+  const [interviews, setInterviews] = useState<StudentInterview[]>([]);
 
   const load = () =>
     (studentId ? fetchStudentUniversityChoices(studentId) : fetchMyUniversityChoices())
@@ -64,6 +68,7 @@ export default function UniversityChoicesPanel({ studentId, onChanged, readOnly 
   useEffect(() => {
     load();
     fetchPublicCountries().then(setCountries).catch(() => undefined);
+    if (!studentId) fetchMyInterviews().then(setInterviews).catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId, refreshKey]);
 
@@ -75,6 +80,10 @@ export default function UniversityChoicesPanel({ studentId, onChanged, readOnly 
   }, [countryId]);
 
   const full = summary ? summary.used >= summary.limit : false;
+  // Nouveau parcours : seul le Responsable Dossier (ou l'admin) ajoute les universités ; les anciens dossiers gardent l'ajout.
+  const isAdmin = getSession()?.user.role === "ADMIN";
+  const canAdd = !readOnly && Boolean(summary?.legacy || isAdmin);
+  const interview = interviews[0];
 
   const reset = () => {
     setAdding(false);
@@ -140,7 +149,7 @@ export default function UniversityChoicesPanel({ studentId, onChanged, readOnly 
             )}
           </p>
         </div>
-        {!adding && !readOnly && (
+        {!adding && canAdd && (
           <button
             type="button"
             disabled={full}
@@ -222,7 +231,15 @@ export default function UniversityChoicesPanel({ studentId, onChanged, readOnly 
           !error && <SkeletonRows rows={3} />
         ) : summary.choices.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-line bg-slate-50 p-5 text-sm text-muted">
-            {t("Aucune candidature en cours. Ajoutez l'université et la filière que vous visez.", "No application in progress. Add the university and field you are aiming for.")}
+            {canAdd
+              ? t("Aucune candidature en cours. Ajoutez l'université et la filière que vous visez.", "No application in progress. Add the university and field you are aiming for.")
+              : staff
+                ? t("Aucune université choisie pour l'instant : elles sont choisies par le Responsable Dossier lors de l'entretien, une fois les documents du pays validés.", "No university chosen yet: the file officer chooses them during the interview, once the country documents are approved.")
+                : interview?.status === "SCHEDULED" && interview.scheduledAt
+                  ? t(`Votre entretien avec le Responsable Dossier est prévu le ${new Date(interview.scheduledAt).toLocaleString("fr-FR")}. Il choisira avec vous votre université.`, `Your interview with the file officer is on ${new Date(interview.scheduledAt).toLocaleString("fr-FR")}. They will choose your university with you.`)
+                  : interview
+                    ? t("Vos documents sont validés : un Responsable Dossier va vous contacter pour un entretien et choisir avec vous votre université.", "Your documents are approved: a file officer will contact you for an interview and choose your university with you.")
+                    : t("Déposez et faites valider les documents de votre pays : ensuite, un Responsable Dossier choisira avec vous votre université lors d'un entretien.", "Upload your country documents and get them approved: then a file officer will choose your university with you during an interview.")}
           </p>
         ) : (
           summary.choices.map((choice) => {

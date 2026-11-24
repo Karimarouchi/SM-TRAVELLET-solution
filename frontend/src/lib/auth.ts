@@ -1940,7 +1940,40 @@ export type UniversityChoice = {
   specificDocsCount: number;
 };
 
-export type UniversityChoicesSummary = { limit: number; used: number; choices: UniversityChoice[] };
+export type UniversityChoicesSummary = { limit: number; used: number; legacy?: boolean; choices: UniversityChoice[] };
+
+export type StudentInterview = {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  countryId: string;
+  countryName: string;
+  rdvId: string | null;
+  status: "PENDING" | "SCHEDULED" | "COMPLETED";
+  scheduledAt: string | null;
+  meetLink: string | null;
+  completedAt: string | null;
+  createdAt: string;
+};
+
+export type InterviewPick = { universityId?: string; universityName?: string; fieldOfStudy: string };
+
+export async function fetchMyInterviews(): Promise<StudentInterview[]> {
+  return request<StudentInterview[]>("/api/students/me/interviews");
+}
+
+export async function fetchRdvInterviews(): Promise<StudentInterview[]> {
+  return request<StudentInterview[]>("/api/rdv/me/interviews");
+}
+
+export async function scheduleStudentInterview(id: string, payload: { date: string; link?: string }): Promise<StudentInterview> {
+  return request<StudentInterview>(`/api/interviews/${id}/schedule`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+export async function chooseInterviewUniversities(id: string, picks: InterviewPick[]): Promise<StudentInterview> {
+  return request<StudentInterview>(`/api/interviews/${id}/universities`, { method: "POST", body: JSON.stringify({ picks }) });
+}
 
 export type UniversityPickerItem = { id: string; countryId: string; name: string; partner: boolean };
 

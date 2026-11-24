@@ -4,6 +4,7 @@ const universityRepo = require("../repositories/countryUniversityRepository");
 const countryUniversityService = require("./countryUniversityService");
 const choiceRepo = require("../repositories/universityChoiceRepository");
 const choiceService = require("./universityChoiceService");
+const interviewService = require("./studentInterviewService");
 const paymentService = require("./paymentService");
 const paymentRepo = require("../repositories/paymentRepository");
 const studentDocRepo = require("../repositories/studentDocumentRepository");
@@ -174,6 +175,13 @@ async function checkAndAdvanceReadyToApply(studentId) {
         countryId: country.id,
         role: "SALES",
         stage: "DOCUMENTS_VALIDATED"
+      });
+    }
+
+    // Nouveau parcours : aucun vœu pour ce pays → entretien d'orientation avec un RDV, qui choisira l'université.
+    if (!choices.some((c) => c.country_id === country.id) && !(await choiceRepo.hasAnyForStudent(studentId))) {
+      await interviewService.requestInterview(studentId, country).catch((err) => {
+        logger.error("Échec de la création de l'entretien d'orientation", { message: err.message });
       });
     }
 

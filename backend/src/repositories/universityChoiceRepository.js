@@ -49,6 +49,15 @@ async function hasAnyForStudent(studentId) {
   return result.rowCount > 0;
 }
 
+// Étudiant arrivé avant le parcours « entretien RDV » : il a (ou a eu) des vœux ajoutés par lui, son conseiller ou le système.
+async function hasLegacyChoice(studentId) {
+  const result = await query(
+    "SELECT 1 FROM student_university_choices WHERE student_id = $1 AND added_by_role IN ('STUDENT', 'SALES', 'SYSTEM') LIMIT 1",
+    [studentId]
+  );
+  return result.rowCount > 0;
+}
+
 async function create({ studentId, countryId, universityId, fieldOfStudy, addedBy, addedByRole }, db) {
   const result = await exec(db)(
     `INSERT INTO student_university_choices (student_id, country_id, university_id, field_of_study, added_by, added_by_role)
@@ -91,4 +100,4 @@ async function lockStudent(db, studentId) {
   await db.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`choices:${studentId}`]);
 }
 
-module.exports = { addPreferredCountry, lockStudent, listActiveForStudent, listActiveStudentIdsForUniversity, countActive, findById, hasAnyForStudent, create, withdraw, salesManagesUniversity };
+module.exports = { addPreferredCountry, lockStudent, listActiveForStudent, listActiveStudentIdsForUniversity, countActive, findById, hasAnyForStudent, hasLegacyChoice, create, withdraw, salesManagesUniversity };

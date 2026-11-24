@@ -207,9 +207,13 @@ app.post("/api/students/me/documents", requireAuth, requireRoles("STUDENT"), stu
 app.get("/api/students/me/university-choices", requireAuth, requireRoles("STUDENT"), universityChoiceController.listMine);
 app.post("/api/students/me/university-choices", requireAuth, requireRoles("STUDENT"), universityChoiceController.addMine);
 app.get("/api/students/:id/university-choices", requireAuth, requireRoles("SALES", "ADMIN", "RDV"), universityChoiceController.listForStudent);
-app.post("/api/students/:id/university-choices", requireAuth, requireRoles("SALES", "ADMIN"), universityChoiceController.addForStudent);
+app.post("/api/students/:id/university-choices", requireAuth, requireRoles("SALES", "ADMIN", "RDV"), universityChoiceController.addForStudent);
 app.delete("/api/university-choices/:id", requireAuth, requireRoles("STUDENT", "SALES", "ADMIN"), universityChoiceController.remove);
-app.get("/api/countries/:countryId/university-picker", requireAuth, requireRoles("STUDENT", "SALES", "ADMIN"), universityChoiceController.picker);
+app.get("/api/students/me/interviews", requireAuth, requireRoles("STUDENT"), universityChoiceController.listInterviewsMine);
+app.get("/api/rdv/me/interviews", requireAuth, requireRoles("RDV", "ADMIN"), universityChoiceController.listInterviewsForRdv);
+app.patch("/api/interviews/:id/schedule", requireAuth, requireRoles("RDV", "ADMIN"), universityChoiceController.scheduleInterview);
+app.post("/api/interviews/:id/universities", requireAuth, requireRoles("RDV", "ADMIN"), universityChoiceController.chooseInterviewUniversities);
+app.get("/api/countries/:countryId/university-picker", requireAuth, requireRoles("STUDENT", "SALES", "ADMIN", "RDV"), universityChoiceController.picker);
 // Documents propres à une université (admin : toutes ; conseiller : universités hors conventions de ses étudiants).
 app.get("/api/universities/:id/documents", requireAuth, requireRolesOrPermissions(["SALES", "ADMIN"], ["MANAGE_COUNTRIES"]), documentRequirementController.listByUniversity);
 app.post("/api/universities/:id/documents", requireAuth, requireRolesOrPermissions(["SALES", "ADMIN"], ["MANAGE_COUNTRIES"]), documentRequirementController.createForUniversity);

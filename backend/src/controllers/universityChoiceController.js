@@ -1,4 +1,5 @@
 const choiceService = require("../services/universityChoiceService");
+const interviewService = require("../services/studentInterviewService");
 
 function handle(res, error, fallback = 500) {
   res.status(error.status || fallback).json({ error: error.message || "Erreur serveur." });
@@ -52,4 +53,36 @@ async function remove(req, res) {
   }
 }
 
-module.exports = { listMine, listForStudent, picker, addMine, addForStudent, remove };
+async function listInterviewsMine(req, res) {
+  try {
+    res.json(await interviewService.listForStudent(req.auth.sub));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
+async function listInterviewsForRdv(req, res) {
+  try {
+    res.json(await interviewService.listMineForRdv(req.auth));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
+async function scheduleInterview(req, res) {
+  try {
+    res.json(await interviewService.schedule(req.auth, req.params.id, req.body || {}));
+  } catch (error) {
+    handle(res, error, 400);
+  }
+}
+
+async function chooseInterviewUniversities(req, res) {
+  try {
+    res.json(await interviewService.chooseUniversities(req.auth, req.params.id, req.body || {}));
+  } catch (error) {
+    handle(res, error, 400);
+  }
+}
+
+module.exports = { listInterviewsMine, listInterviewsForRdv, scheduleInterview, chooseInterviewUniversities, listMine, listForStudent, picker, addMine, addForStudent, remove };

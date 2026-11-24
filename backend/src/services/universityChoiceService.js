@@ -53,12 +53,20 @@ async function withDocCounts(rows) {
 
 async function summary(studentId) {
   const rows = await choiceRepo.listActiveForStudent(studentId);
-  return { limit: MAX_ACTIVE_CHOICES, used: rows.length, choices: await withDocCounts(rows) };
+  return { limit: MAX_ACTIVE_CHOICES, used: rows.length, legacy: await choiceRepo.hasLegacyChoice(studentId), choices: await withDocCounts(rows) };
 }
 
 async function assertStudentAccess(auth, studentId) {
   const profile = await studentRepo.ensureProfile(studentId);
   if (!canAccessStudent(auth, studentId, profile.assigned_sales_id)) {
+    throw fail("Vous n’avez pas accès à ce dossier.", 403);
+  }
+  return profile;
+}
+
+async function assertRdvAccess(auth, studentId) {
+  const profile = await studentRepo.ensureProfile(studentId);
+  if (!(await canViewStudent(auth, studentId, profile.assigned_sales_id))) {
     throw fail("Vous n’avez pas accès à ce dossier.", 403);
   }
   return profile;
@@ -112,7 +120,7 @@ async function notifyAdvisorOfNewChoice({ studentId, profile, university, countr
   const payload = {
     type: "UNIVERSITY_CHOICE_ADDED",
     title: `${who} vise aussi : ${university.name}`,
-    body: `Nouvelle candidature ${target} en ${country.name}${actor === "STUDENT" ? " ajoutée par l'étudiant" : ""}.${missingDocs ? " Cette université est hors conventions : définissez ses documents spécifiques." : ""}`,
+    body: `Nouvelle candidature ${target} en ${country.name}${actor === "STUDENT" ? " ajoutée par l'étudiant" : actor === "RDV" ? " choisie lors de l'entretien avec le Responsable Dossier" : ""}.${missingDocs ? " Cette université est hors conventions : définissez ses documents spécifiques." : ""}`,
     link: `/conseiller/etudiants/${studentId}`
   };
   if (profile.assigned_sales_id) await notificationService.notify(profile.assigned_sales_id, payload);
@@ -122,9 +130,14 @@ async function notifyAdvisorOfNewChoice({ studentId, profile, university, countr
 // Ajout d'un vœu par l'étudiant, son conseiller ou un admin.
 async function addChoice(auth, studentId, payload) {
   const roles = authRoles(auth);
-  const actorRole = roles.includes("ADMIN") ? "ADMIN" : roles.includes("SALES") ? "SALES" : "STUDENT";
+  const actorRole = roles.includes("ADMIN") ? "ADMIN" : roles.includes("RDV") ? "RDV" : roles.includes("SALES") ? "SALES" : "STUDENT";
   if (actorRole === "STUDENT" && auth.sub !== studentId) throw fail("Accès refusé.", 403);
-  const profile = await assertStudentAccess(auth, studentId);
+  const profile = actorRole === "RDV" ? await assertRdvAccess(auth, studentId) : await assertStudentAccess(auth, studentId);
+  // Nouveau parcours : seul le Responsable Dossier (lors de l'entretien) ou l'admin choisit les universités.
+  // Les étudiants qui avaient déjà des vœux avant ce changement gardent l'ancien fonctionnement.
+  if ((actorRole === "STUDENT" || actorRole === "SALES") && !(await choiceRepo.hasLegacyChoice(studentId))) {
+    throw fail("Les universités sont choisies avec le Responsable Dossier lors de l'entretien.", 403);
+  }
 
   const country = await countryRepo.findById(payload.countryId);
   if (!country || !country.active) throw fail("Pays introuvable.", 404);

@@ -24,6 +24,7 @@ import ApplicationTimeline, { PostponeModal } from "@/components/admin/Applicati
 import MyCommissionsCard, { RDV_INSCRIPTION_STAGES, RDV_VISA_STAGES } from "@/components/MyCommissionsCard";
 import { Link } from "react-router-dom";
 import RdvStudentSearch from "@/components/RdvStudentSearch";
+import RdvInterviewsSection from "@/components/RdvInterviewsSection";
 import { studentProfilePath } from "@/lib/utils";
 
 function docStatusMeta(t: (fr: string, en: string) => string): Record<VisaDocumentChecklistItem["status"], { label: string; color: string; icon: typeof Clock }> {
@@ -530,6 +531,8 @@ export default function RdvDossiersPage() {
       />
 
       <ErrorBanner message={error} />
+
+      <RdvInterviewsSection />
 
       <RdvStudentSearch applications={applications} />
 

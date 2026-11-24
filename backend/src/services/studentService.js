@@ -114,7 +114,6 @@ function validateOnboarding(body) {
     required(body.lastDiploma, "Le dernier diplôme"),
     required(body.studyField, "Le domaine d’études"),
     preferredCountries.length ? null : "Choisissez un pays.",
-    required(body.targetField, "La formation souhaitée"),
     required(body.targetIntake, "La rentrée souhaitée"),
     required(body.annualBudget, "Le budget annuel estimé"),
     required(body.fundingMode, "Le mode de financement"),
@@ -267,7 +266,7 @@ function validateOnboarding(body) {
     preferredCity: String(body.preferredCity || "").trim(),
     targetLevel: String(body.targetLevel || "").trim(),
     targetLevelId: String(body.targetLevelId || "").trim(),
-    targetField: String(body.targetField).trim(),
+    targetField: String(body.targetField || "").trim(),
     targetIntake: String(body.targetIntake).trim(),
     targetUniversity: body.targetUniversity
       ? countryUniversityService.sanitizeName(String(body.targetUniversity || "").trim())
