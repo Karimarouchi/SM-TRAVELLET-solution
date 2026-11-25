@@ -33,8 +33,10 @@ async function reasonsFor(studentId) {
       const who = rdv ? `${rdv.prenom} ${rdv.nom}`.trim() : null;
       reasons.push({
         key: "interview",
-        tone: "info",
-        text: !who
+        tone: interview.confirmed_at ? "info" : "warning",
+        text: !interview.confirmed_at
+          ? `Documents validés : le conseiller doit confirmer le RDV qui prend le dossier${who ? ` (proposé : ${who})` : " (aucun RDV disponible)"}.`
+          : !who
           ? "Documents validés, mais aucun Responsable Dossier n'est disponible pour l'entretien d'orientation : assignez-en un."
           : interview.status === "SCHEDULED" && interview.scheduled_at
             ? `Entretien d'orientation avec ${who} prévu le ${new Date(interview.scheduled_at).toLocaleString("fr-FR")} : il choisira l'université avec l'étudiant.`

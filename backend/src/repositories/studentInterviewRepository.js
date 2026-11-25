@@ -1,10 +1,11 @@
 const { query } = require("../../db");
 
 const SELECT = `
-  SELECT si.*, c.name AS country_name, u.prenom, u.nom, u.email
+  SELECT si.*, c.name AS country_name, u.prenom, u.nom, u.email, r.prenom AS rdv_prenom, r.nom AS rdv_nom
   FROM student_interviews si
   JOIN countries c ON c.id = si.country_id
-  JOIN users u ON u.id = si.student_id`;
+  JOIN users u ON u.id = si.student_id
+  LEFT JOIN users r ON r.id = si.rdv_id`;
 
 async function createIfMissing({ studentId, countryId, rdvId }) {
   const result = await query(
@@ -27,7 +28,7 @@ async function listForStudent(studentId) {
 
 async function listForRdv(rdvId) {
   const result = await query(
-    `${SELECT} WHERE (si.rdv_id = $1 OR leave_handler(si.rdv_id, si.student_id, 'RDV') = $1)
+    `${SELECT} WHERE si.confirmed_at IS NOT NULL AND (si.rdv_id = $1 OR leave_handler(si.rdv_id, si.student_id, 'RDV') = $1)
      ORDER BY (si.status = 'COMPLETED'), si.created_at ASC`,
     [rdvId]
   );
@@ -41,7 +42,7 @@ async function listAllPending() {
 
 async function rdvHasStudent(rdvId, studentId) {
   const result = await query(
-    "SELECT 1 FROM student_interviews WHERE student_id = $2 AND (rdv_id = $1 OR leave_handler(rdv_id, student_id, 'RDV') = $1) LIMIT 1",
+    "SELECT 1 FROM student_interviews WHERE student_id = $2 AND confirmed_at IS NOT NULL AND (rdv_id = $1 OR leave_handler(rdv_id, student_id, 'RDV') = $1) LIMIT 1",
     [rdvId, studentId]
   );
   return result.rowCount > 0;

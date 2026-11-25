@@ -35,6 +35,7 @@ import { alertDialog } from "@/components/ui/dialog-host";
 import ApplicationTimeline from "@/components/admin/ApplicationTimeline";
 import StudentDestinationForm from "@/components/admin/StudentDestinationForm";
 import UniversityChoicesPanel from "@/components/UniversityChoicesPanel";
+import InterviewConfirmCard from "@/components/InterviewConfirmCard";
 import ApplicationBlockers from "@/components/ApplicationBlockers";
 import StudentNotes from "@/components/StudentNotes";
 import StudentMailLog from "@/components/StudentMailLog";
@@ -496,6 +497,8 @@ export default function StudentDetailPage() {
           <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
             {/* Colonne de travail */}
             <div className="min-w-0 space-y-6">
+              {id && isReviewer && <InterviewConfirmCard studentId={id} refreshKey={documents.map((d) => d.status).join("")} />}
+
               {id && <StudentNotes studentId={id} />}
               {id && <StudentMailLog studentId={id} />}
 

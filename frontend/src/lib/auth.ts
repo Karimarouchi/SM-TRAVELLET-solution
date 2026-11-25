@@ -1950,12 +1950,25 @@ export type StudentInterview = {
   countryId: string;
   countryName: string;
   rdvId: string | null;
+  rdvName: string | null;
+  confirmedAt: string | null;
   status: "PENDING" | "SCHEDULED" | "COMPLETED";
   scheduledAt: string | null;
   meetLink: string | null;
   completedAt: string | null;
   createdAt: string;
 };
+
+export type RdvOption = { id: string; name: string; specialist: boolean; activeLoad: number };
+export type StaffInterview = StudentInterview & { options: RdvOption[] };
+
+export async function fetchStudentInterviews(studentId: string): Promise<StaffInterview[]> {
+  return request<StaffInterview[]>(`/api/students/${studentId}/interviews`);
+}
+
+export async function assignInterviewRdv(id: string, rdvId: string): Promise<StudentInterview> {
+  return request<StudentInterview>(`/api/interviews/${id}/assign`, { method: "PATCH", body: JSON.stringify({ rdvId }) });
+}
 
 export type InterviewPick = { universityId?: string; universityName?: string; fieldOfStudy: string };
 

@@ -59,7 +59,9 @@ export function buildSteps({
           <p className="mt-0.5 text-xs text-mid">
             {interview?.status === "SCHEDULED" && interview.scheduledAt
               ? t(`Entretien prévu le ${new Date(interview.scheduledAt).toLocaleString("fr-FR")} avec votre Responsable Dossier.`, `Interview on ${new Date(interview.scheduledAt).toLocaleString("fr-FR")} with your file officer.`)
-              : t("Un Responsable Dossier va vous contacter pour choisir ensemble votre université.", "A file officer will contact you to choose your university together.")}
+              : interview?.confirmedAt
+                ? t("Un Responsable Dossier va vous contacter pour choisir ensemble votre université.", "A file officer will contact you to choose your university together.")
+                : t("Votre conseiller(ère) désigne le Responsable Dossier qui prendra votre dossier.", "Your advisor is appointing the file officer who will take your file.")}
           </p>
         ) : undefined
     },

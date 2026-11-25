@@ -85,4 +85,20 @@ async function chooseInterviewUniversities(req, res) {
   }
 }
 
-module.exports = { listInterviewsMine, listInterviewsForRdv, scheduleInterview, chooseInterviewUniversities, listMine, listForStudent, picker, addMine, addForStudent, remove };
+async function listInterviewsForStaff(req, res) {
+  try {
+    res.json(await interviewService.listForStaff(req.auth, req.params.id));
+  } catch (error) {
+    handle(res, error);
+  }
+}
+
+async function assignInterviewRdv(req, res) {
+  try {
+    res.json(await interviewService.assignRdv(req.auth, req.params.id, req.body || {}));
+  } catch (error) {
+    handle(res, error, 400);
+  }
+}
+
+module.exports = { listInterviewsForStaff, assignInterviewRdv, listInterviewsMine, listInterviewsForRdv, scheduleInterview, chooseInterviewUniversities, listMine, listForStudent, picker, addMine, addForStudent, remove };

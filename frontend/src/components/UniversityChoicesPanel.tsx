@@ -237,7 +237,9 @@ export default function UniversityChoicesPanel({ studentId, onChanged, readOnly 
                 ? t("Aucune université choisie pour l'instant : elles sont choisies par le Responsable Dossier lors de l'entretien, une fois les documents du pays validés.", "No university chosen yet: the file officer chooses them during the interview, once the country documents are approved.")
                 : interview?.status === "SCHEDULED" && interview.scheduledAt
                   ? t(`Votre entretien avec le Responsable Dossier est prévu le ${new Date(interview.scheduledAt).toLocaleString("fr-FR")}. Il choisira avec vous votre université.`, `Your interview with the file officer is on ${new Date(interview.scheduledAt).toLocaleString("fr-FR")}. They will choose your university with you.`)
-                  : interview
+                  : interview && !interview.confirmedAt
+                    ? t("Vos documents sont validés : votre conseiller(ère) désigne le Responsable Dossier qui choisira avec vous votre université.", "Your documents are approved: your advisor is appointing the file officer who will choose your university with you.")
+                    : interview
                     ? t("Vos documents sont validés : un Responsable Dossier va vous contacter pour un entretien et choisir avec vous votre université.", "Your documents are approved: a file officer will contact you for an interview and choose your university with you.")
                     : t("Déposez et faites valider les documents de votre pays : ensuite, un Responsable Dossier choisira avec vous votre université lors d'un entretien.", "Upload your country documents and get them approved: then a file officer will choose your university with you during an interview.")}
           </p>
